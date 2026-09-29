@@ -22,8 +22,7 @@ import { Chip } from "@/components/ui/Chip";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { useRole } from "@/context/RoleContext";
-import { FORUM_CATEGORIES, FORUM_POSTS } from "@/lib/mock/data";
-import { ForumPost } from "@/lib/mock/types";
+import { FORUM_CATEGORIES, FORUM_POSTS, ForumPost } from "@/features/community";
 
 export default function ForumPage() {
   const router = useRouter();

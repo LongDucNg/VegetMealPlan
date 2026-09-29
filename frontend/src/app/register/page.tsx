@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { useRole } from "@/context/RoleContext";
-import { DIET_OPTIONS } from "@/lib/mock/data";
+import { DIET_OPTIONS } from "@/features/auth";
 
 export default function RegisterPage() {
   const router = useRouter();

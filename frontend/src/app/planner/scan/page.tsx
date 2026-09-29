@@ -5,12 +5,11 @@ import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Dropzone } from "@/components/ui/Dropzone";
-import { VideoCard } from "@/components/ui/VideoCard";
+import { VideoCard, VIDEO_RECIPES } from "@/features/videos";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
-import { SCAN_PRESETS } from "@/lib/mock/planner";
-import { VIDEO_RECIPES } from "@/lib/mock/videos";
-import { DetectedIngredient } from "@/lib/mock/types";
+import { SCAN_PRESETS, DetectedIngredient } from "@/features/meal-planner";
+
 import { CheckCircle2, AlertTriangle, ChevronRight } from "lucide-react";
 
 function FreshnessBadge({ freshness }: { freshness: DetectedIngredient["freshness"] }) {

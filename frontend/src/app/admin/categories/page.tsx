@@ -8,8 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
-import { ADMIN_CATEGORIES } from "@/lib/mock/admin";
-import { CategoryItem } from "@/lib/mock/types";
+import { ADMIN_CATEGORIES, CategoryItem } from "@/features/admin";
 import { Plus, Pencil, Archive, RotateCcw } from "lucide-react";
 
 let nextId = 9;

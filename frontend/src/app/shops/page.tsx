@@ -18,8 +18,9 @@ import {
   VEGAN_PLACES,
   SHOP_FILTERS,
   SUGGESTED_FOOD_SPOTS,
-} from "@/lib/mock/data";
-import { VeganPlace } from "@/lib/mock/types";
+  VeganPlace,
+} from "@/features/places";
+
 
 function InteractiveMap({
   places,

@@ -63,3 +63,39 @@ export interface GenerationPlanOptions {
   favoriteRecipeIds?: string[];
   seed?: number;
 }
+
+export interface MealItem {
+  name: string;
+  kcal: number;
+  proteinGrams: number;
+  carbsGrams: number;
+  fatGrams: number;
+  time: string;
+}
+
+export interface DayPlan {
+  day: string;
+  shortDay: string;
+  date: string;
+  breakfast: MealItem;
+  lunch: MealItem;
+  dinner: MealItem;
+  totalKcal: number;
+  targetKcal: number;
+}
+
+export interface DetectedIngredient {
+  id: string;
+  name: string;
+  freshness: "Fresh" | "Use soon";
+  category: string;
+  confidence: number;
+}
+
+export interface ScanPreset {
+  id: string;
+  label: string;
+  detected: DetectedIngredient[];
+  matchingRecipeIds: string[];
+}
+

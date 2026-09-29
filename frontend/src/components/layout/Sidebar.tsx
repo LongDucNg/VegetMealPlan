@@ -18,7 +18,7 @@ import {
   Tag,
   Cpu,
   ScanLine,
-  Bookmark,
+  Heart,
   Video,
   Settings,
   UtensilsCrossed,
@@ -93,9 +93,9 @@ export function Sidebar() {
 
   const mySpaceNavItems: NavItem[] = [
     {
-      label: "Saved & Profile",
+      label: "Favorites & Profile",
       href: "/me",
-      icon: Bookmark,
+      icon: Heart,
       active: pathname === "/me",
     },
     {
@@ -282,7 +282,7 @@ export function Sidebar() {
             <div className="relative z-10">
               <Sparkles className="w-[22px] h-[22px] text-amber-400" />
               <h4 className="mt-3 font-serif font-bold text-xl leading-[1.25] text-white">
-                Plan your week, save recipes, ask the AI.
+                Plan your week, favorite recipes, ask the AI.
               </h4>
               <p className="mt-2 text-sm text-emerald-200/85">
                 Free forever for the community.

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Bookmark, Check, CalendarDays } from "lucide-react";
+import { X, Heart, Check, CalendarDays } from "lucide-react";
 
 interface SaveMealPlanModalProps {
   isOpen: boolean;
@@ -39,15 +39,15 @@ export function SaveMealPlanModal({
         {/* Header */}
         <div className="p-5 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
-              <Bookmark className="w-4 h-4 fill-emerald-800" />
+            <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+              <Heart className="w-4 h-4 fill-rose-600" />
             </div>
             <div>
               <h3 className="font-serif font-bold text-base text-stone-900">
-                Save to Favorite Meal Plans
+                Lưu vào Thực đơn yêu thích
               </h3>
               <p className="text-xs text-stone-500">
-                Save as a reusable template for your favorites
+                Lưu lại thành mẫu thực đơn yêu thích để tái sử dụng
               </p>
             </div>
           </div>

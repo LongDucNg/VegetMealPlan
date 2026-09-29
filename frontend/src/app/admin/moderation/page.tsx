@@ -7,8 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
-import { MODERATION_QUEUE } from "@/lib/mock/admin";
-import { ModerationItem } from "@/lib/mock/types";
+import { MODERATION_QUEUE, ModerationItem } from "@/features/admin";
 import {
   ShieldCheck,
   AlertTriangle,

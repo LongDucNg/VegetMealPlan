@@ -1,4 +1,4 @@
-import { ChatSuggestion } from "../types";
+import { ChatSuggestion, ChatMessage, SubstitutionItem } from "../types";
 
 export const CHAT_SUGGESTIONS: ChatSuggestion[] = [
   { text: "What should I eat for dinner?", category: "dinner" },
@@ -9,9 +9,40 @@ export const CHAT_SUGGESTIONS: ChatSuggestion[] = [
   { text: "Protein in tofu vs tempeh", category: "macros" },
 ];
 
+export const CHAT_SUGGESTION_CHIPS = [
+  "Egg substitute for baking",
+  "How to get enough B12 in Vietnam",
+  "Explain my BMI (21.4)",
+  "Protein in tofu vs tempeh",
+];
+
+export const MOCK_SUBSTITUTIONS: Record<string, SubstitutionItem> = {
+  egg: {
+    original: "1 Chicken Egg",
+    substitute: "50g Silken Tofu (blended)",
+    ratio: "1 egg = 50g silken tofu or 1 tbsp ground flaxseed + 3 tbsp water",
+    reason: "Provides moisture, emulsification, and dense crumb structure in brownies and quick breads without imparting flavor.",
+  },
+  fishSauce: {
+    original: "Fish Sauce (Nước mắm)",
+    substitute: "Fermented Pineapple & Soy Liquid (Nước mắm chay)",
+    ratio: "1:1 direct swap",
+    reason: "Delivers deep umami, natural salinity, and amber clarity using simmered pineapple, shiitake stems, and sea salt.",
+  },
+};
+
+export const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
+  {
+    id: "m1",
+    sender: "ai",
+    text: "Hello! I'm your VeggieHub AI Nutritionist. Ask me about ingredient swaps, macro balancing, daily B12 requirements, or how to personalize your meal plan for optimal plant nutrition.",
+    timestamp: "Just now",
+  },
+];
+
 export const STATIC_KNOWLEDGE_BASE: Record<
   string,
-  { text: string; substitution?: { original: string; substitute: string; reason: string; ratio: string } }
+  { text: string; substitution?: SubstitutionItem }
 > = {
   "egg substitute for baking": {
     text: "For baking, eggs serve as binders, leaveners, and moisture providers. Here are the most reliable vegan substitutes:\n\n• **For binding:** Flax egg (1 tbsp ground flax + 3 tbsp water, rest 5 min) or chia egg.\n• **For lift:** 1 tsp baking soda + 1 tbsp apple cider vinegar per egg.\n• **For moisture & density:** 50g blended silken tofu per egg — works beautifully in brownies and quick breads.",

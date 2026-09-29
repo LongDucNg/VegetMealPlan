@@ -1,4 +1,4 @@
-import { ForumPost } from "./types";
+import { ForumPost, TrendingTopic } from "../types";
 
 export const FORUM_CATEGORIES = [
   "All discussions",
@@ -7,6 +7,13 @@ export const FORUM_CATEGORIES = [
   "Restaurant Finds",
   "Beginners Guide",
   "Saigon Vegan Community",
+];
+
+export const TRENDING_TOPICS: TrendingTopic[] = [
+  { tag: "#highprotein", posts: "1.4k posts" },
+  { tag: "#fermentation", posts: "890 posts" },
+  { tag: "#mealprep", posts: "2.1k posts" },
+  { tag: "#saigonvegan", posts: "640 posts" },
 ];
 
 export const FORUM_POSTS: ForumPost[] = [

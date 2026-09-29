@@ -1,4 +1,4 @@
-import { VeganPlace, TrendingTopic } from "./types";
+import { VeganPlace, ShopFilter, FoodSpotItem } from "../types";
 
 export const VEGAN_PLACES: VeganPlace[] = [
   {
@@ -87,9 +87,9 @@ export const VEGAN_PLACES: VeganPlace[] = [
   },
 ];
 
-export const SHOP_FILTERS = ["All", "Vegan", "Vegetarian", "Grocer", "Café"] as const;
+export const SHOP_FILTERS: readonly ShopFilter[] = ["All", "Vegan", "Vegetarian", "Grocer", "Café"] as const;
 
-export const SUGGESTED_FOOD_SPOTS = [
+export const SUGGESTED_FOOD_SPOTS: FoodSpotItem[] = [
   {
     dish: "Crispy Lemongrass Tofu Bowl",
     places: [
@@ -103,11 +103,4 @@ export const SUGGESTED_FOOD_SPOTS = [
       { name: "Loving Hut Hoa Đăng", distance: "2.1 km", price: "70,000 VND" },
     ],
   },
-];
-
-export const TRENDING_TOPICS: TrendingTopic[] = [
-  { tag: "#highprotein", posts: "1.4k posts" },
-  { tag: "#fermentation", posts: "890 posts" },
-  { tag: "#mealprep", posts: "2.1k posts" },
-  { tag: "#saigonvegan", posts: "640 posts" },
 ];
