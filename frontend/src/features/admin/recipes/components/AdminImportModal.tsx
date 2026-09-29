@@ -264,7 +264,7 @@ export function AdminImportModal({
                 ].map((tab) => (
                   <button
                     key={tab.id}
-                    onClick={() => setFilterTab(tab.id as any)}
+                    onClick={() => setFilterTab(tab.id as typeof filterTab)}
                     className={`px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer ${
                       filterTab === tab.id
                         ? "bg-stone-900 text-white font-bold"

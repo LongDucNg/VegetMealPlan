@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { VIDEO_RECIPES } from "@/lib/mock/data";
-import { VideoRecipe } from "@/lib/mock/types";
+import { videoService, VideoRecipe } from "@/features/videos";
 import { recipeService } from "@/features/recipes/services/recipeService";
 import { VideoDetailClient } from "./VideoDetailClient";
 
@@ -11,9 +10,10 @@ export default async function VideoDetailPage({
 }) {
   const { id } = await params;
 
-  // Search in recipeService (which includes any admin-added recipes) or fallback to VIDEO_RECIPES
+  // Search in recipeService (which includes any admin-added recipes) or fallback to videoService
   const adminRecipe = recipeService.getRecipeById(id);
-  const videoRecipe = VIDEO_RECIPES.find((v) => v.id === id);
+  const videoRecipe = videoService.getVideoById(id);
+
 
   const matched = adminRecipe
     ? {

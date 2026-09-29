@@ -20,13 +20,18 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Rating } from "@/components/ui/Rating";
 import { Badge } from "@/components/ui/Badge";
 import { Tabs } from "@/components/ui/Tabs";
-import { BookmarkButton } from "@/components/ui/BookmarkButton";
-import { DurationChip } from "@/components/ui/DurationChip";
-import { VideoCard } from "@/components/ui/VideoCard";
+import {
+  BookmarkButton,
+  DurationChip,
+  VideoCard,
+  VideoRecipe,
+  CommentItem,
+  VIDEO_RECIPES,
+} from "@/features/videos";
+import { FORUM_POSTS } from "@/features/community";
 import { useRole } from "@/context/RoleContext";
-import { VideoRecipe, CommentItem } from "@/lib/mock/types";
-import { VIDEO_RECIPES, FORUM_POSTS } from "@/lib/mock/data";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
+
 
 export function VideoDetailClient({ video }: { video: VideoRecipe }) {
   const { isGuest, role } = useRole();
@@ -191,19 +196,25 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
             <DurationChip duration={video.duration} variant="hero" />
           </div>
           <div className="absolute right-4 top-4 z-10">
-            <BookmarkButton />
+            <BookmarkButton recipeId={video.id} />
           </div>
         </div>
 
         {/* Recipe Title and Metadata */}
         <div>
-          <div className="flex flex-wrap items-center gap-3 mb-2">
-            <Badge variant="recipeOfDay" className="h-7 text-xs">
-              {video.cuisine}
-            </Badge>
-            <span className="text-sm font-semibold text-emerald-700">
-              {video.category}
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge variant="recipeOfDay" className="h-7 text-xs">
+                {video.cuisine}
+              </Badge>
+              <span className="text-sm font-semibold text-emerald-700">
+                {video.category}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <BookmarkButton recipeId={video.id} className="border border-stone-200" />
+              <span className="text-xs font-semibold text-stone-600">Yêu thích công thức</span>
+            </div>
           </div>
 
           <h1 className="font-serif font-bold text-3xl sm:text-4xl text-stone-900 tracking-tight leading-tight">

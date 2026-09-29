@@ -28,6 +28,8 @@ interface FavoritesModalProps {
   onApplyPlan: (dayPlan: DayMealPlan) => void;
   onLoadSavedPlan: (plan: SavedMealPlan) => void;
   onSelectFavoriteRecipe?: (recipe: Recipe) => void;
+  onGenerateWeeklyWithFavorites?: (favoriteRecipeIds: string[]) => void;
+  onGenerateMonthlyWithFavorites?: (favoriteRecipeIds: string[]) => void;
 }
 
 export function FavoritesModal({
@@ -37,6 +39,8 @@ export function FavoritesModal({
   onApplyPlan,
   onLoadSavedPlan,
   onSelectFavoriteRecipe,
+  onGenerateWeeklyWithFavorites,
+  onGenerateMonthlyWithFavorites,
 }: FavoritesModalProps) {
   const userId = String(profile.id || "u1");
   const [activeTab, setActiveTab] = useState<"recipes" | "plans">("recipes");
@@ -63,10 +67,13 @@ export function FavoritesModal({
 
   useEffect(() => {
     if (isOpen) {
-      reloadData();
-      setValidationResult(null);
+      queueMicrotask(() => {
+        reloadData();
+        setValidationResult(null);
+      });
     }
   }, [isOpen, userId]);
+
 
   // Group recipes by mealType
   const groupedRecipes = useMemo(() => {
@@ -207,6 +214,51 @@ export function FavoritesModal({
               </div>
             ) : (
               <>
+                {/* Quick Plan Generation with All Favorites (Requirement: đưa công thức yêu thích vào làm thực đơn tuần tháng) */}
+                <div className="bg-gradient-to-r from-rose-50 to-amber-50 border border-rose-200/80 rounded-3xl p-5 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h4 className="font-serif font-bold text-base text-stone-900 flex items-center gap-2">
+                        <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
+                        Tạo thực đơn Tuần & Tháng từ món yêu thích
+                      </h4>
+                      <p className="text-xs text-stone-600 mt-0.5">
+                        Đưa {favRecipes.length} công thức yêu thích vào thực đơn AI, tự động cân đối dinh dưỡng và calo.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {onGenerateWeeklyWithFavorites && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onGenerateWeeklyWithFavorites(favRecipes.map((r) => r.id));
+                            onClose();
+                          }}
+                          className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                          <span>Thực đơn Tuần (7 ngày)</span>
+                        </button>
+                      )}
+
+                      {onGenerateMonthlyWithFavorites && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onGenerateMonthlyWithFavorites(favRecipes.map((r) => r.id));
+                            onClose();
+                          }}
+                          className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                          <CalendarDays className="w-3.5 h-3.5" />
+                          <span>Thực đơn Tháng (30 ngày)</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Create Meal Plan from Favorites Panel */}
                 <div className="bg-emerald-50/70 border border-emerald-200 rounded-3xl p-5 space-y-4">
                   <div className="flex items-center justify-between">

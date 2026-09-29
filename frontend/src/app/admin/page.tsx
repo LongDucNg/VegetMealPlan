@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
-import { ADMIN_STATS, AI_MODELS, MODERATION_QUEUE } from "@/lib/mock/admin";
+import { ADMIN_STATS, AI_MODELS, MODERATION_QUEUE } from "@/features/admin";
 import {
   Users,
   Video,

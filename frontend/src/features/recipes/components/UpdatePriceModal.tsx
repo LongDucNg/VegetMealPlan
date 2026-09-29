@@ -26,12 +26,15 @@ export function UpdatePriceModal({
   const [successMsg, setSuccessMsg] = useState(false);
 
   useEffect(() => {
-    if (recipe) {
-      const currentMyPrice = priceService.getMyPrice(userId, recipe.id);
-      setPriceInput(currentMyPrice ? String(currentMyPrice) : "");
-      setSuccessMsg(false);
+    if (recipe && isOpen) {
+      queueMicrotask(() => {
+        const currentMyPrice = priceService.getMyPrice(userId, recipe.id);
+        setPriceInput(currentMyPrice ? String(currentMyPrice) : "");
+        setSuccessMsg(false);
+      });
     }
   }, [recipe, userId, isOpen]);
+
 
   if (!isOpen || !recipe) return null;
 

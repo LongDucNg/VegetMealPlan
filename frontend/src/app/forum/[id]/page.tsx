@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { FORUM_POSTS } from "@/lib/mock/data";
+import { forumService } from "@/features/community";
 import { ForumPostDetailClient } from "./ForumPostDetailClient";
 
 export default async function ForumPostPage({
@@ -8,7 +8,7 @@ export default async function ForumPostPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const post = FORUM_POSTS.find((p) => p.id === id);
+  const post = forumService.getPostById(id);
 
   if (!post) {
     notFound();

@@ -30,7 +30,6 @@ import {
   CalendarDays,
   Sparkles,
   Heart,
-  Bookmark,
   Users,
   SlidersHorizontal,
   AlertTriangle,
@@ -449,15 +448,15 @@ function PlannerContent() {
               </div>
             )}
 
-            {/* Action Buttons: Save Plan, Edit Profile, Regenerate */}
+            {/* Action Buttons: Favorite Plan, Edit Profile, Regenerate */}
             <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
               <button
                 onClick={() => setShowSavePlanModal(true)}
                 className="h-10 px-3.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                title="Save current plan to Favorites"
+                title="Lưu thực đơn vào mục Yêu thích"
               >
-                <Bookmark className="w-3.5 h-3.5 text-emerald-700" />
-                <span>Save Plan</span>
+                <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
+                <span>Favorite Plan</span>
               </button>
 
               <button
@@ -654,6 +653,16 @@ function PlannerContent() {
         profile={activeProfile}
         onApplyPlan={(dayPlan) => applyFavoriteDayPlan(dayPlan)}
         onLoadSavedPlan={(plan) => loadSavedPlan(plan)}
+        onGenerateWeeklyWithFavorites={(favIds) => {
+          generateWeekly({ favoriteRecipeIds: favIds });
+          setShowFavoritesModal(false);
+        }}
+        onGenerateMonthlyWithFavorites={(favIds) => {
+          requirePremium(() => {
+            generateMonthly(selectedMonth, selectedYear, { favoriteRecipeIds: favIds });
+            setShowFavoritesModal(false);
+          });
+        }}
       />
 
       {/* 4. Plan for Someone Else Modal (Requirement 17) */}

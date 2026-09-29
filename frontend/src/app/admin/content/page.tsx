@@ -7,8 +7,7 @@ import { DataTable } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
-import { ADMIN_CONTENT_ITEMS } from "@/lib/mock/admin";
-import { AdminContentItem } from "@/lib/mock/types";
+import { ADMIN_CONTENT_ITEMS, AdminContentItem } from "@/features/admin";
 import { CheckCircle2, EyeOff, Flag, FileText, Video, MessageSquare } from "lucide-react";
 
 type ContentTab = "all" | "Blog" | "Video" | "Comment";
