@@ -4,11 +4,12 @@ import React from "react";
 import Link from "next/link";
 import { Sparkles, ArrowRight, TrendingUp } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { PlaceRow } from "@/components/ui/PlaceRow";
+import { PlaceRow, VEGAN_PLACES } from "@/features/places";
+import { TRENDING_TOPICS } from "@/features/community";
 import { Meter } from "@/components/ui/Meter";
 import { Badge } from "@/components/ui/Badge";
 import { useRole } from "@/context/RoleContext";
-import { VEGAN_PLACES, TRENDING_TOPICS } from "@/lib/mock/data";
+
 
 function MapTeardropPin({ className = "" }: { className?: string }) {
   return (

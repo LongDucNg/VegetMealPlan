@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
-import { FORUM_POSTS } from "@/lib/mock/forum";
+import { FORUM_POSTS } from "@/features/community";
+
 import {
   FileText,
   MessageSquare,
@@ -44,6 +45,7 @@ import { Recipe } from "@/features/recipes/types";
 import { RecipeFavoriteButton } from "@/components/ui/RecipeFavoriteButton";
 import { UpdatePriceModal } from "@/features/recipes/components/UpdatePriceModal";
 import { FavoritesModal } from "@/features/meal-planner/components/FavoritesModal";
+import { mealPlannerService } from "@/features/meal-planner/services/mealPlannerService";
 import { storage, STORAGE_KEYS } from "@/utils/storage/storage";
 import { DayMealPlan, WeeklyMealPlan } from "@/features/meal-planner/types";
 
@@ -201,6 +203,38 @@ function ProfileContent() {
       activeDayIndex: 0,
     });
 
+    setShowFavoritesModal(false);
+    router.push("/planner");
+  };
+
+  const handleGenerateWeeklyWithFavorites = (favIds: string[]) => {
+    const plan = mealPlannerService.generateWeeklyPlan(profile, 0, {
+      planType: "weekly",
+      favoriteRecipeIds: favIds,
+    });
+    storage.setItem(STORAGE_KEYS.GENERATED_PLAN, {
+      planType: "weekly",
+      weeklyPlan: plan,
+      monthlyPlan: null,
+      activeDayIndex: 0,
+    });
+    setShowFavoritesModal(false);
+    router.push("/planner");
+  };
+
+  const handleGenerateMonthlyWithFavorites = (favIds: string[]) => {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth();
+    const plan = mealPlannerService.generateMonthlyPlan(profile, currentYear, currentMonth, 0, {
+      planType: "monthly",
+      favoriteRecipeIds: favIds,
+    });
+    storage.setItem(STORAGE_KEYS.GENERATED_PLAN, {
+      planType: "monthly",
+      weeklyPlan: null,
+      monthlyPlan: plan,
+      activeDayIndex: 0,
+    });
     setShowFavoritesModal(false);
     router.push("/planner");
   };
@@ -801,6 +835,8 @@ function ProfileContent() {
         profile={profile}
         onApplyPlan={handleApplyFavoriteDay}
         onLoadSavedPlan={handleLoadSavedPlan}
+        onGenerateWeeklyWithFavorites={handleGenerateWeeklyWithFavorites}
+        onGenerateMonthlyWithFavorites={handleGenerateMonthlyWithFavorites}
       />
 
       {/* Modal to Pick Any Recipe for Custom Price */}

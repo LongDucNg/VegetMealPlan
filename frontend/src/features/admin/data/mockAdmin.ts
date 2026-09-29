@@ -5,7 +5,7 @@ import {
   ModerationItem,
   CategoryItem,
   AIModelMetric,
-} from "./types";
+} from "../types";
 
 export const ADMIN_STATS: AdminStat[] = [
   { label: "Total Members", value: "24,850", change: "+12.4% this mo", positive: true },
@@ -213,3 +213,13 @@ export const MODERATION_QUEUE: ModerationItem[] = [
     status: "Pending",
   },
 ];
+
+export const AI_LOGS = [
+  { id: "l1", model: "Recommendation Engine", event: "Accuracy threshold met", level: "info", time: "2 min ago" },
+  { id: "l2", model: "Content Moderation", event: "Override mode activated by Admin", level: "warn", time: "8 min ago" },
+  { id: "l3", model: "Nutrition Chatbot", event: "Query volume spike: +340% in last hour", level: "warn", time: "22 min ago" },
+  { id: "l4", model: "Recommendation Engine", event: "Embedding model cache refreshed", level: "info", time: "1 hr ago" },
+  { id: "l5", model: "Content Moderation", event: "Flagged post mod3 with 0.92 confidence", level: "info", time: "1 hr ago" },
+  { id: "l6", model: "Nutrition Chatbot", event: "Response latency degraded: 480ms avg", level: "error", time: "2 hr ago" },
+];
+

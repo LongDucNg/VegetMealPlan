@@ -43,25 +43,33 @@ export function useMealPlanner() {
     return !!saved && (!!saved.weeklyPlan || !!saved.monthlyPlan);
   });
 
+  interface SavedPlanData {
+    planType?: MealPlanType;
+    weeklyPlan?: WeeklyMealPlan | null;
+    monthlyPlan?: MonthlyMealPlan | null;
+    activeDayIndex?: number;
+  }
+
   const [planType, setPlanType] = useState<MealPlanType>(() => {
-    const saved = storage.getItem<any>(STORAGE_KEYS.GENERATED_PLAN, null);
+    const saved = storage.getItem<SavedPlanData | null>(STORAGE_KEYS.GENERATED_PLAN, null);
     return saved?.planType || "weekly";
   });
 
   const [activeDayIndex, setActiveDayIndex] = useState<number>(() => {
-    const saved = storage.getItem<any>(STORAGE_KEYS.GENERATED_PLAN, null);
+    const saved = storage.getItem<SavedPlanData | null>(STORAGE_KEYS.GENERATED_PLAN, null);
     return saved?.activeDayIndex || 0;
   });
 
   // Store actual plans
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyMealPlan | null>(() => {
-    const saved = storage.getItem<any>(STORAGE_KEYS.GENERATED_PLAN, null);
+    const saved = storage.getItem<SavedPlanData | null>(STORAGE_KEYS.GENERATED_PLAN, null);
     return saved?.weeklyPlan || null;
   });
   const [monthlyPlan, setMonthlyPlan] = useState<MonthlyMealPlan | null>(() => {
-    const saved = storage.getItem<any>(STORAGE_KEYS.GENERATED_PLAN, null);
+    const saved = storage.getItem<SavedPlanData | null>(STORAGE_KEYS.GENERATED_PLAN, null);
     return saved?.monthlyPlan || null;
   });
+
 
   const [selectedMonth, setSelectedMonth] = useState<number>(8); // 8 = September
   const [selectedYear, setSelectedYear] = useState<number>(2026);

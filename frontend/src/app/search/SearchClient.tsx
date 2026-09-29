@@ -7,9 +7,10 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Input } from "@/components/ui/Input";
 import { Tabs } from "@/components/ui/Tabs";
 import { Card } from "@/components/ui/Card";
-import { VideoCard } from "@/components/ui/VideoCard";
-import { PlaceRow } from "@/components/ui/PlaceRow";
-import { VIDEO_RECIPES, FORUM_POSTS, VEGAN_PLACES } from "@/lib/mock/data";
+import { VideoCard, VIDEO_RECIPES } from "@/features/videos";
+import { PlaceRow, VEGAN_PLACES } from "@/features/places";
+import { FORUM_POSTS } from "@/features/community";
+
 
 const SEARCH_SUGGESTIONS = [
   "tofu bowl",

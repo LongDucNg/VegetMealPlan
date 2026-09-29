@@ -1,4 +1,4 @@
-import { DayPlan, ChatMessage, SubstitutionItem } from "./types";
+import { DayPlan, ScanPreset } from "../types";
 
 export const ALLERGY_OPTIONS = [
   "Peanuts",
@@ -243,16 +243,16 @@ export const MEAL_PLAN_DAYS: DayPlan[] = [
   },
 ];
 
-export const SCAN_PRESETS = [
+export const SCAN_PRESETS: ScanPreset[] = [
   {
     id: "pantry",
     label: "Pantry Produce Basket",
     detected: [
-      { id: "d1", name: "Firm Tofu block", freshness: "Fresh" as const, category: "Protein", confidence: 0.98 },
-      { id: "d2", name: "Baby Bok Choy", freshness: "Fresh" as const, category: "Vegetable", confidence: 0.95 },
-      { id: "d3", name: "Garlic cloves", freshness: "Fresh" as const, category: "Aromatics", confidence: 0.99 },
-      { id: "d4", name: "Ripe Asian Eggplant", freshness: "Use soon" as const, category: "Vegetable", confidence: 0.92 },
-      { id: "d5", name: "Cilantro bunch", freshness: "Use soon" as const, category: "Herbs", confidence: 0.88 },
+      { id: "d1", name: "Firm Tofu block", freshness: "Fresh", category: "Protein", confidence: 0.98 },
+      { id: "d2", name: "Baby Bok Choy", freshness: "Fresh", category: "Vegetable", confidence: 0.95 },
+      { id: "d3", name: "Garlic cloves", freshness: "Fresh", category: "Aromatics", confidence: 0.99 },
+      { id: "d4", name: "Ripe Asian Eggplant", freshness: "Use soon", category: "Vegetable", confidence: 0.92 },
+      { id: "d5", name: "Cilantro bunch", freshness: "Use soon", category: "Herbs", confidence: 0.88 },
     ],
     matchingRecipeIds: ["v1", "v5", "v2"],
   },
@@ -260,42 +260,11 @@ export const SCAN_PRESETS = [
     id: "fridge",
     label: "Fridge Leftovers Box",
     detected: [
-      { id: "d6", name: "Red Lentils", freshness: "Fresh" as const, category: "Legumes", confidence: 0.97 },
-      { id: "d7", name: "Spinach leaves", freshness: "Use soon" as const, category: "Greens", confidence: 0.91 },
-      { id: "d8", name: "Turmeric root", freshness: "Fresh" as const, category: "Spices", confidence: 0.96 },
-      { id: "d9", name: "Coconut milk can", freshness: "Fresh" as const, category: "Pantry", confidence: 0.99 },
+      { id: "d6", name: "Red Lentils", freshness: "Fresh", category: "Legumes", confidence: 0.97 },
+      { id: "d7", name: "Spinach leaves", freshness: "Use soon", category: "Greens", confidence: 0.91 },
+      { id: "d8", name: "Turmeric root", freshness: "Fresh", category: "Spices", confidence: 0.96 },
+      { id: "d9", name: "Coconut milk can", freshness: "Fresh", category: "Pantry", confidence: 0.99 },
     ],
     matchingRecipeIds: ["v6", "v2", "v4"],
-  },
-];
-
-export const CHAT_SUGGESTION_CHIPS = [
-  "Egg substitute for baking",
-  "How to get enough B12 in Vietnam",
-  "Explain my BMI (21.4)",
-  "Protein in tofu vs tempeh",
-];
-
-export const MOCK_SUBSTITUTIONS: Record<string, SubstitutionItem> = {
-  egg: {
-    original: "1 Chicken Egg",
-    substitute: "50g Silken Tofu (blended)",
-    ratio: "1 egg = 50g silken tofu or 1 tbsp ground flaxseed + 3 tbsp water",
-    reason: "Provides moisture, emulsification, and dense crumb structure in brownies and quick breads without imparting flavor.",
-  },
-  fishSauce: {
-    original: "Fish Sauce (Nước mắm)",
-    substitute: "Fermented Pineapple & Soy Liquid (Nước mắm chay)",
-    ratio: "1:1 direct swap",
-    reason: "Delivers deep umami, natural salinity, and amber clarity using simmered pineapple, shiitake stems, and sea salt.",
-  },
-};
-
-export const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
-  {
-    id: "m1",
-    sender: "ai",
-    text: "Hello! I'm your VeggieHub AI Nutritionist. Ask me about ingredient swaps, macro balancing, daily B12 requirements, or how to personalize your meal plan for optimal plant nutrition.",
-    timestamp: "Just now",
   },
 ];

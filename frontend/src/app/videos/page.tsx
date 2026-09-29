@@ -5,10 +5,10 @@ import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Input } from "@/components/ui/Input";
 import { Chip } from "@/components/ui/Chip";
-import { VideoCard } from "@/components/ui/VideoCard";
+import { VideoCard, RECIPE_FILTERS } from "@/features/videos";
 import { Card } from "@/components/ui/Card";
-import { RECIPE_FILTERS } from "@/lib/mock/data";
 import { useRecipes } from "@/features/recipes/hooks/useRecipes";
+
 
 export default function VideosPage() {
   const [activeFilter, setActiveFilter] = useState("All");

@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Sparkles, DollarSign, Calendar, UserCheck, AlertCircle } from "lucide-react";
+import { X, Sparkles, DollarSign, Calendar, UserCheck, AlertCircle, Heart } from "lucide-react";
 import { MealPlanType, GenerationPlanOptions } from "../types";
 import { UserProfile } from "@/features/profile/types";
+import { favoriteService } from "@/features/recipes/services/favoriteService";
 
 interface GenerationSettingsModalProps {
   isOpen: boolean;
@@ -46,7 +47,8 @@ export function GenerationSettingsModal({
   const [selectedMonth, setSelectedMonth] = useState<number>(8); // 8 = September
   const [selectedYear, setSelectedYear] = useState<number>(2026);
 
-  if (!isOpen) return null;
+  const userId = String(activeProfile.id || "u1");
+  const favRecipes = favoriteService.getFavoriteRecipes(userId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,9 +59,12 @@ export function GenerationSettingsModal({
       budgetLimit: hasBudgetLimit ? budgetValue : undefined,
       selectedMonth,
       selectedYear,
+      favoriteRecipeIds: useFavorites && favRecipes.length > 0 ? favRecipes.map((r) => r.id) : undefined,
     });
     onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in">
@@ -251,6 +256,53 @@ export function GenerationSettingsModal({
                 </div>
               )}
             </div>
+          </div>
+
+          {/* 4. Prioritize Favorite Recipes */}
+          <div>
+            <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-2">
+              Favorite Recipes Integration:
+            </label>
+            <label
+              className={`p-3.5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
+                useFavorites
+                  ? "bg-rose-50/80 border-rose-300 text-rose-950 shadow-2xs"
+                  : "bg-stone-50/70 border-stone-200 hover:bg-stone-100/70 text-stone-700"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                    useFavorites
+                      ? "bg-rose-200 text-rose-600"
+                      : "bg-stone-200 text-stone-400"
+                  }`}
+                >
+                  <Heart className={`w-4 h-4 ${useFavorites ? "fill-rose-500" : ""}`} />
+                </div>
+                <div>
+                  <div className="text-xs font-bold flex items-center gap-2">
+                    <span>Prioritize Favorite Recipes</span>
+                    {favRecipes.length > 0 && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                        {favRecipes.length} favorites ready
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-stone-500 font-normal mt-0.5">
+                    {favRecipes.length > 0
+                      ? "AI will prioritize incorporating your favorite dishes into your weekly/monthly schedule"
+                      : "No favorite recipes yet. Click ♡ on recipes to add them to your favorites"}
+                  </div>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={useFavorites}
+                onChange={(e) => setUseFavorites(e.target.checked)}
+                className="w-4 h-4 accent-rose-600 rounded cursor-pointer ml-3 shrink-0"
+              />
+            </label>
           </div>
 
           {/* Action Footer */}

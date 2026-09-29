@@ -17,8 +17,7 @@ import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { useRole } from "@/context/RoleContext";
-import { ForumPost, CommentItem } from "@/lib/mock/types";
-import { FORUM_POSTS } from "@/lib/mock/data";
+import { ForumPost, CommentItem, FORUM_POSTS } from "@/features/community";
 
 export function ForumPostDetailClient({ post }: { post: ForumPost }) {
   const { isGuest, role } = useRole();

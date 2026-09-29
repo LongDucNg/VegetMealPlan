@@ -35,7 +35,7 @@ export default function LoginPage() {
               Welcome back to VeggieHub
             </h1>
             <p className="text-sm text-stone-500 mt-1">
-              Log in to access your meal planner, saved recipes & community
+              Log in to access your meal planner, favorite recipes & community
             </p>
           </div>
 
