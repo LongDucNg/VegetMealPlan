@@ -17,6 +17,14 @@ export class WeeklyPlan {
   @Column()
   week_number: number;
 
+  // Tuan dau co the ngan hon 7 ngay neu meal_plan tao giua tuan (snap theo lich duong T2-CN).
+  @Column({ type: 'date' })
+  start_date: Date;
+
+  @Column({ type: 'date' })
+  end_date: Date;
+
+
   @Column('float', { nullable: true })
   week_budget: number;
 

@@ -1,42 +1,41 @@
-import { ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ChatbotConversation } from './entities/chatbot-conversation.entity';
-import { TrialUsage } from './entities/trial-usage.entity';
+import { UsageQuotaService } from '../usage-quota/usage-quota.service';
+import { UsageActionType } from '../usage-quota/entities/usage-quota.entity';
+import { SubscriptionService } from '../subscription/subscription.service';
 
-const TRIAL_QUERY_LIMIT = Number(process.env.TRIAL_QUERY_LIMIT) || 5;
+const GUEST_CHATBOT_LIMIT = Number(process.env.GUEST_CHATBOT_LIMIT) || 2;
+const FREE_CHATBOT_LIMIT = Number(process.env.FREE_CHATBOT_LIMIT) || 5;
 
 @Injectable()
 export class ChatbotService {
   constructor(
     @InjectRepository(ChatbotConversation)
     private readonly conversationRepo: Repository<ChatbotConversation>,
-    @InjectRepository(TrialUsage)
-    private readonly trialRepo: Repository<TrialUsage>,
+    private readonly usageQuotaService: UsageQuotaService,
+    private readonly subscriptionService: SubscriptionService,
   ) {}
 
-  /** Dùng cho Unauthorized User — kiểm tra + tăng query_count trước khi gọi AI. */
-  async checkAndIncrementTrial(session_id: string): Promise<void> {
-    let trial = await this.trialRepo.findOne({ where: { session_id } });
-    if (!trial) {
-      trial = this.trialRepo.create({ session_id, query_count: 0 });
-    }
-
-    // Edge case bắt buộc: hết lượt trial -> chặn, không cho gửi thêm request.
-    if (trial.query_count >= TRIAL_QUERY_LIMIT) {
-      throw new ForbiddenException(
-        'Bạn đã dùng hết lượt hỏi thử. Vui lòng đăng ký/đăng nhập để tiếp tục.',
-      );
-    }
-
-    trial.query_count += 1;
-    trial.last_query_at = new Date();
-    await this.trialRepo.save(trial);
-  }
-
   async ask(question: string, user_id?: number, session_id?: string): Promise<ChatbotConversation> {
-    if (!user_id && session_id) {
-      await this.checkAndIncrementTrial(session_id);
+    if (user_id) {
+      // Authorized user: premium thi bypass quota hoan toan, khong thi gioi han FREE_CHATBOT_LIMIT/thang.
+      const isPremium = await this.subscriptionService.isPremium(user_id);
+      if (!isPremium) {
+        await this.usageQuotaService.checkAndIncrement({
+          user_id,
+          action_type: UsageActionType.CHATBOT_QUERY,
+          limit: FREE_CHATBOT_LIMIT,
+        });
+      }
+    } else if (session_id) {
+      // Unauthorized/guest: gioi han GUEST_CHATBOT_LIMIT/thang theo session_id.
+      await this.usageQuotaService.checkAndIncrement({
+        session_id,
+        action_type: UsageActionType.CHATBOT_QUERY,
+        limit: GUEST_CHATBOT_LIMIT,
+      });
     }
 
     let answer: string;

@@ -3,11 +3,19 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Recipe, RecipeStatus } from './entities/recipe.entity';
 import { RecipeIngredient } from './entities/recipe-ingredient.entity';
+import { FavoriteRecipe } from './entities/favorite-recipe.entity';
+import { IngredientService } from '../ingredient/ingredient.service';
 
 export interface RecipeMatchResult {
   recipe: Recipe;
   match_percentage: number;
   missing_ingredient_ids: number[];
+}
+
+export interface IngredientConflictWarning {
+  ingredient_id_1: number;
+  ingredient_id_2: number;
+  reason: string;
 }
 
 @Injectable()
@@ -17,6 +25,9 @@ export class RecipeService {
     private readonly recipeRepo: Repository<Recipe>,
     @InjectRepository(RecipeIngredient)
     private readonly recipeIngredientRepo: Repository<RecipeIngredient>,
+    @InjectRepository(FavoriteRecipe)
+    private readonly favoriteRepo: Repository<FavoriteRecipe>,
+    private readonly ingredientService: IngredientService,
   ) {}
 
   findAll(): Promise<Recipe[]> {
@@ -28,6 +39,42 @@ export class RecipeService {
     const recipe = await this.recipeRepo.findOne({ where: { recipe_id } });
     if (!recipe) throw new NotFoundException(`Recipe #${recipe_id} not found`);
     return recipe;
+  }
+
+  /**
+   * Kiem tra xung khac nguyen lieu cho 1 danh sach ingredient_id sap gan vao recipe.
+   * KHONG chan luu — chi tra ve warning de FE hien thi, quyet dinh cuoi cung la
+   * cua nguoi tao recipe (Authorized User / Admin).
+   * Dung chung ham nay cho ca luong tao/sua recipe thu cong VA luong import hang loat.
+   */
+  async checkIngredientConflicts(ingredientIds: number[]): Promise<IngredientConflictWarning[]> {
+    const conflicts = await this.ingredientService.findConflictsAmong(ingredientIds);
+    return conflicts.map((c) => ({
+      ingredient_id_1: c.ingredient_id_1,
+      ingredient_id_2: c.ingredient_id_2,
+      reason: c.reason,
+    }));
+  }
+
+  // TODO: createWithIngredients(dto) — luu Recipe + RecipeIngredient (status=pending_review),
+  // luon goi checkIngredientConflicts() truoc va tra warnings kem theo response (khong chan
+  // luu, chi canh bao). Route Admin duyet: PATCH :id/approve, PATCH :id/reject.
+
+  async addFavorite(user_id: number, recipe_id: number): Promise<FavoriteRecipe> {
+    await this.findOne(recipe_id); // 404 nếu recipe không tồn tại/không approved
+    const existing = await this.favoriteRepo.findOne({ where: { user_id, recipe_id } });
+    if (existing) return existing;
+    const favorite = this.favoriteRepo.create({ user_id, recipe_id });
+    return this.favoriteRepo.save(favorite);
+  }
+
+  async removeFavorite(user_id: number, recipe_id: number): Promise<void> {
+    await this.favoriteRepo.delete({ user_id, recipe_id });
+  }
+
+  async listFavorites(user_id: number): Promise<Recipe[]> {
+    const favorites = await this.favoriteRepo.find({ where: { user_id }, relations: ['recipe'] });
+    return favorites.map((f) => f.recipe);
   }
 
   /**
