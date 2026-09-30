@@ -1,0 +1,15 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+
+@layer base {
+  body {
+    background-color: var(--color-stone-50);
+    color: var(--color-stone-900);
+    font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  }
+
+  :focus-visible {
+    outline: none;
+    outline-offset: 2px;
+  }
+}
