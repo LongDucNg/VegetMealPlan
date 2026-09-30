@@ -62,8 +62,10 @@ export class Recipe {
   @Column({ nullable: true })
   source_video_id: number;
 
+  // cached, derived tu RecipeIngredient; UOC TINH - co the lech thuc te theo
+  // khu vuc/thoi diem (dung IngredientService.getEffectivePrice de tinh theo tung user).
   @Column('float', { nullable: true })
-  estimated_cost: number; // cached, derived từ RecipeIngredient
+  estimated_cost: number;
 
   @Column({ nullable: true })
   created_by: number;

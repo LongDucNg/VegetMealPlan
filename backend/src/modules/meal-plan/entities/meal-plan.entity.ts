@@ -10,6 +10,7 @@ import {
 import { User } from '../../users/entities/user.entity';
 import { HealthGoal } from '../../health-goal/entities/health-goal.entity';
 import { WeeklyPlan } from './weekly-plan.entity';
+import { MealPlanProfile } from './meal-plan-profile.entity';
 
 export enum PlanType {
   WEEKLY = 'weekly',
@@ -41,7 +42,16 @@ export class MealPlan {
   @JoinColumn({ name: 'goal_id' })
   goal: HealthGoal;
 
-  // Snapshot BMI tại thời điểm tạo plan — KHÔNG đổi theo BMI hiện tại của user sau này.
+  // null = lap ke hoach cho chinh user. Co gia tri = lap cho nguoi khac (MealPlanProfile).
+  @Column({ nullable: true })
+  target_profile_id: number;
+
+  @ManyToOne(() => MealPlanProfile, { nullable: true })
+  @JoinColumn({ name: 'target_profile_id' })
+  target_profile: MealPlanProfile;
+
+  // Snapshot BMI cua doi tuong duoc lap ke hoach (user hoac target_profile) tai thoi diem tao,
+  // KHONG doi theo BMI hien tai cua doi tuong do sau nay.
   @Column('float', { nullable: true })
   bmi_snapshot: number;
 

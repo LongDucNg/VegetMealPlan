@@ -15,6 +15,10 @@ import { MealPlanModule } from './modules/meal-plan/meal-plan.module';
 import { CommunityModule } from './modules/community/community.module';
 import { ChatbotModule } from './modules/chatbot/chatbot.module';
 import { ShopModule } from './modules/shop/shop.module';
+import { UsageQuotaModule } from './modules/usage-quota/usage-quota.module';
+import { NotificationModule } from './modules/notification/notification.module';
+import { SubscriptionModule } from './modules/subscription/subscription.module';
+import { RecipeImportModule } from './modules/recipe-import/recipe-import.module';
 
 @Module({
   imports: [
@@ -49,6 +53,10 @@ import { ShopModule } from './modules/shop/shop.module';
     CommunityModule,
     ChatbotModule,
     ShopModule,
+    UsageQuotaModule,
+    NotificationModule,
+    SubscriptionModule,
+    RecipeImportModule,
   ],
 })
 export class AppModule {}

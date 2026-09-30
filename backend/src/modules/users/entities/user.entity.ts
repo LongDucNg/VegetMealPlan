@@ -92,6 +92,10 @@ export class User {
   @JoinColumn({ name: 'current_goal_id' })
   current_goal: HealthGoal;
 
+  // CACHED — null hoac da qua = free tier. Cap nhat khi co SUBSCRIPTION moi completed.
+  @Column({ type: 'timestamp', nullable: true })
+  premium_until: Date;
+
   @Column({ type: 'enum', enum: UserStatus, default: UserStatus.ACTIVE })
   status: UserStatus;
 
