@@ -1,0 +1,82 @@
+[
+ {
+  "ingredient_id_1": 32,
+  "ingredient_id_2": 58,
+  "reason": "[caution/B] Oxalate trong rau bina gắn canxi của đậu hũ, giảm hấp thu canxi và có thể góp phần sỏi oxalat nếu ăn nhiều, thường xuyên"
+ },
+ {
+  "ingredient_id_1": 33,
+  "ingredient_id_2": 58,
+  "reason": "[caution/B] Như trên (oxalate + canxi)"
+ },
+ {
+  "ingredient_id_1": 32,
+  "ingredient_id_2": 59,
+  "reason": "[caution/B] Rau dền giàu oxalate, gắn canxi"
+ },
+ {
+  "ingredient_id_1": 105,
+  "ingredient_id_2": 179,
+  "reason": "[avoid/A] Axit làm sữa vón cục (kết tủa casein) – ảnh hưởng kết cấu và vị, không gây hại"
+ },
+ {
+  "ingredient_id_1": 119,
+  "ingredient_id_2": 179,
+  "reason": "[avoid/A] Axit làm sữa vón cục"
+ },
+ {
+  "ingredient_id_1": 98,
+  "ingredient_id_2": 179,
+  "reason": "[avoid/A] Bromelain trong dứa phân giải protein sữa, gây đắng và vón"
+ },
+ {
+  "ingredient_id_1": 74,
+  "ingredient_id_2": 179,
+  "reason": "[caution/C] Dân gian cho rằng kỵ nhau, chưa có bằng chứng rõ"
+ },
+ {
+  "ingredient_id_1": 36,
+  "ingredient_id_2": 185,
+  "reason": "[caution/C] Dân gian cho rằng khó tiêu, chưa có bằng chứng rõ"
+ },
+ {
+  "ingredient_id_1": 67,
+  "ingredient_id_2": 68,
+  "reason": "[caution/C] Dân gian cho rằng củ cải làm mất vitamin C của cà rốt (do enzyme ascorbinase), dữ liệu không đủ chắc chắn"
+ },
+ {
+  "ingredient_id_1": 75,
+  "ingredient_id_2": 76,
+  "reason": "[caution/C] Dân gian cho rằng dưa leo phá vitamin C, bằng chứng yếu"
+ },
+ {
+  "ingredient_id_1": 29,
+  "ingredient_id_2": 96,
+  "reason": "[caution/C] Dân gian cho rằng kỵ nhau, không có cơ sở rõ"
+ },
+ {
+  "ingredient_id_1": 32,
+  "ingredient_id_2": 157,
+  "reason": "[caution/C] Dân gian cho rằng kỵ (đậu hũ + mật ong gây điếc), không có cơ sở khoa học"
+ },
+ {
+  "ingredient_id_1": 27,
+  "ingredient_id_2": 76,
+  "reason": "[caution/C] Dân gian cho rằng kỵ nhau, thực tế món Âu dùng chung"
+ },
+ {
+  "ingredient_id_1": 36,
+  "ingredient_id_2": 46,
+  "reason": "[caution/B] Ăn nhiều đậu cùng lúc có thể gây đầy hơi"
+ },
+ {
+  "ingredient_id_1": 47,
+  "ingredient_id_2": 76,
+  "reason": "[tip/A] Cà chua cung cấp vitamin C hỗ trợ hấp thu sắt"
+ },
+ {
+  "ingredient_id_1": 32,
+  "ingredient_id_2": 105,
+  "reason": "[tip/B] Vitamin C hỗ trợ hấp thu sắt thực vật"
+ }
+]
