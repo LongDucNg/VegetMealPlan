@@ -3,12 +3,12 @@ import { IsEnum, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, Max,
 import { ActivityLevel, DietType } from '../entities/user.entity';
 
 export class UpdateProfileDto {
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'Nguyễn Văn A' })
   @IsOptional()
   @IsNotEmpty()
   full_name?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 30 })
   @IsOptional()
   @IsInt()
   @Min(5)
@@ -20,13 +20,13 @@ export class UpdateProfileDto {
   @IsIn(['male', 'female', 'other'])
   gender?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 175 })
   @IsOptional()
   @IsNumber()
   @IsPositive({ message: 'height_cm phải lớn hơn 0' })
   height_cm?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 70 })
   @IsOptional()
   @IsNumber()
   @IsPositive({ message: 'weight_kg phải lớn hơn 0' })
@@ -42,7 +42,7 @@ export class UpdateProfileDto {
   @IsEnum(DietType)
   diet_type?: DietType;
 
-  @ApiPropertyOptional({ description: 'goal_id trong bảng health_goals' })
+  @ApiPropertyOptional({ example: 1, description: 'goal_id trong bảng health_goals' })
   @IsOptional()
   @IsInt()
   current_goal_id?: number;
