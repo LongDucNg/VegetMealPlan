@@ -1,4 +1,4 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayUnique,
   IsArray,
@@ -17,13 +17,18 @@ import {
 import { ActivityLevel, DietType } from '../../users/entities/user.entity';
 import { ALLERGEN_GROUP_CODES } from '../../users/allergen-groups';
 
+// Ba trường bắt buộc phải có @ApiProperty: Swagger chỉ liệt kê field có decorator, thiếu thì ví dụ
+// trên /api/docs không hiện full_name/email/password và người test không biết phải nhập gì.
 export class RegisterDto {
+  @ApiProperty({ example: 'Nguyễn Văn A' })
   @IsNotEmpty()
   full_name: string;
 
+  @ApiProperty({ example: 'nguyenvana@example.com' })
   @IsEmail()
   email: string;
 
+  @ApiProperty({ example: 'matkhau123', minLength: 8 })
   @MinLength(8, { message: 'password phải từ 8 ký tự trở lên' })
   password: string;
 
@@ -33,7 +38,7 @@ export class RegisterDto {
   @IsEnum(DietType)
   diet_type?: DietType;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 1, description: 'goal_id trong bảng health_goals: 1 giảm cân, 2 tăng cơ, 3 duy trì' })
   @IsOptional()
   @IsInt()
   current_goal_id?: number;
@@ -43,7 +48,7 @@ export class RegisterDto {
   @IsEnum(ActivityLevel)
   activity_level?: ActivityLevel;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 30 })
   @IsOptional()
   @IsInt()
   @Min(5)
@@ -55,26 +60,26 @@ export class RegisterDto {
   @IsIn(['male', 'female', 'other'])
   gender?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 175 })
   @IsOptional()
   @IsNumber()
   @IsPositive()
   height_cm?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 70 })
   @IsOptional()
   @IsNumber()
   @IsPositive()
   weight_kg?: number;
 
-  @ApiPropertyOptional({ description: `Nhóm dị ứng: ${ALLERGEN_GROUP_CODES.join(', ')}`, type: [String] })
+  @ApiPropertyOptional({ description: `Nhóm dị ứng: ${ALLERGEN_GROUP_CODES.join(', ')}`, type: [String], example: ['SOY'] })
   @IsOptional()
   @IsArray()
   @ArrayUnique()
   @IsIn(ALLERGEN_GROUP_CODES, { each: true })
   allergen_groups?: string[];
 
-  @ApiPropertyOptional({ description: 'Dị ứng theo từng nguyên liệu (ingredient_id)', type: [Number] })
+  @ApiPropertyOptional({ description: 'Dị ứng theo từng nguyên liệu (ingredient_id)', type: [Number], example: [] })
   @IsOptional()
   @IsArray()
   @ArrayUnique()
