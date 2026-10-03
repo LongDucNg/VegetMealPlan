@@ -4,8 +4,10 @@ import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { User, UserStatus } from '../users/entities/user.entity';
+import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ErrorCode } from '../../common/constants/error-codes.enum';
 
 @Injectable()
 export class AuthService {
@@ -13,32 +15,54 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly jwtService: JwtService,
+    private readonly usersService: UsersService,
   ) {}
 
   async register(dto: RegisterDto) {
     const existing = await this.userRepo.findOne({ where: { email: dto.email } });
-    if (existing) throw new ConflictException('Email đã được đăng ký');
+    if (existing) throw new ConflictException({ code: ErrorCode.AUTH_EMAIL_TAKEN, message: 'Email đã được đăng ký' });
 
     const password_hash = await bcrypt.hash(dto.password, 10);
-    const user = this.userRepo.create({
-      full_name: dto.full_name,
-      email: dto.email,
-      password_hash,
-      status: UserStatus.ACTIVE,
-    });
-    const saved = await this.userRepo.save(user);
-    return this.buildToken(saved);
+    const user = await this.userRepo.save(
+      this.userRepo.create({
+        full_name: dto.full_name,
+        email: dto.email,
+        password_hash,
+        status: UserStatus.ACTIVE,
+      }),
+    );
+
+    // Hồ sơ + dị ứng đi kèm (tuỳ chọn). Nếu dữ liệu hồ sơ sai thì xoá user vừa tạo để không để lại tài khoản dở.
+    try {
+      const { full_name, email, password, allergen_groups, allergy_ingredient_ids, ...profile } = dto;
+      if (Object.values(profile).some((v) => v !== undefined)) {
+        await this.usersService.updateProfile(user.user_id, profile);
+      }
+      if (allergen_groups?.length || allergy_ingredient_ids?.length) {
+        await this.usersService.setAllergies(user.user_id, {
+          allergen_groups,
+          ingredient_ids: allergy_ingredient_ids,
+        });
+      }
+    } catch (err) {
+      await this.userRepo.delete(user.user_id);
+      throw err;
+    }
+
+    return this.buildToken(user);
   }
 
   async login(dto: LoginDto) {
     const user = await this.userRepo.findOne({ where: { email: dto.email } });
-    if (!user) throw new UnauthorizedException('Sai email hoặc mật khẩu');
+    // Cố ý dùng chung một mã/câu cho "email không tồn tại" và "sai mật khẩu" để kẻ tấn công không dò được email nào đã đăng ký.
+    const invalid = { code: ErrorCode.AUTH_INVALID_CREDENTIALS, message: 'Sai email hoặc mật khẩu' };
+    if (!user) throw new UnauthorizedException(invalid);
 
     const isMatch = await bcrypt.compare(dto.password, user.password_hash);
-    if (!isMatch) throw new UnauthorizedException('Sai email hoặc mật khẩu');
+    if (!isMatch) throw new UnauthorizedException(invalid);
 
     if (user.status === UserStatus.LOCKED) {
-      throw new UnauthorizedException('Tài khoản đã bị khóa');
+      throw new UnauthorizedException({ code: ErrorCode.AUTH_ACCOUNT_LOCKED, message: 'Tài khoản đã bị khóa' });
     }
 
     return this.buildToken(user);
