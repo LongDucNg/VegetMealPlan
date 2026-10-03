@@ -1,5 +1,5 @@
 import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CategoryService } from './category.service';
 import { Public } from '../../common/decorators/public.decorator';
 
@@ -11,11 +11,13 @@ export class CategoryController {
   constructor(private readonly categoryService: CategoryService) {}
 
   @Get()
+  @ApiOperation({ summary: 'Danh sách danh mục món ăn (công khai)' })
   findAll() {
     return this.categoryService.findAll();
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Chi tiết một danh mục (công khai)' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.categoryService.findOne(id);
   }

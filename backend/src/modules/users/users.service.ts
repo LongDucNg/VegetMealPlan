@@ -8,6 +8,7 @@ import { Ingredient } from '../ingredient/entities/ingredient.entity';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateAllergiesDto } from './dto/update-allergies.dto';
 import { ALLERGEN_GROUPS } from './allergen-groups';
+import { ErrorCode } from '../../common/constants/error-codes.enum';
 
 const ACTIVITY_FACTOR: Record<ActivityLevel, number> = {
   [ActivityLevel.SEDENTARY]: 1.2,
@@ -34,7 +35,7 @@ export class UsersService {
 
   async findOne(user_id: number): Promise<User> {
     const user = await this.userRepo.findOne({ where: { user_id }, relations: ['current_goal'] });
-    if (!user) throw new NotFoundException(`User #${user_id} not found`);
+    if (!user) throw new NotFoundException({ code: ErrorCode.USER_NOT_FOUND, message: `Không tìm thấy người dùng #${user_id}` });
     return user;
   }
 
@@ -55,7 +56,10 @@ export class UsersService {
 
     if (dto.current_goal_id !== undefined) {
       const goal = await this.goalRepo.findOne({ where: { goal_id: dto.current_goal_id } });
-      if (!goal) throw new BadRequestException(`Mục tiêu #${dto.current_goal_id} không tồn tại`);
+      if (!goal) throw new BadRequestException({
+          code: ErrorCode.USER_GOAL_NOT_FOUND,
+          message: `Mục tiêu #${dto.current_goal_id} không tồn tại`,
+        });
       user.current_goal_id = goal.goal_id;
       user.current_goal = goal;
     }
@@ -69,7 +73,10 @@ export class UsersService {
       const height = dto.height_cm ?? user.height_cm;
       const weight = dto.weight_kg ?? user.weight_kg;
       if (!height || height <= 0 || !weight || weight <= 0) {
-        throw new BadRequestException('Cần nhập đủ height_cm và weight_kg (> 0) để tính BMI');
+        throw new BadRequestException({
+          code: ErrorCode.USER_BODY_METRICS_INVALID,
+          message: 'Cần nhập đủ height_cm và weight_kg (> 0) để tính BMI',
+        });
       }
       user.height_cm = height;
       user.weight_kg = weight;
@@ -105,7 +112,10 @@ export class UsersService {
     }
     if (ids.size) {
       const found = await this.ingredientRepo.count({ where: { ingredient_id: In([...ids]) } });
-      if (found !== ids.size) throw new BadRequestException('Có ingredient_id không tồn tại');
+      if (found !== ids.size) throw new BadRequestException({
+          code: ErrorCode.USER_ALLERGY_INGREDIENT_NOT_FOUND,
+          message: 'Có ingredient_id không tồn tại',
+        });
     }
     await this.allergyRepo.manager.transaction(async (m) => {
       await m.delete(UserAllergy, { user_id });
@@ -122,7 +132,10 @@ export class UsersService {
     const u = await this.findOne(user_id);
     const missing = ['age', 'gender', 'height_cm', 'weight_kg', 'activity_level'].filter((k) => !(u as any)[k]);
     if (missing.length) {
-      throw new BadRequestException(`Cần cập nhật hồ sơ trước: thiếu ${missing.join(', ')}`);
+      throw new BadRequestException({
+        code: ErrorCode.USER_PROFILE_INCOMPLETE,
+        message: `Cần cập nhật hồ sơ trước: thiếu ${missing.join(', ')}`,
+      });
     }
 
     const sexOffset = u.gender === 'male' ? 5 : u.gender === 'female' ? -161 : -78; // 'other': trung bình
