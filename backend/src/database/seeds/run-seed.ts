@@ -1,5 +1,7 @@
 import { dataSourceOptions } from '../../config/typeorm.config';
 import { DataSource } from 'typeorm';
+import { seedMasterData } from './seed-master-data';
+import { seedVegetarianData } from './seed-vegetarian-data';
 
 /**
  * Seed data cơ bản để cả team có cùng dataset khi dev local.
@@ -13,7 +15,9 @@ async function runSeed() {
   const dataSource = new DataSource(dataSourceOptions);
   await dataSource.initialize();
 
-  console.log('🌱 Seeding chưa có dữ liệu mẫu — thêm seed của bạn ở đây.');
+  console.log('🌱 Bắt đầu seed...');
+  await seedMasterData(dataSource);
+  await seedVegetarianData(dataSource);
 
   await dataSource.destroy();
 }

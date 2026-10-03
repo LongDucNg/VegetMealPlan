@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Category } from './entities/category.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { ErrorCode } from '../../common/constants/error-codes.enum';
 
 @Injectable()
 export class CategoryService {
@@ -23,7 +24,7 @@ export class CategoryService {
 
   async findOne(category_id: number): Promise<Category> {
     const category = await this.categoryRepo.findOne({ where: { category_id } });
-    if (!category) throw new NotFoundException(`Category #${category_id} not found`);
+    if (!category) throw new NotFoundException({ code: ErrorCode.CATEGORY_NOT_FOUND, message: `Không tìm thấy danh mục #${category_id}` });
     return category;
   }
 
