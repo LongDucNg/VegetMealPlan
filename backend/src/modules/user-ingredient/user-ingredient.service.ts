@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserIngredient } from './entities/user-ingredient.entity';
@@ -20,7 +20,11 @@ export class UserIngredientService {
     return this.repo.save(entity);
   }
 
-  async remove(user_ingredient_id: number): Promise<void> {
+  async remove(user_id: number, user_ingredient_id: number): Promise<void> {
+    const entity = await this.repo.findOne({ where: { user_ingredient_id, user_id } });
+    if (!entity) {
+      throw new NotFoundException('Không tìm thấy nguyên liệu này trong pantry của bạn');
+    }
     await this.repo.delete({ user_ingredient_id });
   }
 
