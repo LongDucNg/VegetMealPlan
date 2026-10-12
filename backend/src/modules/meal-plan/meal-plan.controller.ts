@@ -105,8 +105,8 @@ export class MealPlanController {
   }
 
   @Post('meal-plans/validate')
-  validateMealPlan(@Body() dto: ValidateMealPlanDto) {
-    return this.mealPlanService.validateMealPlan(dto);
+  validateMealPlan(@Req() req: any, @Body() dto: ValidateMealPlanDto) {
+    return this.mealPlanService.validateMealPlan(req.user.user_id, dto);
   }
 
   // =========================================================
