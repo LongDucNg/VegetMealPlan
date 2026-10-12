@@ -45,11 +45,10 @@ export class RecommendationService {
 
     const allergyIngredientIds = await this.ingredientService.getAllergyIngredientIds(user_id);
 
-    // TODO: lọc thêm theo user.diet_type khi RecipeService có field diet_type index sẵn
-    // (hiện matchRecipesByIngredients chỉ lọc allergy, chưa lọc diet_type — bổ sung ở PR sau).
     const matches = await this.recipeService.matchRecipesByIngredients(
       availableIngredientIds,
       allergyIngredientIds,
+      user.diet_type,
     );
 
     const saved: AiRecommendation[] = [];
