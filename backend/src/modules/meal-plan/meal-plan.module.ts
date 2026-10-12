@@ -9,6 +9,7 @@ import { MealPlanProfile } from './entities/meal-plan-profile.entity';
 import { ProfileAllergy } from './entities/profile-allergy.entity';
 
 import { Recipe } from '../recipe/entities/recipe.entity';
+import { FavoriteRecipe } from '../recipe/entities/favorite-recipe.entity';
 import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 import { User } from '../users/entities/user.entity';
@@ -31,6 +32,7 @@ import { MealPlanService } from './meal-plan.service';
       User,
       UserAllergy,
       Recipe,
+      FavoriteRecipe,
       RecipeIngredient,
       NutritionInfo,
     ]),

@@ -17,7 +17,7 @@ import {
   ApiConsumes,
   ApiBody,
 } from '@nestjs/swagger';
-import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
 
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -70,18 +70,28 @@ export class RecipeImportController {
     let rows: ImportRecipeRow[];
 
     try {
-      const workbook = XLSX.read(file.buffer, { type: 'buffer' });
-      const sheetName = workbook.SheetNames[0];
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(file.buffer as any);
+      const sheet = workbook.worksheets[0];
 
-      if (!sheetName) {
+      if (!sheet) {
         throw new BadRequestException('File Excel không có sheet');
       }
 
-      const sheet = workbook.Sheets[sheetName];
-      const data = XLSX.utils.sheet_to_json<Record<string, any>>(
-        sheet,
-        { defval: '' },
-      );
+      // Dòng 1 là tiêu đề cột; các dòng sau thành object theo tiêu đề (ô trống = '').
+      const headers: string[] = [];
+      sheet.getRow(1).eachCell({ includeEmpty: true }, (cell, col) => {
+        headers[col] = this.cellToValue(cell.value).toString().trim();
+      });
+      const data: Record<string, any>[] = [];
+      sheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+        const obj: Record<string, any> = {};
+        headers.forEach((header, col) => {
+          if (header) obj[header] = this.cellToValue(row.getCell(col).value);
+        });
+        if (Object.values(obj).some((v) => v !== '')) data.push(obj);
+      });
 
       if (data.length === 0) {
         throw new BadRequestException(
@@ -158,6 +168,21 @@ export class RecipeImportController {
       file.originalname,
       rows,
     );
+  }
+
+  // ExcelJS trả ô công thức/rich text/hyperlink dạng object; đưa về giá trị đơn giản như xlsx cũ.
+  private cellToValue(value: any): any {
+    if (value === null || value === undefined) return '';
+    if (value instanceof Date) return value.toISOString();
+    if (typeof value === 'object') {
+      if (Array.isArray(value.richText)) {
+        return value.richText.map((t: any) => t.text).join('');
+      }
+      if ('result' in value) return this.cellToValue(value.result);
+      if ('text' in value) return this.cellToValue(value.text);
+      return '';
+    }
+    return value;
   }
 
   @Get()

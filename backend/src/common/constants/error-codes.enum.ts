@@ -15,6 +15,8 @@ export enum ErrorCode {
   VALIDATION_FAILED = 'VALIDATION_FAILED',
   /** 404: đường dẫn không tồn tại. */
   ROUTE_NOT_FOUND = 'ROUTE_NOT_FOUND',
+  /** 404: service ném NotFoundException chưa gắn mã riêng (mã dự phòng). */
+  RESOURCE_NOT_FOUND = 'RESOURCE_NOT_FOUND',
   /** 500: lỗi không lường trước (đã được log ở server). */
   INTERNAL_ERROR = 'INTERNAL_ERROR',
 
@@ -45,4 +47,12 @@ export enum ErrorCode {
   // ---- Danh mục ----
   /** 404 */
   CATEGORY_NOT_FOUND = 'CATEGORY_NOT_FOUND',
+
+  // ---- Recipe / Nguyên liệu / Thực đơn ----
+  /** 404 */
+  RECIPE_NOT_FOUND = 'RECIPE_NOT_FOUND',
+  /** 404 */
+  INGREDIENT_NOT_FOUND = 'INGREDIENT_NOT_FOUND',
+  /** 404 */
+  MEAL_PLAN_NOT_FOUND = 'MEAL_PLAN_NOT_FOUND',
 }
