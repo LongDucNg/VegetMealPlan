@@ -1,36 +1,29 @@
 import {
   Body,
   Controller,
-  ForbiddenException,
   Get,
   Param,
   ParseIntPipe,
   Put,
+  Query,
   Req,
-  UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RecipeService } from './recipe.service';
 import { UpdateRecipeStatusDto } from './dto/update-recipe-status.dto';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 
 @ApiTags('admin-recipes')
 @ApiBearerAuth()
 @Controller('admin/recipes')
-@UseGuards(AuthGuard('jwt'))
+@Roles(UserRole.ADMIN)
 export class AdminRecipeController {
   constructor(private readonly recipeService: RecipeService) {}
 
-  private checkAdmin(req: any): void {
-    if (req.user?.role !== 'admin') {
-      throw new ForbiddenException('Admin access required');
-    }
-  }
-
   @Get()
-  async findAll(@Req() req: any) {
-    this.checkAdmin(req);
-    return this.recipeService.findAllForAdmin();
+  async findAll(@Query('status') status?: string) {
+    return this.recipeService.findAllForAdmin(status);
   }
 
   @Put(':id/status')
@@ -39,8 +32,6 @@ export class AdminRecipeController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateRecipeStatusDto,
   ) {
-    this.checkAdmin(req);
-
     return this.recipeService.updateRecipeStatus(
       id,
       req.user.user_id,

@@ -1,3 +1,4 @@
+import { ErrorCode } from '../../common/constants/error-codes.enum';
 import { BadRequestException, Injectable, NotFoundException, } from '@nestjs/common';
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
 import { UpdateIngredientDto } from './dto/update-ingredient.dto';
@@ -53,9 +54,7 @@ export class IngredientService {
     });
 
     if (!ingredient) {
-      throw new NotFoundException(
-        `Ingredient #${ingredient_id} not found`,
-      );
+      throw new NotFoundException({ code: ErrorCode.INGREDIENT_NOT_FOUND, message: `Không tìm thấy nguyên liệu #${ingredient_id}` });
     }
 
     return ingredient;
@@ -358,9 +357,7 @@ export class IngredientService {
       });
 
     if (!ingredient) {
-      throw new NotFoundException(
-        `Ingredient #${ingredient_id} not found`,
-      );
+      throw new NotFoundException({ code: ErrorCode.INGREDIENT_NOT_FOUND, message: `Không tìm thấy nguyên liệu #${ingredient_id}` });
     }
 
     if (dto.ingredient_name) {

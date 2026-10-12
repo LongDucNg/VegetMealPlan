@@ -1,3 +1,5 @@
+import { ErrorCode } from '../../common/constants/error-codes.enum';
+import { isRecipeDietCompatible } from '../../common/utils/diet.util';
 import {
   BadRequestException,
   ForbiddenException,
@@ -89,6 +91,23 @@ export class RecipeService {
       limit = 20,
     } = query;
 
+    // Route công khai chỉ trả món đã duyệt. Xem trạng thái khác (draft, pending_review, rejected,
+    // removed) dùng GET /admin/recipes?status=... (cần quyền admin).
+    if (query.status?.trim()) {
+      const requested = query.status.trim().toLowerCase();
+      if (!Object.values(RecipeStatus).includes(requested as RecipeStatus)) {
+        throw new BadRequestException(
+          `status phải là một trong: ${Object.values(RecipeStatus).join(', ')}`,
+        );
+      }
+      if (requested !== RecipeStatus.APPROVED) {
+        throw new ForbiddenException({
+          code: ErrorCode.AUTH_FORBIDDEN,
+          message: 'Chỉ admin mới xem được công thức chưa duyệt. Dùng GET /admin/recipes?status=...',
+        });
+      }
+    }
+
     const qb = this.recipeRepo
       .createQueryBuilder('recipe')
       .where('recipe.status = :status', {
@@ -162,7 +181,8 @@ export class RecipeService {
         );
       }
 
-      qb.andWhere('LOWER(recipe.diet_type) = :dietType', {
+      // diet_type là cột enum Postgres: không dùng LOWER() được (dietType đã chuẩn hoá thường ở trên).
+      qb.andWhere('recipe.diet_type = :dietType', {
         dietType,
       });
     }
@@ -250,7 +270,7 @@ export class RecipeService {
     });
 
     if (!recipe) {
-      throw new NotFoundException(`Recipe #${recipe_id} not found`);
+      throw new NotFoundException({ code: ErrorCode.RECIPE_NOT_FOUND, message: `Không tìm thấy công thức #${recipe_id}` });
     }
 
     const ingredients = await this.recipeIngredientRepo.find({
@@ -326,6 +346,9 @@ export class RecipeService {
       estimated_cost: dto.estimated_cost,
       created_by: userId,
       status,
+      // Admin tạo thì duyệt luôn: ghi nhận người duyệt và thời điểm như luồng PUT /admin/recipes/:id/status.
+      approved_at: status === RecipeStatus.APPROVED ? new Date() : null,
+      approved_by: status === RecipeStatus.APPROVED ? userId : null,
     } as Partial<Recipe>);
 
     const savedRecipe = await this.recipeRepo.save(recipe);
@@ -350,7 +373,7 @@ export class RecipeService {
       relations: ['ingredient'],
     });
 
-    const nutrition = this.calculateNutrition(ingredients);
+    const nutrition = this.calculateNutrition(ingredients, savedRecipe.servings);
 
     const savedNutrition = await this.nutritionRepo.save(
       this.nutritionRepo.create({
@@ -370,7 +393,9 @@ export class RecipeService {
   // CALCULATE NUTRITION
   // =========================
 
-  private calculateNutrition(ingredients: RecipeIngredient[]) {
+  // nutrition_infos lưu trên 1 KHẨU PHẦN (cùng quy ước với seed và bộ sinh thực đơn),
+  // nên chia tổng của cả món cho số khẩu phần.
+  private calculateNutrition(ingredients: RecipeIngredient[], servings?: number | null) {
     const nutrition = {
       calories: 0,
       protein: 0,
@@ -399,7 +424,14 @@ export class RecipeService {
         ratio * Number(ingredient?.fiber_per_100g ?? 0);
     }
 
-    return nutrition;
+    const divisor = servings && servings > 0 ? servings : 1;
+    return {
+      calories: nutrition.calories / divisor,
+      protein: nutrition.protein / divisor,
+      carbs: nutrition.carbs / divisor,
+      fat: nutrition.fat / divisor,
+      fiber: nutrition.fiber / divisor,
+    };
   }
 
   // =========================
@@ -475,10 +507,7 @@ export class RecipeService {
 
     for (const recipe of recipes) {
       // Lọc theo chế độ ăn nếu bên gọi truyền dietType
-      if (
-        selectedDiet &&
-        recipe.diet_type?.trim().toLowerCase() !== selectedDiet
-      ) {
+      if (!isRecipeDietCompatible(selectedDiet, recipe.diet_type)) {
         continue;
       }
 
@@ -613,11 +642,7 @@ export class RecipeService {
       }
 
       // Lọc theo chế độ ăn của người dùng
-      if (
-        dietType?.trim() &&
-        recipe.diet_type?.trim().toLowerCase() !==
-          dietType.trim().toLowerCase()
-      ) {
+      if (!isRecipeDietCompatible(dietType, recipe.diet_type)) {
         continue;
       }
 
@@ -717,7 +742,7 @@ export class RecipeService {
     });
 
     if (!recipe) {
-      throw new NotFoundException(`Recipe #${recipe_id} not found`);
+      throw new NotFoundException({ code: ErrorCode.RECIPE_NOT_FOUND, message: `Không tìm thấy công thức #${recipe_id}` });
     }
 
     const rows = await this.recipeIngredientRepo.find({
@@ -784,7 +809,7 @@ export class RecipeService {
     });
 
     if (!recipe) {
-      throw new NotFoundException(`Recipe #${recipe_id} not found`);
+      throw new NotFoundException({ code: ErrorCode.RECIPE_NOT_FOUND, message: `Không tìm thấy công thức #${recipe_id}` });
     }
 
     const recipeIngredients = await this.recipeIngredientRepo.find({
@@ -845,7 +870,7 @@ export class RecipeService {
     });
 
     if (!recipe) {
-      throw new NotFoundException(`Recipe #${recipeId} not found`);
+      throw new NotFoundException({ code: ErrorCode.RECIPE_NOT_FOUND, message: `Không tìm thấy công thức #${recipeId}` });
     }
 
     if (
@@ -948,9 +973,9 @@ export class RecipeService {
       relations: ['ingredient'],
     });
 
-    // Tính lại dinh dưỡng khi nguyên liệu thay đổi.
-    if (dto.ingredients !== undefined) {
-      const nutritionValues = this.calculateNutrition(ingredients);
+    // Tính lại dinh dưỡng khi nguyên liệu hoặc số khẩu phần thay đổi.
+    if (dto.ingredients !== undefined || dto.servings !== undefined) {
+      const nutritionValues = this.calculateNutrition(ingredients, updatedRecipe.servings);
 
       let nutritionInfo = await this.nutritionRepo.findOne({
         where: { recipe_id: recipeId },
@@ -986,7 +1011,7 @@ export class RecipeService {
     });
 
     if (!recipe) {
-      throw new NotFoundException(`Recipe #${recipeId} not found`);
+      throw new NotFoundException({ code: ErrorCode.RECIPE_NOT_FOUND, message: `Không tìm thấy công thức #${recipeId}` });
     }
 
     if (
@@ -1049,7 +1074,7 @@ export class RecipeService {
     });
 
     if (!recipe) {
-      throw new NotFoundException(`Recipe #${recipeId} not found`);
+      throw new NotFoundException({ code: ErrorCode.RECIPE_NOT_FOUND, message: `Không tìm thấy công thức #${recipeId}` });
     }
 
     let price = await this.userRecipePriceRepo.findOne({
@@ -1100,9 +1125,7 @@ export class RecipeService {
     });
 
     if (!price) {
-      throw new NotFoundException(
-        `Your price for recipe #${recipeId} was not found`,
-      );
+      throw new NotFoundException({ code: ErrorCode.RECIPE_NOT_FOUND, message: `Bạn chưa có giá cho công thức #${recipeId}` });
     }
 
     await this.userRecipePriceRepo.remove(price);
@@ -1117,8 +1140,15 @@ export class RecipeService {
   // ADMIN RECIPE REVIEW
   // =========================
 
-  async findAllForAdmin() {
+  async findAllForAdmin(status?: string) {
+    const value = status?.trim().toLowerCase();
+    if (value && !Object.values(RecipeStatus).includes(value as RecipeStatus)) {
+      throw new BadRequestException(
+        `status phải là một trong: ${Object.values(RecipeStatus).join(', ')}`,
+      );
+    }
     return this.recipeRepo.find({
+      where: value ? { status: value as RecipeStatus } : {},
       order: { created_at: 'DESC' },
     });
   }
@@ -1133,7 +1163,7 @@ export class RecipeService {
     });
 
     if (!recipe) {
-      throw new NotFoundException(`Recipe #${recipeId} not found`);
+      throw new NotFoundException({ code: ErrorCode.RECIPE_NOT_FOUND, message: `Không tìm thấy công thức #${recipeId}` });
     }
 
     const status = dto.status;
