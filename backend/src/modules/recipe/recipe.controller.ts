@@ -1,41 +1,132 @@
-import { Controller, Delete, Get, Param, ParseIntPipe, Post, Req, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+  Req,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { RecipeService } from './recipe.service';
+import { CreateRecipeDto } from './dto/create-recipe.dto';
+import { UpdateRecipeDto } from './dto/update-recipe.dto';
+import {
+  QueryRecipeDto,
+  RecommendationQueryDto,
+} from './dto/query-recipe.dto';
+import { AuthGuard } from '@nestjs/passport';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('recipes')
 @Controller('recipes')
 export class RecipeController {
   constructor(private readonly recipeService: RecipeService) {}
 
+  // =========================
+  // PUBLIC / COMMON ROUTES
+  // =========================
+
   @Get()
-  findAll() {
-    return this.recipeService.findAll();
+  @Public()
+  findAll(@Query() query: QueryRecipeDto) {
+    return this.recipeService.findAll(query);
   }
 
+  @Get('recommendations')
   @UseGuards(AuthGuard('jwt'))
-  @Get('favorites')
-  listFavorites(@Req() req: any) {
-    return this.recipeService.listFavorites(req.user.user_id);
+  @ApiBearerAuth()
+  getRecommendations(
+    @Query() query: RecommendationQueryDto,
+    @Req() req: any,
+  ) {
+    const userId = req.user.user_id;
+    return this.recipeService.getRecommendations(query, userId);
+  }
+
+  // Yêu thích và giá tự đặt nằm ở /users/me/favorites/recipes và /users/me/recipe-prices
+  // (UserFavoriteRecipeController, UserRecipePriceController).
+
+  // Route quản trị (GET /admin/recipes, PUT /admin/recipes/:id/status)
+  // nằm trong AdminRecipeController để chỉ có một hợp đồng API.
+
+  // =========================
+  // RECIPE DETAIL / COST / REPLACEMENTS
+  // =========================
+
+  @Get(':id/cost')
+  @Public()
+  getRecipeCost(@Param('id', ParseIntPipe) id: number) {
+    return this.recipeService.getRecipeCost(id);
+  }
+
+  @Get(':id/replacements')
+  @Public()
+  getRecipeReplacements(@Param('id', ParseIntPipe) id: number) {
+    return this.recipeService.getRecipeReplacements(id);
   }
 
   @Get(':id')
+  @Public()
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.recipeService.findOne(id);
   }
 
+  // =========================
+  // PROTECTED ROUTES (USER)
+  // =========================
+
+  @Post()
   @UseGuards(AuthGuard('jwt'))
-  @Post(':id/favorite')
-  addFavorite(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
-    return this.recipeService.addFavorite(req.user.user_id, id);
+  @ApiBearerAuth()
+  create(
+    @Req() req: any,
+    @Body() createRecipeDto: CreateRecipeDto,
+  ) {
+    const userId = req.user.user_id;
+    const userRole = req.user.role;
+
+    return this.recipeService.createRecipe(
+      userId,
+      userRole,
+      createRecipeDto,
+    );
   }
 
+  // Đổi PATCH thành PUT theo hợp đồng API BE2
+  @Put(':id')
   @UseGuards(AuthGuard('jwt'))
-  @Delete(':id/favorite')
-  removeFavorite(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
-    return this.recipeService.removeFavorite(req.user.user_id, id);
+  @ApiBearerAuth()
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: any,
+    @Body() updateRecipeDto: UpdateRecipeDto,
+  ) {
+    const userId = req.user.user_id;
+    const userRole = req.user.role;
+
+    return this.recipeService.updateRecipe(
+      id,
+      userId,
+      userRole,
+      updateRecipeDto,
+    );
   }
 
-  // TODO: POST/PATCH cho Authorized User / Admin tạo & sửa recipe (kèm status=pending_review),
-  // route riêng cho Admin duyệt (PATCH :id/approve, PATCH :id/reject).
+  @Delete(':id')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: any,
+  ) {
+    const userId = req.user.user_id;
+    const userRole = req.user.role;
+
+    return this.recipeService.removeRecipe(id, userId, userRole);
+  }
 }

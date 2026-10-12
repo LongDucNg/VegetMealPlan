@@ -7,8 +7,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
-import { DietType } from '../../users/entities/user.entity';
+import { User, DietType } from '../../users/entities/user.entity';
 
 export enum RecipeStatus {
   DRAFT = 'draft',
@@ -62,8 +61,6 @@ export class Recipe {
   @Column({ nullable: true })
   source_video_id: number;
 
-  // cached, derived tu RecipeIngredient; UOC TINH - co the lech thuc te theo
-  // khu vuc/thoi diem (dung IngredientService.getEffectivePrice de tinh theo tung user).
   @Column('float', { nullable: true })
   estimated_cost: number;
 
@@ -78,10 +75,13 @@ export class Recipe {
   status: RecipeStatus;
 
   @Column({ type: 'timestamp', nullable: true })
-  approved_at: Date;
+  approved_at: Date | null;
 
   @Column({ nullable: true })
-  approved_by: number;
+  approved_by: number | null;
+
+  @Column({ type: 'text', nullable: true })
+  review_reason: string | null;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'approved_by' })
@@ -92,4 +92,8 @@ export class Recipe {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+@Column({type: 'varchar',length: 100,nullable: true,})
+suitable_meals: string | null;
+
 }
