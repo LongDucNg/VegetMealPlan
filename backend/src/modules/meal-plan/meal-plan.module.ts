@@ -1,19 +1,50 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
 import { MealPlan } from './entities/meal-plan.entity';
 import { WeeklyPlan } from './entities/weekly-plan.entity';
 import { DailyMeal } from './entities/daily-meal.entity';
 import { MealItem } from './entities/meal-item.entity';
 import { MealPlanProfile } from './entities/meal-plan-profile.entity';
+import { ProfileAllergy } from './entities/profile-allergy.entity';
 
-// TODO: MealPlanService — tao weekly plan tu danh sach AiRecommendation da chon,
-// doc user.bmi (hoac target_profile.bmi neu lap cho nguoi khac) de set bmi_snapshot
-// luc tao (KHONG update lai sau do). Tao WeeklyPlan.start_date/end_date snap theo
-// lich duong T2-CN (tuan dau co the ngan hon 7 ngay neu tao giua tuan).
+import { Recipe } from '../recipe/entities/recipe.entity';
+import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
+import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
+import { User } from '../users/entities/user.entity';
+import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
+
+import { SubscriptionModule } from '../subscription/subscription.module';
+
+import { MealPlanController } from './meal-plan.controller';
+import { MealPlanService } from './meal-plan.service';
+
 @Module({
   imports: [
-    TypeOrmModule.forFeature([MealPlan, WeeklyPlan, DailyMeal, MealItem, MealPlanProfile]),
+    TypeOrmModule.forFeature([
+      MealPlan,
+      WeeklyPlan,
+      DailyMeal,
+      MealItem,
+      MealPlanProfile,
+      ProfileAllergy,
+      User,
+      UserAllergy,
+      Recipe,
+      RecipeIngredient,
+      NutritionInfo,
+    ]),
+    SubscriptionModule,
   ],
-  exports: [TypeOrmModule],
+  controllers: [
+    MealPlanController,
+  ],
+  providers: [
+    MealPlanService,
+  ],
+  exports: [
+    MealPlanService,
+    TypeOrmModule,
+  ],
 })
 export class MealPlanModule {}

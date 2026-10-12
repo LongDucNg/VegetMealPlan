@@ -36,7 +36,7 @@ export class MealPlan {
   user: User;
 
   @Column({ nullable: true })
-  goal_id: number;
+  goal_id: number | null;
 
   @ManyToOne(() => HealthGoal, { nullable: true })
   @JoinColumn({ name: 'goal_id' })
@@ -44,7 +44,7 @@ export class MealPlan {
 
   // null = lap ke hoach cho chinh user. Co gia tri = lap cho nguoi khac (MealPlanProfile).
   @Column({ nullable: true })
-  target_profile_id: number;
+  target_profile_id: number | null;
 
   @ManyToOne(() => MealPlanProfile, { nullable: true })
   @JoinColumn({ name: 'target_profile_id' })
@@ -53,7 +53,7 @@ export class MealPlan {
   // Snapshot BMI cua doi tuong duoc lap ke hoach (user hoac target_profile) tai thoi diem tao,
   // KHONG doi theo BMI hien tai cua doi tuong do sau nay.
   @Column('float', { nullable: true })
-  bmi_snapshot: number;
+  bmi_snapshot: number | null;
 
   @Column({ type: 'enum', enum: PlanType, default: PlanType.WEEKLY })
   plan_type: PlanType;
@@ -68,16 +68,19 @@ export class MealPlan {
   has_budget: boolean;
 
   @Column('float', { nullable: true })
-  total_budget: number;
+  total_budget: number | null;
 
   @Column('float', { nullable: true })
-  target_calories_per_day: number;
+  target_calories_per_day: number | null;
 
   @Column({ type: 'enum', enum: MealPlanStatus, default: MealPlanStatus.DRAFT })
   status: MealPlanStatus;
 
-  @Column({ nullable: true })
-  generated_by: string; // AI / manual
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  name: string | null; // tên do người dùng đặt
+
+  @Column({ type: 'varchar', nullable: true })
+  generated_by: string | null; // AI / manual
 
   @OneToMany(() => WeeklyPlan, (w) => w.meal_plan)
   weekly_plans: WeeklyPlan[];
