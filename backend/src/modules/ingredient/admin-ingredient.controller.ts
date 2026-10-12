@@ -1,16 +1,17 @@
-import {Body,Controller,ForbiddenException,Param,ParseIntPipe,Post,Put,Req,UseGuards,} from '@nestjs/common';
+import {Body,Controller,Param,ParseIntPipe,Post,Put,} from '@nestjs/common';
 
-import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { IngredientService } from './ingredient.service';
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
 import { UpdateIngredientDto } from './dto/update-ingredient.dto';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 
 @ApiTags('admin-ingredients')
 @ApiBearerAuth()
 @Controller('admin/ingredients')
-@UseGuards(AuthGuard('jwt'))
+@Roles(UserRole.ADMIN)
 export class AdminIngredientController {
   constructor(
     private readonly ingredientService: IngredientService,
@@ -18,30 +19,16 @@ export class AdminIngredientController {
 
   @Post()
   create(
-    @Req() req: any,
     @Body() dto: CreateIngredientDto,
   ) {
-    if (req.user.role !== 'admin') {
-      throw new ForbiddenException(
-        'Admin access required',
-      );
-    }
-
     return this.ingredientService.createIngredient(dto);
   }
 
   @Put(':id')
   update(
-    @Req() req: any,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateIngredientDto,
   ) {
-    if (req.user.role !== 'admin') {
-      throw new ForbiddenException(
-        'Admin access required',
-      );
-    }
-
     return this.ingredientService.updateIngredient(
       id,
       dto,
