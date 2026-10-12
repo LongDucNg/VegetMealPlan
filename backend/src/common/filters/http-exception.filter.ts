@@ -48,14 +48,29 @@ export class AllExceptionsFilter implements ExceptionFilter {
     });
   }
 
+  private customMessage(body: any, defaults: string[]): string | undefined {
+    const raw = typeof body === 'string' ? body : body?.message;
+    return typeof raw === 'string' && !defaults.includes(raw) ? raw : undefined;
+  }
+
   private fromStatus(status: number, body: any): { code: string; message: string } {
     switch (status) {
       case HttpStatus.UNAUTHORIZED:
         return { code: ErrorCode.AUTH_UNAUTHORIZED, message: 'Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn' };
-      case HttpStatus.FORBIDDEN:
-        return { code: ErrorCode.AUTH_FORBIDDEN, message: 'Bạn không có quyền thực hiện thao tác này' };
-      case HttpStatus.NOT_FOUND:
+      case HttpStatus.FORBIDDEN: {
+        // Giữ message nghiệp vụ do service ném (vd. "tính năng Premium"); chỉ thay message mặc định của Nest.
+        const custom = this.customMessage(body, ['Forbidden', 'Forbidden resource']);
+        return { code: ErrorCode.AUTH_FORBIDDEN, message: custom ?? 'Bạn không có quyền thực hiện thao tác này' };
+      }
+      case HttpStatus.NOT_FOUND: {
+        // "Cannot GET /x" là route không tồn tại; message khác là NotFoundException của service
+        // (vd. "Recipe #1 not found") nên giữ lại để không nhầm với sai đường dẫn.
+        const custom = this.customMessage(body, ['Not Found']);
+        if (custom && !custom.startsWith('Cannot ')) {
+          return { code: 'NOT_FOUND', message: custom };
+        }
         return { code: ErrorCode.ROUTE_NOT_FOUND, message: 'Không tìm thấy đường dẫn yêu cầu' };
+      }
       default: {
         // Giữ message gốc cho các status còn lại (ví dụ 400 do ParseIntPipe) để không mất thông tin.
         const raw = typeof body === 'string' ? body : body?.message;
