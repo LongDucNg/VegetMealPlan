@@ -67,7 +67,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         // (vd. "Recipe #1 not found") nên giữ lại để không nhầm với sai đường dẫn.
         const custom = this.customMessage(body, ['Not Found']);
         if (custom && !custom.startsWith('Cannot ')) {
-          return { code: 'NOT_FOUND', message: custom };
+          return { code: ErrorCode.RESOURCE_NOT_FOUND, message: custom };
         }
         return { code: ErrorCode.ROUTE_NOT_FOUND, message: 'Không tìm thấy đường dẫn yêu cầu' };
       }

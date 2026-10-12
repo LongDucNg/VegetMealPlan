@@ -1,3 +1,5 @@
+import { ErrorCode } from '../../common/constants/error-codes.enum';
+import { isRecipeDietCompatible } from '../../common/utils/diet.util';
 import {
   BadRequestException,
   ForbiddenException,
@@ -28,6 +30,7 @@ import {
 import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
 import { calculateIngredientCost } from '../recipe/recipe-cost.util';
 import { SubscriptionService } from '../subscription/subscription.service';
+import { FavoriteRecipe } from '../recipe/entities/favorite-recipe.entity';
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 
 import { User } from '../users/entities/user.entity';
@@ -50,6 +53,7 @@ interface PlannedMeal {
   mealType: string;
   calories: number;
   recipe: Recipe;
+  portion: number;
 }
 
 @Injectable()
@@ -81,6 +85,9 @@ export class MealPlanService {
 
     @InjectRepository(NutritionInfo)
     private readonly nutritionRepo: Repository<NutritionInfo>,
+
+    @InjectRepository(FavoriteRecipe)
+    private readonly favoriteRepo: Repository<FavoriteRecipe>,
 
     @InjectRepository(MealPlanProfile)
     private readonly mealPlanProfileRepo: Repository<MealPlanProfile>,
@@ -227,7 +234,7 @@ export class MealPlanService {
     }
 
     const safeRecipes = recipes.filter((recipe) => {
-      if (dietType && recipe.diet_type !== dietType) {
+      if (!isRecipeDietCompatible(dietType, recipe.diet_type)) {
         return false;
       }
 
@@ -375,8 +382,19 @@ export class MealPlanService {
 
     const planned: PlannedMeal[] = [];
 
+    const mealEntries = Object.entries(mealTargets);
+    const dayTarget = mealEntries.reduce((sum, [, c]) => sum + c, 0);
+
     for (let dayIndex = 0; dayIndex < dayCount; dayIndex++) {
-      for (const [mealType, calories] of Object.entries(mealTargets)) {
+      let dayCalories = 0;
+
+      for (let mealIndex = 0; mealIndex < mealEntries.length; mealIndex++) {
+        const [mealType, baseCalories] = mealEntries[mealIndex];
+        // Bữa cuối ngày bù phần calo các bữa trước còn thiếu/thừa để tổng ngày bám mục tiêu.
+        const calories =
+          mealIndex === mealEntries.length - 1
+            ? Math.max(dayTarget - dayCalories, baseCalories * 0.5)
+            : baseCalories;
         let candidates = recipes.filter((recipe) =>
           this.isSuitableForMeal(recipe, mealType),
         );
@@ -401,30 +419,41 @@ export class MealPlanService {
           }
         }
 
-        const unused = candidates.filter(
-          (recipe) => !usedRecipeIds.has(recipe.recipe_id),
-        );
-        const pool = unused.length > 0 ? unused : candidates;
-
-        pool.sort((a, b) => {
-          const caloriesA = nutritionMap.get(a.recipe_id)?.calories ?? 0;
-          const caloriesB = nutritionMap.get(b.recipe_id)?.calories ?? 0;
-
-          return (
-            Math.abs(caloriesA - calories) -
-            Math.abs(caloriesB - calories)
-          );
-        });
+        // Ưu tiên món chưa dùng: món đã dùng chỉ được chọn lại khi sát calo hơn rõ rệt
+        // (phạt 30% calo mục tiêu), tránh hết món chưa dùng thì ngày cuối lệch calo nhiều.
+        const score = (recipe: Recipe) =>
+          Math.abs(
+            Number(nutritionMap.get(recipe.recipe_id)?.calories ?? 0) - calories,
+          ) + (usedRecipeIds.has(recipe.recipe_id) ? calories * 0.3 : 0);
+        const pool = [...candidates].sort((x, y) => score(x) - score(y));
 
         const selected = pool[0];
         usedRecipeIds.add(selected.recipe_id);
 
+        // Chỉnh khẩu phần (0,6x–1,8x) để calo bữa bám mục tiêu khi món không đủ/quá calo.
+        const recipeCalories = Number(nutritionMap.get(selected.recipe_id)?.calories ?? 0);
+        let portion =
+          recipeCalories > 0
+            ? Math.min(1.8, Math.max(0.6, calories / recipeCalories))
+            : 1;
+        const unitCost = costMap.get(selected.recipe_id) ?? 0;
+
         if (budget) {
-          budget.remaining -= costMap.get(selected.recipe_id) ?? 0;
+          // Khẩu phần lớn hơn thì tốn hơn: không để vượt ngân sách mỗi bữa.
+          const maxCost = budget.remaining / Math.max(budget.slotsLeft, 1);
+          if (unitCost > 0) portion = Math.min(portion, maxCost / unitCost);
+        }
+        portion = Math.round(portion * 10) / 10;
+        if (portion <= 0) portion = 0.1;
+
+        dayCalories += recipeCalories * portion;
+
+        if (budget) {
+          budget.remaining -= unitCost * portion;
           budget.slotsLeft--;
         }
 
-        planned.push({ dayIndex, mealType, calories, recipe: selected });
+        planned.push({ dayIndex, mealType, calories, recipe: selected, portion });
       }
     }
 
@@ -467,9 +496,7 @@ export class MealPlanService {
     });
 
     if (!mealPlan) {
-      throw new NotFoundException(
-        `Meal plan #${meal_plan_id} not found`,
-      );
+      throw new NotFoundException({ code: ErrorCode.MEAL_PLAN_NOT_FOUND, message: `Không tìm thấy thực đơn #${meal_plan_id}` });
     }
 
     return mealPlan;
@@ -547,25 +574,22 @@ export class MealPlanService {
   // VALIDATE MEAL PLAN
   // =========================================================
 
-  async validateMealPlan(dto: ValidateMealPlanDto) {
+  // Kiểm tra bữa user tự chọn từ món yêu thích: ngày hợp lệ, món đã duyệt và nằm trong danh sách yêu thích.
+  async validateMealPlan(user_id: number, dto: ValidateMealPlanDto) {
     const errors: string[] = [];
 
     const startDate = new Date(dto.start_date);
     const endDate = new Date(dto.end_date);
 
     if (endDate < startDate) {
-      errors.push(
-        'Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu',
-      );
+      errors.push('Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu');
     }
 
     for (const day of dto.days ?? []) {
       const dayDate = new Date(day.date);
 
       if (dayDate < startDate || dayDate > endDate) {
-        errors.push(
-          `Ngày ${day.date} nằm ngoài khoảng thời gian của thực đơn`,
-        );
+        errors.push(`Ngày ${day.date} nằm ngoài khoảng thời gian của thực đơn`);
       }
     }
 
@@ -579,24 +603,25 @@ export class MealPlanService {
 
     if (recipeIds.length > 0) {
       const recipes = await this.recipeRepo.find({
-        where: {
-          recipe_id: In(recipeIds),
-          status: RecipeStatus.APPROVED,
-        },
+        where: { recipe_id: In(recipeIds), status: RecipeStatus.APPROVED },
       });
+      const approvedIds = new Set(recipes.map((r) => r.recipe_id));
 
-      const approvedIds = new Set(
-        recipes.map((recipe) => recipe.recipe_id),
-      );
-
-      const invalidIds = recipeIds.filter(
-        (id) => !approvedIds.has(id),
-      );
-
+      const invalidIds = recipeIds.filter((id) => !approvedIds.has(id));
       if (invalidIds.length > 0) {
         errors.push(
           `Công thức không tồn tại hoặc chưa được duyệt: ${invalidIds.join(', ')}`,
         );
+      }
+
+      const favorites = await this.favoriteRepo.find({
+        where: { user_id, recipe_id: In(recipeIds) },
+      });
+      const favoriteIds = new Set(favorites.map((f) => f.recipe_id));
+      for (const recipe of recipes) {
+        if (!favoriteIds.has(recipe.recipe_id)) {
+          errors.push(`Món "${recipe.title}" không nằm trong danh sách món yêu thích của bạn`);
+        }
       }
     }
 
@@ -620,7 +645,7 @@ export class MealPlanService {
     });
 
     if (!mealPlan) {
-      throw new NotFoundException('Không tìm thấy thực đơn của bạn');
+      throw new NotFoundException({ code: ErrorCode.MEAL_PLAN_NOT_FOUND, message: 'Không tìm thấy thực đơn của bạn' });
     }
 
     if (dto.name !== undefined) {
@@ -658,7 +683,7 @@ export class MealPlanService {
     });
 
     if (!mealPlan) {
-      throw new NotFoundException('Không tìm thấy thực đơn của bạn');
+      throw new NotFoundException({ code: ErrorCode.MEAL_PLAN_NOT_FOUND, message: 'Không tìm thấy thực đơn của bạn' });
     }
 
     await this.mealPlanRepo.remove(mealPlan);
@@ -686,7 +711,7 @@ export class MealPlanService {
     });
 
     if (!mealPlan) {
-      throw new NotFoundException('Không tìm thấy thực đơn của bạn');
+      throw new NotFoundException({ code: ErrorCode.MEAL_PLAN_NOT_FOUND, message: 'Không tìm thấy thực đơn của bạn' });
     }
 
     // 2. Kiểm tra ngày thuộc thực đơn
@@ -922,7 +947,7 @@ export class MealPlanService {
       mealItem.recipe_id = planned.recipe.recipe_id;
       mealItem.is_ai_suggested = true;
       mealItem.added_by_user = false;
-      mealItem.portion_multiplier = 1;
+      mealItem.portion_multiplier = planned.portion;
 
       await this.mealItemRepo.save(mealItem);
     }
