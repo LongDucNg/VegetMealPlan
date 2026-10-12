@@ -1,0 +1,1469 @@
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, Repository } from 'typeorm';
+
+import { MealPlanProfile } from './entities/meal-plan-profile.entity';
+import { GenerateForSomeoneDto } from './dto/generate-for-someone.dto';
+import { ProfileAllergy } from './entities/profile-allergy.entity';
+import { Ingredient } from '../ingredient/entities/ingredient.entity';
+
+import {
+  MealPlan,
+  MealPlanStatus,
+  PlanType,
+} from './entities/meal-plan.entity';
+import { WeeklyPlan } from './entities/weekly-plan.entity';
+import { DailyMeal } from './entities/daily-meal.entity';
+import { MealItem } from './entities/meal-item.entity';
+
+import {
+  Recipe,
+  RecipeStatus,
+} from '../recipe/entities/recipe.entity';
+import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
+import { calculateIngredientCost } from '../recipe/recipe-cost.util';
+import { SubscriptionService } from '../subscription/subscription.service';
+import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
+
+import { User } from '../users/entities/user.entity';
+import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
+
+import { CreateMealPlanDto } from './dto/create-meal-plan.dto';
+import { SaveMealPlanDto } from './dto/save-meal-plan.dto';
+import { UpdateMyMealPlanDto } from './dto/update-my-meal-plan.dto';
+import { ValidateMealPlanDto } from './dto/validate-meal-plan.dto';
+import { UpdateMealSlotDto } from './dto/update-meal-slot.dto';
+import { GenerateMealPlanDto } from './dto/generate-meal-plan.dto';
+
+interface BudgetTracker {
+  remaining: number;
+  slotsLeft: number;
+}
+
+interface PlannedMeal {
+  dayIndex: number;
+  mealType: string;
+  calories: number;
+  recipe: Recipe;
+}
+
+@Injectable()
+export class MealPlanService {
+  constructor(
+    @InjectRepository(MealPlan)
+    private readonly mealPlanRepo: Repository<MealPlan>,
+
+    @InjectRepository(WeeklyPlan)
+    private readonly weeklyPlanRepo: Repository<WeeklyPlan>,
+
+    @InjectRepository(DailyMeal)
+    private readonly dailyMealRepo: Repository<DailyMeal>,
+
+    @InjectRepository(MealItem)
+    private readonly mealItemRepo: Repository<MealItem>,
+
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+
+    @InjectRepository(UserAllergy)
+    private readonly allergyRepo: Repository<UserAllergy>,
+
+    @InjectRepository(Recipe)
+    private readonly recipeRepo: Repository<Recipe>,
+
+    @InjectRepository(RecipeIngredient)
+    private readonly recipeIngredientRepo: Repository<RecipeIngredient>,
+
+    @InjectRepository(NutritionInfo)
+    private readonly nutritionRepo: Repository<NutritionInfo>,
+
+    @InjectRepository(MealPlanProfile)
+    private readonly mealPlanProfileRepo: Repository<MealPlanProfile>,
+
+    @InjectRepository(ProfileAllergy)
+    private readonly profileAllergyRepo: Repository<ProfileAllergy>,
+
+    private readonly subscriptionService: SubscriptionService,
+  ) { }
+
+  // =========================================================
+  // HELPER: KIỂM TRA MÓN CÓ PHÙ HỢP VỚI BỮA ĂN KHÔNG
+  // =========================================================
+
+  private isSuitableForMeal(
+    recipe: Recipe,
+    mealType: string,
+  ): boolean {
+    const requestedMeal = mealType.trim().toLowerCase();
+
+    const suitableMeals = recipe.suitable_meals
+      ?.split(',')
+      .map((meal) => meal.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (suitableMeals && suitableMeals.length > 0) {
+      return (
+        suitableMeals.includes(requestedMeal) ||
+        suitableMeals.includes('any')
+      );
+    }
+
+    const recipeMealType = recipe.meal_type
+      ?.trim()
+      .toLowerCase();
+
+    return (
+      recipeMealType === requestedMeal ||
+      recipeMealType === 'any'
+    );
+  }
+
+  // =========================================================
+  // HELPER: TÍNH CALO MỤC TIÊU
+  // =========================================================
+
+  private calculateTargetCalories(
+    age: number,
+    gender: string,
+    height: number,
+    weight: number,
+    activityLevel: string,
+    goalName = 'maintain',
+  ): number {
+    const sexOffset =
+      gender === 'male' ? 5 : gender === 'female' ? -161 : -78;
+
+    const bmr =
+      10 * weight +
+      6.25 * height -
+      5 * age +
+      sexOffset;
+
+    const activityFactor: Record<string, number> = {
+      sedentary: 1.2,
+      light: 1.375,
+      moderate: 1.55,
+      active: 1.725,
+    };
+
+    const activity = activityFactor[activityLevel];
+
+    if (!activity) {
+      throw new BadRequestException(
+        'Activity level không hợp lệ',
+      );
+    }
+
+    const goalFactor =
+      goalName === 'lose_weight'
+        ? 0.85
+        : goalName === 'gain_muscle'
+          ? 1.1
+          : 1;
+
+    return Math.max(
+      Math.round(bmr * activity * goalFactor),
+      1200,
+    );
+  }
+
+  // =========================================================
+  // HELPER: LẤY CÔNG THỨC PHÙ HỢP CHẾ ĐỘ ĂN VÀ DỊ ỨNG
+  // =========================================================
+
+  private async getSafeRecipes(
+    userId: number,
+    dietType?: string | null,
+    allergyIngredientIdList?: number[],
+  ): Promise<Recipe[]> {
+    // Truyền danh sách dị ứng riêng (vd. của hồ sơ người thân) thì dùng nó,
+    // không thì lấy dị ứng của chính user.
+    const ownAllergyRows = allergyIngredientIdList
+      ? []
+      : await this.allergyRepo.find({ where: { user_id: userId } });
+
+    const allergyIngredientIds = new Set(
+      allergyIngredientIdList ??
+        ownAllergyRows.map((row) => row.ingredient_id),
+    );
+
+    const recipes = await this.recipeRepo.find({
+      where: {
+        status: RecipeStatus.APPROVED,
+      },
+    });
+
+    if (recipes.length === 0) {
+      throw new NotFoundException(
+        'Không có recipe approved để tạo meal plan',
+      );
+    }
+
+    const recipeIds = recipes.map(
+      (recipe) => recipe.recipe_id,
+    );
+
+    const recipeIngredients =
+      await this.recipeIngredientRepo.find({
+        where: {
+          recipe_id: In(recipeIds),
+        },
+      });
+
+    const ingredientsByRecipe = new Map<number, number[]>();
+
+    for (const row of recipeIngredients) {
+      const ids =
+        ingredientsByRecipe.get(row.recipe_id) ?? [];
+
+      ids.push(row.ingredient_id);
+
+      ingredientsByRecipe.set(row.recipe_id, ids);
+    }
+
+    const safeRecipes = recipes.filter((recipe) => {
+      if (dietType && recipe.diet_type !== dietType) {
+        return false;
+      }
+
+      const ingredientIds =
+        ingredientsByRecipe.get(recipe.recipe_id) ?? [];
+
+      return !ingredientIds.some((id) =>
+        allergyIngredientIds.has(id),
+      );
+    });
+
+    if (safeRecipes.length === 0) {
+      throw new NotFoundException(
+        'Không tìm thấy recipe phù hợp với chế độ ăn và dị ứng',
+      );
+    }
+
+    return safeRecipes;
+  }
+
+  // =========================================================
+  // HELPER: LẤY DINH DƯỠNG CỦA CÔNG THỨC
+  // =========================================================
+
+  private async getNutritionMap(
+    recipes: Recipe[],
+  ): Promise<Map<number, NutritionInfo>> {
+    const recipeIds = recipes.map(
+      (recipe) => recipe.recipe_id,
+    );
+
+    if (recipeIds.length === 0) {
+      return new Map<number, NutritionInfo>();
+    }
+
+    const nutritionRows = await this.nutritionRepo.find({
+      where: {
+        recipe_id: In(recipeIds),
+      },
+    });
+
+    const nutritionMap = new Map<number, NutritionInfo>();
+
+    for (const nutrition of nutritionRows) {
+      nutritionMap.set(
+        nutrition.recipe_id,
+        nutrition,
+      );
+    }
+
+    return nutritionMap;
+  }
+
+  // =========================================================
+  // HELPER: CHI PHÍ TỪNG CÔNG THỨC (THEO GIÁ NGUYÊN LIỆU)
+  // =========================================================
+
+  // Trả về map recipe_id -> chi phí MỖI KHẨU PHẦN. Ưu tiên tính từ giá nguyên liệu
+  // (có quy đổi đơn vị); nếu không tính được thì dùng estimated_cost.
+  // Công thức không xác định được chi phí sẽ không có trong map.
+  private async getRecipeCostMap(
+    recipes: Recipe[],
+  ): Promise<Map<number, number>> {
+    const costMap = new Map<number, number>();
+
+    if (recipes.length === 0) {
+      return costMap;
+    }
+
+    const rows = await this.recipeIngredientRepo.find({
+      where: {
+        recipe_id: In(recipes.map((recipe) => recipe.recipe_id)),
+      },
+      relations: ['ingredient'],
+    });
+
+    const computed = new Map<number, number>();
+
+    for (const row of rows) {
+      if (row.is_optional) {
+        continue;
+      }
+
+      const price = Number(row.ingredient?.avg_price_per_unit ?? 0);
+
+      const { cost } = calculateIngredientCost(
+        Number(row.quantity ?? 0),
+        row.unit,
+        row.ingredient?.unit,
+        price,
+      );
+
+      computed.set(
+        row.recipe_id,
+        (computed.get(row.recipe_id) ?? 0) + cost,
+      );
+    }
+
+    // Quy ước: nguyên liệu và estimated_cost là chi phí CẢ MÓN; mỗi bữa trong
+    // thực đơn ăn 1 khẩu phần nên chi phí tính vào ngân sách = cả món / servings.
+    for (const recipe of recipes) {
+      const servings =
+        recipe.servings && recipe.servings > 0 ? recipe.servings : 1;
+      const fromIngredients = computed.get(recipe.recipe_id) ?? 0;
+
+      if (fromIngredients > 0) {
+        costMap.set(recipe.recipe_id, fromIngredients / servings);
+      } else if (recipe.estimated_cost != null) {
+        costMap.set(
+          recipe.recipe_id,
+          Number(recipe.estimated_cost) / servings,
+        );
+      }
+    }
+
+    return costMap;
+  }
+
+  // =========================================================
+  // HELPER: CHỌN MÓN CHO CÁC BỮA, CÓ GIỚI HẠN NGÂN SÁCH
+  // =========================================================
+
+  // Chọn trước toàn bộ món trong bộ nhớ (chưa ghi DB) để nếu ngân sách
+  // không đủ thì báo lỗi mà không để lại thực đơn dở dang.
+  // Mỗi bữa chỉ được chọn món có chi phí <= ngân sách còn lại / số bữa còn lại,
+  // nên tổng chi phí không bao giờ vượt total_budget.
+  private planMeals(params: {
+    dayCount: number;
+    mealTargets: Record<string, number>;
+    recipes: Recipe[];
+    nutritionMap: Map<number, NutritionInfo>;
+    costMap: Map<number, number>;
+    usedRecipeIds: Set<number>;
+    budget?: BudgetTracker;
+  }): PlannedMeal[] {
+    const {
+      dayCount,
+      mealTargets,
+      recipes,
+      nutritionMap,
+      costMap,
+      usedRecipeIds,
+      budget,
+    } = params;
+
+    const planned: PlannedMeal[] = [];
+
+    for (let dayIndex = 0; dayIndex < dayCount; dayIndex++) {
+      for (const [mealType, calories] of Object.entries(mealTargets)) {
+        let candidates = recipes.filter((recipe) =>
+          this.isSuitableForMeal(recipe, mealType),
+        );
+
+        if (candidates.length === 0) {
+          if (budget) budget.slotsLeft--;
+          continue;
+        }
+
+        if (budget) {
+          const maxCost = budget.remaining / Math.max(budget.slotsLeft, 1);
+
+          candidates = candidates.filter((recipe) => {
+            const cost = costMap.get(recipe.recipe_id);
+            return cost !== undefined && cost <= maxCost;
+          });
+
+          if (candidates.length === 0) {
+            throw new BadRequestException(
+              'Ngân sách không đủ để tạo thực đơn: không có công thức nào phù hợp chi phí mỗi bữa. Hãy tăng ngân sách.',
+            );
+          }
+        }
+
+        const unused = candidates.filter(
+          (recipe) => !usedRecipeIds.has(recipe.recipe_id),
+        );
+        const pool = unused.length > 0 ? unused : candidates;
+
+        pool.sort((a, b) => {
+          const caloriesA = nutritionMap.get(a.recipe_id)?.calories ?? 0;
+          const caloriesB = nutritionMap.get(b.recipe_id)?.calories ?? 0;
+
+          return (
+            Math.abs(caloriesA - calories) -
+            Math.abs(caloriesB - calories)
+          );
+        });
+
+        const selected = pool[0];
+        usedRecipeIds.add(selected.recipe_id);
+
+        if (budget) {
+          budget.remaining -= costMap.get(selected.recipe_id) ?? 0;
+          budget.slotsLeft--;
+        }
+
+        planned.push({ dayIndex, mealType, calories, recipe: selected });
+      }
+    }
+
+    return planned;
+  }
+
+  // =========================================================
+  // GET /users/me/meal-plans
+  // =========================================================
+
+  async findMyMealPlans(user_id: number) {
+    return this.mealPlanRepo.find({
+      where: { user_id },
+      relations: ['goal', 'target_profile'],
+      order: { created_at: 'DESC' },
+    });
+  }
+
+  // =========================================================
+  // GET /users/me/meal-plans/:id
+  // =========================================================
+
+  async findMyMealPlanDetail(
+    user_id: number,
+    meal_plan_id: number,
+  ) {
+    const mealPlan = await this.mealPlanRepo.findOne({
+      where: {
+        meal_plan_id,
+        user_id,
+      },
+      relations: [
+        'goal',
+        'target_profile',
+        'weekly_plans',
+        'weekly_plans.daily_meals',
+        'weekly_plans.daily_meals.meal_items',
+        'weekly_plans.daily_meals.meal_items.recipe',
+      ],
+    });
+
+    if (!mealPlan) {
+      throw new NotFoundException(
+        `Meal plan #${meal_plan_id} not found`,
+      );
+    }
+
+    return mealPlan;
+  }
+
+  // =========================================================
+  // TẠO MEAL PLAN THỦ CÔNG
+  // =========================================================
+
+  async createMealPlan(
+    user_id: number,
+    dto: CreateMealPlanDto,
+  ) {
+    const user = await this.userRepo.findOne({
+      where: { user_id },
+    });
+
+    if (!user) {
+      throw new NotFoundException(
+        `User #${user_id} not found`,
+      );
+    }
+
+    const startDate = new Date(dto.start_date);
+    const endDate = new Date(dto.end_date);
+
+    if (
+      Number.isNaN(startDate.getTime()) ||
+      Number.isNaN(endDate.getTime())
+    ) {
+      throw new BadRequestException(
+        'start_date hoặc end_date không hợp lệ',
+      );
+    }
+
+    if (endDate < startDate) {
+      throw new BadRequestException(
+        'end_date phải lớn hơn hoặc bằng start_date',
+      );
+    }
+
+    const mealPlan = new MealPlan();
+
+    mealPlan.user_id = user_id;
+    mealPlan.goal_id =
+      dto.goal_id ?? user.current_goal_id ?? null;
+    mealPlan.bmi_snapshot = user.bmi ?? null;
+    mealPlan.plan_type = dto.plan_type;
+    mealPlan.start_date = startDate;
+    mealPlan.end_date = endDate;
+    mealPlan.has_budget = dto.has_budget ?? false;
+
+    if (dto.total_budget !== undefined) {
+      mealPlan.total_budget = dto.total_budget;
+    }
+
+    if (dto.target_calories_per_day !== undefined) {
+      mealPlan.target_calories_per_day =
+        dto.target_calories_per_day;
+    }
+
+    mealPlan.status = MealPlanStatus.DRAFT;
+    mealPlan.generated_by = 'USER';
+
+    const savedMealPlan =
+      await this.mealPlanRepo.save(mealPlan);
+
+    return this.findMyMealPlanDetail(
+      user_id,
+      savedMealPlan.meal_plan_id,
+    );
+  }
+
+  // =========================================================
+  // VALIDATE MEAL PLAN
+  // =========================================================
+
+  async validateMealPlan(dto: ValidateMealPlanDto) {
+    const errors: string[] = [];
+
+    const startDate = new Date(dto.start_date);
+    const endDate = new Date(dto.end_date);
+
+    if (endDate < startDate) {
+      errors.push(
+        'Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu',
+      );
+    }
+
+    for (const day of dto.days ?? []) {
+      const dayDate = new Date(day.date);
+
+      if (dayDate < startDate || dayDate > endDate) {
+        errors.push(
+          `Ngày ${day.date} nằm ngoài khoảng thời gian của thực đơn`,
+        );
+      }
+    }
+
+    const recipeIds = [
+      ...new Set(
+        (dto.days ?? []).flatMap((day) =>
+          (day.meals ?? []).map((meal) => meal.recipe_id),
+        ),
+      ),
+    ];
+
+    if (recipeIds.length > 0) {
+      const recipes = await this.recipeRepo.find({
+        where: {
+          recipe_id: In(recipeIds),
+          status: RecipeStatus.APPROVED,
+        },
+      });
+
+      const approvedIds = new Set(
+        recipes.map((recipe) => recipe.recipe_id),
+      );
+
+      const invalidIds = recipeIds.filter(
+        (id) => !approvedIds.has(id),
+      );
+
+      if (invalidIds.length > 0) {
+        errors.push(
+          `Công thức không tồn tại hoặc chưa được duyệt: ${invalidIds.join(', ')}`,
+        );
+      }
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
+  }
+
+  // =========================================================
+  // UPDATE MY MEAL PLAN
+  // =========================================================
+
+  async updateMyMealPlan(
+    user_id: number,
+    meal_plan_id: number,
+    dto: UpdateMyMealPlanDto,
+  ) {
+    const mealPlan = await this.mealPlanRepo.findOne({
+      where: { meal_plan_id, user_id },
+    });
+
+    if (!mealPlan) {
+      throw new NotFoundException('Không tìm thấy thực đơn của bạn');
+    }
+
+    if (dto.name !== undefined) {
+      mealPlan.name = dto.name.trim() || null;
+    }
+
+    if (dto.target_calories_per_day !== undefined) {
+      mealPlan.target_calories_per_day =
+        dto.target_calories_per_day;
+    }
+
+    if (dto.has_budget !== undefined) {
+      mealPlan.has_budget = dto.has_budget;
+    }
+
+    if (dto.status !== undefined) {
+      mealPlan.status = dto.status;
+    }
+
+    await this.mealPlanRepo.save(mealPlan);
+
+    return this.findMyMealPlanDetail(user_id, meal_plan_id);
+  }
+
+  // =========================================================
+  // DELETE MY MEAL PLAN
+  // =========================================================
+
+  async deleteMyMealPlan(
+    user_id: number,
+    meal_plan_id: number,
+  ) {
+    const mealPlan = await this.mealPlanRepo.findOne({
+      where: { meal_plan_id, user_id },
+    });
+
+    if (!mealPlan) {
+      throw new NotFoundException('Không tìm thấy thực đơn của bạn');
+    }
+
+    await this.mealPlanRepo.remove(mealPlan);
+
+    return {
+      success: true,
+      message: 'Xóa thực đơn thành công',
+    };
+  }
+
+  // =========================================================
+  // UPDATE MEAL SLOT
+  // =========================================================
+
+  async updateMealSlot(
+    user_id: number,
+    meal_plan_id: number,
+    day_id: number,
+    slot_id: number,
+    dto: UpdateMealSlotDto,
+  ) {
+    // 1. Kiểm tra thực đơn thuộc người dùng
+    const mealPlan = await this.mealPlanRepo.findOne({
+      where: { meal_plan_id, user_id },
+    });
+
+    if (!mealPlan) {
+      throw new NotFoundException('Không tìm thấy thực đơn của bạn');
+    }
+
+    // 2. Kiểm tra ngày thuộc thực đơn
+    const dailyMeal = await this.dailyMealRepo.findOne({
+      where: { daily_meal_id: day_id },
+      relations: { weekly_plan: true },
+    });
+
+    if (
+      !dailyMeal ||
+      dailyMeal.weekly_plan.meal_plan_id !== meal_plan_id
+    ) {
+      throw new NotFoundException('Không tìm thấy ngày trong thực đơn');
+    }
+
+    // 3. Kiểm tra món ăn thuộc đúng ngày
+    const mealItem = await this.mealItemRepo.findOne({
+      where: {
+        meal_item_id: slot_id,
+        daily_meal_id: day_id,
+      },
+    });
+
+    if (!mealItem) {
+      throw new NotFoundException('Không tìm thấy món ăn trong bữa');
+    }
+
+    // 4. Cập nhật công thức nếu có truyền recipe_id
+    if (dto.recipe_id !== undefined) {
+      const recipe = await this.recipeRepo.findOne({
+        where: {
+          recipe_id: dto.recipe_id,
+          status: RecipeStatus.APPROVED,
+        },
+      });
+
+      if (!recipe) {
+        throw new BadRequestException(
+          'Công thức không tồn tại hoặc chưa được duyệt',
+        );
+      }
+
+      mealItem.recipe_id = dto.recipe_id;
+      mealItem.is_ai_suggested = false;
+      mealItem.added_by_user = true;
+    }
+
+    // 5. Cập nhật khẩu phần nếu có truyền
+    if (dto.portion_multiplier !== undefined) {
+      mealItem.portion_multiplier = dto.portion_multiplier;
+    }
+
+    if (
+      dto.recipe_id === undefined &&
+      dto.portion_multiplier === undefined
+    ) {
+      throw new BadRequestException(
+        'Bạn cần cung cấp recipe_id hoặc portion_multiplier',
+      );
+    }
+
+    await this.mealItemRepo.save(mealItem);
+
+    return this.findMyMealPlanDetail(user_id, meal_plan_id);
+  }
+
+  // =========================================================
+  // HELPER: CHUẨN BỊ DỮ LIỆU SINH THỰC ĐƠN CHO USER
+  // Dùng chung cho weekly và monthly: monthly chạy đúng công thức
+  // calo/bữa của weekly (Mifflin-St Jeor × hệ số hoạt động × hệ số mục tiêu,
+  // tối thiểu 1200 kcal, chia sáng 25% / trưa 35% / tối 40%).
+  // =========================================================
+
+  private async prepareUserGeneration(user_id: number) {
+    const user = await this.userRepo.findOne({
+      where: { user_id },
+      relations: ['current_goal'],
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User #${user_id} not found`);
+    }
+
+    const missing: string[] = [];
+
+    if (user.age == null) missing.push('age');
+    if (!user.gender) missing.push('gender');
+    if (user.height_cm == null) missing.push('height_cm');
+    if (user.weight_kg == null) missing.push('weight_kg');
+    if (!user.activity_level) missing.push('activity_level');
+
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `Cần cập nhật hồ sơ trước: thiếu ${missing.join(', ')}`,
+      );
+    }
+
+    const targetCalories = this.calculateTargetCalories(
+      user.age!,
+      user.gender!,
+      user.height_cm!,
+      user.weight_kg!,
+      user.activity_level!,
+      user.current_goal?.name ?? 'maintain',
+    );
+
+    const safeRecipes = await this.getSafeRecipes(user_id, user.diet_type);
+    const nutritionMap = await this.getNutritionMap(safeRecipes);
+
+    const mealTargets: Record<string, number> = {
+      breakfast: Math.round(targetCalories * 0.25),
+      lunch: Math.round(targetCalories * 0.35),
+      dinner: Math.round(targetCalories * 0.4),
+    };
+
+    return { user, targetCalories, safeRecipes, nutritionMap, mealTargets };
+  }
+
+  // =========================================================
+  // POST /meal-plans/generate/weekly
+  // =========================================================
+
+  async generateWeeklyMealPlan(
+    user_id: number,
+    dto: GenerateMealPlanDto = {},
+  ) {
+    const { user, targetCalories, safeRecipes, nutritionMap, mealTargets } =
+      await this.prepareUserGeneration(user_id);
+
+    const hasBudget = dto.total_budget !== undefined;
+
+    const costMap = hasBudget
+      ? await this.getRecipeCostMap(safeRecipes)
+      : new Map<number, number>();
+
+    // Chọn món trước khi ghi DB; ném lỗi nếu không đủ ngân sách.
+    const plannedMeals = this.planMeals({
+      dayCount: 7,
+      mealTargets,
+      recipes: safeRecipes,
+      nutritionMap,
+      costMap,
+      usedRecipeIds: new Set<number>(),
+      budget: hasBudget
+        ? { remaining: dto.total_budget!, slotsLeft: 21 }
+        : undefined,
+    });
+
+    const today = new Date();
+    const currentDay = today.getDay();
+    const diffToMonday =
+      currentDay === 0 ? -6 : 1 - currentDay;
+
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + diffToMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(0, 0, 0, 0);
+
+    const mealPlan = new MealPlan();
+
+    mealPlan.user_id = user_id;
+    mealPlan.goal_id = user.current_goal_id ?? null;
+    mealPlan.bmi_snapshot = user.bmi ?? null;
+    mealPlan.plan_type = PlanType.WEEKLY;
+    mealPlan.start_date = monday;
+    mealPlan.end_date = sunday;
+    mealPlan.has_budget = hasBudget;
+    if (hasBudget) {
+      mealPlan.total_budget = dto.total_budget!;
+    }
+    mealPlan.target_calories_per_day = targetCalories;
+    mealPlan.status = MealPlanStatus.ACTIVE;
+    mealPlan.generated_by = 'AI';
+
+    const savedMealPlan =
+      await this.mealPlanRepo.save(mealPlan);
+
+    const weeklyPlan = new WeeklyPlan();
+
+    weeklyPlan.meal_plan_id =
+      savedMealPlan.meal_plan_id;
+    weeklyPlan.week_number = 1;
+    weeklyPlan.start_date = monday;
+    weeklyPlan.end_date = sunday;
+    weeklyPlan.rollover_amount = 0;
+    weeklyPlan.week_calorie_target =
+      targetCalories * 7;
+
+    const savedWeeklyPlan =
+      await this.weeklyPlanRepo.save(weeklyPlan);
+
+    await this.savePlannedMeals(
+      savedWeeklyPlan.weekly_plan_id,
+      monday,
+      plannedMeals,
+    );
+
+    return this.findMyMealPlanDetail(
+      user_id,
+      savedMealPlan.meal_plan_id,
+    );
+  }
+
+  // =========================================================
+  // HELPER: GHI CÁC BỮA ĐÃ CHỌN VÀO DB
+  // =========================================================
+
+  private async savePlannedMeals(
+    weeklyPlanId: number,
+    firstDate: Date,
+    plannedMeals: PlannedMeal[],
+  ) {
+    for (const planned of plannedMeals) {
+      const mealDate = new Date(firstDate);
+      mealDate.setDate(firstDate.getDate() + planned.dayIndex);
+      mealDate.setHours(0, 0, 0, 0);
+
+      const dailyMeal = new DailyMeal();
+
+      dailyMeal.weekly_plan_id = weeklyPlanId;
+      dailyMeal.meal_date = mealDate;
+      dailyMeal.meal_type = planned.mealType;
+      dailyMeal.target_calories = planned.calories;
+
+      const savedDailyMeal = await this.dailyMealRepo.save(dailyMeal);
+
+      const mealItem = new MealItem();
+
+      mealItem.daily_meal_id = savedDailyMeal.daily_meal_id;
+      mealItem.recipe_id = planned.recipe.recipe_id;
+      mealItem.is_ai_suggested = true;
+      mealItem.added_by_user = false;
+      mealItem.portion_multiplier = 1;
+
+      await this.mealItemRepo.save(mealItem);
+    }
+  }
+
+  // =========================================================
+  // SAVE MEAL PLAN FROM FRONTEND
+  // =========================================================
+
+  async saveMealPlan(
+    user_id: number,
+    dto: SaveMealPlanDto,
+  ) {
+    const user = await this.userRepo.findOne({
+      where: { user_id },
+    });
+
+    if (!user) {
+      throw new NotFoundException(
+        `User #${user_id} not found`,
+      );
+    }
+
+    const startDate = new Date(dto.start_date);
+    const endDate = new Date(dto.end_date);
+
+    if (
+      Number.isNaN(startDate.getTime()) ||
+      Number.isNaN(endDate.getTime())
+    ) {
+      throw new BadRequestException(
+        'start_date hoặc end_date không hợp lệ',
+      );
+    }
+
+    if (endDate < startDate) {
+      throw new BadRequestException(
+        'end_date phải lớn hơn hoặc bằng start_date',
+      );
+    }
+
+    for (const week of dto.weekly_plans ?? []) {
+      const weekStart = new Date(week.start_date);
+      const weekEnd = new Date(week.end_date);
+
+      if (
+        Number.isNaN(weekStart.getTime()) ||
+        Number.isNaN(weekEnd.getTime())
+      ) {
+        throw new BadRequestException(
+          `Tuần ${week.week_number}: ngày không hợp lệ`,
+        );
+      }
+
+      if (weekEnd < weekStart) {
+        throw new BadRequestException(
+          `Tuần ${week.week_number}: end_date không hợp lệ`,
+        );
+      }
+
+      if (weekStart < startDate || weekEnd > endDate) {
+        throw new BadRequestException(
+          `Tuần ${week.week_number} nằm ngoài khoảng ngày của thực đơn`,
+        );
+      }
+
+      for (const meal of week.daily_meals ?? []) {
+        const mealDate = new Date(meal.meal_date);
+
+        if (Number.isNaN(mealDate.getTime())) {
+          throw new BadRequestException(
+            `Ngày ăn ${meal.meal_date} không hợp lệ`,
+          );
+        }
+
+        if (mealDate < weekStart || mealDate > weekEnd) {
+          throw new BadRequestException(
+            `Ngày ăn ${meal.meal_date} nằm ngoài khoảng ngày của tuần`,
+          );
+        }
+      }
+    }
+
+    const recipeIds = [
+      ...new Set(
+        (dto.weekly_plans ?? []).flatMap((week) =>
+          (week.daily_meals ?? []).flatMap((meal) =>
+            (meal.meal_items ?? []).map(
+              (item) => item.recipe_id,
+            ),
+          ),
+        ),
+      ),
+    ];
+
+    if (recipeIds.length > 0) {
+      const approvedRecipes = await this.recipeRepo.find({
+        where: {
+          recipe_id: In(recipeIds),
+          status: RecipeStatus.APPROVED,
+        },
+      });
+
+      const approvedIds = new Set(
+        approvedRecipes.map((recipe) => recipe.recipe_id),
+      );
+
+      const invalidIds = recipeIds.filter(
+        (id) => !approvedIds.has(id),
+      );
+
+      if (invalidIds.length > 0) {
+        throw new BadRequestException(
+          `Công thức không tồn tại hoặc chưa được duyệt: ${invalidIds.join(', ')}`,
+        );
+      }
+    }
+
+    const mealPlan = new MealPlan();
+
+    mealPlan.user_id = user_id;
+    mealPlan.goal_id =
+      dto.goal_id ?? user.current_goal_id ?? null;
+    mealPlan.bmi_snapshot = user.bmi ?? null;
+    mealPlan.plan_type = dto.plan_type ?? PlanType.WEEKLY;
+    mealPlan.start_date = startDate;
+    mealPlan.end_date = endDate;
+    mealPlan.has_budget = dto.has_budget ?? false;
+
+    if (dto.total_budget !== undefined) {
+      mealPlan.total_budget = dto.total_budget;
+    }
+
+    if (dto.target_calories_per_day !== undefined) {
+      mealPlan.target_calories_per_day =
+        dto.target_calories_per_day;
+    }
+
+    mealPlan.status = MealPlanStatus.ACTIVE;
+    mealPlan.generated_by = 'USER';
+
+    const savedMealPlan =
+      await this.mealPlanRepo.save(mealPlan);
+
+    for (const weekDto of dto.weekly_plans ?? []) {
+      const weeklyPlan = new WeeklyPlan();
+
+      weeklyPlan.meal_plan_id =
+        savedMealPlan.meal_plan_id;
+      weeklyPlan.week_number = weekDto.week_number;
+      weeklyPlan.start_date = new Date(weekDto.start_date);
+      weeklyPlan.end_date = new Date(weekDto.end_date);
+      weeklyPlan.week_calorie_target =
+        weekDto.week_calorie_target ?? 0;
+
+      const savedWeeklyPlan =
+        await this.weeklyPlanRepo.save(weeklyPlan);
+
+      for (const dayDto of weekDto.daily_meals ?? []) {
+        const dailyMeal = new DailyMeal();
+
+        dailyMeal.weekly_plan_id =
+          savedWeeklyPlan.weekly_plan_id;
+        dailyMeal.meal_date = new Date(dayDto.meal_date);
+        dailyMeal.meal_type = dayDto.meal_type;
+        dailyMeal.target_calories =
+          dayDto.target_calories ?? 0;
+
+        const savedDailyMeal =
+          await this.dailyMealRepo.save(dailyMeal);
+
+        for (const itemDto of dayDto.meal_items ?? []) {
+          const mealItem = new MealItem();
+
+          mealItem.daily_meal_id =
+            savedDailyMeal.daily_meal_id;
+          mealItem.recipe_id = itemDto.recipe_id;
+          mealItem.is_ai_suggested =
+            itemDto.is_ai_suggested ?? false;
+          mealItem.added_by_user = true;
+          mealItem.portion_multiplier =
+            itemDto.portion_multiplier ?? 1;
+
+          await this.mealItemRepo.save(mealItem);
+        }
+      }
+    }
+
+    return this.findMyMealPlanDetail(
+      user_id,
+      savedMealPlan.meal_plan_id,
+    );
+  }
+
+  // =========================================================
+  // GENERATE MONTHLY MEAL PLAN
+  // =========================================================
+
+  async generateMonthlyMealPlan(
+    user_id: number,
+    dto: GenerateMealPlanDto = {},
+  ) {
+    const { user, targetCalories, safeRecipes, nutritionMap, mealTargets } =
+      await this.prepareUserGeneration(user_id);
+
+    const today = new Date();
+
+    const monthStart = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      1,
+    );
+
+    const monthEnd = new Date(
+      today.getFullYear(),
+      today.getMonth() + 1,
+      0,
+    );
+
+    monthStart.setHours(0, 0, 0, 0);
+    monthEnd.setHours(0, 0, 0, 0);
+
+    const hasBudget = dto.total_budget !== undefined;
+    const dayMs = 24 * 60 * 60 * 1000;
+
+    // Chia tháng thành các tuần (Thứ 2 - Chủ nhật, tuần đầu/cuối có thể ngắn hơn)
+    const weeks: { start: Date; end: Date; days: number }[] = [];
+    let cursor = new Date(monthStart);
+
+    while (cursor <= monthEnd) {
+      const start = new Date(cursor);
+      const end = new Date(cursor);
+
+      end.setDate(start.getDate() + ((7 - start.getDay()) % 7));
+
+      if (end > monthEnd) {
+        end.setTime(monthEnd.getTime());
+      }
+
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+
+      weeks.push({
+        start,
+        end,
+        days: Math.round((end.getTime() - start.getTime()) / dayMs) + 1,
+      });
+
+      cursor = new Date(end);
+      cursor.setDate(cursor.getDate() + 1);
+      cursor.setHours(0, 0, 0, 0);
+    }
+
+    // Chọn món cho cả tháng trước khi ghi DB; ném lỗi nếu không đủ ngân sách.
+    const costMap = hasBudget
+      ? await this.getRecipeCostMap(safeRecipes)
+      : new Map<number, number>();
+
+    const totalDays = weeks.reduce((sum, week) => sum + week.days, 0);
+    const budget: BudgetTracker | undefined = hasBudget
+      ? { remaining: dto.total_budget!, slotsLeft: totalDays * 3 }
+      : undefined;
+
+    const plannedByWeek = weeks.map((week) =>
+      this.planMeals({
+        dayCount: week.days,
+        mealTargets,
+        recipes: safeRecipes,
+        nutritionMap,
+        costMap,
+        usedRecipeIds: new Set<number>(),
+        budget,
+      }),
+    );
+
+    const mealPlan = new MealPlan();
+
+    mealPlan.user_id = user_id;
+    mealPlan.goal_id = user.current_goal_id ?? null;
+    mealPlan.bmi_snapshot = user.bmi ?? null;
+    mealPlan.plan_type = PlanType.MONTHLY;
+    mealPlan.start_date = monthStart;
+    mealPlan.end_date = monthEnd;
+    mealPlan.has_budget = hasBudget;
+
+    if (hasBudget) {
+      mealPlan.total_budget = dto.total_budget!;
+    }
+
+    mealPlan.target_calories_per_day = targetCalories;
+    mealPlan.status = MealPlanStatus.ACTIVE;
+    mealPlan.generated_by = 'AI';
+
+    const savedMealPlan =
+      await this.mealPlanRepo.save(mealPlan);
+
+    for (const [index, week] of weeks.entries()) {
+      const weeklyPlan = new WeeklyPlan();
+
+      weeklyPlan.meal_plan_id =
+        savedMealPlan.meal_plan_id;
+      weeklyPlan.week_number = index + 1;
+      weeklyPlan.start_date = new Date(week.start);
+      weeklyPlan.end_date = new Date(week.end);
+      weeklyPlan.rollover_amount = 0;
+      weeklyPlan.week_calorie_target =
+        targetCalories * week.days;
+
+      const savedWeeklyPlan =
+        await this.weeklyPlanRepo.save(weeklyPlan);
+
+      await this.savePlannedMeals(
+        savedWeeklyPlan.weekly_plan_id,
+        week.start,
+        plannedByWeek[index],
+      );
+    }
+
+    return this.findMyMealPlanDetail(
+      user_id,
+      savedMealPlan.meal_plan_id,
+    );
+  }
+
+  // =========================================================
+  // DỊ ỨNG CỦA HỒ SƠ NGƯỜI THÂN
+  // =========================================================
+
+  private async findOwnedProfile(user_id: number, profile_id: number) {
+    const profile = await this.mealPlanProfileRepo.findOne({
+      where: { profile_id, user_id },
+    });
+
+    if (!profile) {
+      throw new NotFoundException(
+        'Không tìm thấy hồ sơ người thân hoặc bạn không có quyền sử dụng hồ sơ này',
+      );
+    }
+
+    return profile;
+  }
+
+  async getProfileAllergies(user_id: number, profile_id: number) {
+    await this.findOwnedProfile(user_id, profile_id);
+
+    const rows = await this.profileAllergyRepo.find({
+      where: { profile_id },
+      relations: ['ingredient'],
+    });
+
+    return rows.map((row) => ({
+      ingredient_id: row.ingredient_id,
+      ingredient_name: row.ingredient?.ingredient_name,
+    }));
+  }
+
+  // Thay toàn bộ danh sách dị ứng của hồ sơ bằng danh sách mới.
+  async setProfileAllergies(
+    user_id: number,
+    profile_id: number,
+    ingredientIds: number[],
+  ) {
+    await this.findOwnedProfile(user_id, profile_id);
+
+    const ids = [...new Set(ingredientIds)];
+
+    if (ids.length > 0) {
+      const validCount = await this.profileAllergyRepo.manager
+        .getRepository(Ingredient)
+        .count({ where: { ingredient_id: In(ids) } });
+
+      if (validCount !== ids.length) {
+        throw new BadRequestException('Có ingredient_id không tồn tại');
+      }
+    }
+
+    await this.profileAllergyRepo.manager.transaction(async (manager) => {
+      await manager.delete(ProfileAllergy, { profile_id });
+
+      if (ids.length > 0) {
+        await manager.insert(
+          ProfileAllergy,
+          ids.map((ingredient_id) => ({ profile_id, ingredient_id })),
+        );
+      }
+    });
+
+    return this.getProfileAllergies(user_id, profile_id);
+  }
+
+  // =========================================================
+  // GENERATE MEAL PLAN FOR SOMEONE
+  // =========================================================
+
+  async generateMealPlanForSomeone(
+    user_id: number,
+    dto: GenerateForSomeoneDto,
+  ) {
+    // Tính năng Premium: tạo thực đơn cho người thân
+    const isPremium = await this.subscriptionService.isPremium(user_id);
+
+    if (!isPremium) {
+      throw new ForbiddenException(
+        'Tạo thực đơn cho người thân là tính năng Premium. Vui lòng nâng cấp gói để sử dụng.',
+      );
+    }
+
+    const profile = await this.mealPlanProfileRepo.findOne({
+      where: {
+        profile_id: dto.profile_id,
+        user_id,
+      },
+    });
+
+    if (!profile) {
+      throw new NotFoundException(
+        'Không tìm thấy hồ sơ người thân hoặc bạn không có quyền sử dụng hồ sơ này',
+      );
+    }
+
+    const missing: string[] = [];
+
+    if (profile.age == null) missing.push('age');
+    if (!profile.gender) missing.push('gender');
+    if (profile.height_cm == null) missing.push('height_cm');
+    if (profile.weight_kg == null) missing.push('weight_kg');
+    if (!profile.activity_level) missing.push('activity_level');
+
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `Cần cập nhật hồ sơ ${profile.full_name}: thiếu ${missing.join(', ')}`,
+      );
+    }
+
+    const targetCalories = this.calculateTargetCalories(
+      profile.age!,
+      profile.gender!,
+      profile.height_cm!,
+      profile.weight_kg!,
+      profile.activity_level!,
+    );
+
+    // Dị ứng lấy theo hồ sơ người thân, không phải của chủ tài khoản.
+    const profileAllergies = await this.profileAllergyRepo.find({
+      where: { profile_id: profile.profile_id },
+    });
+
+    const safeRecipes = await this.getSafeRecipes(
+      user_id,
+      profile.diet_type ?? undefined,
+      profileAllergies.map((row) => row.ingredient_id),
+    );
+
+    const hasBudget = dto.total_budget !== undefined;
+
+    const nutritionMap =
+      await this.getNutritionMap(safeRecipes);
+
+    const costMap = hasBudget
+      ? await this.getRecipeCostMap(safeRecipes)
+      : new Map<number, number>();
+
+    const mealTargets: Record<string, number> = {
+      breakfast: Math.round(targetCalories * 0.25),
+      lunch: Math.round(targetCalories * 0.35),
+      dinner: Math.round(targetCalories * 0.4),
+    };
+
+    // Chọn món trước khi ghi DB; ném lỗi nếu không đủ ngân sách.
+    const plannedMeals = this.planMeals({
+      dayCount: 7,
+      mealTargets,
+      recipes: safeRecipes,
+      nutritionMap,
+      costMap,
+      usedRecipeIds: new Set<number>(),
+      budget: hasBudget
+        ? { remaining: dto.total_budget!, slotsLeft: 21 }
+        : undefined,
+    });
+
+    const today = new Date();
+    const monday = new Date(today);
+    const dayOfWeek = monday.getDay();
+
+    monday.setDate(
+      monday.getDate() +
+      (dayOfWeek === 0 ? -6 : 1 - dayOfWeek),
+    );
+
+    monday.setHours(0, 0, 0, 0);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(0, 0, 0, 0);
+
+    const mealPlan = new MealPlan();
+
+    mealPlan.user_id = user_id;
+    mealPlan.target_profile_id = profile.profile_id;
+    mealPlan.goal_id = null;
+    mealPlan.bmi_snapshot = profile.bmi ?? null;
+    mealPlan.plan_type = PlanType.WEEKLY;
+    mealPlan.start_date = monday;
+    mealPlan.end_date = sunday;
+    mealPlan.has_budget = hasBudget;
+
+    if (hasBudget) {
+      mealPlan.total_budget = dto.total_budget!;
+    }
+
+    mealPlan.target_calories_per_day = targetCalories;
+    mealPlan.status = MealPlanStatus.ACTIVE;
+    mealPlan.generated_by = 'AI';
+
+    const savedMealPlan =
+      await this.mealPlanRepo.save(mealPlan);
+
+    const weeklyPlan = new WeeklyPlan();
+
+    weeklyPlan.meal_plan_id =
+      savedMealPlan.meal_plan_id;
+    weeklyPlan.week_number = 1;
+    weeklyPlan.start_date = monday;
+    weeklyPlan.end_date = sunday;
+    weeklyPlan.rollover_amount = 0;
+    weeklyPlan.week_calorie_target =
+      targetCalories * 7;
+
+    const savedWeeklyPlan =
+      await this.weeklyPlanRepo.save(weeklyPlan);
+
+    await this.savePlannedMeals(
+      savedWeeklyPlan.weekly_plan_id,
+      monday,
+      plannedMeals,
+    );
+
+    return this.findMyMealPlanDetail(
+      user_id,
+      savedMealPlan.meal_plan_id,
+    );
+  }
+}

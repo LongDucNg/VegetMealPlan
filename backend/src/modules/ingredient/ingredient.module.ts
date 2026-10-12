@@ -6,13 +6,29 @@ import { UserAllergy } from './entities/user-allergy.entity';
 import { UserIngredientPrice } from './entities/user-ingredient-price.entity';
 import { IngredientService } from './ingredient.service';
 import { IngredientController } from './ingredient.controller';
+import { IngredientReplacement } from './entities/ingredient-replacement.entity';
+import { AdminIngredientController } from './admin-ingredient.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Ingredient, IngredientConflict, UserAllergy, UserIngredientPrice]),
+    TypeOrmModule.forFeature([
+      Ingredient,
+      IngredientConflict,
+      UserAllergy,
+      UserIngredientPrice,
+      IngredientReplacement,
+    ]),
   ],
-  controllers: [IngredientController],
-  providers: [IngredientService],
-  exports: [IngredientService, TypeOrmModule],
+  controllers: [
+    IngredientController,
+    AdminIngredientController,
+  ],
+  providers: [
+    IngredientService,
+  ],
+  exports: [
+    IngredientService,
+    TypeOrmModule,
+  ],
 })
 export class IngredientModule {}

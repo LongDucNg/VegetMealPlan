@@ -1,8 +1,10 @@
+import { ApiBearerAuth } from '@nestjs/swagger';
 import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { SubscriptionService } from './subscription.service';
 
 @UseGuards(AuthGuard('jwt'))
+@ApiBearerAuth()
 @Controller('subscriptions')
 export class SubscriptionController {
   constructor(private readonly subscriptionService: SubscriptionService) {}
