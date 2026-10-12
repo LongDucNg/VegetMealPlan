@@ -6,6 +6,7 @@ import { RecipeIngredient } from '../../modules/recipe/entities/recipe-ingredien
 import { RecipeCategory } from '../../modules/recipe/entities/recipe-category.entity';
 import { NutritionInfo } from '../../modules/nutrition/entities/nutrition-info.entity';
 import { Category } from '../../modules/category/entities/category.entity';
+import { IngredientReplacement } from '../../modules/ingredient/entities/ingredient-replacement.entity';
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -16,6 +17,7 @@ const load = (file: string): any[] =>
 const ingredients = load('ingredients.json');
 const recipes = load('recipes.json');
 const conflicts = load('ingredient-conflicts.json');
+const replacements = load('ingredient-replacements.json');
 
 /**
  * Seed kho món chay: nguyên liệu, công thức, dinh dưỡng, danh mục, cặp kỵ nhau.
@@ -24,7 +26,9 @@ const conflicts = load('ingredient-conflicts.json');
  * LƯU Ý DỮ LIỆU: dinh dưỡng và giá là ƯỚC TÍNH, chưa đối chiếu USDA/Viện Dinh dưỡng.
  * - ingredients.unit = 'kg' (chất lỏng coi 1 L ≈ 1 kg); avg_price_per_unit = VND/kg.
  * - recipes.estimated_cost = tổng giá cả món (VND); nutrition_infos = trên 1 khẩu phần.
- * - recipes.meal_type: breakfast | snack | any (any = món trưa/tối).
+ * - recipes.meal_type: breakfast | lunch | snack; recipes.suitable_meals: các bữa phù hợp, cách nhau dấu phẩy
+ *   (vd. "lunch,dinner"). Bộ sinh thực đơn và bộ lọc mealType đọc cột suitable_meals.
+ * - Chạy lại với SEED_RESET=true để XOÁ SẠCH công thức/nguyên liệu (kèm mọi bảng tham chiếu, CASCADE) rồi nạp lại.
  * - Nhóm món (recipe_type) và loại món course (food_type) được seed thành categories.
  */
 const chunk = <T>(arr: T[], n = 500): T[][] =>
@@ -37,13 +41,24 @@ async function resetSequence(m: EntityManager, table: string, col: string) {
 }
 
 export async function seedVegetarianData(ds: DataSource) {
+  const reset = process.env.SEED_RESET === 'true';
+
   const existing = await ds.getRepository(Ingredient).count();
-  if (existing > 0) {
+  if (existing > 0 && !reset) {
     console.log(`⏭️  Bỏ qua seed món chay: bảng ingredients đã có ${existing} dòng.`);
     return;
   }
 
   await ds.transaction(async (m) => {
+    // Xoá và nạp lại trong CÙNG một transaction: nếu nạp lỗi thì dữ liệu cũ được giữ nguyên.
+    if (reset) {
+      console.log('⚠️  SEED_RESET=true: xoá công thức, nguyên liệu và dữ liệu tham chiếu rồi nạp lại...');
+      await m.query(
+        'TRUNCATE TABLE recipe_ingredients, recipe_categories, nutrition_infos, recipes, ' +
+          'ingredient_conflicts, ingredient_replacements, ingredients RESTART IDENTITY CASCADE',
+      );
+    }
+
     // 1. Nguyên liệu (giữ ID số nguyên theo file seed)
     for (const part of chunk(ingredients as any[])) {
       await m.insert(
@@ -100,6 +115,7 @@ export async function seedVegetarianData(ds: DataSource) {
           servings: r.servings,
           difficulty: r.difficulty,
           meal_type: r.meal_type,
+          suitable_meals: r.suitable_meals,
           diet_type: r.diet_type,
           estimated_cost: r.estimated_cost,
           status: RecipeStatus.APPROVED,
@@ -129,9 +145,12 @@ export async function seedVegetarianData(ds: DataSource) {
 
     // 4. Cặp nguyên liệu kỵ nhau (luôn id_1 < id_2)
     for (const part of chunk(conflicts as any[])) await m.insert(IngredientConflict, part);
+
+    // 5. Gợi ý thay thế nguyên liệu
+    for (const part of chunk(replacements as any[])) await m.insert(IngredientReplacement, part);
   });
 
   console.log(
-    `✅ Seed món chay: ${ingredients.length} nguyên liệu, ${recipes.length} món, ${conflicts.length} cặp kỵ nhau.`,
+    `✅ Seed món chay: ${ingredients.length} nguyên liệu, ${recipes.length} món, ${conflicts.length} cặp kỵ nhau, ${replacements.length} cặp thay thế.`,
   );
 }
