@@ -108,18 +108,6 @@ export class MealPlanService {
   ): boolean {
     const requestedMeal = mealType.trim().toLowerCase();
 
-    const suitableMeals = recipe.suitable_meals
-      ?.split(',')
-      .map((meal) => meal.trim().toLowerCase())
-      .filter(Boolean);
-
-    if (suitableMeals && suitableMeals.length > 0) {
-      return (
-        suitableMeals.includes(requestedMeal) ||
-        suitableMeals.includes('any')
-      );
-    }
-
     const recipeMealType = recipe.meal_type
       ?.trim()
       .toLowerCase();
