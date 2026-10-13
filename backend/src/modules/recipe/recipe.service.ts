@@ -123,17 +123,9 @@ export class RecipeService {
       qb.andWhere(
         `(
           LOWER(recipe.meal_type) = :mealType
-          OR LOWER(recipe.suitable_meals) = :mealType
-          OR LOWER(recipe.suitable_meals) LIKE :mealTypeStart
-          OR LOWER(recipe.suitable_meals) LIKE :mealTypeMiddle
-          OR LOWER(recipe.suitable_meals) LIKE :mealTypeEnd
+          OR LOWER(recipe.meal_type) = 'any'
         )`,
-        {
-          mealType: mealTypeValue,
-          mealTypeStart: `${mealTypeValue},%`,
-          mealTypeMiddle: `%,${mealTypeValue},%`,
-          mealTypeEnd: `%,${mealTypeValue}`,
-        },
+        { mealType: mealTypeValue },
       );
     }
 
@@ -628,15 +620,7 @@ export class RecipeService {
         const selectedMeal = query.mealType.trim().toLowerCase();
         const recipeMeal = recipe.meal_type?.trim().toLowerCase();
 
-        const suitableMeals = (recipe.suitable_meals || '')
-          .split(',')
-          .map((meal) => meal.trim().toLowerCase())
-          .filter((meal) => meal.length > 0);
-
-        if (
-          recipeMeal !== selectedMeal &&
-          !suitableMeals.includes(selectedMeal)
-        ) {
+        if (recipeMeal !== selectedMeal && recipeMeal !== 'any') {
           continue;
         }
       }
