@@ -92,8 +92,4 @@ export class Recipe {
 
   @UpdateDateColumn()
   updated_at: Date;
-
-@Column({type: 'varchar',length: 100,nullable: true,})
-suitable_meals: string | null;
-
 }

@@ -26,8 +26,7 @@ const replacements = load('ingredient-replacements.json');
  * LƯU Ý DỮ LIỆU: dinh dưỡng và giá là ƯỚC TÍNH, chưa đối chiếu USDA/Viện Dinh dưỡng.
  * - ingredients.unit = 'kg' (chất lỏng coi 1 L ≈ 1 kg); avg_price_per_unit = VND/kg.
  * - recipes.estimated_cost = tổng giá cả món (VND); nutrition_infos = trên 1 khẩu phần.
- * - recipes.meal_type: breakfast | lunch | snack; recipes.suitable_meals: các bữa phù hợp, cách nhau dấu phẩy
- *   (vd. "lunch,dinner"). Bộ sinh thực đơn và bộ lọc mealType đọc cột suitable_meals.
+ * - recipes.meal_type: breakfast | snack | any (any = dùng được cho mọi bữa; bộ lọc và bộ sinh thực đơn coi 'any' là khớp mọi bữa).
  * - Chạy lại với SEED_RESET=true để XOÁ SẠCH công thức/nguyên liệu (kèm mọi bảng tham chiếu, CASCADE) rồi nạp lại.
  * - Nhóm món (recipe_type) và loại món course (food_type) được seed thành categories.
  */
@@ -115,7 +114,6 @@ export async function seedVegetarianData(ds: DataSource) {
           servings: r.servings,
           difficulty: r.difficulty,
           meal_type: r.meal_type,
-          suitable_meals: r.suitable_meals,
           diet_type: r.diet_type,
           estimated_cost: r.estimated_cost,
           status: RecipeStatus.APPROVED,
