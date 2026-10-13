@@ -5,6 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
+  Index,
 } from 'typeorm';
 import { HealthGoal } from '../../health-goal/entities/health-goal.entity';
 
@@ -50,8 +51,14 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column()
-  password_hash: string;
+  // null = tài khoản chỉ đăng nhập bằng Google (chưa từng đặt mật khẩu).
+  @Column({ type: 'varchar', nullable: true })
+  password_hash: string | null;
+
+  // "sub" của Google, gắn khi user đăng nhập bằng Google lần đầu. Unique để một tài khoản Google chỉ ứng với một user.
+  @Index('UQ_users_google_id', { unique: true })
+  @Column({ type: 'varchar', nullable: true })
+  google_id: string | null;
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.AUTHORIZED })
   role: UserRole;
