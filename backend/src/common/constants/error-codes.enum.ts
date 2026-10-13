@@ -31,6 +31,10 @@ export enum ErrorCode {
   AUTH_INVALID_CREDENTIALS = 'AUTH_INVALID_CREDENTIALS',
   /** 401: tài khoản bị admin khoá. */
   AUTH_ACCOUNT_LOCKED = 'AUTH_ACCOUNT_LOCKED',
+  /** 503: server chưa cấu hình GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET nên không đăng nhập Google được. */
+  AUTH_GOOGLE_NOT_CONFIGURED = 'AUTH_GOOGLE_NOT_CONFIGURED',
+  /** 401: mã đổi token sau khi đăng nhập Google không tồn tại, đã dùng hoặc đã hết hạn. */
+  AUTH_GOOGLE_CODE_INVALID = 'AUTH_GOOGLE_CODE_INVALID',
 
   // ---- User / hồ sơ ----
   /** 404 */
