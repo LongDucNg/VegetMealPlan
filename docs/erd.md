@@ -117,6 +117,17 @@ erDiagram
         string reason
     }
 
+    INGREDIENT_REPLACEMENT {
+        int replacement_id PK
+        int original_ingredient_id FK "nguyên liệu gốc"
+        int replacement_ingredient_id FK "nguyên liệu thay thế"
+        string ratio "tỷ lệ quy đổi"
+        string reason
+        string applicable_when "khi nào dùng (dị ứng, thiếu nguyên liệu...)"
+        string note
+        datetime created_at
+    }
+
     RECIPE {
         int recipe_id PK
         string title
@@ -135,6 +146,7 @@ erDiagram
         string status "draft/pending_review/approved/rejected/removed"
         datetime approved_at "nullable"
         int approved_by FK "nullable, -> USER (admin)"
+        text review_reason "nullable, lý do admin từ chối / yêu cầu sửa"
         datetime created_at
         datetime updated_at
     }
@@ -201,6 +213,11 @@ erDiagram
         int ingredient_id PK,FK
     }
 
+    PROFILE_ALLERGY {
+        int profile_id PK,FK "-> MEAL_PLAN_PROFILE"
+        int ingredient_id PK,FK
+    }
+
     FAVORITE_RECIPE {
         int user_id PK,FK
         int recipe_id PK,FK
@@ -237,6 +254,7 @@ erDiagram
         float target_calories_per_day
         string status "draft/active/completed"
         string generated_by "AI / manual"
+        string name "nullable, tên thực đơn do người dùng đặt"
         datetime created_at
     }
 
@@ -374,6 +392,10 @@ erDiagram
     INGREDIENT ||--o{ USER_ALLERGY : flagged_in
     INGREDIENT ||--o{ INGREDIENT_CONFLICT : ingredient_1
     INGREDIENT ||--o{ INGREDIENT_CONFLICT : ingredient_2
+    INGREDIENT ||--o{ INGREDIENT_REPLACEMENT : original
+    INGREDIENT ||--o{ INGREDIENT_REPLACEMENT : replaced_by
+    MEAL_PLAN_PROFILE ||--o{ PROFILE_ALLERGY : declares
+    INGREDIENT ||--o{ PROFILE_ALLERGY : flagged_in
     INGREDIENT ||--o{ RECIPE_INGREDIENT : used_in
     RECIPE ||--o{ RECIPE_INGREDIENT : requires
     RECIPE ||--o| NUTRITION_INFO : has
