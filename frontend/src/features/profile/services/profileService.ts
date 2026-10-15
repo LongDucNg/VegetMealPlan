@@ -102,7 +102,35 @@ export const profileService = {
    * Lấy hồ sơ người dùng hiện tại (đồng bộ tức thì từ cache)
    */
   getProfile(): UserProfile {
-    return storage.getItem<UserProfile>(STORAGE_KEYS.USER_PROFILE, DEFAULT_MOCK_PROFILE);
+    const raw = storage.getItem<UserProfile | null>(STORAGE_KEYS.USER_PROFILE, null);
+    const authUser = tokenStorage.getUser();
+
+    // If cache contains legacy mock data, purge it
+    if (raw && (raw.name === "Demo User" || raw.email === "demo@veggiehub.vn" || raw.handle === "demouser")) {
+      storage.removeItem(STORAGE_KEYS.USER_PROFILE);
+    } else if (raw) {
+      if (authUser && (raw.id === "guest" || raw.id === 1)) {
+        raw.id = authUser.user_id;
+        raw.name = authUser.full_name || raw.name;
+        raw.email = authUser.email || raw.email;
+        raw.handle = authUser.email ? authUser.email.split("@")[0] : raw.handle;
+      }
+      return raw;
+    }
+
+    if (authUser) {
+      const userProfile: UserProfile = {
+        ...DEFAULT_MOCK_PROFILE,
+        id: authUser.user_id,
+        name: authUser.full_name || "Thành viên VeggieHub",
+        email: authUser.email,
+        handle: authUser.email ? authUser.email.split("@")[0] : "member",
+      };
+      storage.setItem(STORAGE_KEYS.USER_PROFILE, userProfile);
+      return userProfile;
+    }
+
+    return DEFAULT_MOCK_PROFILE;
   },
 
   getStoredProfile(): UserProfile {

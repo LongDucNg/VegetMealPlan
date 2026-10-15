@@ -55,6 +55,13 @@ export class QueryRecipeDto {
   @IsString()
   difficulty?: string;
 
+  // Lọc theo người tạo
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  created_by?: number;
+
   // Phân trang
   @IsOptional()
   @Type(() => Number)
