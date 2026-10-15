@@ -1,19 +1,19 @@
 import { UserProfile } from "../types";
 
 export const DEFAULT_MOCK_PROFILE: UserProfile = {
-  id: 1,
-  name: "Demo User",
-  age: 22,
-  gender: "male",
-  height: 170,
-  weight: 65,
+  id: "guest",
+  name: "Thành viên VeggieHub",
+  age: 25,
+  gender: "other",
+  height: 165,
+  weight: 60,
   activityLevel: "moderate",
-  healthGoal: "maintain_weight",
+  healthGoal: "healthy_eating",
   vegetarianType: "vegan",
-  allergies: ["peanut", "soy"],
-  email: "demo@veggiehub.vn",
-  handle: "demouser",
-  bio: "Plant-based enthusiast from Ho Chi Minh City 🌿 Passionate about wholesome vegan cooking and balanced macros.",
+  allergies: [],
+  email: "",
+  handle: "member",
+  bio: "",
 };
 
 export const ALLERGY_MASTER_LIST = [
