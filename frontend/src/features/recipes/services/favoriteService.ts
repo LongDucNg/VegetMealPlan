@@ -3,6 +3,8 @@ import { Recipe } from "../types";
 import { recipeService } from "./recipeService";
 import { DayMealPlan } from "@/features/meal-planner/types";
 import { priceService } from "./priceService";
+import { apiClient } from "@/lib/apiClient";
+import { tokenStorage } from "@/lib/tokenStorage";
 
 export interface SavedMealPlan {
   id: string;
@@ -175,7 +177,43 @@ export const favoriteService = {
       recipes: updatedRecipes,
     });
 
+    // Sync to backend if logged in
+    const token = tokenStorage.getToken();
+    const numericId = parseInt(recipeId.replace(/\D/g, ""), 10);
+    if (token && !isNaN(numericId) && numericId > 0) {
+      if (exists) {
+        apiClient.delete(`/users/me/favorites/recipes/${numericId}`).catch(() => {});
+      } else {
+        apiClient.post(`/users/me/favorites/recipes/${numericId}`).catch(() => {});
+      }
+    }
+
     return !exists;
+  },
+
+  /**
+   * Đồng bộ danh sách yêu thích từ backend
+   * GET /users/me/favorites/recipes
+   */
+  async fetchServerFavorites(userId: string): Promise<string[]> {
+    const token = tokenStorage.getToken();
+    if (!token) return this.getUserFavorites(userId).recipes;
+
+    try {
+      const res = await apiClient.get<Array<{ recipe_id: number }>>(
+        "/users/me/favorites/recipes"
+      );
+      if (Array.isArray(res)) {
+        const ids = res.map((r) => `rec-${r.recipe_id}`);
+        const current = this.getUserFavorites(userId);
+        this.saveUserFavorites({
+          ...current,
+          recipes: Array.from(new Set([...current.recipes, ...ids])),
+        });
+        return ids;
+      }
+    } catch {}
+    return this.getUserFavorites(userId).recipes;
   },
 
   /**
