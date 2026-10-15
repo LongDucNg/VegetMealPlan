@@ -32,6 +32,7 @@ export interface WeeklyMealPlan {
   targetCalories: number;
   totalEstimatedCost: number;
   averageDailyCost: number;
+  budgetLimit?: number;
 }
 
 export interface CalendarDayMealPlan extends DayMealPlan {
@@ -51,6 +52,7 @@ export interface MonthlyMealPlan {
   averageDailyCalories: number;
   averageDailyCost: number;
   targetCalories: number;
+  budgetLimit?: number;
 }
 
 export interface GenerationPlanOptions {

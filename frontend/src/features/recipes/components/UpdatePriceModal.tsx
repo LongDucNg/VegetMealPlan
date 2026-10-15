@@ -6,6 +6,8 @@ import { Recipe } from "../types";
 import { priceService, PRICE_WARNING_TEXT } from "../services/priceService";
 import { useProfile } from "@/features/profile/hooks/useProfile";
 
+import { ingredientApiService } from "../services/ingredientApiService";
+
 interface UpdatePriceModalProps {
   recipe: Recipe | null;
   isOpen: boolean;
@@ -35,7 +37,6 @@ export function UpdatePriceModal({
     }
   }, [recipe, userId, isOpen]);
 
-
   if (!isOpen || !recipe) return null;
 
   const estimatedCost =
@@ -43,7 +44,7 @@ export function UpdatePriceModal({
     priceService.calculateRecipeCost(recipe.ingredients || []).estimatedCost;
   const currentMyPrice = priceService.getMyPrice(userId, recipe.id);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = parseInt(priceInput.replace(/\D/g, ""), 10);
     if (isNaN(parsed) || parsed <= 0) {
@@ -51,22 +52,40 @@ export function UpdatePriceModal({
       return;
     }
 
+    const numericId = parseInt(recipe.id.replace(/\D/g, ""), 10);
+    if (!isNaN(numericId)) {
+      try {
+        await ingredientApiService.setMyRecipePrice(numericId, parsed);
+      } catch (err) {
+        console.warn("Failed to set price on server:", err);
+      }
+    }
+
     priceService.setMyPrice(userId, recipe.id, parsed);
     setSuccessMsg(true);
     setTimeout(() => {
       onSaved?.();
       onClose();
-    }, 600);
+    }, 400);
   };
 
-  const handleResetToAdmin = () => {
+  const handleResetToAdmin = async () => {
+    const numericId = parseInt(recipe.id.replace(/\D/g, ""), 10);
+    if (!isNaN(numericId)) {
+      try {
+        await ingredientApiService.removeMyRecipePrice(numericId);
+      } catch (err) {
+        console.warn("Failed to delete price on server:", err);
+      }
+    }
+
     priceService.removeMyPrice(userId, recipe.id);
     setPriceInput("");
     setSuccessMsg(true);
     setTimeout(() => {
       onSaved?.();
       onClose();
-    }, 600);
+    }, 400);
   };
 
   return (
