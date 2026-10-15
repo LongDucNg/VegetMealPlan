@@ -48,6 +48,32 @@ export interface CategoryItem {
   type: "Food Type" | "Recipe Category";
   recipeCount: number;
   status: "Active" | "Archived";
+  description?: string;
+}
+
+export interface BackendCategory {
+  category_id: number;
+  category_name: string;
+  description?: string;
+  category_type?: string;
+  status: "active" | "inactive";
+  created_by?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateCategoryPayload {
+  category_name: string;
+  description?: string;
+  category_type?: string;
+  status?: "active" | "inactive";
+}
+
+export interface UpdateCategoryPayload {
+  category_name?: string;
+  description?: string;
+  category_type?: string;
+  status?: "active" | "inactive";
 }
 
 export interface AIModelMetric {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DataTable } from "@/components/ui/Table";
@@ -8,26 +8,44 @@ import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
-import { ADMIN_CATEGORIES, CategoryItem } from "@/features/admin";
-import { Plus, Pencil, Archive, RotateCcw } from "lucide-react";
-
-let nextId = 9;
+import { ADMIN_CATEGORIES, CategoryItem, adminService } from "@/features/admin";
+import { Plus, Pencil, Archive, RotateCcw, Trash2, Loader2, AlertCircle } from "lucide-react";
 
 function CategoriesContent() {
-  const [categories, setCategories] = useState<CategoryItem[]>([...ADMIN_CATEGORIES]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<CategoryItem | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Form state
   const [formName, setFormName] = useState("");
   const [formSlug, setFormSlug] = useState("");
   const [formType, setFormType] = useState<CategoryItem["type"]>("Recipe Category");
 
+  const loadCategories = async () => {
+    setLoading(true);
+    try {
+      const data = await adminService.getCategories();
+      setCategories(data);
+    } catch {
+      setCategories(ADMIN_CATEGORIES);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
   const openAdd = () => {
     setEditItem(null);
     setFormName("");
     setFormSlug("");
     setFormType("Recipe Category");
+    setErrorMsg(null);
     setModalOpen(true);
   };
 
@@ -36,41 +54,70 @@ function CategoriesContent() {
     setFormName(item.name);
     setFormSlug(item.slug);
     setFormType(item.type);
+    setErrorMsg(null);
     setModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formName.trim()) return;
-    if (editItem) {
-      setCategories((prev) =>
-        prev.map((c) =>
-          c.id === editItem.id
-            ? { ...c, name: formName, slug: formSlug || formName.toLowerCase().replace(/\s+/g, "-"), type: formType }
-            : c
-        )
-      );
-    } else {
-      const newCat: CategoryItem = {
-        id: `cat${nextId++}`,
-        name: formName,
-        slug: formSlug || formName.toLowerCase().replace(/\s+/g, "-"),
-        type: formType,
-        recipeCount: 0,
-        status: "Active",
-      };
-      setCategories((prev) => [...prev, newCat]);
+    setIsSaving(true);
+    setErrorMsg(null);
+
+    const categoryType = formType === "Food Type" ? "food_type" : "recipe_type";
+
+    try {
+      if (editItem) {
+        const updated = await adminService.updateCategory(editItem.id, {
+          category_name: formName.trim(),
+          description: formSlug.trim() || undefined,
+          category_type: categoryType,
+        });
+        setCategories((prev) =>
+          prev.map((c) => (c.id === editItem.id ? { ...updated, type: formType } : c))
+        );
+      } else {
+        const created = await adminService.createCategory({
+          category_name: formName.trim(),
+          description: formSlug.trim() || undefined,
+          category_type: categoryType,
+          status: "active",
+        });
+        setCategories((prev) => [...prev, { ...created, type: formType }]);
+      }
+      setModalOpen(false);
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Không thể lưu danh mục");
+    } finally {
+      setIsSaving(false);
     }
-    setModalOpen(false);
   };
 
-  const toggleArchive = (id: string) => {
-    setCategories((prev) =>
-      prev.map((c) =>
-        c.id === id
-          ? { ...c, status: c.status === "Active" ? ("Archived" as const) : ("Active" as const) }
-          : c
-      )
-    );
+  const toggleArchive = async (id: string) => {
+    const target = categories.find((c) => c.id === id);
+    if (!target) return;
+
+    const nextStatus = target.status === "Active" ? "inactive" : "active";
+    const nextPresentation = target.status === "Active" ? "Archived" : "Active";
+
+    try {
+      await adminService.updateCategory(id, { status: nextStatus });
+      setCategories((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, status: nextPresentation } : c))
+      );
+    } catch (err) {
+      console.warn("Failed to update status:", err);
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Bạn có chắc muốn xóa vĩnh viễn danh mục "${name}"?`)) return;
+
+    try {
+      await adminService.deleteCategory(id);
+      setCategories((prev) => prev.filter((c) => c.id !== id));
+    } catch (err: any) {
+      alert(err?.message || "Không thể xóa danh mục này");
+    }
   };
 
   const foodTypes = categories.filter((c) => c.type === "Food Type");
@@ -80,15 +127,23 @@ function CategoriesContent() {
     <DataTable
       columns={[
         { key: "name", label: "Name" },
-        { key: "slug", label: "Slug" },
+        { key: "slug", label: "Slug / Description" },
         { key: "count", label: "Recipes" },
         { key: "status", label: "Status" },
         { key: "actions", label: "" },
       ]}
       rows={items.map((item) => ({
         name: <span className="text-sm font-semibold text-stone-900">{item.name}</span>,
-        slug: <code className="text-xs bg-stone-100 text-stone-600 px-2 py-0.5 rounded-lg">{item.slug}</code>,
-        count: <span className="text-sm text-stone-600 font-medium">{item.recipeCount.toLocaleString()}</span>,
+        slug: (
+          <code className="text-xs bg-stone-100 text-stone-600 px-2 py-0.5 rounded-lg max-w-[200px] truncate inline-block">
+            {item.slug}
+          </code>
+        ),
+        count: (
+          <span className="text-sm text-stone-600 font-medium">
+            {item.recipeCount.toLocaleString()}
+          </span>
+        ),
         status:
           item.status === "Active" ? (
             <Badge variant="success">Active</Badge>
@@ -96,7 +151,7 @@ function CategoriesContent() {
             <Badge variant="info">Archived</Badge>
           ),
         actions: (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 justify-end">
             <button
               onClick={() => openEdit(item)}
               className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors cursor-pointer"
@@ -119,6 +174,13 @@ function CategoriesContent() {
                 <RotateCcw className="w-3.5 h-3.5" />
               )}
             </button>
+            <button
+              onClick={() => handleDelete(item.id, item.name)}
+              className="p-1.5 rounded-lg hover:bg-red-50 text-stone-400 hover:text-red-700 transition-colors cursor-pointer"
+              title="Delete Category"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
           </div>
         ),
       }))}
@@ -128,7 +190,10 @@ function CategoriesContent() {
   return (
     <div className="space-y-8">
       {/* Header action */}
-      <div className="flex justify-end">
+      <div className="flex justify-between items-center">
+        <p className="text-sm text-stone-500">
+          Quản lý toàn bộ danh mục loại thực phẩm và phân loại công thức món ăn (Endpoints 22–25).
+        </p>
         <button
           onClick={openAdd}
           className="flex items-center gap-2 h-10 px-4 rounded-xl bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-800 transition-colors cursor-pointer shadow-sm"
@@ -138,94 +203,107 @@ function CategoriesContent() {
         </button>
       </div>
 
-      {/* Food Types */}
-      <div className="space-y-3">
-        <h3 className="font-semibold text-stone-800 flex items-center gap-2">
-          Food Types
-          <span className="text-xs font-normal text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
-            {foodTypes.length}
-          </span>
-        </h3>
-        {renderTable(foodTypes)}
-      </div>
+      {loading ? (
+        <div className="py-12 flex justify-center items-center text-stone-500 gap-2 text-sm">
+          <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
+          Đang tải danh mục từ máy chủ...
+        </div>
+      ) : (
+        <>
+          {/* Food Types */}
+          <div className="space-y-3">
+            <h3 className="font-semibold text-stone-800 flex items-center gap-2">
+              Food Types
+              <span className="text-xs font-normal text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
+                {foodTypes.length}
+              </span>
+            </h3>
+            {renderTable(foodTypes)}
+          </div>
 
-      {/* Recipe Categories */}
-      <div className="space-y-3">
-        <h3 className="font-semibold text-stone-800 flex items-center gap-2">
-          Recipe Categories
-          <span className="text-xs font-normal text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
-            {recipeCategories.length}
-          </span>
-        </h3>
-        {renderTable(recipeCategories)}
-      </div>
+          {/* Recipe Categories */}
+          <div className="space-y-3">
+            <h3 className="font-semibold text-stone-800 flex items-center gap-2">
+              Recipe Categories
+              <span className="text-xs font-normal text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
+                {recipeCategories.length}
+              </span>
+            </h3>
+            {renderTable(recipeCategories)}
+          </div>
+        </>
+      )}
 
-      {/* Add / Edit modal */}
+      {/* Add/Edit Modal */}
       <Modal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editItem ? "Edit Category" : "Add Category"}
+        title={editItem ? "Edit Category" : "Add New Category"}
       >
-        <div className="space-y-4">
+        <div className="space-y-4 pt-2">
+          {errorMsg && (
+            <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 p-2.5 rounded-lg">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
           <div>
-            <label htmlFor="cat-name" className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">
-              Name *
+            <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1.5">
+              Category Name *
             </label>
             <input
-              id="cat-name"
               type="text"
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
               placeholder="e.g. High-Protein Meals"
-              className="w-full h-11 rounded-xl border border-stone-200 bg-white px-4 text-base focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none"
+              className="w-full h-10 px-3.5 rounded-xl border border-stone-200 text-sm focus:border-emerald-600 outline-none"
             />
           </div>
+
           <div>
-            <label htmlFor="cat-slug" className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">
-              Slug
+            <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1.5">
+              Slug / Description
             </label>
             <input
-              id="cat-slug"
               type="text"
               value={formSlug}
               onChange={(e) => setFormSlug(e.target.value)}
-              placeholder="high-protein-meals (auto-generated)"
-              className="w-full h-11 rounded-xl border border-stone-200 bg-white px-4 text-base focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none font-mono"
+              placeholder="e.g. high-protein-meals"
+              className="w-full h-10 px-3.5 rounded-xl border border-stone-200 text-sm focus:border-emerald-600 outline-none"
             />
           </div>
+
           <div>
-            <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1.5">
               Type
             </label>
-            <div className="flex gap-2">
-              {(["Food Type", "Recipe Category"] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setFormType(t)}
-                  className={`flex-1 h-10 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
-                    formType === t
-                      ? "bg-emerald-700 text-white"
-                      : "bg-stone-100 text-stone-700 hover:bg-stone-200"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button
-              onClick={handleSave}
-              className="flex-1 h-11 rounded-xl bg-emerald-700 text-white font-semibold hover:bg-emerald-800 transition-colors cursor-pointer"
+            <select
+              value={formType}
+              onChange={(e) => setFormType(e.target.value as CategoryItem["type"])}
+              className="w-full h-10 px-3.5 rounded-xl border border-stone-200 text-sm focus:border-emerald-600 outline-none bg-white"
             >
-              {editItem ? "Save changes" : "Add category"}
-            </button>
+              <option value="Recipe Category">Recipe Category</option>
+              <option value="Food Type">Food Type</option>
+            </select>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-stone-100">
             <button
+              type="button"
               onClick={() => setModalOpen(false)}
-              className="h-11 px-5 rounded-xl bg-stone-100 text-stone-700 font-semibold hover:bg-stone-200 transition-colors cursor-pointer"
+              className="h-10 px-4 rounded-xl border border-stone-200 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors cursor-pointer"
             >
               Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving || !formName.trim()}
+              className="h-10 px-5 rounded-xl bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-800 disabled:opacity-60 transition-colors cursor-pointer flex items-center gap-2 shadow-xs"
+            >
+              {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+              {editItem ? "Save Changes" : "Create Category"}
             </button>
           </div>
         </div>
@@ -242,8 +320,8 @@ export default function AdminCategoriesPage() {
       <div className="max-w-[1240px] mx-auto w-full">
         <PageHeader
           eyebrow="Administration"
-          title="Categories"
-          subtitle="Manage food type and recipe category taxonomy."
+          title="Categories & Taxonomies"
+          subtitle="Manage dietary classifications, ingredient taxonomy, and recipe groupings."
         />
         {!ready ? (
           <GatedSkeleton />
@@ -258,4 +336,3 @@ export default function AdminCategoriesPage() {
     </AppShell>
   );
 }
-

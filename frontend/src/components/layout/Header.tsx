@@ -7,10 +7,11 @@ import { Leaf, Search } from "lucide-react";
 import { useRole } from "@/context/RoleContext";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
+import { NotificationBell } from "@/features/notification";
 
 export function Header() {
   const router = useRouter();
-  const { isGuest, role } = useRole();
+  const { isGuest, role, user } = useRole();
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -73,15 +74,31 @@ export function Header() {
             </Link>
           </>
         ) : (
-          <Link
-            href="/me"
-            className="flex items-center gap-3 p-1.5 pr-3 rounded-full hover:bg-stone-50 transition-colors group cursor-pointer"
-          >
-            <Avatar initials={role === "Admin" ? "AD" : "LN"} verified={true} />
+          <>
+            <NotificationBell />
+            <Link
+              href="/me"
+              className="flex items-center gap-3 p-1.5 pr-3 rounded-full hover:bg-stone-50 transition-colors group cursor-pointer"
+            >
+            <Avatar
+              initials={
+                user?.full_name
+                  ? user.full_name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase()
+                  : role === "Admin"
+                  ? "AD"
+                  : "ME"
+              }
+              verified={true}
+            />
             <div className="hidden sm:flex flex-col text-left">
               <div className="flex items-center gap-1.5">
                 <span className="text-sm font-semibold text-stone-900 group-hover:text-emerald-700 transition-colors">
-                  {role === "Admin" ? "Admin User" : "Linh Nguyen"}
+                  {user?.full_name || (role === "Admin" ? "Admin User" : "Member")}
                 </span>
                 <Badge
                   variant={role === "Admin" ? "flagged" : "success"}
@@ -91,12 +108,13 @@ export function Header() {
                 </Badge>
               </div>
               <span className="text-xs text-stone-500">
-                {role === "Admin" ? "System Operator" : "@linh.greens"}
+                {user?.email || (role === "Admin" ? "System Operator" : "@member")}
               </span>
             </div>
           </Link>
-        )}
-      </div>
+        </>
+      )}
+    </div>
     </header>
   );
 }

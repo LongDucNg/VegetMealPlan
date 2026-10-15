@@ -11,6 +11,8 @@ export function useSubscription() {
   );
 
   useEffect(() => {
+    subscriptionService.fetchServerStatus().then(setSubscription);
+
     const unsubscribe = storage.subscribe((event) => {
       if (event.key === STORAGE_KEYS.SUBSCRIPTION) {
         setSubscription(subscriptionService.getSubscription());
