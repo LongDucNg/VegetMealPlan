@@ -3,11 +3,31 @@ import { nutritionService } from "@/features/nutrition/services/nutritionService
 import { recipeService } from "@/features/recipes/services/recipeService";
 import { ChatbotMessage } from "../types";
 import { STATIC_KNOWLEDGE_BASE } from "../data/mockChatResponses";
+import { apiClient } from "@/lib/apiClient";
 
 export const chatbotService = {
   async processUserMessage(userText: string): Promise<ChatbotMessage> {
+    // 0. Try calling Backend AI Chatbot API
+    try {
+      const res = await apiClient.post<{ answer?: string; reply?: string; message?: string }>(
+        "/chatbot/ask",
+        { question: userText }
+      );
+      const aiText = res?.answer || res?.reply || res?.message;
+      if (aiText && !aiText.includes("AI dang tam thoi khong phan hoi")) {
+        return {
+          id: `ai-${Date.now()}`,
+          sender: "ai",
+          timestamp: "Just now",
+          text: aiText,
+        };
+      }
+    } catch {
+      // Backend AI unavailable or unauthenticated -> fall through to intelligent local nutritionist engine
+    }
+
     // Simulate slight AI thinking latency
-    await new Promise((res) => setTimeout(res, 600));
+    await new Promise((res) => setTimeout(res, 400));
 
     const normalized = userText.toLowerCase().trim();
     const profile = profileService.getProfile();
