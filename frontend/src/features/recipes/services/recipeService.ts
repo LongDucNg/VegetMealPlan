@@ -4,6 +4,8 @@ import { INITIAL_MOCK_RECIPES } from "../data/mockRecipes";
 import { UserProfile, VegetarianType } from "@/features/profile/types";
 import { checkRecipeAllergy } from "@/features/allergy/utils/checkRecipeAllergy";
 import { priceService } from "./priceService";
+import { recipeApiService } from "./recipeApiService";
+import { mapBackendToFrontendRecipe } from "../utils/recipeMapper";
 
 function enrichRecipeDefaults(r: Recipe): Recipe {
   const status: RecipeStatus = r.status || "APPROVED";
@@ -25,10 +27,39 @@ function enrichRecipeDefaults(r: Recipe): Recipe {
   };
 }
 
+let isSyncingRecipes = false;
+
 export const recipeService = {
+  /**
+   * Đồng bộ tất cả công thức đã duyệt từ backend vào localStorage
+   */
+  async syncRecipesFromApi(): Promise<Recipe[]> {
+    if (isSyncingRecipes) return this.getRecipes();
+    isSyncingRecipes = true;
+    try {
+      const res = await recipeApiService.getRecipes({ limit: 500 });
+      const items = Array.isArray(res) ? res : (res as any)?.data || (res as any)?.items;
+      if (Array.isArray(items) && items.length > 0) {
+        const mapped = items.map(mapBackendToFrontendRecipe).map(enrichRecipeDefaults);
+        storage.setItem(STORAGE_KEYS.RECIPES, mapped);
+        return mapped;
+      }
+    } catch (err) {
+      console.error("Failed to sync recipes from backend:", err);
+    } finally {
+      isSyncingRecipes = false;
+    }
+    return this.getRecipes();
+  },
+
   getRecipes(options?: { includeAll?: boolean }): Recipe[] {
     const raw = storage.getItem<Recipe[]>(STORAGE_KEYS.RECIPES, INITIAL_MOCK_RECIPES);
     const enriched = raw.map(enrichRecipeDefaults);
+
+    // If local storage only has old mock recipes (rec-1), trigger background sync from API
+    if (typeof window !== "undefined" && !isSyncingRecipes && raw.some((r) => r.id.startsWith("rec-"))) {
+      this.syncRecipesFromApi().catch(() => {});
+    }
 
     if (options?.includeAll) {
       return enriched;
@@ -40,7 +71,13 @@ export const recipeService = {
 
   getRecipeById(id: string): Recipe | undefined {
     const list = this.getRecipes({ includeAll: true });
-    return list.find((r) => r.id === id);
+    const cleanId = String(id).trim();
+    const numId = cleanId.replace(/\D/g, "");
+    return list.find((r) => {
+      if (r.id === cleanId) return true;
+      if (numId && String(r.id).replace(/\D/g, "") === numId) return true;
+      return false;
+    });
   },
 
   createRecipe(data: Omit<Recipe, "id"> & { id?: string }): Recipe {

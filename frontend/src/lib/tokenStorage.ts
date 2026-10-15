@@ -12,7 +12,11 @@ export const tokenStorage = {
   getToken(): string | null {
     if (typeof window === "undefined") return null;
     try {
-      return localStorage.getItem(TOKEN_KEY);
+      return (
+        localStorage.getItem(TOKEN_KEY) ||
+        localStorage.getItem("vh_token") ||
+        localStorage.getItem("access_token")
+      );
     } catch {
       return null;
     }

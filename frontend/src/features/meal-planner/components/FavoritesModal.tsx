@@ -17,6 +17,8 @@ import {
 import { Recipe, MealType } from "@/features/recipes/types";
 import { UserProfile } from "@/features/profile/types";
 import { favoriteService, SavedMealPlan } from "@/features/recipes/services/favoriteService";
+import { favoriteApiService } from "@/features/recipes/services/favoriteApiService";
+import { mapBackendToFrontendRecipe } from "@/features/recipes/utils/recipeMapper";
 import { mealPlannerService } from "../services/mealPlannerService";
 import { priceService } from "@/features/recipes/services/priceService";
 import { DayMealPlan } from "../types";
@@ -30,6 +32,7 @@ interface FavoritesModalProps {
   onSelectFavoriteRecipe?: (recipe: Recipe) => void;
   onGenerateWeeklyWithFavorites?: (favoriteRecipeIds: string[]) => void;
   onGenerateMonthlyWithFavorites?: (favoriteRecipeIds: string[]) => void;
+  initialFavoriteRecipes?: Recipe[];
 }
 
 export function FavoritesModal({
@@ -41,11 +44,12 @@ export function FavoritesModal({
   onSelectFavoriteRecipe,
   onGenerateWeeklyWithFavorites,
   onGenerateMonthlyWithFavorites,
+  initialFavoriteRecipes,
 }: FavoritesModalProps) {
-  const userId = String(profile.id || "u1");
+  const userId = String(profile.id || "1");
   const [activeTab, setActiveTab] = useState<"recipes" | "plans">("recipes");
 
-  const [favRecipes, setFavRecipes] = useState<Recipe[]>([]);
+  const [favRecipes, setFavRecipes] = useState<Recipe[]>(initialFavoriteRecipes || []);
   const [savedPlans, setSavedPlans] = useState<SavedMealPlan[]>([]);
 
   // Selection for Create Meal Plan from Favorites (Requirement 2)
@@ -60,20 +64,44 @@ export function FavoritesModal({
     dayPlan: DayMealPlan;
   } | null>(null);
 
-  const reloadData = () => {
-    setFavRecipes(favoriteService.getFavoriteRecipes(userId));
+  const reloadData = async () => {
+    try {
+      const res = await favoriteApiService.getMyFavorites();
+      const list = Array.isArray(res) ? res : (res as any)?.data || [];
+      if (Array.isArray(list) && list.length > 0) {
+        const mapped = list.map(mapBackendToFrontendRecipe);
+        setFavRecipes(mapped);
+        favoriteService.saveUserFavorites({
+          userId,
+          recipes: mapped.map((r) => String(r.id)),
+          mealPlans: favoriteService.getFavoriteMealPlans(userId),
+        });
+      } else if (initialFavoriteRecipes && initialFavoriteRecipes.length > 0) {
+        setFavRecipes(initialFavoriteRecipes);
+      } else {
+        setFavRecipes(favoriteService.getFavoriteRecipes(userId));
+      }
+    } catch {
+      if (initialFavoriteRecipes && initialFavoriteRecipes.length > 0) {
+        setFavRecipes(initialFavoriteRecipes);
+      } else {
+        setFavRecipes(favoriteService.getFavoriteRecipes(userId));
+      }
+    }
     setSavedPlans(favoriteService.getFavoriteMealPlans(userId));
   };
 
   useEffect(() => {
     if (isOpen) {
+      if (initialFavoriteRecipes && initialFavoriteRecipes.length > 0) {
+        setFavRecipes(initialFavoriteRecipes);
+      }
       queueMicrotask(() => {
         reloadData();
         setValidationResult(null);
       });
     }
-  }, [isOpen, userId]);
-
+  }, [isOpen, userId, initialFavoriteRecipes]);
 
   // Group recipes by mealType
   const groupedRecipes = useMemo(() => {
@@ -84,12 +112,24 @@ export function FavoritesModal({
       snack: [],
     };
     for (const r of favRecipes) {
-      if (map[r.mealType]) {
-        map[r.mealType].push(r);
+      const raw = (r.mealType || "").toLowerCase();
+      if (raw.includes("breakfast") || raw.includes("sáng")) {
+        map.breakfast.push(r);
+      } else if (raw.includes("snack") || raw.includes("vặt") || raw.includes("phụ")) {
+        map.snack.push(r);
+      } else if (raw.includes("dinner") || raw.includes("tối")) {
+        map.dinner.push(r);
+      } else {
+        map.lunch.push(r);
       }
     }
     return map;
   }, [favRecipes]);
+
+  const breakfastOptions = groupedRecipes.breakfast.length > 0 ? groupedRecipes.breakfast : favRecipes;
+  const lunchOptions = groupedRecipes.lunch.length > 0 ? groupedRecipes.lunch : favRecipes;
+  const dinnerOptions = groupedRecipes.dinner.length > 0 ? groupedRecipes.dinner : favRecipes;
+  const snackOptions = groupedRecipes.snack.length > 0 ? groupedRecipes.snack : favRecipes;
 
   if (!isOpen) return null;
 
@@ -297,7 +337,7 @@ export function FavoritesModal({
                         className="w-full text-xs p-1.5 rounded-lg border border-stone-200 bg-stone-50 outline-none"
                       >
                         <option value="">-- Choose or Auto --</option>
-                        {groupedRecipes.breakfast.map((r) => (
+                        {breakfastOptions.map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.name || r.title} ({r.calories} kcal)
                           </option>
@@ -324,7 +364,7 @@ export function FavoritesModal({
                         className="w-full text-xs p-1.5 rounded-lg border border-stone-200 bg-stone-50 outline-none"
                       >
                         <option value="">-- Choose or Auto --</option>
-                        {groupedRecipes.lunch.map((r) => (
+                        {lunchOptions.map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.name || r.title} ({r.calories} kcal)
                           </option>
@@ -351,7 +391,7 @@ export function FavoritesModal({
                         className="w-full text-xs p-1.5 rounded-lg border border-stone-200 bg-stone-50 outline-none"
                       >
                         <option value="">-- Choose or Auto --</option>
-                        {groupedRecipes.dinner.map((r) => (
+                        {dinnerOptions.map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.name || r.title} ({r.calories} kcal)
                           </option>
@@ -378,7 +418,7 @@ export function FavoritesModal({
                         className="w-full text-xs p-1.5 rounded-lg border border-stone-200 bg-stone-50 outline-none"
                       >
                         <option value="">-- Choose or Auto --</option>
-                        {groupedRecipes.snack.map((r) => (
+                        {snackOptions.map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.name || r.title} ({r.calories} kcal)
                           </option>

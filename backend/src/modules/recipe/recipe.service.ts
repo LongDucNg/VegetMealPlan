@@ -87,6 +87,7 @@ export class RecipeService {
       difficulty,
       maxCalories,
       excludeAllergens,
+      created_by,
       page = 1,
       limit = 20,
     } = query;
@@ -108,11 +109,22 @@ export class RecipeService {
       }
     }
 
-    const qb = this.recipeRepo
-      .createQueryBuilder('recipe')
-      .where('recipe.status = :status', {
+    const qb = this.recipeRepo.createQueryBuilder('recipe');
+
+    if (created_by !== undefined && Number(created_by) > 0) {
+      qb.where('recipe.created_by = :createdBy', {
+        createdBy: Number(created_by),
+      });
+      if (query.status?.trim()) {
+        qb.andWhere('recipe.status = :status', {
+          status: query.status.trim().toLowerCase(),
+        });
+      }
+    } else {
+      qb.where('recipe.status = :status', {
         status: RecipeStatus.APPROVED,
       });
+    }
 
     // Lọc theo loại bữa ăn
     const selectedMealType = mealType || meal_type;
@@ -228,15 +240,34 @@ export class RecipeService {
       });
     }
 
+    // Lọc theo người tạo (nếu có)
+    if (created_by !== undefined && Number(created_by) > 0) {
+      qb.andWhere('recipe.created_by = :createdBy', {
+        createdBy: Number(created_by),
+      });
+    }
+
     // Phân trang
     const safePage = Math.max(1, Number(page) || 1);
-    const safeLimit = Math.min(100, Math.max(1, Number(limit) || 20));
+    const safeLimit = Math.min(1000, Math.max(1, Number(limit) || 20));
 
     qb.orderBy('recipe.created_at', 'DESC')
       .skip((safePage - 1) * safeLimit)
       .take(safeLimit);
 
     const [recipes, total] = await qb.getManyAndCount();
+
+    if (recipes.length > 0) {
+      const recipeIds = recipes.map((r) => r.recipe_id);
+      const nutritions = await this.nutritionRepo.find({
+        where: { recipe_id: In(recipeIds) },
+      });
+      const nutritionMap = new Map(nutritions.map((n) => [n.recipe_id, n]));
+
+      for (const recipe of recipes as any[]) {
+        recipe.nutrition = nutritionMap.get(recipe.recipe_id) || null;
+      }
+    }
 
     return {
       data: recipes,
@@ -462,13 +493,52 @@ export class RecipeService {
     });
   }
 
-  async listFavorites(user_id: number): Promise<Recipe[]> {
+  async listFavorites(user_id: number): Promise<any[]> {
     const favorites = await this.favoriteRepo.find({
       where: { user_id },
       relations: ['recipe'],
     });
 
-    return favorites.map((favorite) => favorite.recipe);
+    const recipes = favorites.map((favorite) => favorite.recipe).filter(Boolean);
+
+    return Promise.all(
+      recipes.map(async (recipe) => {
+        const ingredients = await this.recipeIngredientRepo.find({
+          where: { recipe_id: recipe.recipe_id },
+          relations: ['ingredient'],
+        });
+
+        const nutrition = await this.nutritionRepo.findOne({
+          where: { recipe_id: recipe.recipe_id },
+        });
+
+        return {
+          ...recipe,
+          ingredients,
+          nutrition,
+        };
+      }),
+    );
+  }
+
+  async findMyRecipes(user_id: number): Promise<any[]> {
+    const recipes = await this.recipeRepo.find({
+      where: { created_by: user_id },
+      order: { created_at: 'DESC' },
+    });
+
+    if (recipes.length === 0) return [];
+
+    const recipeIds = recipes.map((r) => r.recipe_id);
+    const nutritions = await this.nutritionRepo.find({
+      where: { recipe_id: In(recipeIds) },
+    });
+    const nutritionMap = new Map(nutritions.map((n) => [n.recipe_id, n]));
+
+    return recipes.map((r: any) => ({
+      ...r,
+      nutrition: nutritionMap.get(r.recipe_id) || null,
+    }));
   }
 
   // =========================
@@ -706,6 +776,17 @@ export class RecipeService {
         match_percentage,
         missing_ingredient_ids,
       });
+    }
+
+    if (results.length > 0) {
+      const rIds = results.map((res) => res.recipe.recipe_id);
+      const nutList = await this.nutritionRepo.find({
+        where: { recipe_id: In(rIds) },
+      });
+      const nutMap = new Map(nutList.map((n) => [n.recipe_id, n]));
+      for (const res of results) {
+        (res.recipe as any).nutrition = nutMap.get(res.recipe.recipe_id) || null;
+      }
     }
 
     return results.sort(
@@ -1131,10 +1212,23 @@ export class RecipeService {
         `status phải là một trong: ${Object.values(RecipeStatus).join(', ')}`,
       );
     }
-    return this.recipeRepo.find({
+    const recipes = await this.recipeRepo.find({
       where: value ? { status: value as RecipeStatus } : {},
       order: { created_at: 'DESC' },
     });
+
+    if (recipes.length > 0) {
+      const ids = recipes.map((r) => r.recipe_id);
+      const nutritions = await this.nutritionRepo.find({
+        where: { recipe_id: In(ids) },
+      });
+      const nutritionMap = new Map(nutritions.map((n) => [n.recipe_id, n]));
+      for (const recipe of recipes as any[]) {
+        recipe.nutrition = nutritionMap.get(recipe.recipe_id) || null;
+      }
+    }
+
+    return recipes;
   }
 
   async updateRecipeStatus(

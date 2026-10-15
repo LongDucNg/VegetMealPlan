@@ -21,10 +21,12 @@ import {
   Heart,
   Settings,
   UtensilsCrossed,
+  Carrot,
   ArrowLeft,
   Shield,
   ShieldCheck,
   LogOut,
+  ChefHat,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { useRole } from "@/context/RoleContext";
@@ -51,6 +53,12 @@ export function Sidebar() {
       href: "/",
       icon: Compass,
       active: pathname === "/",
+    },
+    {
+      label: "Công thức món",
+      href: "/recipes",
+      icon: UtensilsCrossed,
+      active: pathname === "/recipes" || pathname.startsWith("/recipes/"),
     },
     {
       label: "Video recipes",
@@ -104,6 +112,12 @@ export function Sidebar() {
       active: pathname === "/me",
     },
     {
+      label: "My Recipes",
+      href: "/me?tab=my_recipes",
+      icon: ChefHat,
+      active: false,
+    },
+    {
       label: "Preferences",
       href: "/me/settings",
       icon: Settings,
@@ -127,6 +141,12 @@ export function Sidebar() {
       href: "/admin/categories",
       icon: Tag,
       active: pathname.startsWith("/admin/categories"),
+    },
+    {
+      label: "Ingredients CRUD",
+      href: "/admin/ingredients",
+      icon: Carrot,
+      active: pathname.startsWith("/admin/ingredients"),
     },
     {
       label: "Recipes CRUD",
