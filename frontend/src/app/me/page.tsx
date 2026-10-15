@@ -32,6 +32,7 @@ import {
   Calendar,
   AlertCircle,
   ExternalLink,
+  Crown,
 } from "lucide-react";
 
 import { useProfile } from "@/features/profile/hooks/useProfile";
@@ -108,7 +109,7 @@ function TabButton({
 function ProfileContent() {
   const router = useRouter();
   const { profile } = useProfile();
-  const { subscription, isPremium } = useSubscription();
+  const { subscription, isPremium, cancel, purchase } = useSubscription();
   const userId = String(profile.id || "1");
 
   const [activeTab, setActiveTab] = useState<TabId>("favorites");
@@ -313,6 +314,50 @@ function ProfileContent() {
             <Settings className="w-4 h-4" />
             <span>Cài đặt</span>
           </Link>
+        </div>
+      </div>
+
+      {/* Membership & Subscription Bar (Endpoints 12, 13, 15) */}
+      <div className="bg-stone-50 border border-stone-200 rounded-[20px] p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 shadow-2xs">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+            <Crown className="w-5 h-5 text-amber-600" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-stone-900">
+                Gói hội viên: {subscription.planName}
+              </span>
+              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${isPremium ? "bg-amber-100 text-amber-900 border border-amber-200" : "bg-stone-200 text-stone-700"}`}>
+                {isPremium ? "Đang kích hoạt" : "Gói miễn phí"}
+              </span>
+            </div>
+            <p className="text-xs text-stone-500 mt-0.5">
+              {isPremium ? "Gói tự động gia hạn mỗi tháng. Bạn có thể hủy gia hạn bất kỳ lúc nào." : "Nâng cấp Premium để sử dụng tính năng tạo thực đơn không giới hạn với AI."}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {isPremium ? (
+            <button
+              onClick={() => {
+                if (confirm("Bạn có chắc chắn muốn hủy gói thành viên Premium?")) {
+                  cancel();
+                }
+              }}
+              className="text-xs text-red-600 hover:text-red-800 hover:bg-red-50 border border-red-200 rounded-xl px-3.5 py-2 font-medium transition-colors cursor-pointer"
+            >
+              Hủy gói hội viên
+            </button>
+          ) : (
+            <button
+              onClick={() => purchase("premium")}
+              className="text-xs bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold rounded-xl px-4 py-2 transition-colors cursor-pointer shadow-xs"
+            >
+              Nâng cấp Premium
+            </button>
+          )}
         </div>
       </div>
 
