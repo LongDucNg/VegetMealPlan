@@ -199,16 +199,7 @@ export const priceService = {
       return all[safeId];
     }
 
-    // Default mock prices for demo user
-    const defaultPrices: Record<string, number> = {
-      "rec-1": 22000, // Peanut Butter Banana Oatmeal (~18,500 VND estimated -> 22,000 VND actual)
-      "rec-5": 35000, // Crispy Sesame Garlic Tofu (~30,000 VND estimated -> 35,000 VND actual)
-      "rec-10": 42000, // Creamy Avocado Pesto Pasta (~38,000 VND estimated -> 42,000 VND actual)
-    };
-
-    all[safeId] = defaultPrices;
-    storage.setItem(STORAGE_KEYS.RECIPE_PRICES, all);
-    return defaultPrices;
+    return {};
   },
 
   getMyPrice(userId: string, recipeId: string): number | undefined {

@@ -95,8 +95,11 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
       throw new ApiError(message, code, response.status, details);
     }
 
-    // Backend wraps response in { success: true, data: ... }
+    // Backend wraps response in { success: true, data: ..., pagination?: ... }
     if (json && typeof json === "object" && "success" in json) {
+      if (json.pagination && json.data !== undefined && Array.isArray(json.data)) {
+        (json.data as any).pagination = json.pagination;
+      }
       return (json.data !== undefined ? json.data : json) as T;
     }
 
@@ -115,7 +118,11 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
 }
 
 export const apiClient = {
-  get<T>(endpoint: string, options?: RequestOptions): Promise<T> {
+  get<T>(endpoint: string, optionsOrParams?: RequestOptions | Record<string, any>): Promise<T> {
+    const options: RequestOptions =
+      optionsOrParams && typeof optionsOrParams === "object" && ("params" in optionsOrParams || "headers" in optionsOrParams)
+        ? (optionsOrParams as RequestOptions)
+        : { params: optionsOrParams as any };
     return request<T>(endpoint, { ...options, method: "GET" });
   },
 
@@ -145,5 +152,11 @@ export const apiClient = {
 
   delete<T>(endpoint: string, options?: RequestOptions): Promise<T> {
     return request<T>(endpoint, { ...options, method: "DELETE" });
+  },
+
+  upload<T>(endpoint: string, file: File, fieldName: string = "file", options?: RequestOptions): Promise<T> {
+    const formData = new FormData();
+    formData.append(fieldName, file);
+    return this.post<T>(endpoint, formData, options);
   },
 };
