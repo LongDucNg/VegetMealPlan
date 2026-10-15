@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
-import { ADMIN_STATS, AI_MODELS, MODERATION_QUEUE } from "@/features/admin";
+import { ADMIN_STATS, AI_MODELS, MODERATION_QUEUE, adminService, AdminStat } from "@/features/admin";
 import {
   Users,
   Video,
@@ -38,7 +38,14 @@ const RECENT_ACTIVITY = [
 ];
 
 function AdminContent() {
+  const [stats, setStats] = useState<AdminStat[]>(ADMIN_STATS);
   const pendingMod = MODERATION_QUEUE.filter((m) => m.status === "Pending");
+
+  useEffect(() => {
+    adminService.fetchStats().then((data) => {
+      if (data && data.length > 0) setStats(data);
+    });
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -67,7 +74,7 @@ function AdminContent() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {ADMIN_STATS.map((s, i) => (
+        {stats.map((s, i) => (
           <StatCard
             key={s.label}
             label={s.label}
