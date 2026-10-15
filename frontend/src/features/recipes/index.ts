@@ -9,3 +9,6 @@ export * from "./services/vegetarianValidationService";
 export * from "./components/RecipeAllergyBadge";
 export * from "./components/RecipeFavoriteButton";
 export * from "./components/UpdatePriceModal";
+export * from "./services/recipeApiService";
+export * from "./services/favoriteApiService";
+export * from "./services/ingredientApiService";
