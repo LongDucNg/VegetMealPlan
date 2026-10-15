@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Check, Crown } from "lucide-react";
+import { subscriptionService } from "../services/subscriptionService";
 import { MOCK_PLANS } from "../data/mockSubscriptions";
 import { useSubscription } from "../hooks/useSubscription";
 import { MockPaymentModal } from "./MockPaymentModal";
@@ -9,8 +10,13 @@ import { SubscriptionPlan } from "../types";
 
 export function SubscriptionPlans() {
   const { subscription, purchase, cancel, isPremium } = useSubscription();
+  const [plans, setPlans] = useState<SubscriptionPlan[]>(MOCK_PLANS);
   const [modalOpen, setModalOpen] = useState(false);
   const [targetPlanId, setTargetPlanId] = useState<SubscriptionPlan["id"]>("premium");
+
+  useEffect(() => {
+    subscriptionService.getPlans().then(setPlans);
+  }, []);
 
   const handleSelectPlan = (planId: SubscriptionPlan["id"]) => {
     if (planId === "free") {
@@ -48,7 +54,7 @@ export function SubscriptionPlans() {
 
       {/* Plans grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-        {MOCK_PLANS.map((plan) => {
+        {plans.map((plan) => {
           const isCurrent = subscription.planId === plan.id;
           return (
             <div
