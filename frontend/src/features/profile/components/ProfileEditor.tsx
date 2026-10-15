@@ -27,6 +27,21 @@ export function ProfileEditor() {
   const [allergies, setAllergies] = useState<string[]>(profile.allergies);
 
   const [saved, setSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Sync state when profile is fetched from server
+  React.useEffect(() => {
+    setName(profile.name);
+    setAge(profile.age);
+    setGender(profile.gender);
+    setHeight(profile.height);
+    setWeight(profile.weight);
+    setActivityLevel(profile.activityLevel);
+    setHealthGoal(profile.healthGoal);
+    setVegetarianType(profile.vegetarianType);
+    setAllergies(profile.allergies);
+  }, [profile]);
 
   // Real-time live calculations based on current inputs
   const liveProfile: UserProfile = {
@@ -53,11 +68,19 @@ export function ProfileEditor() {
     );
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile(liveProfile);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    setSaveError(null);
+    setIsSaving(true);
+    try {
+      await updateProfile(liveProfile);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err: any) {
+      setSaveError(err?.message || "Không thể cập nhật hồ sơ");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleReset = () => {
@@ -321,7 +344,12 @@ export function ProfileEditor() {
           Reset Demo Profile
         </button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
+          {saveError && (
+            <span className="text-xs text-red-600 font-semibold animate-in fade-in">
+              {saveError}
+            </span>
+          )}
           {saved && (
             <span className="flex items-center gap-1 text-xs text-emerald-700 font-bold animate-in fade-in">
               <CheckCircle2 className="w-4 h-4" />
@@ -330,9 +358,10 @@ export function ProfileEditor() {
           )}
           <button
             type="submit"
-            className="h-11 px-8 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm shadow-xs transition-colors cursor-pointer"
+            disabled={isSaving}
+            className="h-11 px-8 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-semibold text-sm shadow-xs transition-colors cursor-pointer flex items-center gap-2"
           >
-            Save Profile & Update Plan
+            {isSaving ? "Saving changes..." : "Save Profile & Update Plan"}
           </button>
         </div>
       </div>

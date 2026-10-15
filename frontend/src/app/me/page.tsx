@@ -38,6 +38,7 @@ import { useProfile } from "@/features/profile/hooks/useProfile";
 import { useSubscription } from "@/features/subscription/hooks/useSubscription";
 import { calculateBMI } from "@/features/nutrition/utils/bmi";
 import { calculateDailyNutrition } from "@/features/nutrition/utils/calorieCalculator";
+import { nutritionService, ServerNutritionSummary } from "@/features/nutrition";
 import { favoriteService, SavedMealPlan } from "@/features/recipes/services/favoriteService";
 import { priceService, PRICE_WARNING_TEXT } from "@/features/recipes/services/priceService";
 import { recipeService } from "@/features/recipes/services/recipeService";
@@ -133,8 +134,23 @@ function ProfileContent() {
     return unsub;
   }, []);
 
+  const [serverNutrition, setServerNutrition] = useState<ServerNutritionSummary | null>(null);
+
+  useEffect(() => {
+    nutritionService
+      .getServerNutritionSummary()
+      .then(setServerNutrition)
+      .catch(() => {
+        // Fallback silently to client calculation
+      });
+  }, [profile]);
+
   const bmiInfo = calculateBMI(profile.weight, profile.height);
   const nutrition = calculateDailyNutrition(profile);
+
+  const displayBmi = serverNutrition?.bmi ?? profile.bmi ?? (bmiInfo ? Number(bmiInfo.formattedBMI) : null);
+  const displayBmiCategory = serverNutrition?.bmi_category ?? profile.bmiCategory ?? bmiInfo?.category;
+  const displayTargetCalories = serverNutrition?.target_calories ?? nutrition.dailyCalorieTarget;
 
   // Data queries
   const allApprovedRecipes = recipeService.getRecipes();
@@ -265,10 +281,10 @@ function ProfileContent() {
 
           <div className="flex flex-wrap items-center gap-2 mt-3">
             <span className="text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 font-semibold border border-emerald-200">
-              BMI: {bmiInfo ? `${bmiInfo.formattedBMI} (${bmiInfo.category})` : "—"}
+              BMI: {displayBmi ? `${displayBmi} (${displayBmiCategory || "Bình thường"})` : "—"}
             </span>
             <span className="text-xs px-3 py-1 rounded-full bg-amber-50 text-amber-800 font-semibold border border-amber-200">
-              Mục tiêu: ~{nutrition.dailyCalorieTarget} kcal/ngày
+              Mục tiêu: ~{displayTargetCalories} kcal/ngày
             </span>
             <span className="text-xs px-3 py-1 rounded-full bg-stone-100 text-stone-700 capitalize font-medium">
               Chế độ: {profile.vegetarianType.replace("_", " ")}
@@ -322,7 +338,7 @@ function ProfileContent() {
         />
         <StatCard
           label="Mục tiêu calo hàng ngày"
-          value={`~${nutrition.dailyCalorieTarget}`}
+          value={`~${displayTargetCalories}`}
           subtext="Tính tự động từ BMI"
           icon={<Star className="w-4 h-4 text-emerald-600" />}
         />
