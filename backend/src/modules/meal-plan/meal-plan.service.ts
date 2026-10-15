@@ -349,13 +349,16 @@ export class MealPlanService {
   // không đủ thì báo lỗi mà không để lại thực đơn dở dang.
   // Mỗi bữa chỉ được chọn món có chi phí <= ngân sách còn lại / số bữa còn lại,
   // nên tổng chi phí không bao giờ vượt total_budget.
+  // Đồng thời tối ưu độ đa dạng: phạt nặng món lặp lại và món ăn gần kề để không bị trùng món.
   private planMeals(params: {
     dayCount: number;
     mealTargets: Record<string, number>;
     recipes: Recipe[];
     nutritionMap: Map<number, NutritionInfo>;
     costMap: Map<number, number>;
-    usedRecipeIds: Set<number>;
+    usedRecipeCounts?: Map<number, number>;
+    recentUsedDays?: Map<number, number>;
+    dayOffset?: number;
     budget?: BudgetTracker;
   }): PlannedMeal[] {
     const {
@@ -364,9 +367,12 @@ export class MealPlanService {
       recipes,
       nutritionMap,
       costMap,
-      usedRecipeIds,
       budget,
     } = params;
+
+    const usedCounts = params.usedRecipeCounts ?? new Map<number, number>();
+    const recentDays = params.recentUsedDays ?? new Map<number, number>();
+    const dayOffset = params.dayOffset ?? 0;
 
     const planned: PlannedMeal[] = [];
 
@@ -375,6 +381,7 @@ export class MealPlanService {
 
     for (let dayIndex = 0; dayIndex < dayCount; dayIndex++) {
       let dayCalories = 0;
+      const globalDay = dayOffset + dayIndex;
 
       for (let mealIndex = 0; mealIndex < mealEntries.length; mealIndex++) {
         const [mealType, baseCalories] = mealEntries[mealIndex];
@@ -407,16 +414,38 @@ export class MealPlanService {
           }
         }
 
-        // Ưu tiên món chưa dùng: món đã dùng chỉ được chọn lại khi sát calo hơn rõ rệt
-        // (phạt 30% calo mục tiêu), tránh hết món chưa dùng thì ngày cuối lệch calo nhiều.
-        const score = (recipe: Recipe) =>
-          Math.abs(
-            Number(nutritionMap.get(recipe.recipe_id)?.calories ?? 0) - calories,
-          ) + (usedRecipeIds.has(recipe.recipe_id) ? calories * 0.3 : 0);
+        // Đánh giá điểm độ phù hợp của món ăn:
+        // 1. So khớp calo sau khi tính tỷ lệ khẩu phần khả dĩ (0.6x - 1.8x).
+        // 2. Phạt mạnh các món đã dùng trước đó (timesUsed * 5000) để ưu tiên tuyệt đối món chưa dùng, chống lặp món.
+        // 3. Phạt món vừa ăn gần đây (cùng ngày hoặc 1-2 ngày trước) để tránh ăn liên tiếp.
+        // 4. Jitter nhẹ để phân tán đa dạng giữa các món có điểm số tương đương.
+        const score = (recipe: Recipe) => {
+          const recipeCalories = Number(nutritionMap.get(recipe.recipe_id)?.calories ?? 0);
+          let testPortion = recipeCalories > 0 ? Math.min(1.8, Math.max(0.6, calories / recipeCalories)) : 1;
+          testPortion = Math.round(testPortion * 10) / 10;
+          const effectiveCalories = recipeCalories * testPortion;
+          const calDiff = Math.abs(effectiveCalories - calories);
+
+          const timesUsed = usedCounts.get(recipe.recipe_id) ?? 0;
+          const lastUsedDay = recentDays.get(recipe.recipe_id);
+          const daysSinceLastUsed = lastUsedDay !== undefined ? (globalDay - lastUsedDay) : 999;
+
+          const recencyPenalty =
+            daysSinceLastUsed === 0 ? 50000 :
+            daysSinceLastUsed === 1 ? 25000 :
+            daysSinceLastUsed === 2 ? 8000 : 0;
+
+          const frequencyPenalty = timesUsed * 5000;
+          const jitter = ((recipe.recipe_id * 17 + globalDay * 31) % 100) * 0.1;
+
+          return calDiff + frequencyPenalty + recencyPenalty + jitter;
+        };
+
         const pool = [...candidates].sort((x, y) => score(x) - score(y));
 
         const selected = pool[0];
-        usedRecipeIds.add(selected.recipe_id);
+        usedCounts.set(selected.recipe_id, (usedCounts.get(selected.recipe_id) ?? 0) + 1);
+        recentDays.set(selected.recipe_id, globalDay);
 
         // Chỉnh khẩu phần (0,6x–1,8x) để calo bữa bám mục tiêu khi món không đủ/quá calo.
         const recipeCalories = Number(nutritionMap.get(selected.recipe_id)?.calories ?? 0);
@@ -485,6 +514,27 @@ export class MealPlanService {
 
     if (!mealPlan) {
       throw new NotFoundException({ code: ErrorCode.MEAL_PLAN_NOT_FOUND, message: `Không tìm thấy thực đơn #${meal_plan_id}` });
+    }
+
+    // Gắn thông tin dinh dưỡng thực tế vào các công thức món ăn trong thực đơn
+    const allRecipes: Recipe[] = [];
+    for (const wp of mealPlan.weekly_plans || []) {
+      for (const dm of wp.daily_meals || []) {
+        for (const mi of dm.meal_items || []) {
+          if (mi.recipe) allRecipes.push(mi.recipe);
+        }
+      }
+    }
+
+    if (allRecipes.length > 0) {
+      const recipeIds = [...new Set(allRecipes.map((r) => r.recipe_id))];
+      const nutritions = await this.nutritionRepo.find({
+        where: { recipe_id: In(recipeIds) },
+      });
+      const nutritionMap = new Map(nutritions.map((n) => [n.recipe_id, n]));
+      for (const r of allRecipes as any[]) {
+        r.nutrition = nutritionMap.get(r.recipe_id) || null;
+      }
     }
 
     return mealPlan;
@@ -842,7 +892,9 @@ export class MealPlanService {
       recipes: safeRecipes,
       nutritionMap,
       costMap,
-      usedRecipeIds: new Set<number>(),
+      usedRecipeCounts: new Map<number, number>(),
+      recentUsedDays: new Map<number, number>(),
+      dayOffset: 0,
       budget: hasBudget
         ? { remaining: dto.total_budget!, slotsLeft: 21 }
         : undefined,
@@ -1199,17 +1251,25 @@ export class MealPlanService {
       ? { remaining: dto.total_budget!, slotsLeft: totalDays * 3 }
       : undefined;
 
-    const plannedByWeek = weeks.map((week) =>
-      this.planMeals({
+    const usedRecipeCounts = new Map<number, number>();
+    const recentUsedDays = new Map<number, number>();
+    let globalDayOffset = 0;
+
+    const plannedByWeek = weeks.map((week) => {
+      const weekMeals = this.planMeals({
         dayCount: week.days,
         mealTargets,
         recipes: safeRecipes,
         nutritionMap,
         costMap,
-        usedRecipeIds: new Set<number>(),
+        usedRecipeCounts,
+        recentUsedDays,
+        dayOffset: globalDayOffset,
         budget,
-      }),
-    );
+      });
+      globalDayOffset += week.days;
+      return weekMeals;
+    });
 
     const mealPlan = new MealPlan();
 
@@ -1411,7 +1471,9 @@ export class MealPlanService {
       recipes: safeRecipes,
       nutritionMap,
       costMap,
-      usedRecipeIds: new Set<number>(),
+      usedRecipeCounts: new Map<number, number>(),
+      recentUsedDays: new Map<number, number>(),
+      dayOffset: 0,
       budget: hasBudget
         ? { remaining: dto.total_budget!, slotsLeft: 21 }
         : undefined,
