@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -33,6 +33,7 @@ import {
   AlertCircle,
   ExternalLink,
   Crown,
+  ChefHat,
 } from "lucide-react";
 
 import { useProfile } from "@/features/profile/hooks/useProfile";
@@ -50,23 +51,30 @@ import { FavoritesModal } from "@/features/meal-planner/components/FavoritesModa
 import { mealPlannerService } from "@/features/meal-planner/services/mealPlannerService";
 import { storage, STORAGE_KEYS } from "@/utils/storage/storage";
 import { DayMealPlan, WeeklyMealPlan } from "@/features/meal-planner/types";
+import { favoriteApiService } from "@/features/recipes/services/favoriteApiService";
+import { recipeApiService } from "@/features/recipes/services/recipeApiService";
+import { ingredientApiService, UserRecipePriceItem } from "@/features/recipes/services/ingredientApiService";
+import { mapBackendToFrontendRecipe } from "@/features/recipes/utils/recipeMapper";
+import { tokenStorage } from "@/lib/tokenStorage";
 
-const MY_POSTS = FORUM_POSTS.slice(0, 3).map((p) => ({
-  id: p.id,
-  title: p.title,
-  votes: p.votes,
-  comments: p.commentsCount,
-  status: "Published" as const,
-  date: "Sep 14, 2026",
-}));
+const MY_POSTS: Array<{
+  id: string;
+  title: string;
+  votes: number;
+  comments: number;
+  status: "Published";
+  date: string;
+}> = [];
 
-const MY_COMMENTS = [
-  { id: "c1", content: "This tofu method changed my life!", on: "Crispy Sesame Garlic Tofu", date: "Sep 17, 2026", votes: 24 },
-  { id: "c2", content: "Do you need a high-speed blender for this?", on: "Green Goddess Smoothie Bowl", date: "Sep 12, 2026", votes: 8 },
-  { id: "c3", content: "I swapped coconut aminos for soy and it still tastes great.", on: "Miso Glazed Portobello", date: "Sep 10, 2026", votes: 15 },
-];
+const MY_COMMENTS: Array<{
+  id: string;
+  content: string;
+  on: string;
+  date: string;
+  votes: number;
+}> = [];
 
-type TabId = "favorites" | "saved_plans" | "custom_prices" | "posts" | "comments";
+type TabId = "favorites" | "my_recipes" | "saved_plans" | "custom_prices" | "posts" | "comments";
 
 function TabButton({
   label,
@@ -108,12 +116,22 @@ function TabButton({
 
 function ProfileContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab") as TabId | null;
   const { profile } = useProfile();
   const { subscription, isPremium, cancel, purchase } = useSubscription();
-  const userId = String(profile.id || "1");
+  const authUser = tokenStorage.getUser();
+  const userId = String(authUser?.user_id || profile.id || "1");
 
-  const [activeTab, setActiveTab] = useState<TabId>("favorites");
+  const [activeTab, setActiveTab] = useState<TabId>(tabParam || "favorites");
   const [dataVersion, setDataVersion] = useState(0);
+  const [recipeStatusFilter, setRecipeStatusFilter] = useState<"ALL" | "APPROVED" | "PENDING_REVIEW" | "REJECTED">("ALL");
+
+  useEffect(() => {
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
 
   // Modals
   const [pricingRecipe, setPricingRecipe] = useState<Recipe | null>(null);
@@ -155,19 +173,145 @@ function ProfileContent() {
 
   // Data queries
   const allApprovedRecipes = recipeService.getRecipes();
-  const favoriteRecipes = favoriteService.getFavoriteRecipes(userId);
+  const [favoriteRecipes, setFavoriteRecipes] = useState<Recipe[]>([]);
+  const [favLoading, setFavLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadFavorites() {
+      try {
+        const res = await favoriteApiService.getMyFavorites();
+        const list = Array.isArray(res) ? res : (res as any)?.data || [];
+        if (Array.isArray(list) && isMounted) {
+          const mapped = list.map(mapBackendToFrontendRecipe);
+          setFavoriteRecipes(mapped);
+
+          // Sync IDs to local favoriteService
+          const ids = mapped.map((r) => String(r.id));
+          favoriteService.saveUserFavorites({
+            userId,
+            recipes: ids,
+            mealPlans: favoriteService.getFavoriteMealPlans(userId),
+          });
+        }
+      } catch (err) {
+        if (isMounted) {
+          setFavoriteRecipes(favoriteService.getFavoriteRecipes(userId));
+        }
+      } finally {
+        if (isMounted) setFavLoading(false);
+      }
+    }
+
+    loadFavorites();
+    return () => {
+      isMounted = false;
+    };
+  }, [userId, dataVersion]);
+
+  const handleRemoveFavorite = async (recipeId: string) => {
+    const numericId = parseInt(recipeId.replace(/\D/g, ""), 10);
+    setFavoriteRecipes((prev) => prev.filter((r) => r.id !== recipeId));
+    favoriteService.toggleFavoriteRecipe(userId, recipeId);
+
+    if (!isNaN(numericId)) {
+      try {
+        await favoriteApiService.removeFavorite(numericId);
+      } catch (err) {
+        console.error("Failed to remove favorite:", err);
+      }
+    }
+  };
+
   const savedMealPlans = favoriteService.getFavoriteMealPlans(userId);
-  const customPricedList = priceService.getAllUserPricedRecipes(userId, allApprovedRecipes);
+
+  // Real user custom prices from API
+  const [customPrices, setCustomPrices] = useState<UserRecipePriceItem[]>([]);
+  const [customPricesLoading, setCustomPricesLoading] = useState(true);
+
+  // Real recipes created by this user that are approved
+  const [myRecipes, setMyRecipes] = useState<Recipe[]>([]);
+  const [myRecipesLoading, setMyRecipesLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadCustomPrices() {
+      try {
+        const res = await ingredientApiService.getMyRecipePrices();
+        const list = Array.isArray(res) ? res : (res as any)?.data || [];
+        if (isMounted) {
+          setCustomPrices(Array.isArray(list) ? list : []);
+        }
+      } catch (err) {
+        if (isMounted) setCustomPrices([]);
+      } finally {
+        if (isMounted) setCustomPricesLoading(false);
+      }
+    }
+
+    loadCustomPrices();
+    return () => {
+      isMounted = false;
+    };
+  }, [userId, dataVersion]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadMyRecipes() {
+      try {
+        setMyRecipesLoading(true);
+        let list: any[] = [];
+        try {
+          const res = await recipeApiService.getMyRecipes();
+          list = Array.isArray(res) ? res : (res as any)?.data || [];
+        } catch {
+          const numericUserId = parseInt(userId, 10);
+          if (!isNaN(numericUserId)) {
+            const res = await recipeApiService.getRecipes({
+              created_by: numericUserId,
+              limit: 100,
+            });
+            list = Array.isArray(res) ? res : (res as any)?.data || (res as any)?.items || [];
+          }
+        }
+        if (Array.isArray(list) && isMounted) {
+          setMyRecipes(list.map(mapBackendToFrontendRecipe));
+        }
+      } catch (err) {
+        if (isMounted) setMyRecipes([]);
+      } finally {
+        if (isMounted) setMyRecipesLoading(false);
+      }
+    }
+
+    loadMyRecipes();
+    return () => {
+      isMounted = false;
+    };
+  }, [userId, dataVersion]);
 
   const handleOpenPriceModal = (recipe: Recipe) => {
     setPricingRecipe(recipe);
     setShowPricingModal(true);
   };
 
-  const handleResetPrice = (recipeId: string) => {
+  const handleResetPrice = async (recipeId: number | string) => {
+    const numericId =
+      typeof recipeId === "number"
+        ? recipeId
+        : parseInt(String(recipeId).replace(/\D/g, ""), 10);
+
     if (confirm("Đặt lại giá món ăn này về giá ước tính mặc định của hệ thống?")) {
-      priceService.removeMyPrice(userId, recipeId);
-      setDataVersion((v) => v + 1);
+      try {
+        if (!isNaN(numericId)) {
+          await ingredientApiService.removeMyRecipePrice(numericId);
+        }
+        priceService.removeMyPrice(userId, String(recipeId));
+        setCustomPrices((prev) => prev.filter((p) => p.recipe_id !== numericId));
+        setDataVersion((v) => v + 1);
+      } catch (err: any) {
+        alert(err?.message || "Không thể xóa giá cá nhân");
+      }
     }
   };
 
@@ -277,7 +421,7 @@ function ProfileContent() {
             </Badge>
           </div>
           <p className="text-stone-500 text-sm mt-0.5">
-            @{profile.handle || "demouser"} · Thành viên từ Tháng 1/2026
+            @{profile.handle || (profile.email ? profile.email.split("@")[0] : "member")} · {profile.email ? profile.email : "Thành viên VeggieHub"}
           </p>
 
           <div className="flex flex-wrap items-center gap-2 mt-3">
@@ -370,14 +514,14 @@ function ProfileContent() {
           icon={<Heart className="w-4 h-4 text-rose-500 fill-rose-500" />}
         />
         <StatCard
-          label="Thực đơn đã lưu"
-          value={String(savedMealPlans.length)}
-          subtext="Mẫu thực đơn tùy chỉnh"
-          icon={<CalendarDays className="w-4 h-4 text-emerald-600" />}
+          label="Công thức tự tạo"
+          value={String(myRecipes.length)}
+          subtext="Món do bạn đóng góp"
+          icon={<ChefHat className="w-4 h-4 text-emerald-600" />}
         />
         <StatCard
           label="Giá riêng đã cập nhật"
-          value={String(customPricedList.length)}
+          value={String(customPrices.length)}
           subtext="Ưu tiên tính vào thực đơn"
           icon={<Tag className="w-4 h-4 text-amber-600" />}
         />
@@ -399,6 +543,13 @@ function ProfileContent() {
           onClick={() => setActiveTab("favorites")}
         />
         <TabButton
+          label="Công thức tự tạo của tôi"
+          icon={<ChefHat className="w-4 h-4 text-emerald-700" />}
+          active={activeTab === "my_recipes"}
+          badgeCount={myRecipes.length}
+          onClick={() => setActiveTab("my_recipes")}
+        />
+        <TabButton
           label="Thực đơn yêu thích"
           icon={<CalendarDays className="w-4 h-4 text-emerald-700" />}
           active={activeTab === "saved_plans"}
@@ -409,7 +560,7 @@ function ProfileContent() {
           label="Bảng giá món của tôi"
           icon={<Tag className="w-4 h-4 text-amber-600" />}
           active={activeTab === "custom_prices"}
-          badgeCount={customPricedList.length}
+          badgeCount={customPrices.length}
           onClick={() => setActiveTab("custom_prices")}
         />
         <TabButton
@@ -484,7 +635,10 @@ function ProfileContent() {
                       className="p-4 rounded-2xl border border-stone-200 bg-stone-50/40 hover:bg-white hover:border-emerald-300 transition-all flex flex-col justify-between space-y-4 shadow-2xs group"
                     >
                       <div className="flex items-start gap-3.5">
-                        <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-stone-100 shrink-0 border border-stone-200">
+                        <Link
+                          href={`/recipes/${recipe.id}`}
+                          className="relative w-16 h-16 rounded-xl overflow-hidden bg-stone-100 shrink-0 border border-stone-200 block"
+                        >
                           {recipe.image ? (
                             <img
                               src={recipe.image}
@@ -496,19 +650,31 @@ function ProfileContent() {
                               <UtensilsCrossed className="w-6 h-6" />
                             </div>
                           )}
-                        </div>
+                        </Link>
 
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-1">
                             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900">
                               {recipe.mealType}
                             </span>
-                            <RecipeFavoriteButton recipeId={recipe.id} size="sm" />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFavorite(recipe.id)}
+                              className="w-7 h-7 rounded-full flex items-center justify-center bg-rose-50 text-rose-600 border border-rose-200 shadow-2xs hover:bg-rose-100 transition-all cursor-pointer"
+                              title="Bỏ yêu thích"
+                            >
+                              <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
+                            </button>
                           </div>
 
-                          <h4 className="font-bold text-stone-900 text-sm truncate mt-1">
-                            {recipe.name || recipe.title}
-                          </h4>
+                          <Link
+                            href={`/recipes/${recipe.id}`}
+                            className="block hover:text-emerald-700 transition-colors"
+                          >
+                            <h4 className="font-bold text-stone-900 text-sm truncate mt-1">
+                              {recipe.name || recipe.title}
+                            </h4>
+                          </Link>
 
                           <div className="flex items-center gap-2 text-xs text-stone-500 mt-1">
                             <span className="text-amber-700 font-bold">{recipe.calories} kcal</span>
@@ -568,7 +734,215 @@ function ProfileContent() {
       )}
 
       {/* ========================================================
-          TAB 2: SAVED MEAL PLANS
+          TAB: MY CREATED RECIPES (CÔNG THỨC DO MEMBER TỰ TẠO)
+      ======================================================== */}
+      {activeTab === "my_recipes" && (
+        <div className="space-y-6 animate-in fade-in">
+          <div className="bg-white border border-stone-200 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-stone-100 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <ChefHat className="w-5 h-5 text-emerald-700" />
+                  <h3 className="font-serif font-bold text-xl text-stone-900">
+                    Công thức Món ăn Tự tạo của Tôi
+                  </h3>
+                </div>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Quản lý các công thức do bạn tự tạo và đóng góp. Theo dõi trạng thái kiểm duyệt (Chờ duyệt, Đã duyệt, Bị từ chối).
+                </p>
+              </div>
+
+              <Link
+                href="/recipes/create"
+                className="flex items-center gap-2 h-10 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs transition-all shadow-xs cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Đăng công thức mới</span>
+              </Link>
+            </div>
+
+            {/* Quick Filter Status Badges */}
+            {myRecipes.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRecipeStatusFilter("ALL")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    recipeStatusFilter === "ALL"
+                      ? "bg-stone-900 text-white"
+                      : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                  }`}
+                >
+                  Tất cả ({myRecipes.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecipeStatusFilter("APPROVED")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    recipeStatusFilter === "APPROVED"
+                      ? "bg-emerald-700 text-white"
+                      : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                  }`}
+                >
+                  <span>✅ Đã duyệt</span>
+                  <span className="font-bold">
+                    ({myRecipes.filter((r) => r.status === "APPROVED").length})
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecipeStatusFilter("PENDING_REVIEW")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    recipeStatusFilter === "PENDING_REVIEW"
+                      ? "bg-amber-600 text-white"
+                      : "bg-amber-50 text-amber-800 hover:bg-amber-100"
+                  }`}
+                >
+                  <span>⏳ Đang chờ duyệt</span>
+                  <span className="font-bold">
+                    ({myRecipes.filter((r) => r.status === "PENDING_REVIEW").length})
+                  </span>
+                </button>
+                {myRecipes.some((r) => r.status === "REJECTED") && (
+                  <button
+                    type="button"
+                    onClick={() => setRecipeStatusFilter("REJECTED")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      recipeStatusFilter === "REJECTED"
+                        ? "bg-rose-600 text-white"
+                        : "bg-rose-50 text-rose-700 hover:bg-rose-100"
+                    }`}
+                  >
+                    <span>❌ Bị từ chối</span>
+                    <span className="font-bold">
+                      ({myRecipes.filter((r) => r.status === "REJECTED").length})
+                    </span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {myRecipesLoading ? (
+              <div className="p-12 text-center text-stone-400">
+                <p className="text-xs">Đang tải danh sách công thức của bạn...</p>
+              </div>
+            ) : myRecipes.length === 0 ? (
+              <div className="p-12 text-center text-stone-400 bg-stone-50 rounded-2xl border border-dashed border-stone-200 space-y-2">
+                <ChefHat className="w-10 h-10 text-stone-300 mx-auto" />
+                <p className="font-medium text-stone-700 text-sm">
+                  Bạn chưa tự tạo công thức món ăn nào.
+                </p>
+                <p className="text-xs text-stone-500 max-w-md mx-auto">
+                  Hãy gửi công thức món chay của riêng bạn! Sau khi tạo, công thức sẽ được chuyển tới Ban quản trị để duyệt và chia sẻ với toàn bộ cộng đồng.
+                </p>
+                <div className="pt-2">
+                  <Link
+                    href="/recipes/create"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-700 text-white text-xs font-bold rounded-xl hover:bg-emerald-800 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Tạo công thức ngay</span>
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {myRecipes
+                  .filter((recipe) => {
+                    if (recipeStatusFilter === "ALL") return true;
+                    return recipe.status === recipeStatusFilter;
+                  })
+                  .map((recipe) => {
+                    const isApproved = recipe.status === "APPROVED";
+                    const isPending = recipe.status === "PENDING_REVIEW";
+                    const isRejected = recipe.status === "REJECTED";
+
+                    return (
+                      <div
+                        key={recipe.id}
+                        className="bg-white border border-stone-200/90 rounded-3xl overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col group"
+                      >
+                        <div className="relative aspect-[16/10] w-full bg-stone-100 overflow-hidden">
+                          {recipe.image ? (
+                            <img
+                              src={recipe.image}
+                              alt={recipe.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-stone-100 text-stone-400">
+                              <ChefHat className="w-8 h-8 opacity-40" />
+                            </div>
+                          )}
+                          <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                            {isApproved && (
+                              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-600 text-white shadow-xs">
+                                ✅ Đã duyệt
+                              </span>
+                            )}
+                            {isPending && (
+                              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500 text-white shadow-xs">
+                                ⏳ Chờ Admin duyệt
+                              </span>
+                            )}
+                            {isRejected && (
+                              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-600 text-white shadow-xs">
+                                ❌ Bị từ chối
+                              </span>
+                            )}
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-stone-900/60 text-white backdrop-blur-xs">
+                              {recipe.mealType}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                          <div>
+                            <h4 className="font-serif font-bold text-stone-900 text-base leading-snug line-clamp-1 group-hover:text-emerald-700 transition-colors">
+                              {recipe.name || recipe.title}
+                            </h4>
+                            <p className="text-xs text-stone-500 mt-1 line-clamp-2">
+                              {recipe.description || "Công thức món ăn thanh đạm, dinh dưỡng."}
+                            </p>
+                            <div className="flex items-center gap-2 text-xs text-stone-500 mt-2">
+                              <span className="text-amber-700 font-bold">{recipe.calories} kcal</span>
+                              <span>·</span>
+                              <span>{recipe.protein}g đạm</span>
+                              <span>·</span>
+                              <span>{recipe.serving} khẩu phần</span>
+                            </div>
+                          </div>
+
+                          <div className="pt-3 border-t border-stone-100 flex items-center justify-between">
+                            <span className="text-xs font-bold text-emerald-800">
+                              ~{(recipe.estimatedCost || 0).toLocaleString("vi-VN")} VND
+                            </span>
+                            {isApproved ? (
+                              <Link
+                                href={`/recipes/${recipe.id}`}
+                                className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline"
+                              >
+                                <span>Xem chi tiết</span>
+                                <ArrowRight className="w-3.5 h-3.5" />
+                              </Link>
+                            ) : (
+                              <span className="text-[11px] font-medium text-stone-400">
+                                {isPending ? "Đang chờ duyệt" : "Không hiển thị"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          TAB 3: SAVED MEAL PLANS
       ======================================================== */}
       {activeTab === "saved_plans" && (
         <div className="space-y-6 animate-in fade-in">
@@ -723,14 +1097,18 @@ function ProfileContent() {
               </div>
             </div>
 
-            {customPricedList.length === 0 ? (
+            {customPricesLoading ? (
+              <div className="p-12 text-center text-stone-400">
+                <p className="text-xs">Đang tải bảng giá cá nhân của bạn...</p>
+              </div>
+            ) : customPrices.length === 0 ? (
               <div className="p-12 text-center text-stone-400 bg-stone-50 rounded-2xl border border-dashed border-stone-200">
                 <Tag className="w-10 h-10 text-stone-300 mx-auto mb-2" />
                 <p className="font-medium text-stone-700 text-sm">
                   Bạn chưa nhập giá riêng cho món ăn nào.
                 </p>
                 <p className="text-xs text-stone-500 mt-1">
-                  Nhấp vào nút &quot;+ Đặt giá món mới&quot; hoặc &quot;Cập nhật giá thực tế&quot; trên các món ăn để lưu giá chợ của gia đình bạn.
+                  Nhấp vào nút &quot;+ Đặt giá món mới&quot; trên các món ăn để lưu giá chợ thực tế của gia đình bạn.
                 </p>
               </div>
             ) : (
@@ -747,67 +1125,101 @@ function ProfileContent() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100">
-                    {customPricedList.map((item) => (
-                      <tr key={item.recipe.id} className="hover:bg-stone-50/60 transition-colors">
-                        <td className="py-3.5 px-4 font-semibold text-stone-900">
-                          <div className="flex items-center gap-2.5">
-                            {item.recipe.image && (
-                              <img
-                                src={item.recipe.image}
-                                alt={item.recipe.name}
-                                className="w-8 h-8 rounded-lg object-cover shrink-0"
-                              />
-                            )}
-                            <span className="truncate max-w-xs">{item.recipe.name || item.recipe.title}</span>
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-3">
-                          <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-stone-100 text-stone-700">
-                            {item.recipe.mealType}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-stone-600 font-medium">
-                          ~{item.estimatedCost.toLocaleString("vi-VN")} VND
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <span className="font-bold text-emerald-800">
-                            {item.myPrice.toLocaleString("vi-VN")} VND
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-3">
-                          <span
-                            className={`text-xs font-bold px-2 py-0.5 rounded-md ${
-                              item.diff > 0
-                                ? "bg-amber-100 text-amber-900"
-                                : item.diff < 0
-                                ? "bg-emerald-100 text-emerald-900"
-                                : "bg-stone-100 text-stone-700"
-                            }`}
-                          >
-                            {item.diff > 0 ? `+${item.diff.toLocaleString("vi-VN")}` : item.diff.toLocaleString("vi-VN")} VND
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenPriceModal(item.recipe)}
-                              className="px-2.5 py-1.5 rounded-lg bg-stone-100 hover:bg-emerald-50 hover:text-emerald-700 text-stone-700 text-xs font-semibold transition-colors cursor-pointer"
+                    {customPrices.map((item) => {
+                      const recipeName = item.recipe?.title || `Món ăn #${item.recipe_id}`;
+                      const mealType = item.recipe?.meal_type || "Món chay";
+                      const image = item.recipe?.image_url || "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80";
+                      const estimatedCost = Number(item.estimated_cost ?? item.recipe?.estimated_cost ?? 0);
+                      const myPrice = Number(item.actual_price ?? 0);
+                      const diff = item.diff !== null && item.diff !== undefined ? Number(item.diff) : (myPrice - estimatedCost);
+
+                      const recipeObj: Recipe = {
+                        id: String(item.recipe_id),
+                        name: recipeName,
+                        title: recipeName,
+                        mealType: (mealType as any) || "lunch",
+                        category: "Món chính",
+                        estimatedCost,
+                        image,
+                        calories: item.recipe?.calories || 350,
+                        protein: 15,
+                        carbs: 45,
+                        fat: 10,
+                        prepTime: 15,
+                        cookTime: 20,
+                        serving: 2,
+                        description: item.recipe?.description || "",
+                        instructions: [],
+                        ingredients: [],
+                        vegetarianType: "vegan",
+                      };
+
+                      return (
+                        <tr key={item.recipe_id} className="hover:bg-stone-50/60 transition-colors">
+                          <td className="py-3.5 px-4 font-semibold text-stone-900">
+                            <div className="flex items-center gap-2.5">
+                              {image ? (
+                                <img
+                                  src={image}
+                                  alt={recipeName}
+                                  className="w-8 h-8 rounded-lg object-cover shrink-0"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-lg bg-stone-100 flex items-center justify-center text-stone-400 shrink-0">
+                                  <UtensilsCrossed className="w-4 h-4" />
+                                </div>
+                              )}
+                              <span className="truncate max-w-xs">{recipeName}</span>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-3">
+                            <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-stone-100 text-stone-700">
+                              {mealType}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-stone-600 font-medium">
+                            ~{estimatedCost.toLocaleString("vi-VN")} VND
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="font-bold text-emerald-800">
+                              {myPrice.toLocaleString("vi-VN")} VND
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-3">
+                            <span
+                              className={`text-xs font-bold px-2 py-0.5 rounded-md ${
+                                diff > 0
+                                  ? "bg-amber-100 text-amber-900"
+                                  : diff < 0
+                                  ? "bg-emerald-100 text-emerald-900"
+                                  : "bg-stone-100 text-stone-700"
+                              }`}
                             >
-                              Sửa giá
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleResetPrice(item.recipe.id)}
-                              className="p-1.5 rounded-lg hover:bg-red-50 text-stone-400 hover:text-red-600 transition-colors cursor-pointer"
-                              title="Đặt lại về mặc định"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              {diff > 0 ? `+${diff.toLocaleString("vi-VN")}` : diff.toLocaleString("vi-VN")} VND
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenPriceModal(recipeObj)}
+                                className="px-2.5 py-1.5 rounded-lg bg-stone-100 hover:bg-emerald-50 hover:text-emerald-700 text-stone-700 text-xs font-semibold transition-colors cursor-pointer"
+                              >
+                                Sửa giá
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleResetPrice(item.recipe_id)}
+                                className="p-1.5 rounded-lg hover:bg-red-50 text-stone-400 hover:text-red-600 transition-colors cursor-pointer"
+                                title="Đặt lại về mặc định"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -820,56 +1232,76 @@ function ProfileContent() {
           TAB 4: MY POSTS
       ======================================================== */}
       {activeTab === "posts" && (
-        <DataTable
-          columns={[
-            { key: "title", label: "Tiêu đề bài viết" },
-            { key: "votes", label: "Bình chọn" },
-            { key: "comments", label: "Bình luận" },
-            { key: "status", label: "Trạng thái" },
-            { key: "actions", label: "" },
-          ]}
-          rows={MY_POSTS.map((p) => ({
-            title: (
-              <Link
-                href={`/forum/${p.id}`}
-                className="font-medium text-stone-900 hover:text-emerald-700 transition-colors line-clamp-1"
-              >
-                {p.title}
-              </Link>
-            ),
-            votes: <span className="text-sm text-stone-600">▲ {p.votes}</span>,
-            comments: <span className="text-sm text-stone-600">{p.comments}</span>,
-            status: <Badge variant="success">{p.status}</Badge>,
-            actions: (
-              <Link
-                href={`/forum/${p.id}`}
-                className="text-xs font-semibold text-emerald-700 hover:underline"
-              >
-                Xem chi tiết
-              </Link>
-            ),
-          }))}
-        />
+        MY_POSTS.length === 0 ? (
+          <div className="bg-white border border-stone-200 rounded-3xl p-12 text-center text-stone-400">
+            <FileText className="w-10 h-10 text-stone-300 mx-auto mb-2" />
+            <p className="font-medium text-stone-700 text-sm">Chưa có bài viết nào.</p>
+            <p className="text-xs text-stone-500 mt-1">
+              Bạn chưa đăng bài viết nào trên Diễn đàn cộng đồng.
+            </p>
+          </div>
+        ) : (
+          <DataTable
+            columns={[
+              { key: "title", label: "Tiêu đề bài viết" },
+              { key: "votes", label: "Bình chọn" },
+              { key: "comments", label: "Bình luận" },
+              { key: "status", label: "Trạng thái" },
+              { key: "actions", label: "" },
+            ]}
+            rows={MY_POSTS.map((p) => ({
+              title: (
+                <Link
+                  href={`/forum/${p.id}`}
+                  className="font-medium text-stone-900 hover:text-emerald-700 transition-colors line-clamp-1"
+                >
+                  {p.title}
+                </Link>
+              ),
+              votes: <span className="text-sm text-stone-600">▲ {p.votes}</span>,
+              comments: <span className="text-sm text-stone-600">{p.comments}</span>,
+              status: <Badge variant="success">{p.status}</Badge>,
+              actions: (
+                <Link
+                  href={`/forum/${p.id}`}
+                  className="text-xs font-semibold text-emerald-700 hover:underline"
+                >
+                  Xem chi tiết
+                </Link>
+              ),
+            }))}
+          />
+        )
       )}
 
       {/* ========================================================
           TAB 5: MY COMMENTS
       ======================================================== */}
       {activeTab === "comments" && (
-        <DataTable
-          columns={[
-            { key: "content", label: "Bình luận" },
-            { key: "on", label: "Bài viết / Món ăn" },
-            { key: "votes", label: "Ủng hộ" },
-            { key: "date", label: "Ngày" },
-          ]}
-          rows={MY_COMMENTS.map((c) => ({
-            content: <span className="text-sm text-stone-800 line-clamp-1">{c.content}</span>,
-            on: <span className="text-xs text-emerald-700 font-medium line-clamp-1">{c.on}</span>,
-            votes: <span className="text-sm text-stone-600">▲ {c.votes}</span>,
-            date: <span className="text-xs text-stone-500">{c.date}</span>,
-          }))}
-        />
+        MY_COMMENTS.length === 0 ? (
+          <div className="bg-white border border-stone-200 rounded-3xl p-12 text-center text-stone-400">
+            <MessageSquare className="w-10 h-10 text-stone-300 mx-auto mb-2" />
+            <p className="font-medium text-stone-700 text-sm">Chưa có bình luận nào.</p>
+            <p className="text-xs text-stone-500 mt-1">
+              Các bình luận của bạn trên các công thức và bài viết sẽ xuất hiện tại đây.
+            </p>
+          </div>
+        ) : (
+          <DataTable
+            columns={[
+              { key: "content", label: "Bình luận" },
+              { key: "on", label: "Bài viết / Món ăn" },
+              { key: "votes", label: "Ủng hộ" },
+              { key: "date", label: "Ngày" },
+            ]}
+            rows={MY_COMMENTS.map((c) => ({
+              content: <span className="text-sm text-stone-800 line-clamp-1">{c.content}</span>,
+              on: <span className="text-xs text-emerald-700 font-medium line-clamp-1">{c.on}</span>,
+              votes: <span className="text-sm text-stone-600">▲ {c.votes}</span>,
+              date: <span className="text-xs text-stone-500">{c.date}</span>,
+            }))}
+          />
+        )
       )}
 
       {/* ========================================================
@@ -894,6 +1326,7 @@ function ProfileContent() {
         isOpen={showFavoritesModal}
         onClose={() => setShowFavoritesModal(false)}
         profile={profile}
+        initialFavoriteRecipes={favoriteRecipes}
         onApplyPlan={handleApplyFavoriteDay}
         onLoadSavedPlan={handleLoadSavedPlan}
         onGenerateWeeklyWithFavorites={handleGenerateWeeklyWithFavorites}
@@ -987,7 +1420,9 @@ export default function MePage() {
         ) : isGuest ? (
           <LockedState reason="guest" />
         ) : (
-          <ProfileContent />
+          <Suspense fallback={<GatedSkeleton />}>
+            <ProfileContent />
+          </Suspense>
         )}
       </div>
     </AppShell>
