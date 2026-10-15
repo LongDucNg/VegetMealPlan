@@ -19,6 +19,7 @@ import { FavoritesModal } from "@/features/meal-planner/components/FavoritesModa
 import { PlanForSomeoneElseModal } from "@/features/meal-planner/components/PlanForSomeoneElseModal";
 import { SaveMealPlanModal } from "@/features/meal-planner/components/SaveMealPlanModal";
 import { GenerationSettingsModal } from "@/features/meal-planner/components/GenerationSettingsModal";
+import { GenerationPlanOptions } from "@/features/meal-planner/types";
 import { useSubscription } from "@/features/subscription/hooks/useSubscription";
 import { PremiumUpgradeModal } from "@/features/subscription/components/PremiumUpgradeModal";
 import { ProfileEditor } from "@/features/profile/components/ProfileEditor";
@@ -57,6 +58,7 @@ function PlannerContent() {
     someoneElseProfile,
     setSomeoneElseProfile,
     budgetLimit,
+    setBudgetLimit,
     selectedMonth,
     selectedYear,
     generateWeekly,
@@ -97,24 +99,24 @@ function PlannerContent() {
   };
 
   // Generate Weekly Plan action
-  const handleGenerateWeekly = () => {
+  const handleGenerateWeekly = (opts?: Partial<GenerationPlanOptions>) => {
     if (!nutritionSummary.isProfileComplete && !isPlanForSomeoneElse) {
       setShowProfileDrawer(true);
       return;
     }
     requirePremium(() => {
-      generateWeekly();
+      generateWeekly({ budgetLimit, ...opts });
     });
   };
 
   // Generate Monthly Plan action (Requirement 18, 20)
-  const handleGenerateMonthly = () => {
+  const handleGenerateMonthly = (opts?: Partial<GenerationPlanOptions>) => {
     if (!nutritionSummary.isProfileComplete && !isPlanForSomeoneElse) {
       setShowProfileDrawer(true);
       return;
     }
     requirePremium(() => {
-      generateMonthly(selectedMonth, selectedYear);
+      generateMonthly(selectedMonth, selectedYear, { budgetLimit, ...opts });
     });
   };
 
@@ -261,7 +263,7 @@ function PlannerContent() {
           </div>
           <Button
             size="sm"
-            onClick={planType === "monthly" ? handleGenerateMonthly : handleGenerateWeekly}
+            onClick={() => (planType === "monthly" ? handleGenerateMonthly() : handleGenerateWeekly())}
             className="bg-amber-600 hover:bg-amber-700 text-white font-bold h-9 px-4 rounded-xl cursor-pointer self-end sm:self-auto shrink-0 shadow-2xs"
           >
             Regenerate Plan
@@ -301,8 +303,43 @@ function PlannerContent() {
           )}
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Buttons & Quick Budget Input */}
         <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-center shrink-0">
+          {/* Quick Budget Limit Control */}
+          <div className="flex items-center gap-2 bg-stone-50 hover:bg-stone-100/90 border border-stone-200/90 rounded-2xl px-3 py-1.5 shadow-2xs transition-colors">
+            <span className="text-sm">💰</span>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">
+                Ngân sách (Budget):
+              </span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  placeholder="Không giới hạn"
+                  value={budgetLimit ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value ? Number(e.target.value) : undefined;
+                    setBudgetLimit(val);
+                  }}
+                  className="w-28 text-xs font-bold text-stone-900 bg-transparent outline-none placeholder:text-stone-400 placeholder:font-normal"
+                  step="50000"
+                  min="50000"
+                />
+                <span className="text-[11px] font-semibold text-stone-500">VNĐ</span>
+                {budgetLimit !== undefined && (
+                  <button
+                    type="button"
+                    onClick={() => setBudgetLimit(undefined)}
+                    className="text-stone-400 hover:text-stone-700 text-xs px-1 font-bold cursor-pointer"
+                    title="Xoá giới hạn ngân sách (Không giới hạn)"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           <Button
             variant="soft"
             size="sm"
@@ -318,6 +355,7 @@ function PlannerContent() {
             size="sm"
             onClick={() => setShowSettingsModal(true)}
             className="h-10 px-3.5 rounded-xl border-stone-200 text-stone-700 flex items-center gap-1.5 text-xs cursor-pointer"
+            title="Tuỳ chỉnh chi tiết thực đơn & ngân sách"
           >
             <SlidersHorizontal className="w-3.5 h-3.5 text-stone-500" />
             <span>Settings</span>
@@ -326,7 +364,7 @@ function PlannerContent() {
           {/* Weekly Button */}
           <Button
             size="md"
-            onClick={handleGenerateWeekly}
+            onClick={() => handleGenerateWeekly()}
             disabled={isGenerating}
             className={`h-11 px-5 rounded-2xl font-bold text-xs shadow-xs flex items-center gap-2 transition-all cursor-pointer ${
               hasGenerated && planType === "weekly"
@@ -345,7 +383,7 @@ function PlannerContent() {
           {/* Monthly Button (Requirement 18, 20) */}
           <Button
             size="md"
-            onClick={handleGenerateMonthly}
+            onClick={() => handleGenerateMonthly()}
             disabled={isGenerating}
             className={`h-11 px-5 rounded-2xl font-bold text-xs shadow-xs flex items-center gap-2 transition-all cursor-pointer ${
               hasGenerated && planType === "monthly"
@@ -382,7 +420,7 @@ function PlannerContent() {
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <Button
-              onClick={handleGenerateWeekly}
+              onClick={() => handleGenerateWeekly()}
               className="h-11 px-6 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-sm flex items-center gap-2 cursor-pointer"
             >
               <CalendarDays className="w-4 h-4 text-emerald-200" />
@@ -390,7 +428,7 @@ function PlannerContent() {
             </Button>
 
             <Button
-              onClick={handleGenerateMonthly}
+              onClick={() => handleGenerateMonthly()}
               className="h-11 px-6 rounded-2xl bg-stone-800 hover:bg-stone-900 text-white font-bold text-xs shadow-sm flex items-center gap-2 cursor-pointer"
             >
               <Calendar className="w-4 h-4 text-amber-300" />
@@ -409,6 +447,38 @@ function PlannerContent() {
         </Card>
       ) : (
         <>
+          {/* Plan Budget & Estimated Cost Summary Banner */}
+          {(budgetLimit || (planType === "weekly" ? weeklyPlan?.budgetLimit : monthlyPlan?.budgetLimit)) && (
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-emerald-50/70 border border-emerald-200/90 rounded-2xl text-xs text-emerald-950 animate-in fade-in shadow-2xs">
+              <div className="flex items-center gap-2">
+                <span className="text-base">💰</span>
+                <span>
+                  <strong>Ngân sách kế hoạch ({planType === "weekly" ? "Tuần" : "Tháng"}):</strong>{" "}
+                  {((planType === "weekly" ? weeklyPlan?.budgetLimit : monthlyPlan?.budgetLimit) ?? budgetLimit)?.toLocaleString("vi-VN")} VNĐ
+                </span>
+                <span className="text-emerald-700 font-medium">
+                  · Chi phí nguyên liệu ước tính:{" "}
+                  <strong>
+                    {(planType === "weekly" ? weeklyPlan?.totalEstimatedCost : monthlyPlan?.totalEstimatedCost)?.toLocaleString("vi-VN")} VNĐ
+                  </strong>
+                </span>
+              </div>
+              {(() => {
+                const b = (planType === "weekly" ? weeklyPlan?.budgetLimit : monthlyPlan?.budgetLimit) ?? budgetLimit;
+                const cost = planType === "weekly" ? weeklyPlan?.totalEstimatedCost : monthlyPlan?.totalEstimatedCost;
+                if (b && cost !== undefined) {
+                  const diff = b - cost;
+                  return (
+                    <span className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] ${diff >= 0 ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"}`}>
+                      {diff >= 0 ? `Trong ngân sách (Dư ${diff.toLocaleString("vi-VN")} VNĐ)` : `Vượt ngân sách: ${Math.abs(diff).toLocaleString("vi-VN")} VNĐ`}
+                    </span>
+                  );
+                }
+                return null;
+              })()}
+            </div>
+          )}
+
           {/* ========================================================
               VIEW MODE SWITCHER & SUB-ACTIONS
               ======================================================== */}
@@ -704,11 +774,15 @@ function PlannerContent() {
         onClose={() => setShowSettingsModal(false)}
         activeProfile={activeProfile}
         isPlanForSomeoneElse={isPlanForSomeoneElse}
+        currentBudget={budgetLimit}
         onOpenSomeoneElseModal={() => {
           setShowSettingsModal(false);
           setShowSomeoneElseModal(true);
         }}
         onConfirmGenerate={(options) => {
+          if (options.budgetLimit !== undefined) {
+            setBudgetLimit(options.budgetLimit);
+          }
           if (options.planType === "monthly") {
             generateMonthly(options.selectedMonth, options.selectedYear, options);
           } else {

@@ -41,6 +41,7 @@ export interface Recipe {
   protein: number; // grams
   carbs: number; // grams
   fat: number; // grams
+  fiber?: number; // grams
   ingredients: IngredientItem[];
   allergens?: string[]; // Standard property per Requirement 14
   instructions: string[];

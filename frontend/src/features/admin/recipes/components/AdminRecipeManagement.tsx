@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   Plus,
   Search,
@@ -13,6 +14,11 @@ import {
   FileSpreadsheet,
   Tag,
   ExternalLink,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Check,
+  Carrot,
 } from "lucide-react";
 import { useRecipes } from "@/features/recipes/hooks/useRecipes";
 import { Recipe, RecipeStatus } from "@/features/recipes/types";
@@ -21,10 +27,14 @@ import { AdminRecipeDetailModal } from "./AdminRecipeDetailModal";
 import { AdminImportModal } from "./AdminImportModal";
 import { recipeService } from "@/features/recipes/services/recipeService";
 import { priceService } from "@/features/recipes/services/priceService";
+import { recipeApiService } from "@/features/recipes/services/recipeApiService";
+import { mapBackendToFrontendRecipe } from "@/features/recipes/utils/recipeMapper";
 
 export function AdminRecipeManagement() {
   const { recipes, createRecipe, updateRecipe, deleteRecipe, refresh } = useRecipes();
 
+  const [serverRecipes, setServerRecipes] = useState<Recipe[]>([]);
+  const [loadingServer, setLoadingServer] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedMealType, setSelectedMealType] = useState<string>("all");
   const [selectedDiet, setSelectedDiet] = useState<string>("all");
@@ -35,14 +45,74 @@ export function AdminRecipeManagement() {
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
 
+  const loadAdminRecipes = useCallback(async () => {
+    setLoadingServer(true);
+    try {
+      const data = await recipeApiService.getAdminRecipes();
+      const list = Array.isArray(data) ? data : (data as any)?.data || [];
+      if (Array.isArray(list) && list.length > 0) {
+        const mapped = list.map(mapBackendToFrontendRecipe);
+        setServerRecipes(mapped);
+      }
+    } catch (err) {
+      console.warn("Failed to load admin recipes:", err);
+    } finally {
+      setLoadingServer(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAdminRecipes();
+  }, [loadAdminRecipes]);
+
+  // Combined source: server recipes prioritized, fallback to hook recipes
+  const allRecipes = serverRecipes.length > 0 ? serverRecipes : recipes;
+
+  const pendingCount = allRecipes.filter(
+    (r) => (r.status || "").toUpperCase() === "PENDING_REVIEW"
+  ).length;
+
+  const handleApprove = async (recipe: Recipe) => {
+    const numId = parseInt(recipe.id.replace(/\D/g, ""), 10);
+    try {
+      if (!isNaN(numId)) {
+        await recipeApiService.reviewRecipe(numId, "approved");
+      }
+      recipeService.updateRecipe(recipe.id, { status: "APPROVED" });
+      await loadAdminRecipes();
+      refresh();
+    } catch (err: any) {
+      alert(err?.message || "Không thể phê duyệt công thức này");
+    }
+  };
+
+  const handleReject = async (recipe: Recipe) => {
+    const reason = window.prompt(
+      `Nhập lý do từ chối công thức "${recipe.name || recipe.title}":`,
+      "Nội dung chưa đầy đủ hoặc không phù hợp tiêu chuẩn cộng đồng"
+    );
+    if (reason === null) return;
+    const numId = parseInt(recipe.id.replace(/\D/g, ""), 10);
+    try {
+      if (!isNaN(numId)) {
+        await recipeApiService.reviewRecipe(numId, "rejected", reason);
+      }
+      recipeService.updateRecipe(recipe.id, { status: "REJECTED" });
+      await loadAdminRecipes();
+      refresh();
+    } catch (err: any) {
+      alert(err?.message || "Không thể từ chối công thức này");
+    }
+  };
+
   // Filtered recipes
-  const filtered = recipes.filter((r) => {
+  const filtered = allRecipes.filter((r) => {
     if (search.trim()) {
       const q = search.toLowerCase();
       const match =
         r.title.toLowerCase().includes(q) ||
         r.category.toLowerCase().includes(q) ||
-        r.ingredients.some((ing) => ing.name.toLowerCase().includes(q));
+        (r.ingredients || []).some((ing) => ing.name.toLowerCase().includes(q));
       if (!match) return false;
     }
     if (selectedMealType !== "all" && r.mealType !== selectedMealType) {
@@ -51,7 +121,7 @@ export function AdminRecipeManagement() {
     if (selectedDiet !== "all" && r.vegetarianType !== selectedDiet) {
       return false;
     }
-    if (selectedStatus !== "all" && (r.status || "APPROVED") !== selectedStatus) {
+    if (selectedStatus !== "all" && (r.status || "APPROVED").toUpperCase() !== selectedStatus.toUpperCase()) {
       return false;
     }
     return true;
@@ -116,6 +186,15 @@ export function AdminRecipeManagement() {
             Reset Data
           </button>
 
+          {/* Link to Ingredients CRUD */}
+          <Link
+            href="/admin/ingredients"
+            className="h-10 px-4 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+          >
+            <Carrot className="w-4 h-4 text-emerald-700" />
+            <span>Kho Nguyên liệu</span>
+          </Link>
+
           {/* Import Recipes Button (Requirement 8) */}
           <button
             onClick={() => setImportModalOpen(true)}
@@ -175,24 +254,56 @@ export function AdminRecipeManagement() {
 
         <span className="font-semibold text-stone-500 ml-3 mr-1">Status:</span>
         {[
-          { id: "all", label: "All" },
-          { id: "APPROVED", label: "Approved" },
-          { id: "PENDING_REVIEW", label: "Pending" },
-          { id: "DRAFT", label: "Draft" },
+          { id: "all", label: "Tất cả" },
+          { id: "PENDING_REVIEW", label: "Chờ duyệt", count: pendingCount },
+          { id: "APPROVED", label: "Đã duyệt" },
+          { id: "REJECTED", label: "Đã từ chối" },
+          { id: "DRAFT", label: "Nháp" },
         ].map((s) => (
           <button
             key={s.id}
             onClick={() => setSelectedStatus(s.id)}
-            className={`px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer ${
-              selectedStatus === s.id
-                ? "bg-emerald-800 text-white font-semibold"
+            className={`px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+              selectedStatus.toUpperCase() === s.id.toUpperCase()
+                ? s.id === "PENDING_REVIEW"
+                  ? "bg-amber-600 text-white font-semibold"
+                  : "bg-emerald-800 text-white font-semibold"
                 : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
             }`}
           >
-            {s.label}
+            <span>{s.label}</span>
+            {s.count !== undefined && s.count > 0 && (
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  selectedStatus.toUpperCase() === s.id.toUpperCase()
+                    ? "bg-white text-amber-700"
+                    : "bg-amber-100 text-amber-800"
+                }`}
+              >
+                {s.count}
+              </span>
+            )}
           </button>
         ))}
       </div>
+
+      {/* Pending review notice banner */}
+      {pendingCount > 0 && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-wrap items-center justify-between gap-3 text-amber-900 text-sm">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+            <p>
+              Có <span className="font-bold">{pendingCount} công thức</span> do người dùng gửi đang chờ bạn phê duyệt.
+            </p>
+          </div>
+          <button
+            onClick={() => setSelectedStatus("PENDING_REVIEW")}
+            className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
+          >
+            Lọc công thức chờ duyệt
+          </button>
+        </div>
+      )}
 
       {/* Recipes Table / Grid */}
       <div className="bg-white border border-stone-200 rounded-3xl overflow-hidden shadow-xs">
@@ -247,6 +358,8 @@ export function AdminRecipeManagement() {
                             ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
                             : status === "PENDING_REVIEW"
                             ? "bg-amber-100 text-amber-900 border border-amber-300"
+                            : status === "REJECTED"
+                            ? "bg-rose-100 text-rose-900 border border-rose-300"
                             : "bg-stone-200 text-stone-700"
                         }`}
                       >
@@ -255,9 +368,12 @@ export function AdminRecipeManagement() {
                       <span className="text-xs text-stone-400">· {recipe.category}</span>
                     </div>
 
-                    <h3 className="font-semibold text-stone-900 text-base truncate">
+                    <Link
+                      href={`/recipes/${recipe.id}`}
+                      className="font-semibold text-stone-900 text-base truncate block hover:text-emerald-700 hover:underline transition-colors"
+                    >
                       {recipe.name || recipe.title}
-                    </h3>
+                    </Link>
 
                     <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500 mt-1">
                       <span className="flex items-center gap-1 font-semibold text-amber-700">
@@ -279,9 +395,48 @@ export function AdminRecipeManagement() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
+                  {status === "PENDING_REVIEW" && (
+                    <>
+                      <button
+                        onClick={() => handleApprove(recipe)}
+                        title="Duyệt công thức công khai"
+                        className="h-8 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1 transition-colors shadow-2xs cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Duyệt</span>
+                      </button>
+                      <button
+                        onClick={() => handleReject(recipe)}
+                        title="Từ chối công thức"
+                        className="h-8 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        <span>Từ chối</span>
+                      </button>
+                    </>
+                  )}
+
+                  {status === "REJECTED" && (
+                    <button
+                      onClick={() => handleApprove(recipe)}
+                      title="Duyệt lại công thức"
+                      className="h-8 px-2.5 rounded-xl bg-stone-100 hover:bg-emerald-50 text-stone-700 hover:text-emerald-800 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Duyệt lại</span>
+                    </button>
+                  )}
+
+                  <Link
+                    href={`/recipes/${recipe.id}`}
+                    title="Open Recipe Page"
+                    className="p-2 rounded-xl text-stone-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </Link>
                   <button
                     onClick={() => setViewingRecipe(recipe)}
-                    title="View Detail"
+                    title="Quick Preview"
                     className="p-2 rounded-xl text-stone-500 hover:text-stone-900 hover:bg-stone-100 transition-colors cursor-pointer"
                   >
                     <Eye className="w-4 h-4" />
