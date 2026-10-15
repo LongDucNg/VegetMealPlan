@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DataTable } from "@/components/ui/Table";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
-import { ADMIN_MEMBERS, AdminMember } from "@/features/admin";
+import { ADMIN_MEMBERS, AdminMember, adminService } from "@/features/admin";
 import {
   Search,
   UserCheck,
@@ -33,6 +33,53 @@ function MembersContent() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | AdminMember["status"]>("all");
   const [members, setMembers] = useState<AdminMember[]>([...ADMIN_MEMBERS]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    adminService
+      .fetchMembers({
+        search: search.trim() || undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+      })
+      .then((data) => {
+        if (!active) return;
+        if (data && data.length > 0) setMembers(data);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [search, statusFilter]);
+
+  const toggleSuspend = async (id: string) => {
+    const target = members.find((m) => m.id === id);
+    if (!target) return;
+    const nextStatus = target.status === "Suspended" ? "Active" : "Suspended";
+
+    // Optimistic update
+    setMembers((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, status: nextStatus } : m))
+    );
+
+    await adminService.updateMemberStatus(id, nextStatus);
+  };
+
+  const toggleRole = async (id: string) => {
+    const target = members.find((m) => m.id === id);
+    if (!target) return;
+    const nextRole = target.role === "Admin" ? "Member" : "Admin";
+
+    // Optimistic update
+    setMembers((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, role: nextRole } : m))
+    );
+
+    await adminService.updateMemberRole(id, nextRole.toLowerCase());
+  };
 
   const filtered = members.filter((m) => {
     const matchSearch =
@@ -42,16 +89,6 @@ function MembersContent() {
     const matchStatus = statusFilter === "all" || m.status === statusFilter;
     return matchSearch && matchStatus;
   });
-
-  const toggleSuspend = (id: string) => {
-    setMembers((prev) =>
-      prev.map((m) =>
-        m.id === id
-          ? { ...m, status: m.status === "Suspended" ? ("Active" as const) : ("Suspended" as const) }
-          : m
-      )
-    );
-  };
 
   return (
     <div className="space-y-5">
@@ -131,8 +168,11 @@ function MembersContent() {
                 )}
               </button>
               <button
-                title="Grant admin"
-                className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-400 hover:text-stone-600 transition-colors cursor-pointer"
+                onClick={() => toggleRole(m.id)}
+                title={m.role === "Admin" ? "Demote to Member" : "Grant Admin role"}
+                className={`p-1.5 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer ${
+                  m.role === "Admin" ? "text-emerald-700 bg-emerald-50" : "text-stone-400 hover:text-stone-600"
+                }`}
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
               </button>
