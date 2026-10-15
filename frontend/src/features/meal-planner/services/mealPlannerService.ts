@@ -13,45 +13,72 @@ import {
 } from "../types";
 import { checkAllergies } from "@/features/allergy/utils/checkRecipeAllergy";
 import { priceService } from "@/features/recipes/services/priceService";
+import { mapBackendToFrontendRecipe } from "@/features/recipes/utils/recipeMapper";
 
-const DAYS_OF_WEEK = [
-  { day: "Monday", short: "Mon", date: "Sep 22" },
-  { day: "Tuesday", short: "Tue", date: "Sep 23" },
-  { day: "Wednesday", short: "Wed", date: "Sep 24" },
-  { day: "Thursday", short: "Thu", date: "Sep 25" },
-  { day: "Friday", short: "Fri", date: "Sep 26" },
-  { day: "Saturday", short: "Sat", date: "Sep 27" },
-  { day: "Sunday", short: "Sun", date: "Sep 28" },
-];
+export function getCurrentWeekDates(refDate: Date = new Date()): Array<{ day: string; short: string; date: string }> {
+  const d = new Date(refDate);
+  const dayOfWeek = d.getDay(); // 0 is Sunday, 1 is Monday ...
+  const diffToMonday = (dayOfWeek === 0 ? -6 : 1) - dayOfWeek;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diffToMonday);
+
+  const dayNames = [
+    { day: "Monday", short: "Mon" },
+    { day: "Tuesday", short: "Tue" },
+    { day: "Wednesday", short: "Wed" },
+    { day: "Thursday", short: "Thu" },
+    { day: "Friday", short: "Fri" },
+    { day: "Saturday", short: "Sat" },
+    { day: "Sunday", short: "Sun" },
+  ];
+
+  const monthShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  return dayNames.map((item, idx) => {
+    const cur = new Date(monday);
+    cur.setDate(monday.getDate() + idx);
+    return {
+      day: item.day,
+      short: item.short,
+      date: `${monthShort[cur.getMonth()]} ${cur.getDate()}`,
+    };
+  });
+}
+
+export const DAYS_OF_WEEK = getCurrentWeekDates();
 
 export const mealPlannerService = {
   /**
    * Recalculates nutritional totals, remaining calories, and cost for a single day plan
    */
   recalculateDay(day: DayMealPlan, targetCalories: number, userId?: string): DayMealPlan {
-    const totalCalories =
+    const totalCalories = Math.round(
       day.breakfast.recipe.calories +
       day.lunch.recipe.calories +
       day.dinner.recipe.calories +
-      day.snack.recipe.calories;
+      day.snack.recipe.calories
+    );
 
-    const totalProtein =
+    const totalProtein = Math.round((
       day.breakfast.recipe.protein +
       day.lunch.recipe.protein +
       day.dinner.recipe.protein +
-      day.snack.recipe.protein;
+      day.snack.recipe.protein
+    ) * 10) / 10;
 
-    const totalCarbs =
+    const totalCarbs = Math.round((
       day.breakfast.recipe.carbs +
       day.lunch.recipe.carbs +
       day.dinner.recipe.carbs +
-      day.snack.recipe.carbs;
+      day.snack.recipe.carbs
+    ) * 10) / 10;
 
-    const totalFat =
+    const totalFat = Math.round((
       day.breakfast.recipe.fat +
       day.lunch.recipe.fat +
       day.dinner.recipe.fat +
-      day.snack.recipe.fat;
+      day.snack.recipe.fat
+    ) * 10) / 10;
 
     const costBreakfast = priceService.getEffectivePrice(day.breakfast.recipe, userId).price;
     const costLunch = priceService.getEffectivePrice(day.lunch.recipe, userId).price;
@@ -115,10 +142,12 @@ export const mealPlannerService = {
       index: number,
       preferredFavIds?: string[]
     ): Recipe => {
-      // 1. If user chose favorites, give them precedence
+      // 1. If user chose favorites, give them precedence and rotate across days
       if (preferredFavIds && preferredFavIds.length > 0) {
-        const fav = candidates.find((r) => preferredFavIds.includes(r.id));
-        if (fav) return fav;
+        const matchingFavs = candidates.filter((r) => preferredFavIds.includes(r.id));
+        if (matchingFavs.length > 0) {
+          return matchingFavs[(index + seed) % matchingFavs.length];
+        }
       }
 
       // Filter out any recipe with user allergies
@@ -141,7 +170,7 @@ export const mealPlannerService = {
         return allSafe[0] || recipeService.getRecipes()[0];
       }
 
-      return pool[(index + seed) % pool.length];
+      return pool[(index * 3 + seed) % pool.length];
     };
 
     const breakfastRecipe = pickRecipe(
@@ -196,10 +225,12 @@ export const mealPlannerService = {
   generateWeeklyPlan(
     profile?: UserProfile,
     seed: number = 0,
-    options?: GenerationPlanOptions
+    options?: GenerationPlanOptions,
+    refDate: Date = new Date()
   ): WeeklyMealPlan {
     const activeProfile = profile ?? profileService.getProfile();
-    const days: DayMealPlan[] = DAYS_OF_WEEK.map((dayInfo, idx) =>
+    const weekDays = getCurrentWeekDates(refDate);
+    const days: DayMealPlan[] = weekDays.map((dayInfo, idx) =>
       this.generateDayPlan(dayInfo, activeProfile, idx, seed, options)
     );
 
@@ -214,6 +245,7 @@ export const mealPlannerService = {
       targetCalories: days[0]?.targetCalories || 2492,
       totalEstimatedCost: totalCost,
       averageDailyCost: Math.round(totalCost / days.length),
+      budgetLimit: options?.budgetLimit,
     };
   },
 
@@ -222,8 +254,8 @@ export const mealPlannerService = {
    */
   generateMonthlyPlan(
     profile?: UserProfile,
-    year: number = 2026,
-    month: number = 8, // September (0-indexed)
+    year: number = new Date().getFullYear(),
+    month: number = new Date().getMonth(),
     seed: number = 0,
     options?: GenerationPlanOptions
   ): MonthlyMealPlan {
@@ -301,6 +333,7 @@ export const mealPlannerService = {
       averageDailyCalories: Math.round(totalKcal / days.length),
       averageDailyCost: Math.round(totalCost / days.length),
       targetCalories,
+      budgetLimit: options?.budgetLimit,
     };
   },
 
@@ -408,6 +441,188 @@ export const mealPlannerService = {
       isCompatible,
       warnings,
       dayPlan: calculatedDay,
+    };
+  },
+
+  /**
+   * Chuyển đổi dữ liệu Meal Plan từ backend NestJS sang định dạng WeeklyMealPlan của frontend
+   */
+  convertBackendWeeklyPlan(data: any, profile: UserProfile): WeeklyMealPlan {
+    const plan = data?.data || data;
+    const weeklyPlans = plan?.weekly_plans || [];
+    const dailyMeals = weeklyPlans[0]?.daily_meals || [];
+
+    const dateMap = new Map<string, Record<string, Recipe>>();
+    const allApproved = recipeService.getRecipes();
+
+    for (const dm of dailyMeals) {
+      const rawDate = typeof dm.meal_date === "string" ? dm.meal_date.split("T")[0] : String(dm.meal_date);
+      if (!dateMap.has(rawDate)) {
+        dateMap.set(rawDate, {});
+      }
+      const slots = dateMap.get(rawDate)!;
+      const rawRecipe = dm.meal_items?.[0]?.recipe;
+      if (rawRecipe) {
+        let frontendRecipe = mapBackendToFrontendRecipe(rawRecipe);
+        if (frontendRecipe.calories === 350) {
+          const fromCache = allApproved.find((r) => String(r.id) === String(rawRecipe.recipe_id));
+          if (fromCache && fromCache.calories !== 350) {
+            frontendRecipe = { ...frontendRecipe, calories: fromCache.calories, protein: fromCache.protein, carbs: fromCache.carbs, fat: fromCache.fat, fiber: fromCache.fiber };
+          }
+        }
+        slots[dm.meal_type] = frontendRecipe;
+      }
+    }
+
+    const currentWeekDates = getCurrentWeekDates();
+    const dayDates = Array.from(dateMap.keys()).sort();
+    const snackCandidates = allApproved.filter((r) => r.mealType === "snack");
+
+    const days: DayMealPlan[] = currentWeekDates.map((dayInfo, idx) => {
+      const dateKey = dayDates[idx] || dayDates[0];
+      const slots = (dateKey ? dateMap.get(dateKey) : null) || {};
+
+      const breakfast = slots.breakfast || allApproved.find((r) => r.mealType === "breakfast") || allApproved[0];
+      const lunch = slots.lunch || allApproved.find((r) => r.mealType === "lunch") || allApproved[1 % allApproved.length];
+      const dinner = slots.dinner || allApproved.find((r) => r.mealType === "dinner") || allApproved[2 % allApproved.length];
+      const snack =
+        slots.snack ||
+        (snackCandidates.length > 0 ? snackCandidates[idx % snackCandidates.length] : allApproved[idx % allApproved.length]);
+
+      const baseDay: DayMealPlan = {
+        dayName: dayInfo.day,
+        shortDay: dayInfo.short,
+        dateText: dayInfo.date,
+        breakfast: { recipe: breakfast, time: `${breakfast.prepTime + breakfast.cookTime} min` },
+        lunch: { recipe: lunch, time: `${lunch.prepTime + lunch.cookTime} min` },
+        dinner: { recipe: dinner, time: `${dinner.prepTime + dinner.cookTime} min` },
+        snack: { recipe: snack, time: `${snack.prepTime + snack.cookTime} min` },
+        totalCalories: 0,
+        totalProtein: 0,
+        totalCarbs: 0,
+        totalFat: 0,
+        targetCalories: plan.target_calories_per_day || 2000,
+        remainingCalories: 0,
+        estimatedCost: 0,
+      };
+
+      return this.recalculateDay(baseDay, plan.target_calories_per_day || 2000, String(profile.id || ""));
+    });
+
+    const totalKcal = days.reduce((sum, d) => sum + d.totalCalories, 0);
+    const totalProt = days.reduce((sum, d) => sum + d.totalProtein, 0);
+    const totalCost = days.reduce((sum, d) => sum + d.estimatedCost, 0);
+
+    return {
+      days,
+      averageDailyCalories: Math.round(totalKcal / days.length),
+      averageProtein: Math.round(totalProt / days.length),
+      targetCalories: plan.target_calories_per_day || 2000,
+      totalEstimatedCost: totalCost,
+      averageDailyCost: Math.round(totalCost / days.length),
+      budgetLimit: plan.has_budget && plan.total_budget ? Number(plan.total_budget) : undefined,
+    };
+  },
+
+  /**
+   * Chuyển đổi dữ liệu Monthly Meal Plan từ backend NestJS sang định dạng MonthlyMealPlan của frontend
+   */
+  convertBackendMonthlyPlan(data: any, profile: UserProfile, year: number, month: number): MonthlyMealPlan {
+    const plan = data?.data || data;
+    const weeklyPlans = plan?.weekly_plans || [];
+    const allApproved = recipeService.getRecipes();
+
+    const allDailyMeals: any[] = [];
+    for (const wp of weeklyPlans) {
+      if (Array.isArray(wp.daily_meals)) {
+        allDailyMeals.push(...wp.daily_meals);
+      }
+    }
+
+    const dateMap = new Map<string, Record<string, Recipe>>();
+    for (const dm of allDailyMeals) {
+      const rawDate = typeof dm.meal_date === "string" ? dm.meal_date.split("T")[0] : String(dm.meal_date);
+      if (!dateMap.has(rawDate)) {
+        dateMap.set(rawDate, {});
+      }
+      const slots = dateMap.get(rawDate)!;
+      const rawRecipe = dm.meal_items?.[0]?.recipe;
+      if (rawRecipe) {
+        let frontendRecipe = mapBackendToFrontendRecipe(rawRecipe);
+        if (frontendRecipe.calories === 350) {
+          const fromCache = allApproved.find((r) => String(r.id) === String(rawRecipe.recipe_id));
+          if (fromCache && fromCache.calories !== 350) {
+            frontendRecipe = { ...frontendRecipe, calories: fromCache.calories, protein: fromCache.protein, carbs: fromCache.carbs, fat: fromCache.fat, fiber: fromCache.fiber };
+          }
+        }
+        slots[dm.meal_type] = frontendRecipe;
+      }
+    }
+
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    const monthShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const dayShorts = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    const calendarDays: CalendarDayMealPlan[] = [];
+    const targetCalories = plan.target_calories_per_day || 2000;
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const curDate = new Date(year, month, d);
+      const dayOfWeek = curDate.getDay();
+      const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const slots = dateMap.get(dateKey) || {};
+
+      const breakfast = slots.breakfast || allApproved[d % allApproved.length] || allApproved[0];
+      const lunch = slots.lunch || allApproved[(d + 1) % allApproved.length] || allApproved[0];
+      const dinner = slots.dinner || allApproved[(d + 2) % allApproved.length] || allApproved[0];
+      const snack = slots.snack || allApproved[(d + 3) % allApproved.length] || allApproved[0];
+
+      const baseDay: DayMealPlan = {
+        dayName: dayNames[dayOfWeek],
+        shortDay: dayShorts[dayOfWeek],
+        dateText: `${monthShort[month]} ${d}`,
+        breakfast: { recipe: breakfast, time: `${breakfast.prepTime + breakfast.cookTime} min` },
+        lunch: { recipe: lunch, time: `${lunch.prepTime + lunch.cookTime} min` },
+        dinner: { recipe: dinner, time: `${dinner.prepTime + dinner.cookTime} min` },
+        snack: { recipe: snack, time: `${snack.prepTime + snack.cookTime} min` },
+        totalCalories: 0,
+        totalProtein: 0,
+        totalCarbs: 0,
+        totalFat: 0,
+        targetCalories,
+        remainingCalories: 0,
+        estimatedCost: 0,
+      };
+
+      const calculated = this.recalculateDay(baseDay, targetCalories, String(profile.id || ""));
+      calendarDays.push({
+        ...calculated,
+        dayOfMonth: d,
+        month,
+        year,
+        dateKey,
+        isCurrentMonth: true,
+      });
+    }
+
+    const totalKcal = calendarDays.reduce((sum, d) => sum + d.totalCalories, 0);
+    const totalCost = calendarDays.reduce((sum, d) => sum + d.estimatedCost, 0);
+
+    return {
+      month,
+      year,
+      monthName: `${monthNames[month]} ${year}`,
+      days: calendarDays,
+      totalEstimatedCost: totalCost,
+      averageDailyCalories: Math.round(totalKcal / calendarDays.length),
+      averageDailyCost: Math.round(totalCost / calendarDays.length),
+      targetCalories,
+      budgetLimit: plan.has_budget && plan.total_budget ? Number(plan.total_budget) : undefined,
     };
   },
 };

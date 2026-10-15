@@ -48,6 +48,14 @@ export class RecipeController {
     return this.recipeService.getRecommendations(query, userId);
   }
 
+  @Get('my-recipes')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  findMyRecipes(@Req() req: any) {
+    const userId = req.user.user_id;
+    return this.recipeService.findMyRecipes(userId);
+  }
+
   // Yêu thích và giá tự đặt nằm ở /users/me/favorites/recipes và /users/me/recipe-prices
   // (UserFavoriteRecipeController, UserRecipePriceController).
 
