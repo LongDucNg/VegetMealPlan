@@ -9,7 +9,8 @@ import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
 import { ProfileEditor } from "@/features/profile/components/ProfileEditor";
 import { SubscriptionPlans } from "@/features/subscription/components/SubscriptionPlans";
-import { UserCheck, Crown, Bell, Globe } from "lucide-react";
+import { UserCheck, Crown, Bell, Globe, LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 const REGION_OPTIONS = [
   "Ho Chi Minh City",
@@ -24,6 +25,8 @@ const REGION_OPTIONS = [
 type SettingsTab = "profile" | "subscription" | "notifications";
 
 function SettingsContent() {
+  const router = useRouter();
+  const { logout } = useRole();
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [region, setRegion] = useState("Ho Chi Minh City");
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -135,6 +138,29 @@ function SettingsContent() {
           </Card>
         </div>
       )}
+
+      {/* Account & Session Card */}
+      <Card className="p-6 border-red-100 bg-red-50/20 max-w-2xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h4 className="text-sm font-semibold text-stone-900">Sign out of VeggieHub</h4>
+            <p className="text-xs text-stone-500 mt-0.5">
+              You will be signed out on this device and returned to guest browsing.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              logout();
+              router.push("/login");
+            }}
+            className="h-9 px-4 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0 shadow-xs"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Log out
+          </button>
+        </div>
+      </Card>
     </div>
   );
 }
