@@ -4,18 +4,18 @@ import { AppNotification } from "../types";
 export const notificationService = {
   /**
    * Lấy danh sách thông báo của người dùng hiện tại
-   * GET /notifications hoặc GET /users/me/notifications
+   * GET /users/me/notifications hoặc fallback /notifications
    */
   async getNotifications(): Promise<AppNotification[]> {
     try {
-      const res = await apiClient.get<AppNotification[]>("/notifications");
+      const res = await apiClient.get<AppNotification[]>("/users/me/notifications");
       return Array.isArray(res) ? res : [];
-    } catch (err) {
-      // Try fallback to /users/me/notifications
+    } catch {
+      // Try fallback to /notifications
       try {
-        const fallback = await apiClient.get<AppNotification[]>("/users/me/notifications");
+        const fallback = await apiClient.get<AppNotification[]>("/notifications");
         return Array.isArray(fallback) ? fallback : [];
-      } catch {
+      } catch (err) {
         console.warn("[notificationService] Failed to fetch notifications:", err);
         return [];
       }
@@ -24,13 +24,13 @@ export const notificationService = {
 
   /**
    * Đánh dấu thông báo đã đọc
-   * PATCH /notifications/:id/read
+   * PATCH /users/me/notifications/:id/read hoặc fallback /notifications/:id/read
    */
   async markAsRead(id: number | string): Promise<void> {
     try {
-      await apiClient.patch<void>(`/notifications/${id}/read`);
+      await apiClient.patch<void>(`/users/me/notifications/${id}/read`);
     } catch {
-      await apiClient.patch<void>(`/users/me/notifications/${id}/read`).catch(() => {});
+      await apiClient.patch<void>(`/notifications/${id}/read`).catch(() => {});
     }
   },
 };

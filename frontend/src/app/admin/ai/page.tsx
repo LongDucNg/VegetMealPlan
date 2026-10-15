@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -8,7 +8,7 @@ import { Toggle } from "@/components/ui/Toggle";
 import { DataTable } from "@/components/ui/Table";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
-import { AI_MODELS, AIModelMetric, AI_LOGS } from "@/features/admin";
+import { AI_MODELS, AIModelMetric, AI_LOGS, AILog, adminService } from "@/features/admin";
 import {
   Sparkles,
   Activity,
@@ -43,11 +43,27 @@ function AccuracyBar({ value }: { value: number }) {
 
 function AIContent() {
   const [models, setModels] = useState<AIModelMetric[]>([...AI_MODELS]);
+  const [logs, setLogs] = useState<AILog[]>([...AI_LOGS]);
 
-  const toggleOverride = (id: string) => {
+  useEffect(() => {
+    adminService.fetchAiModels().then((data) => {
+      if (data && data.length > 0) setModels(data);
+    });
+    adminService.fetchAiLogs().then((data) => {
+      if (data && data.length > 0) setLogs(data);
+    });
+  }, []);
+
+  const toggleOverride = async (id: string) => {
+    const target = models.find((m) => m.id === id);
+    if (!target) return;
+    const nextMode = !target.overrideMode;
+
     setModels((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, overrideMode: !m.overrideMode } : m))
+      prev.map((m) => (m.id === id ? { ...m, overrideMode: nextMode } : m))
     );
+
+    await adminService.updateAiModel(id, { overrideMode: nextMode });
   };
 
   return (
@@ -178,7 +194,7 @@ function AIContent() {
             { key: "event", label: "Event" },
             { key: "time", label: "Time" },
           ]}
-          rows={AI_LOGS.map((log) => ({
+          rows={logs.map((log) => ({
             level: (
               <span
                 className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
