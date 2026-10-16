@@ -135,9 +135,9 @@ export function getNutritionGoal(bmiStatus: BMIStatus): NutritionGoalInfo {
   switch (bmiStatus) {
     case "Underweight":
       return {
-        goalTitle: "Healthy Weight Gain",
+        goalTitle: "Tăng cân lành mạnh",
         recommendedApproach:
-          "Increase calorie intake gradually with protein-rich plant foods and healthy fats.",
+          "Tăng dần lượng calo với thực phẩm giàu đạm thực vật và chất béo tốt.",
         suggestions: [
           "Tăng lượng calorie hợp lý (calorie surplus)",
           "Ưu tiên protein thực vật",
@@ -150,9 +150,9 @@ export function getNutritionGoal(bmiStatus: BMIStatus): NutritionGoalInfo {
 
     case "Overweight":
       return {
-        goalTitle: "Healthy Weight Loss",
+        goalTitle: "Giảm cân khoa học",
         recommendedApproach:
-          "Use a moderate calorie deficit while prioritizing protein, fiber and nutrient-dense foods.",
+          "Thâm hụt calo vừa phải, ưu tiên đạm thực vật, chất xơ và thực phẩm giàu vi chất.",
         suggestions: [
           "Tạo calorie deficit vừa phải",
           "Ưu tiên thực phẩm giàu protein và chất xơ",
@@ -165,9 +165,9 @@ export function getNutritionGoal(bmiStatus: BMIStatus): NutritionGoalInfo {
     case "Balanced":
     default:
       return {
-        goalTitle: "Maintain a Healthy Weight",
+        goalTitle: "Duy trì vóc dáng cân đối",
         recommendedApproach:
-          "Maintain your current calorie needs with balanced plant-based nutrition.",
+          "Duy trì mức năng lượng cân bằng với chế độ dinh dưỡng thuần thực vật.",
         suggestions: [
           "Duy trì calorie target",
           "Cân bằng protein / carbs / healthy fats",
@@ -202,9 +202,9 @@ export function calculateDailyCalorieTarget(
   if (bmiStatus === "Balanced" && profile.healthGoal) {
     if (profile.healthGoal === "lose_weight") {
       calorieAdjustment = -350;
-      goalTitle = "Healthy Weight Loss";
+      goalTitle = "Giảm cân khoa học";
       recommendedApproach =
-        "Use a moderate calorie deficit while prioritizing protein, fiber and nutrient-dense foods.";
+        "Thâm hụt calo vừa phải, ưu tiên đạm thực vật, chất xơ và thực phẩm giàu vi chất.";
       suggestions = [
         "Tạo calorie deficit vừa phải",
         "Ưu tiên thực phẩm giàu protein và chất xơ",
@@ -213,9 +213,9 @@ export function calculateDailyCalorieTarget(
       ];
     } else if (profile.healthGoal === "gain_weight") {
       calorieAdjustment = 350;
-      goalTitle = "Healthy Weight Gain";
+      goalTitle = "Tăng cơ / Tăng cân";
       recommendedApproach =
-        "Increase calorie intake gradually with protein-rich plant foods and healthy fats.";
+        "Tăng dần lượng calo với thực phẩm giàu đạm thực vật và chất béo tốt.";
       suggestions = [
         "Tăng lượng calorie hợp lý (calorie surplus)",
         "Ưu tiên protein thực vật",
