@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiExcludeEndpoint, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
@@ -11,6 +11,8 @@ import { UsersService } from '../users/users.service';
 import { ALLERGEN_GROUPS } from '../users/allergen-groups';
 import { DietType } from '../users/entities/user.entity';
 import { GoogleExchangeDto } from './dto/google-exchange.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { SessionMeta } from './session.service';
 import { GoogleAuthCallbackGuard, GoogleAuthGuard, GoogleConfiguredGuard } from './guards/google.guards';
 import { GoogleProfile } from './strategies/google.strategy';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
@@ -28,16 +30,46 @@ export class AuthController {
   @Post('register')
   @ApiOperation({ summary: 'Đăng ký tài khoản (có thể kèm hồ sơ và dị ứng)' })
   @ApiResponse({ status: 409, description: 'AUTH_EMAIL_TAKEN: email đã được đăng ký' })
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  register(@Body() dto: RegisterDto, @Req() req: Request) {
+    return this.authService.register(dto, sessionMeta(req));
   }
 
   @Public()
   @Post('login')
-  @ApiOperation({ summary: 'Đăng nhập, trả về access_token' })
+  @ApiOperation({ summary: 'Đăng nhập, trả về access_token và refresh_token' })
   @ApiResponse({ status: 401, description: 'AUTH_INVALID_CREDENTIALS hoặc AUTH_ACCOUNT_LOCKED' })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Req() req: Request) {
+    return this.authService.login(dto, sessionMeta(req));
+  }
+
+  // ---- Phiên đăng nhập: refresh token và đăng xuất ----
+
+  @Public()
+  @Post('refresh')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Đổi refresh_token lấy access_token mới',
+    description: 'Mỗi lần gọi trả về refresh_token MỚI, cái cũ hết hiệu lực ngay (xoay vòng). FE phải lưu lại refresh_token mới.',
+  })
+  @ApiResponse({ status: 401, description: 'AUTH_REFRESH_TOKEN_INVALID hoặc AUTH_ACCOUNT_LOCKED: phải đăng nhập lại' })
+  refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refresh(dto.refresh_token);
+  }
+
+  @ApiBearerAuth()
+  @Post('logout')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Đăng xuất thiết bị hiện tại (thu hồi phiên của access_token đang gửi)' })
+  logout(@CurrentUser('user_id') userId: number, @CurrentUser('sid') sid: string) {
+    return this.authService.logout(userId, sid);
+  }
+
+  @ApiBearerAuth()
+  @Post('logout-all')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Đăng xuất khỏi mọi thiết bị (thu hồi mọi phiên của tài khoản)' })
+  logoutAll(@CurrentUser('user_id') userId: number) {
+    return this.authService.logoutAll(userId);
   }
 
   // ---- Đăng nhập Google (OAuth2 redirect phía server) ----
@@ -79,8 +111,8 @@ export class AuthController {
   @Post('google/exchange')
   @ApiOperation({ summary: 'Đổi mã sau khi đăng nhập Google lấy access_token (cùng định dạng với /auth/login)' })
   @ApiResponse({ status: 401, description: 'AUTH_GOOGLE_CODE_INVALID hoặc AUTH_ACCOUNT_LOCKED' })
-  googleExchange(@Body() dto: GoogleExchangeDto) {
-    return this.authService.exchangeGoogleCode(dto.code);
+  googleExchange(@Body() dto: GoogleExchangeDto, @Req() req: Request) {
+    return this.authService.exchangeGoogleCode(dto.code, sessionMeta(req));
   }
 
   @ApiBearerAuth()
@@ -109,4 +141,9 @@ export class AuthController {
   allergenGroups() {
     return ALLERGEN_GROUPS.map(({ code, name, examples }) => ({ code, name, examples }));
   }
+}
+
+/** Thông tin thiết bị gắn vào phiên đăng nhập (để sau này hiện danh sách thiết bị đang đăng nhập). */
+function sessionMeta(req: Request): SessionMeta {
+  return { userAgent: req.headers['user-agent'] ?? null, ip: req.ip ?? null };
 }
