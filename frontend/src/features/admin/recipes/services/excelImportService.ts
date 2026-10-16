@@ -568,6 +568,34 @@ export const excelImportService = {
   },
 
   /**
+   * Tải file Excel trực tiếp lên server để phân tích và lưu database
+   * POST /admin/recipe-imports
+   */
+  async uploadExcelToServer(file: File): Promise<any> {
+    const { apiClient } = await import("@/lib/apiClient");
+    const formData = new FormData();
+    formData.append("file", file);
+    return await apiClient.post("/admin/recipe-imports", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+
+  /**
+   * Lấy lịch sử các đợt import của Admin từ server
+   * GET /admin/recipe-imports
+   */
+  async getImportHistory(): Promise<any[]> {
+    const { apiClient } = await import("@/lib/apiClient");
+    try {
+      const res = await apiClient.get<any[]>("/admin/recipe-imports");
+      if (Array.isArray(res)) return res;
+    } catch (err) {
+      console.warn("[excelImportService] Lỗi khi tải lịch sử import:", err);
+    }
+    return [];
+  },
+
+  /**
    * Clears all pending import items
    */
   clearAllPending(): void {
