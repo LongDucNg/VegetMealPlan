@@ -72,7 +72,7 @@ function AIContent() {
       <div>
         <h3 className="font-semibold text-stone-800 mb-4 flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-amber-500" />
-          AI Model Overview
+          Tổng quan các mô hình AI
         </h3>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {models.map((m) => (
@@ -90,7 +90,7 @@ function AIContent() {
                           : "bg-red-50 text-red-700"
                       }`}
                     >
-                      {m.status}
+                      {m.status === "Optimal" ? "Hoạt động tốt" : m.status === "Degraded" ? "Hiệu năng giảm" : "Bảo trì"}
                     </span>
                   </div>
                   <h4 className="font-serif font-bold text-base text-stone-900 leading-snug">
@@ -106,7 +106,7 @@ function AIContent() {
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs text-stone-500 flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" />
-                      Accuracy
+                      Độ chính xác
                     </span>
                   </div>
                   <AccuracyBar value={m.accuracy} />
@@ -116,14 +116,14 @@ function AIContent() {
                   <div className="bg-stone-50 rounded-xl px-3 py-2">
                     <div className="flex items-center gap-1 text-xs text-stone-500 mb-0.5">
                       <Clock className="w-3 h-3" />
-                      Latency
+                      Độ trễ
                     </div>
                     <p className="font-semibold text-stone-900 text-sm">{m.latencyMs}ms</p>
                   </div>
                   <div className="bg-stone-50 rounded-xl px-3 py-2">
                     <div className="flex items-center gap-1 text-xs text-stone-500 mb-0.5">
                       <Zap className="w-3 h-3" />
-                      Daily queries
+                      Truy vấn/ngày
                     </div>
                     <p className="font-semibold text-stone-900 text-sm">
                       {(m.dailyQueries / 1000).toFixed(1)}K
@@ -136,9 +136,9 @@ function AIContent() {
               <div className="pt-2 border-t border-stone-100">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-semibold text-stone-700">Override Mode</p>
+                    <p className="text-xs font-semibold text-stone-700">Chế độ can thiệp thủ công</p>
                     <p className="text-xs text-stone-400 mt-0.5">
-                      {m.overrideMode ? "Flags require manual review" : "Automatic actions enabled"}
+                      {m.overrideMode ? "Cờ báo vi phạm cần duyệt thủ công" : "Tự động xử lý theo AI"}
                     </p>
                   </div>
                   <Toggle
@@ -156,13 +156,13 @@ function AIContent() {
       <Card className="p-5">
         <div className="flex items-center gap-2 mb-4">
           <Settings2 className="w-4 h-4 text-stone-600" />
-          <h3 className="font-semibold text-stone-800">Global Sensitivity Controls</h3>
+          <h3 className="font-semibold text-stone-800">Cấu hình độ nhạy kiểm duyệt toàn hệ thống</h3>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           {[
-            { label: "Spam detection threshold", value: 85, color: "bg-blue-500" },
-            { label: "Dangerous claim sensitivity", value: 92, color: "bg-red-500" },
-            { label: "Misinformation confidence cutoff", value: 88, color: "bg-amber-500" },
+            { label: "Ngưỡng phát hiện Spam", value: 85, color: "bg-blue-500" },
+            { label: "Độ nhạy phát hiện tuyên bố nguy hại", value: 92, color: "bg-red-500" },
+            { label: "Ngưỡng tin cậy tin giả / sai lệch", value: 88, color: "bg-amber-500" },
           ].map((ctrl) => (
             <div key={ctrl.label}>
               <div className="flex items-center justify-between mb-1.5">
@@ -185,14 +185,14 @@ function AIContent() {
       <div className="space-y-3">
         <h3 className="font-semibold text-stone-800 flex items-center gap-2">
           <Activity className="w-4 h-4 text-stone-600" />
-          Recent Model Logs
+          Nhật ký hoạt động của mô hình gần đây
         </h3>
         <DataTable
           columns={[
-            { key: "level", label: "Level" },
-            { key: "model", label: "Model" },
-            { key: "event", label: "Event" },
-            { key: "time", label: "Time" },
+            { key: "level", label: "Mức độ" },
+            { key: "model", label: "Mô hình" },
+            { key: "event", label: "Sự kiện" },
+            { key: "time", label: "Thời gian" },
           ]}
           rows={logs.map((log) => ({
             level: (
@@ -234,9 +234,9 @@ export default function AdminAIPage() {
     <AppShell showRightRail={false}>
       <div className="max-w-[1240px] mx-auto w-full">
         <PageHeader
-          eyebrow="Administration"
-          title="AI Model Management"
-          subtitle="Monitor model accuracy, latency, query volume, and configure override controls."
+          eyebrow="Quản trị hệ thống"
+          title="Quản lý Mô hình AI"
+          subtitle="Theo dõi độ chính xác, độ trễ, lượng truy vấn và cấu hình can thiệp thủ công cho AI."
         />
         {!ready ? (
           <GatedSkeleton />

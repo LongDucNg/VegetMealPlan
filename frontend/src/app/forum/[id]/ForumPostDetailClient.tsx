@@ -49,11 +49,11 @@ export function ForumPostDetailClient({ post }: { post: ForumPost }) {
 
     const newComment: CommentItem = {
       id: `fc-${Date.now()}`,
-      author: role === "Admin" ? "Admin User" : "Linh Nguyen",
+      author: role === "Admin" ? "Quản trị viên" : "Linh Nguyễn",
       authorInitials: role === "Admin" ? "AD" : "LN",
       verified: true,
       content: commentText.trim(),
-      timestamp: "Just now",
+      timestamp: "Vừa xong",
       votes: 1,
     };
 
@@ -75,7 +75,7 @@ export function ForumPostDetailClient({ post }: { post: ForumPost }) {
     <aside className="w-full space-y-6 select-none">
       <Card>
         <h3 className="font-serif font-bold text-xl text-stone-900 tracking-tight mb-4">
-          More from {post.category}
+          Xem thêm từ {post.category}
         </h3>
         <div className="space-y-3.5 divide-y divide-stone-100">
           {otherPosts.map((op) => (
@@ -88,7 +88,7 @@ export function ForumPostDetailClient({ post }: { post: ForumPost }) {
                 {op.title}
               </h4>
               <p className="mt-1 text-xs text-stone-500">
-                {op.author} · {op.votes} upvotes
+                {op.author} · {op.votes} lượt ủng hộ
               </p>
             </Link>
           ))}
@@ -107,7 +107,7 @@ export function ForumPostDetailClient({ post }: { post: ForumPost }) {
             className="inline-flex items-center gap-2 text-sm font-medium text-emerald-700 hover:text-emerald-800 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" strokeWidth={2} />
-            <span>Back to all discussions</span>
+            <span>Quay lại diễn đàn thảo luận</span>
           </Link>
         </div>
 
@@ -123,7 +123,7 @@ export function ForumPostDetailClient({ post }: { post: ForumPost }) {
                 className={`p-1.5 rounded-lg text-stone-500 hover:text-emerald-700 hover:bg-stone-100 transition-colors ${
                   isGuest ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                 }`}
-                title={isGuest ? "Sign in to vote" : "Upvote"}
+                title={isGuest ? "Đăng nhập để biểu quyết" : "Bình chọn ủng hộ"}
               >
                 <ChevronUp className="w-6 h-6" strokeWidth={2.5} />
               </button>
@@ -137,7 +137,7 @@ export function ForumPostDetailClient({ post }: { post: ForumPost }) {
                 className={`p-1.5 rounded-lg text-stone-500 hover:text-red-600 hover:bg-stone-100 transition-colors ${
                   isGuest ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                 }`}
-                title={isGuest ? "Sign in to vote" : "Downvote"}
+                title={isGuest ? "Đăng nhập để biểu quyết" : "Bình chọn phản đối"}
               >
                 <ChevronDown className="w-6 h-6" strokeWidth={2.5} />
               </button>
@@ -149,7 +149,7 @@ export function ForumPostDetailClient({ post }: { post: ForumPost }) {
                 <Badge variant="success">{post.category}</Badge>
                 <span className="text-xs text-stone-400">·</span>
                 <span className="text-xs text-stone-500">
-                  Published {post.timestamp}
+                  Đăng lúc {post.timestamp}
                 </span>
               </div>
 
@@ -177,7 +177,7 @@ export function ForumPostDetailClient({ post }: { post: ForumPost }) {
                   className="h-9 px-4 rounded-full border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 text-sm font-medium inline-flex items-center gap-2 transition-colors cursor-pointer"
                 >
                   <Share2 className="w-4 h-4" />
-                  <span>{copied ? "Link copied!" : "Share"}</span>
+                  <span>{copied ? "Đã sao chép liên kết!" : "Chia sẻ"}</span>
                 </button>
               </div>
 
@@ -229,7 +229,7 @@ export function ForumPostDetailClient({ post }: { post: ForumPost }) {
           <div className="flex items-center gap-2 mb-6">
             <MessageSquare className="w-5 h-5 text-emerald-700" />
             <h2 className="font-serif font-bold text-2xl text-stone-900 tracking-tight">
-              Comments ({comments.length})
+              Bình luận ({comments.length})
             </h2>
           </div>
 
@@ -238,23 +238,23 @@ export function ForumPostDetailClient({ post }: { post: ForumPost }) {
             <div className="p-6 rounded-2xl bg-amber-50/70 border border-amber-200 text-center mb-6 select-none">
               <Lock className="w-6 h-6 text-amber-700 mx-auto mb-2" />
               <h3 className="font-serif font-bold text-lg text-stone-900">
-                Join the conversation
+                Tham gia thảo luận
               </h3>
               <p className="text-sm text-stone-600 mt-1 mb-4">
-                You are currently viewing as Guest. Create a free account or log in to post comments and vote.
+                Bạn đang xem với tư cách Khách. Hãy tạo tài khoản miễn phí hoặc đăng nhập để bình luận và biểu quyết.
               </p>
               <div className="flex items-center justify-center gap-3">
                 <Link
                   href="/register"
                   className="h-9 px-5 rounded-full bg-amber-400 hover:bg-amber-500 text-amber-950 text-sm font-medium transition-colors"
                 >
-                  Create free account
+                  Tạo tài khoản miễn phí
                 </Link>
                 <Link
                   href="/login"
                   className="h-9 px-4 rounded-full text-stone-700 hover:bg-stone-200 text-sm font-medium transition-colors"
                 >
-                  Log in
+                  Đăng nhập
                 </Link>
               </div>
             </div>
@@ -264,7 +264,7 @@ export function ForumPostDetailClient({ post }: { post: ForumPost }) {
                 rows={3}
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Share your perspective or ask a follow-up question…"
+                placeholder="Chia sẻ góc nhìn của bạn hoặc đặt câu hỏi cùng cộng đồng…"
                 className="w-full p-4 rounded-xl border border-stone-200 bg-white text-base text-stone-900 placeholder:text-stone-400 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 shadow-xs"
               />
               <div className="flex justify-end">
@@ -273,7 +273,7 @@ export function ForumPostDetailClient({ post }: { post: ForumPost }) {
                   disabled={!commentText.trim()}
                   className="h-10 px-6 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-base font-semibold transition-colors disabled:opacity-50 disabled:pointer-events-none cursor-pointer shadow-sm"
                 >
-                  Post reply
+                  Gửi bình luận
                 </button>
               </div>
             </form>
@@ -334,7 +334,7 @@ export function ForumPostDetailClient({ post }: { post: ForumPost }) {
 
             {comments.length === 0 && (
               <p className="text-center py-6 text-sm text-stone-500">
-                No replies yet. Be the first to join the conversation!
+                Chưa có bình luận nào. Hãy là người đầu tiên tham gia thảo luận!
               </p>
             )}
           </div>
