@@ -18,18 +18,18 @@ interface GenerationSettingsModalProps {
 }
 
 const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  "Tháng 1",
+  "Tháng 2",
+  "Tháng 3",
+  "Tháng 4",
+  "Tháng 5",
+  "Tháng 6",
+  "Tháng 7",
+  "Tháng 8",
+  "Tháng 9",
+  "Tháng 10",
+  "Tháng 11",
+  "Tháng 12",
 ];
 
 export function GenerationSettingsModal({
@@ -91,10 +91,10 @@ export function GenerationSettingsModal({
             </div>
             <div>
               <h3 className="font-serif font-bold text-lg text-stone-900">
-                Create Meal Plan
+                Tạo Kế Hoạch Thực Đơn
               </h3>
               <p className="text-xs text-stone-500">
-                Configure your personalized plant-based planning preferences
+                Tùy chỉnh kế hoạch thực đơn thuần chay theo nhu cầu cá nhân
               </p>
             </div>
           </div>
@@ -111,7 +111,7 @@ export function GenerationSettingsModal({
           {/* 1. Plan Type */}
           <div>
             <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-2">
-              Plan Duration:
+              Thời hạn kế hoạch:
             </label>
             <div className="grid grid-cols-2 gap-3">
               <label
@@ -130,8 +130,8 @@ export function GenerationSettingsModal({
                   className="accent-emerald-700"
                 />
                 <div>
-                  <div className="text-sm">Weekly Plan</div>
-                  <div className="text-[11px] font-normal text-stone-500">7 days (Mon - Sun)</div>
+                  <div className="text-sm">Kế hoạch Tuần</div>
+                  <div className="text-[11px] font-normal text-stone-500">7 ngày (Thứ 2 - Chủ nhật)</div>
                 </div>
               </label>
 
@@ -151,8 +151,8 @@ export function GenerationSettingsModal({
                   className="accent-emerald-700"
                 />
                 <div>
-                  <div className="text-sm">Monthly Plan</div>
-                  <div className="text-[11px] font-normal text-stone-500">Full calendar view</div>
+                  <div className="text-sm">Kế hoạch Tháng</div>
+                  <div className="text-[11px] font-normal text-stone-500">Xem toàn bộ lịch trong tháng</div>
                 </div>
               </label>
             </div>
@@ -163,7 +163,7 @@ export function GenerationSettingsModal({
             <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200 grid grid-cols-2 gap-3 animate-in fade-in">
               <div>
                 <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Select Month:
+                  Chọn Tháng:
                 </label>
                 <select
                   value={selectedMonth}
@@ -179,7 +179,7 @@ export function GenerationSettingsModal({
               </div>
               <div>
                 <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Select Year:
+                  Chọn Năm:
                 </label>
                 <select
                   value={selectedYear}
@@ -197,13 +197,13 @@ export function GenerationSettingsModal({
           {/* 2. Plan For: Myself vs Someone Else */}
           <div>
             <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-2">
-              Plan For:
+              Lên kế hoạch cho:
             </label>
             <div className="flex items-center justify-between p-3.5 rounded-2xl border border-stone-200 bg-stone-50/70">
               <div className="flex items-center gap-2">
                 <UserCheck className="w-4 h-4 text-emerald-700" />
                 <span className="text-xs font-bold text-stone-900">
-                  {isPlanForSomeoneElse ? `Someone Else: ${activeProfile.name}` : `Myself (${activeProfile.name})`}
+                  {isPlanForSomeoneElse ? `Người khác: ${activeProfile.name}` : `Bản thân (${activeProfile.name})`}
                 </span>
                 <span className="text-[11px] text-stone-500">
                   · {activeProfile.vegetarianType.replace("_", " ")}
@@ -215,15 +215,15 @@ export function GenerationSettingsModal({
                 onClick={onOpenSomeoneElseModal}
                 className="text-xs font-bold text-emerald-800 hover:text-emerald-950 underline cursor-pointer"
               >
-                {isPlanForSomeoneElse ? "Change Person" : "Plan for Someone Else"}
+                {isPlanForSomeoneElse ? "Đổi người" : "Lên kế hoạch cho người khác"}
               </button>
             </div>
           </div>
 
-          {/* 3. Budget Support (Requirement 24) */}
+          {/* 3. Budget Support */}
           <div>
             <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-2">
-              Ngân sách thực đơn (Grocery Budget):
+              Ngân sách thực đơn:
             </label>
             <div className="space-y-2">
               <div className="flex items-center gap-4 text-xs">
@@ -235,7 +235,7 @@ export function GenerationSettingsModal({
                     onChange={() => setHasBudgetLimit(false)}
                     className="accent-emerald-700"
                   />
-                  <span>Không giới hạn (No budget limit)</span>
+                  <span>Không giới hạn ngân sách</span>
                 </label>
 
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -246,7 +246,7 @@ export function GenerationSettingsModal({
                     onChange={() => setHasBudgetLimit(true)}
                     className="accent-emerald-700"
                   />
-                  <span>Đặt ngân sách tối đa (Set maximum budget)</span>
+                  <span>Đặt ngân sách tối đa</span>
                 </label>
               </div>
 
@@ -276,7 +276,7 @@ export function GenerationSettingsModal({
           {/* 4. Prioritize Favorite Recipes */}
           <div>
             <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-2">
-              Favorite Recipes Integration:
+              Tích hợp món ăn yêu thích:
             </label>
             <label
               className={`p-3.5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
@@ -297,17 +297,17 @@ export function GenerationSettingsModal({
                 </div>
                 <div>
                   <div className="text-xs font-bold flex items-center gap-2">
-                    <span>Prioritize Favorite Recipes</span>
+                    <span>Ưu tiên các món ăn yêu thích</span>
                     {favRecipes.length > 0 && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
-                        {favRecipes.length} favorites ready
+                        {favRecipes.length} món yêu thích sẵn sàng
                       </span>
                     )}
                   </div>
                   <div className="text-[11px] text-stone-500 font-normal mt-0.5">
                     {favRecipes.length > 0
-                      ? "AI will prioritize incorporating your favorite dishes into your weekly/monthly schedule"
-                      : "No favorite recipes yet. Click ♡ on recipes to add them to your favorites"}
+                      ? "AI sẽ ưu tiên xếp các món bạn yêu thích vào lịch ăn trong tuần/tháng"
+                      : "Chưa có món yêu thích nào. Hãy nhấn biểu tượng ♡ trên các món ăn để thêm vào yêu thích"}
                   </div>
                 </div>
               </div>
@@ -327,14 +327,14 @@ export function GenerationSettingsModal({
               onClick={onClose}
               className="h-10 px-4 rounded-xl border border-stone-200 text-stone-600 text-xs font-semibold hover:bg-stone-50 transition-colors cursor-pointer"
             >
-              Cancel
+              Hủy
             </button>
             <button
               type="submit"
               className="h-11 px-6 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-2"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
-              Generate {planType === "weekly" ? "Weekly" : "Monthly"} Plan
+              Tạo thực đơn {planType === "weekly" ? "Tuần" : "Tháng"}
             </button>
           </div>
         </form>
