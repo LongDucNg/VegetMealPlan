@@ -96,13 +96,13 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
       <Card>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-serif font-bold text-xl text-stone-900 tracking-tight">
-            Related video recipes
+            Công thức video liên quan
           </h3>
           <Link
             href="/videos"
             className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 uppercase tracking-wider"
           >
-            All
+            Tất cả
           </Link>
         </div>
         <div className="space-y-4">
@@ -123,13 +123,13 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
       <Card>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-serif font-bold text-xl text-stone-900 tracking-tight">
-            Community discussions
+            Thảo luận cộng đồng
           </h3>
           <Link
             href="/forum"
             className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 uppercase tracking-wider"
           >
-            Forum
+            Diễn đàn
           </Link>
         </div>
         <div className="space-y-3 divide-y divide-stone-100">
@@ -143,7 +143,7 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
                 {post.title}
               </h4>
               <p className="mt-1 text-xs text-stone-500">
-                {post.author} · {post.commentsCount} comments
+                {post.author} · {post.commentsCount} bình luận
               </p>
             </Link>
           ))}
@@ -165,14 +165,14 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
             <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center bg-stone-950">
               <Play className="w-16 h-16 text-emerald-500 mb-4 animate-pulse" />
               <p className="text-lg font-semibold text-stone-200">
-                Streaming recipe demonstration…
+                Đang phát video hướng dẫn nấu ăn…
               </p>
               <button
                 type="button"
                 onClick={() => setIsPlaying(false)}
-                className="mt-4 h-9 px-5 rounded-full bg-stone-800 text-stone-300 hover:text-white text-sm font-medium transition-colors"
+                className="mt-4 h-9 px-5 rounded-full bg-stone-800 text-stone-300 hover:text-white text-sm font-medium transition-colors cursor-pointer"
               >
-                Pause preview
+                Tạm dừng
               </button>
             </div>
           ) : (
@@ -181,12 +181,12 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
                 type="button"
                 onClick={() => setIsPlaying(true)}
                 className="w-20 h-20 rounded-full bg-amber-400 hover:bg-amber-500 text-amber-950 flex items-center justify-center transition-all hover:scale-105 shadow-md cursor-pointer"
-                aria-label="Play video"
+                aria-label="Phát video"
               >
                 <Play className="w-8 h-8 fill-current ml-1" />
               </button>
               <p className="mt-4 text-base font-semibold text-emerald-100">
-                Watch full cooking walkthrough ({video.duration})
+                Xem toàn bộ video hướng dẫn ({video.duration})
               </p>
             </div>
           )}
@@ -265,12 +265,12 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
               </div>
               <div>
                 <p className="text-sm font-bold text-stone-900">
-                  {userRating ? "Rating Submitted!" : "Rate this video recipe"}
+                  {userRating ? "Đã gửi đánh giá!" : "Đánh giá công thức video này"}
                 </p>
                 <p className="text-xs text-stone-600">
                   {userRating
-                    ? `You rated this recipe ${userRating} out of 5 stars. Thank you for your feedback!`
-                    : "Tap a star below to rate this recipe and help fellow home cooks"}
+                    ? `Bạn đã đánh giá ${userRating} trên 5 sao. Cảm ơn phản hồi của bạn!`
+                    : "Chọn số sao bên dưới để chia sẻ cảm nhận và giúp đỡ cộng đồng"}
                 </p>
               </div>
             </div>
@@ -286,7 +286,7 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
                     onMouseEnter={() => setHoverRating(star)}
                     onMouseLeave={() => setHoverRating(0)}
                     className="p-1.5 rounded-lg hover:bg-amber-100/70 transition-transform active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-400"
-                    aria-label={`Rate ${star} star${star > 1 ? "s" : ""}`}
+                    aria-label={`Đánh giá ${star} sao`}
                   >
                     <Star
                       className={`w-6 h-6 transition-colors ${
@@ -311,8 +311,8 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
         <div className="pt-2">
           <Tabs
             tabs={[
-              { id: "summary", label: "Summary recipe", badge: "AI Speech-to-Text" },
-              { id: "comments", label: `Comments (${comments.length})` },
+              { id: "summary", label: "Tóm tắt công thức", badge: "AI Nhận diện giọng nói" },
+              { id: "comments", label: `Bình luận (${comments.length})` },
             ]}
             activeTab={activeTab}
             onChange={setActiveTab}
@@ -332,9 +332,9 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-2 mb-1">
                     <h3 className="font-serif font-bold text-xl text-stone-900 tracking-tight">
-                      AI Speech-to-Text Recipe Summary
+                      Tóm tắt công thức từ AI
                     </h3>
-                    <Badge variant="info">AI-generated</Badge>
+                    <Badge variant="info">AI tạo tự động</Badge>
                   </div>
                   <p className="text-xs text-amber-800 mb-3">
                     {video.aiSummary.durationNote}
@@ -349,7 +349,7 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
             {/* Ingredients Section */}
             <Card>
               <h3 className="font-serif font-bold text-2xl text-stone-900 tracking-tight mb-4">
-                Ingredients Checklist
+                Danh sách nguyên liệu
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {video.ingredients.map((ing, idx) => {
@@ -391,7 +391,7 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
             {/* Steps Section */}
             <Card>
               <h3 className="font-serif font-bold text-2xl text-stone-900 tracking-tight mb-4">
-                Numbered Instructions
+                Các bước thực hiện
               </h3>
               <div className="space-y-4">
                 {video.steps.map((step, idx) => (
@@ -417,23 +417,23 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
               <div className="p-6 rounded-[20px] bg-amber-50/70 border border-amber-200 text-center select-none">
                 <Lock className="w-6 h-6 text-amber-700 mx-auto mb-2" />
                 <h4 className="font-serif font-bold text-lg text-stone-900">
-                  Join the conversation
+                  Tham gia thảo luận
                 </h4>
                 <p className="text-sm text-stone-600 mt-1 mb-4">
-                  Log in or create a free account to ask questions and vote on tips.
+                  Đăng nhập hoặc tạo tài khoản miễn phí để bình luận và biểu quyết mẹo nấu ăn.
                 </p>
                 <div className="flex items-center justify-center gap-3">
                   <Link
                     href="/register"
                     className="h-9 px-5 rounded-full bg-amber-400 hover:bg-amber-500 text-amber-950 text-sm font-medium transition-colors"
                   >
-                    Create free account
+                    Tạo tài khoản miễn phí
                   </Link>
                   <Link
                     href="/login"
                     className="h-9 px-4 rounded-full text-stone-700 hover:bg-stone-200 text-sm font-medium transition-colors"
                   >
-                    Log in
+                    Đăng nhập
                   </Link>
                 </div>
               </div>
@@ -443,7 +443,7 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
                   rows={3}
                   value={newCommentText}
                   onChange={(e) => setNewCommentText(e.target.value)}
-                  placeholder="Share cooking tips, ingredient adjustments or questions…"
+                  placeholder="Chia sẻ mẹo nấu ăn, gia giảm nguyên liệu hoặc đặt câu hỏi…"
                   className="w-full p-4 rounded-xl border border-stone-200 bg-white text-base text-stone-900 placeholder:text-stone-400 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 shadow-xs"
                 />
                 <div className="flex justify-end">
@@ -452,7 +452,7 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
                     disabled={!newCommentText.trim()}
                     className="h-10 px-6 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-base font-semibold transition-colors disabled:opacity-50 disabled:pointer-events-none cursor-pointer shadow-sm"
                   >
-                    Post comment
+                    Gửi bình luận
                   </button>
                 </div>
               </form>
@@ -487,7 +487,7 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
                         className={`p-1 rounded-full text-stone-500 hover:text-emerald-700 transition-colors ${
                           isGuest ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                         }`}
-                        title={isGuest ? "Log in to vote" : "Upvote"}
+                        title={isGuest ? "Đăng nhập để biểu quyết" : "Bình chọn ủng hộ"}
                       >
                         <ThumbsUp className="w-3.5 h-3.5" />
                       </button>
@@ -501,7 +501,7 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
                         className={`p-1 rounded-full text-stone-500 hover:text-red-600 transition-colors ${
                           isGuest ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                         }`}
-                        title={isGuest ? "Log in to vote" : "Downvote"}
+                        title={isGuest ? "Đăng nhập để biểu quyết" : "Bình chọn phản đối"}
                       >
                         <ThumbsDown className="w-3.5 h-3.5" />
                       </button>
@@ -517,8 +517,8 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
               {comments.length === 0 && (
                 <Card className="text-center py-8 text-stone-500">
                   <MessageSquare className="w-8 h-8 text-stone-300 mx-auto mb-2" />
-                  <p className="text-base font-medium">No comments yet.</p>
-                  <p className="text-sm">Be the first to share your thoughts!</p>
+                  <p className="text-base font-medium">Chưa có bình luận nào.</p>
+                  <p className="text-sm">Hãy là người đầu tiên chia sẻ cảm nghĩ của bạn!</p>
                 </Card>
               )}
             </div>
