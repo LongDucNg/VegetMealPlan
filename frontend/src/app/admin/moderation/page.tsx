@@ -27,6 +27,14 @@ const REASON_COLORS: Record<string, string> = {
   Inappropriate: "bg-pink-100 text-pink-700 border-pink-200",
 };
 
+const REASON_LABELS: Record<string, string> = {
+  "Dangerous claim": "Tuyên bố nguy hại",
+  Misinformation: "Thông tin sai lệch",
+  Spam: "Spam quảng cáo",
+  Offensive: "Xúc phạm / Công kích",
+  Inappropriate: "Không phù hợp",
+};
+
 function ConfidenceMeter({ value }: { value: number }) {
   const pct = Math.round(value * 100);
   const color = pct >= 95 ? "bg-red-500" : pct >= 85 ? "bg-amber-500" : "bg-stone-400";
@@ -64,7 +72,9 @@ function ModerationCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold text-stone-500">{item.contentType}</span>
+            <span className="text-xs font-semibold text-stone-500">
+              {item.contentType === "Post" ? "Bài viết" : item.contentType === "Video" ? "Video" : "Bình luận"}
+            </span>
             <span className="text-xs text-stone-400">·</span>
             <span className="text-xs text-stone-500">{item.author}</span>
             <span className="text-xs text-stone-400">·</span>
@@ -74,7 +84,7 @@ function ModerationCard({
         <span
           className={`shrink-0 text-[11px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${statusColor}`}
         >
-          {item.status}
+          {item.status === "Pending" ? "Chờ duyệt" : item.status === "Approved" ? "Đã duyệt" : item.status === "Removed" ? "Đã gỡ" : "Chuyển tiếp"}
         </span>
       </div>
 
@@ -90,7 +100,7 @@ function ModerationCard({
             key={r}
             className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${REASON_COLORS[r] ?? "bg-stone-100 text-stone-600 border-stone-200"}`}
           >
-            {r}
+            {REASON_LABELS[r] ?? r}
           </span>
         ))}
       </div>
@@ -98,7 +108,7 @@ function ModerationCard({
       {/* AI confidence */}
       <div>
         <div className="flex items-center justify-between mb-1">
-          <span className="text-xs text-stone-500 font-medium">AI Confidence</span>
+          <span className="text-xs text-stone-500 font-medium">Độ tin cậy của AI</span>
         </div>
         <ConfidenceMeter value={item.aiConfidence} />
       </div>
@@ -111,21 +121,21 @@ function ModerationCard({
             className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-emerald-700 text-white text-xs font-semibold hover:bg-emerald-800 transition-colors cursor-pointer"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
-            Approve content
+            Duyệt nội dung
           </button>
           <button
             onClick={onRemove}
             className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-red-700 text-white text-xs font-semibold hover:bg-red-800 transition-colors cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Remove
+            Xóa bỏ
           </button>
           <button
             onClick={onEscalate}
             className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-stone-100 text-stone-700 text-xs font-semibold hover:bg-stone-200 transition-colors cursor-pointer"
           >
             <ArrowUpRight className="w-3.5 h-3.5" />
-            Escalate
+            Chuyển cấp trên
           </button>
         </div>
       )}
@@ -175,8 +185,8 @@ function ModerationContent() {
       <div className="flex items-center gap-4 bg-stone-50 border border-stone-200 rounded-[14px] px-5 py-3.5">
         <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
         <p className="text-sm text-stone-700">
-          <span className="font-semibold text-stone-900">AI flag → Human review:</span>{" "}
-          Nothing is removed without an admin action. All AI flags require manual confirmation.
+          <span className="font-semibold text-stone-900">Cơ chế: AI gắn cờ → Người duyệt:</span>{" "}
+          Không có nội dung nào bị xóa mà không có lệnh của quản trị viên. Mọi cờ báo AI đều yêu cầu xác nhận thủ công.
         </p>
       </div>
 
@@ -184,18 +194,18 @@ function ModerationContent() {
       <div className="space-y-4">
         <h3 className="font-semibold text-stone-800 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-red-600" />
-          Pending Review
+          Đang chờ xem xét
           {pending.length > 0 && (
             <span className="text-xs font-semibold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
-              {pending.length} urgent
+              {pending.length} cần duyệt gấp
             </span>
           )}
         </h3>
         {pending.length === 0 ? (
           <div className="bg-white border border-stone-200 rounded-[20px] p-10 text-center">
             <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
-            <p className="font-semibold text-stone-800">Queue is clear</p>
-            <p className="text-sm text-stone-500 mt-1">All flagged content has been reviewed.</p>
+            <p className="font-semibold text-stone-800">Hàng đợi đã trống</p>
+            <p className="text-sm text-stone-500 mt-1">Tất cả nội dung bị gắn cờ đã được kiểm duyệt xong.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -217,7 +227,7 @@ function ModerationContent() {
         <div className="space-y-4">
           <h3 className="font-semibold text-stone-800 flex items-center gap-2">
             <Info className="w-4 h-4 text-stone-500" />
-            Resolved
+            Đã xử lý
           </h3>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {resolved.map((item) => (
@@ -237,13 +247,13 @@ function ModerationContent() {
       <Modal
         isOpen={!!confirmModal}
         onClose={() => setConfirmModal(null)}
-        title={confirmModal?.action === "Remove" ? "Confirm removal" : "Escalate for review"}
+        title={confirmModal?.action === "Remove" ? "Xác nhận gỡ bỏ nội dung" : "Chuyển lên cấp cao hơn"}
       >
         <div className="space-y-4">
           <p className="text-base text-stone-700">
             {confirmModal?.action === "Remove"
-              ? "This will permanently remove the content from VeggieHub. This action can be reversed by an admin from the Content management page."
-              : "This will flag the item for senior admin review. The content remains visible until a decision is made."}
+              ? "Hành động này sẽ gỡ vĩnh viễn nội dung khỏi VeggieHub. Quản trị viên vẫn có thể phục hồi lại từ trang Quản lý nội dung."
+              : "Hành động này sẽ chuyển nội dung lên quản trị viên cấp cao xem xét. Nội dung tạm thời vẫn hiển thị cho tới khi có phán quyết."}
           </p>
           <div className="flex gap-3">
             <button
@@ -260,13 +270,13 @@ function ModerationContent() {
                   : "bg-violet-700 hover:bg-violet-800"
               }`}
             >
-              {confirmModal?.action === "Remove" ? "Yes, remove" : "Yes, escalate"}
+              {confirmModal?.action === "Remove" ? "Đồng ý gỡ bỏ" : "Đồng ý chuyển tiếp"}
             </button>
             <button
               onClick={() => setConfirmModal(null)}
               className="h-11 px-5 rounded-xl bg-stone-100 text-stone-700 font-semibold hover:bg-stone-200 transition-colors cursor-pointer"
             >
-              Cancel
+              Hủy
             </button>
           </div>
         </div>
@@ -282,9 +292,9 @@ export default function AdminModerationPage() {
     <AppShell showRightRail={false}>
       <div className="max-w-[1240px] mx-auto w-full">
         <PageHeader
-          eyebrow="Administration"
-          title="Content Moderation"
-          subtitle="AI-flagged content requiring human review and decision."
+          eyebrow="Quản trị hệ thống"
+          title="Kiểm duyệt Nội dung"
+          subtitle="Nội dung do AI phát hiện vi phạm cần người kiểm tra và đưa ra quyết định."
         />
         {!ready ? (
           <GatedSkeleton />
