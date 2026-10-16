@@ -60,13 +60,14 @@ Mở `.env` và sửa tối thiểu các biến sau:
 
 | Biến | Ý nghĩa |
 |---|---|
-| `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE` | kết nối PostgreSQL |
+| `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME` | kết nối PostgreSQL |
 | `DB_SYNCHRONIZE` | luôn để `false`, schema chỉ thay đổi qua migration |
 | `JWT_SECRET` | chuỗi ngẫu nhiên dài, mỗi người tự sinh, không commit |
 | `JWT_EXPIRES_IN` | hạn access token (mặc định `1d`) |
 | `JWT_REFRESH_EXPIRES_DAYS` | hạn refresh token tính theo ngày (mặc định `30`) |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` | đăng nhập Google; để trống thì API Google trả 503, các chức năng khác vẫn chạy |
 | `FRONTEND_URL` | nơi backend redirect về sau khi đăng nhập Google (`http://localhost:3001`) |
+| `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASS`, `MAIL_FROM` | SMTP gửi mã OTP quên mật khẩu; để trống `MAIL_HOST` thì nội dung mail (kèm mã) được in ra console |
 | `GUEST_CHATBOT_LIMIT`, `FREE_CHATBOT_LIMIT` | số lượt hỏi chatbot của khách / tài khoản free |
 | `MONTHLY_PLAN_PRICE` | giá gói Premium theo tháng (VND) |
 
@@ -104,7 +105,7 @@ npm run dev
 
 | Người | Module | Nội dung chính |
 |---|---|---|
-| **BE1 – Long** | `auth`, `users`, `health-goal`, `category`, `subscription`, `notification`, `usage-quota` | đăng ký/đăng nhập, Google OAuth2, phiên đăng nhập (refresh token, logout), hồ sơ và dị ứng, BMI/BMR/TDEE, danh mục, gói Premium, thông báo |
+| **BE1 – Long** | `auth`, `users`, `health-goal`, `category`, `subscription`, `notification`, `usage-quota` | đăng ký/đăng nhập, Google OAuth2, phiên đăng nhập (refresh token, logout), quên/đổi mật khẩu (OTP email), hồ sơ và dị ứng, BMI/BMR/TDEE, danh mục, gói Premium, thông báo |
 | **BE2 – TLong** | `recipe`, `ingredient`, `nutrition`, `meal-plan`, `recipe-import` | món chay, duyệt món, yêu thích, giá tự nhập, nguyên liệu thay thế, dinh dưỡng, sinh thực đơn tuần/tháng, import món hàng loạt |
 | **BE3 – Khang** | `community`, `chatbot`, `user-ingredient`, `recommendation`, `shop` | diễn đàn, trợ lý AI, nguyên liệu trong bếp, gợi ý món từ nguyên liệu có sẵn, cửa hàng |
 
@@ -119,6 +120,7 @@ Mọi đường dẫn có tiền tố `/api/v1`. Danh sách đầy đủ và th�
 | Nhóm | Ví dụ |
 |---|---|
 | Xác thực | `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/logout-all`; `GET /auth/google` → `POST /auth/google/exchange`; `GET /auth/me` |
+| Mật khẩu | `POST /auth/forgot-password` → `POST /auth/reset-password` (OTP 6 số qua email); `PUT /auth/change-password` |
 | Hồ sơ | `GET/PUT /users/me/profile`, `GET/PUT /users/me/allergies`, `GET /users/me/nutrition-summary` |
 | Món ăn | `GET /recipes`, `GET /recipes/:id`, `GET /recipes/:id/cost`, `GET /recipes/:id/replacements`, `POST /recipes` |
 | Yêu thích, giá riêng | `/users/me/favorites/recipes`, `/users/me/recipe-prices` |
