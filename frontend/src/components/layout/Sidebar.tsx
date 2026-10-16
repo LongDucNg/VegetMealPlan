@@ -61,13 +61,13 @@ export function Sidebar() {
       active: pathname === "/recipes" || pathname.startsWith("/recipes/"),
     },
     {
-      label: "Video recipes",
+      label: "Video nấu ăn",
       href: "/videos",
       icon: CirclePlay,
       active: pathname === "/videos" || pathname.startsWith("/videos/"),
     },
     {
-      label: "Pantry scan",
+      label: "Quản lý tủ lạnh & Quét AI",
       href: "/planner/scan",
       icon: ScanLine,
       active: pathname.startsWith("/planner/scan"),
@@ -77,27 +77,27 @@ export function Sidebar() {
 
   const wellnessNavItems: NavItem[] = [
     {
-      label: "Meal planner",
+      label: "Kế hoạch thực đơn",
       href: "/planner",
       icon: CalendarDays,
       active: pathname === "/planner",
       lock: isGuest,
     },
     {
-      label: "AI nutritionist",
+      label: "Tư vấn dinh dưỡng AI",
       href: "/ai",
       icon: Sparkles,
       active: pathname === "/ai" || pathname.startsWith("/ai/"),
       badge: "Beta",
     },
     {
-      label: "Community forum",
+      label: "Diễn đàn cộng đồng",
       href: "/forum",
       icon: MessagesSquare,
       active: pathname === "/forum" || pathname.startsWith("/forum/"),
     },
     {
-      label: "Nearby shops",
+      label: "Điểm ăn chay lân cận",
       href: "/shops",
       icon: MapPin,
       active: pathname === "/shops" || pathname.startsWith("/shops/"),
@@ -106,19 +106,19 @@ export function Sidebar() {
 
   const mySpaceNavItems: NavItem[] = [
     {
-      label: "Favorites & Profile",
+      label: "Hồ sơ & Yêu thích",
       href: "/me",
       icon: Heart,
       active: pathname === "/me",
     },
     {
-      label: "My Recipes",
+      label: "Công thức của tôi",
       href: "/me?tab=my_recipes",
       icon: ChefHat,
       active: false,
     },
     {
-      label: "Preferences",
+      label: "Cài đặt & Dị ứng",
       href: "/me/settings",
       icon: Settings,
       active: pathname === "/me/settings",
@@ -128,7 +128,7 @@ export function Sidebar() {
   // Navigation Dedicated to Admin Management (/admin/*)
   const adminDashboardItems: NavItem[] = [
     {
-      label: "Overview Dashboard",
+      label: "Tổng quan quản trị",
       href: "/admin",
       icon: LayoutDashboard,
       active: pathname === "/admin",
@@ -137,32 +137,32 @@ export function Sidebar() {
 
   const adminContentItems: NavItem[] = [
     {
-      label: "Categories & Taxonomies",
+      label: "Danh mục món ăn",
       href: "/admin/categories",
       icon: Tag,
       active: pathname.startsWith("/admin/categories"),
     },
     {
-      label: "Ingredients CRUD",
+      label: "Nguyên liệu hệ thống",
       href: "/admin/ingredients",
       icon: Carrot,
       active: pathname.startsWith("/admin/ingredients"),
     },
     {
-      label: "Recipes CRUD",
+      label: "Quản trị công thức",
       href: "/admin/recipes",
       icon: UtensilsCrossed,
       active: pathname.startsWith("/admin/recipes"),
     },
     {
-      label: "Moderation Queue",
+      label: "Hàng đợi kiểm duyệt",
       href: "/admin/moderation",
       icon: ShieldAlert,
       active: pathname.startsWith("/admin/moderation"),
       flagCount: "3",
     },
     {
-      label: "Content Library",
+      label: "Thư viện nội dung",
       href: "/admin/content",
       icon: FileText,
       active: pathname === "/admin/content",
@@ -171,13 +171,13 @@ export function Sidebar() {
 
   const adminSystemItems: NavItem[] = [
     {
-      label: "Members & Roles",
+      label: "Thành viên & Phân quyền",
       href: "/admin/members",
       icon: Users,
       active: pathname.startsWith("/admin/members"),
     },
     {
-      label: "AI Models & Logs",
+      label: "Mô hình AI & Nhật ký",
       href: "/admin/ai",
       icon: Cpu,
       active: pathname.startsWith("/admin/ai"),

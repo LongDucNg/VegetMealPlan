@@ -1,17 +1,17 @@
 import { VideoRecipe } from "../types";
 
 export const RECIPE_FILTERS: string[] = [
-  "All",
-  "Snacks & Pastries",
-  "Boiled & Steamed",
-  "Soups & Broths",
-  "Rice & Congee",
-  "Rolls & Salads",
-  "Noodles & Pho",
-  "Mixed Vegan Platters",
-  "Braised & Simmered",
-  "Desserts & Drinks",
-  "Stir-Fried & Crispy",
+  "Tất cả",
+  "Bánh & Đồ ăn vặt",
+  "Món luộc & hấp",
+  "Canh & Súp",
+  "Cơm & Cháo",
+  "Gỏi cuốn & Salad",
+  "Bún, Miến & Phở",
+  "Mâm cỗ chay",
+  "Món kho & om",
+  "Tráng miệng & Đồ uống",
+  "Món xào & chiên giòn",
 ];
 
 export const VIDEO_RECIPES: VideoRecipe[] = [
