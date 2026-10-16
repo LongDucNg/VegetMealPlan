@@ -10,10 +10,12 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { GoogleLoginCodeStore } from './google-login-code.store';
+import { SessionService } from './session.service';
+import { UserSession } from './entities/user-session.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, UserSession]),
     UsersModule,
     PassportModule,
     JwtModule.registerAsync({
@@ -26,7 +28,7 @@ import { GoogleLoginCodeStore } from './google-login-code.store';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, GoogleLoginCodeStore],
-  exports: [AuthService],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, GoogleLoginCodeStore, SessionService],
+  exports: [AuthService, SessionService],
 })
 export class AuthModule {}
