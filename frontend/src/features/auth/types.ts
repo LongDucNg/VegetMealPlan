@@ -31,13 +31,31 @@ export interface AuthUser {
 
 export interface AuthResponse {
   access_token: string;
+  refresh_token?: string;
+  token_type?: string;
+  expires_in?: number;
   user: {
     user_id: number;
     full_name: string;
     email: string;
     role: string;
   };
+  is_new_user?: boolean;
 }
+
+export interface RefreshTokenPayload {
+  refresh_token: string;
+}
+
+export interface LogoutResponse {
+  message: string;
+}
+
+export interface LogoutAllResponse {
+  message: string;
+  revoked_sessions: number;
+}
+
 
 export interface RegisterPayload {
   full_name: string;
