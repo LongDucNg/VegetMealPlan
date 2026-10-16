@@ -3,6 +3,9 @@ import { Recipe } from "../types";
 import { recipeService } from "./recipeService";
 import { DayMealPlan } from "@/features/meal-planner/types";
 import { priceService } from "./priceService";
+import { apiClient } from "@/lib/apiClient";
+import { tokenStorage } from "@/lib/tokenStorage";
+
 
 export interface SavedMealPlan {
   id: string;
@@ -20,95 +23,16 @@ export interface UserFavoritesData {
   mealPlans: SavedMealPlan[];
 }
 
-function buildDefaultSavedPlans(userId: string): SavedMealPlan[] {
-  const allRecipes = recipeService.getRecipes();
-  if (allRecipes.length === 0) return [];
-
-  const getR = (id: string, fallbackIdx = 0) =>
-    allRecipes.find((r) => r.id === id) || allRecipes[fallbackIdx] || allRecipes[0];
-
-  const b1 = getR("rec-1", 0);
-  const b2 = getR("rec-2", 1);
-  const b3 = getR("rec-3", 2);
-  const l1 = getR("rec-5", 3);
-  const l2 = getR("rec-6", 4);
-  const l3 = getR("rec-7", 5);
-  const d1 = getR("rec-8", 6);
-  const d2 = getR("rec-10", 7);
-  const d3 = getR("rec-11", 8);
-  const s1 = getR("rec-12", 9);
-  const s2 = getR("rec-13", 10);
-
-  const daysDef = [
-    { day: "Monday", short: "Mon", date: "Sep 22", b: b1, l: l1, d: d1, s: s1 },
-    { day: "Tuesday", short: "Tue", date: "Sep 23", b: b2, l: l2, d: d2, s: s2 },
-    { day: "Wednesday", short: "Wed", date: "Sep 24", b: b3, l: l3, d: d3, s: s1 },
-    { day: "Thursday", short: "Thu", date: "Sep 25", b: b1, l: l2, d: d1, s: s2 },
-    { day: "Friday", short: "Fri", date: "Sep 26", b: b2, l: l1, d: d2, s: s1 },
-    { day: "Saturday", short: "Sat", date: "Sep 27", b: b3, l: l3, d: d3, s: s2 },
-    { day: "Sunday", short: "Sun", date: "Sep 28", b: b1, l: l1, d: d1, s: s1 },
-  ];
-
-  const days: DayMealPlan[] = daysDef.map((item) => {
-    const totalCal = item.b.calories + item.l.calories + item.d.calories + item.s.calories;
-    const totalProt = item.b.protein + item.l.protein + item.d.protein + item.s.protein;
-    const totalCarb = item.b.carbs + item.l.carbs + item.d.carbs + item.s.carbs;
-    const totalFat = item.b.fat + item.l.fat + item.d.fat + item.s.fat;
-    const cost =
-      priceService.getEffectivePrice(item.b, userId).price +
-      priceService.getEffectivePrice(item.l, userId).price +
-      priceService.getEffectivePrice(item.d, userId).price +
-      priceService.getEffectivePrice(item.s, userId).price;
-
-    return {
-      dayName: item.day,
-      shortDay: item.short,
-      dateText: item.date,
-      breakfast: { recipe: item.b, time: "08:00 AM" },
-      lunch: { recipe: item.l, time: "12:30 PM" },
-      dinner: { recipe: item.d, time: "07:00 PM" },
-      snack: { recipe: item.s, time: "03:30 PM" },
-      totalCalories: totalCal,
-      totalProtein: totalProt,
-      totalCarbs: totalCarb,
-      totalFat: totalFat,
-      targetCalories: 1850,
-      remainingCalories: Math.max(0, 1850 - totalCal),
-      estimatedCost: cost,
-    };
-  });
-
-  const totalCost = days.reduce((sum, d) => sum + d.estimatedCost, 0);
-
-  return [
-    {
-      id: "saved-plan-demo-1",
-      name: "Thực đơn Healthy 7 Ngày Giảm Cân",
-      planType: "weekly",
-      createdAt: "2026-09-20T10:00:00.000Z",
-      targetCalories: 1850,
-      totalEstimatedCost: totalCost,
-      days,
-    },
-    {
-      id: "saved-plan-demo-2",
-      name: "High-Protein Chay Tăng Cơ & Săn Chắc",
-      planType: "weekly",
-      createdAt: "2026-09-18T14:30:00.000Z",
-      targetCalories: 2150,
-      totalEstimatedCost: Math.round(totalCost * 1.15),
-      days: days.map((d) => ({
-        ...d,
-        targetCalories: 2150,
-        remainingCalories: Math.max(0, 2150 - d.totalCalories),
-      })),
-    },
-  ];
+function buildDefaultSavedPlans(_userId: string): SavedMealPlan[] {
+  return [];
 }
+
+const isMockRecipeId = (id: string) => /^rec-\d{1,2}$/.test(id);
+const isMockPlanId = (id: string) => id.includes("demo");
 
 export const favoriteService = {
   /**
-   * Retrieves all favorites for a specific user with rich default mock data (Requirement 1)
+   * Retrieves all favorites for a specific user without mock data
    */
   getUserFavorites(userId: string): UserFavoritesData {
     const safeId = userId || "1";
@@ -118,14 +42,28 @@ export const favoriteService = {
     );
 
     if (all[safeId]) {
+      // Purge any legacy mock recipe IDs and mock saved plans from storage
+      const cleanedRecipes = (all[safeId].recipes || []).filter((id) => !isMockRecipeId(id));
+      const cleanedPlans = (all[safeId].mealPlans || []).filter((p) => !isMockPlanId(p.id));
+
+      if (
+        cleanedRecipes.length !== (all[safeId].recipes || []).length ||
+        cleanedPlans.length !== (all[safeId].mealPlans || []).length
+      ) {
+        all[safeId] = {
+          ...all[safeId],
+          recipes: cleanedRecipes,
+          mealPlans: cleanedPlans,
+        };
+        storage.setItem(STORAGE_KEYS.FAVORITES, all);
+      }
       return all[safeId];
     }
 
-    // Initialize rich defaults for demo user
     const defaultData: UserFavoritesData = {
       userId: safeId,
-      recipes: ["rec-1", "rec-2", "rec-5", "rec-7", "rec-10", "rec-12"],
-      mealPlans: buildDefaultSavedPlans(safeId),
+      recipes: [],
+      mealPlans: [],
     };
 
     all[safeId] = defaultData;
@@ -150,24 +88,36 @@ export const favoriteService = {
    * Check if a recipe is in user's favorites
    */
   isRecipeFavorite(userId: string, recipeId: string): boolean {
-    if (!userId || !recipeId) return false;
+    if (!recipeId) return false;
     const favs = this.getUserFavorites(userId);
-    return favs.recipes.includes(recipeId);
+    const cleanId = String(recipeId).trim();
+    const numId = cleanId.replace(/\D/g, "");
+    return favs.recipes.some((id) => {
+      if (id === cleanId) return true;
+      if (numId && id.replace(/\D/g, "") === numId) return true;
+      return false;
+    });
   },
 
   /**
    * Toggle favorite recipe status for a user
    */
   toggleFavoriteRecipe(userId: string, recipeId: string): boolean {
-    if (!userId || !recipeId) return false;
+    if (!recipeId) return false;
     const favs = this.getUserFavorites(userId);
-    const exists = favs.recipes.includes(recipeId);
+    const cleanId = String(recipeId).trim();
+    const numId = cleanId.replace(/\D/g, "");
+    const exists = this.isRecipeFavorite(userId, recipeId);
     let updatedRecipes: string[];
 
     if (exists) {
-      updatedRecipes = favs.recipes.filter((id) => id !== recipeId);
+      updatedRecipes = favs.recipes.filter((id) => {
+        if (id === cleanId) return false;
+        if (numId && id.replace(/\D/g, "") === numId) return false;
+        return true;
+      });
     } else {
-      updatedRecipes = [...favs.recipes, recipeId];
+      updatedRecipes = [...favs.recipes, cleanId];
     }
 
     this.saveUserFavorites({
@@ -175,7 +125,44 @@ export const favoriteService = {
       recipes: updatedRecipes,
     });
 
+    // Sync to backend if logged in
+    const token = tokenStorage.getToken();
+    const numericId = parseInt(numId, 10);
+    if (token && !isNaN(numericId) && numericId > 0) {
+      if (exists) {
+        apiClient.delete(`/users/me/favorites/recipes/${numericId}`).catch(() => {});
+      } else {
+        apiClient.post(`/users/me/favorites/recipes/${numericId}`).catch(() => {});
+      }
+    }
+
     return !exists;
+  },
+
+  /**
+   * Đồng bộ danh sách yêu thích từ backend
+   * GET /users/me/favorites/recipes
+   */
+  async fetchServerFavorites(userId: string): Promise<string[]> {
+    const token = tokenStorage.getToken();
+    if (!token) return this.getUserFavorites(userId).recipes;
+
+    try {
+      const res = await apiClient.get<any>(
+        "/users/me/favorites/recipes"
+      );
+      const list = Array.isArray(res) ? res : (res as any)?.data || [];
+      if (Array.isArray(list)) {
+        const ids = list.map((r: any) => String(r.recipe_id || r.id));
+        const current = this.getUserFavorites(userId);
+        this.saveUserFavorites({
+          ...current,
+          recipes: ids,
+        });
+        return ids;
+      }
+    } catch {}
+    return this.getUserFavorites(userId).recipes;
   },
 
   /**
@@ -184,7 +171,14 @@ export const favoriteService = {
   getFavoriteRecipes(userId: string): Recipe[] {
     const favs = this.getUserFavorites(userId);
     const allRecipes = recipeService.getRecipes();
-    return allRecipes.filter((r) => favs.recipes.includes(r.id));
+    return allRecipes.filter((r) => {
+      const rNum = String(r.id).replace(/\D/g, "");
+      return favs.recipes.some((fid) => {
+        if (fid === r.id) return true;
+        const fNum = String(fid).replace(/\D/g, "");
+        return Boolean(fNum && rNum && fNum === rNum);
+      });
+    });
   },
 
   /**

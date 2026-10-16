@@ -1,6 +1,7 @@
 export * from "./types";
 export * from "./data/mockMealPlan";
 export * from "./services/mealPlannerService";
+export * from "./services/mealPlanApiService";
 export * from "./hooks/useMealPlanner";
 export * from "./components/DailyMacroSummary";
 export * from "./components/FavoritesModal";

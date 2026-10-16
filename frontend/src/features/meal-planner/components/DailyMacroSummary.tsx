@@ -10,8 +10,14 @@ interface DailyMacroSummaryProps {
 }
 
 export function DailyMacroSummary({ day }: DailyMacroSummaryProps) {
-  const pct = Math.min(100, Math.round((day.totalCalories / day.targetCalories) * 100));
-  const remaining = day.targetCalories - day.totalCalories;
+  const totalCalories = Math.round(day.totalCalories);
+  const targetCalories = Math.round(day.targetCalories);
+  const totalProtein = Math.round(day.totalProtein * 10) / 10;
+  const totalCarbs = Math.round(day.totalCarbs * 10) / 10;
+  const totalFat = Math.round(day.totalFat * 10) / 10;
+
+  const pct = Math.min(100, Math.round((totalCalories / targetCalories) * 100));
+  const remaining = Math.round(targetCalories - totalCalories);
   const isOver = remaining < 0;
 
   return (
@@ -23,11 +29,11 @@ export function DailyMacroSummary({ day }: DailyMacroSummaryProps) {
           </span>
           <div className="flex items-baseline gap-2 mt-0.5">
             <span className="font-serif font-bold text-3xl text-stone-900">
-              {day.totalCalories}
+              {totalCalories}
             </span>
             <span className="text-stone-400 text-lg">/</span>
             <span className="font-serif font-bold text-xl text-emerald-700">
-              {day.targetCalories} kcal
+              {targetCalories} kcal
             </span>
           </div>
         </div>
@@ -78,18 +84,18 @@ export function DailyMacroSummary({ day }: DailyMacroSummaryProps) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
         <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-3 text-center">
           <p className="text-[11px] font-semibold text-stone-500 uppercase">Protein</p>
-          <p className="font-serif font-bold text-xl text-emerald-800 mt-0.5">{day.totalProtein}g</p>
-          <p className="text-[10px] text-stone-400">~{Math.round(day.totalProtein * 4)} kcal</p>
+          <p className="font-serif font-bold text-xl text-emerald-800 mt-0.5">{totalProtein}g</p>
+          <p className="text-[10px] text-stone-400">~{Math.round(totalProtein * 4)} kcal</p>
         </div>
         <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-3 text-center">
           <p className="text-[11px] font-semibold text-stone-500 uppercase">Carbs</p>
-          <p className="font-serif font-bold text-xl text-amber-700 mt-0.5">{day.totalCarbs}g</p>
-          <p className="text-[10px] text-stone-400">~{Math.round(day.totalCarbs * 4)} kcal</p>
+          <p className="font-serif font-bold text-xl text-amber-700 mt-0.5">{totalCarbs}g</p>
+          <p className="text-[10px] text-stone-400">~{Math.round(totalCarbs * 4)} kcal</p>
         </div>
         <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-3 text-center">
           <p className="text-[11px] font-semibold text-stone-500 uppercase">Fat</p>
-          <p className="font-serif font-bold text-xl text-violet-700 mt-0.5">{day.totalFat}g</p>
-          <p className="text-[10px] text-stone-400">~{Math.round(day.totalFat * 9)} kcal</p>
+          <p className="font-serif font-bold text-xl text-violet-700 mt-0.5">{totalFat}g</p>
+          <p className="text-[10px] text-stone-400">~{Math.round(totalFat * 9)} kcal</p>
         </div>
         <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-3 text-center">
           <p className="text-[11px] font-semibold text-stone-500 uppercase">Daily Cost</p>

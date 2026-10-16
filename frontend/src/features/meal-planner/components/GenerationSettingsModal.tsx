@@ -14,6 +14,7 @@ interface GenerationSettingsModalProps {
   onOpenSomeoneElseModal: () => void;
   onConfirmGenerate: (options: GenerationPlanOptions) => void;
   initialPlanType?: MealPlanType;
+  currentBudget?: number;
 }
 
 const MONTHS = [
@@ -39,13 +40,26 @@ export function GenerationSettingsModal({
   onOpenSomeoneElseModal,
   onConfirmGenerate,
   initialPlanType = "weekly",
+  currentBudget,
 }: GenerationSettingsModalProps) {
   const [planType, setPlanType] = useState<MealPlanType>(initialPlanType);
   const [useFavorites, setUseFavorites] = useState(false);
-  const [hasBudgetLimit, setHasBudgetLimit] = useState(false);
-  const [budgetValue, setBudgetValue] = useState<number>(500000);
-  const [selectedMonth, setSelectedMonth] = useState<number>(8); // 8 = September
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
+  const [hasBudgetLimit, setHasBudgetLimit] = useState(currentBudget !== undefined);
+  const [budgetValue, setBudgetValue] = useState<number>(currentBudget ?? 500000);
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setPlanType(initialPlanType);
+      if (currentBudget !== undefined) {
+        setHasBudgetLimit(true);
+        setBudgetValue(currentBudget);
+      } else {
+        setHasBudgetLimit(false);
+      }
+    }
+  }, [isOpen, initialPlanType, currentBudget]);
 
   const userId = String(activeProfile.id || "u1");
   const favRecipes = favoriteService.getFavoriteRecipes(userId);
@@ -172,8 +186,9 @@ export function GenerationSettingsModal({
                   onChange={(e) => setSelectedYear(Number(e.target.value))}
                   className="w-full h-10 px-3 rounded-xl border border-stone-200 bg-white text-xs font-semibold text-stone-900 outline-none"
                 >
-                  <option value={2026}>2026</option>
-                  <option value={2027}>2027</option>
+                  {[new Date().getFullYear(), new Date().getFullYear() + 1].map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -208,7 +223,7 @@ export function GenerationSettingsModal({
           {/* 3. Budget Support (Requirement 24) */}
           <div>
             <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-2">
-              Grocery Budget:
+              Ngân sách thực đơn (Grocery Budget):
             </label>
             <div className="space-y-2">
               <div className="flex items-center gap-4 text-xs">
@@ -220,7 +235,7 @@ export function GenerationSettingsModal({
                     onChange={() => setHasBudgetLimit(false)}
                     className="accent-emerald-700"
                   />
-                  <span>No budget limit</span>
+                  <span>Không giới hạn (No budget limit)</span>
                 </label>
 
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -231,7 +246,7 @@ export function GenerationSettingsModal({
                     onChange={() => setHasBudgetLimit(true)}
                     className="accent-emerald-700"
                   />
-                  <span>Set maximum budget</span>
+                  <span>Đặt ngân sách tối đa (Set maximum budget)</span>
                 </label>
               </div>
 
@@ -241,17 +256,17 @@ export function GenerationSettingsModal({
                     <input
                       type="number"
                       step="50000"
-                      min="100000"
+                      min="50000"
                       value={budgetValue}
                       onChange={(e) => setBudgetValue(Number(e.target.value))}
-                      className="w-full h-10 px-3.5 rounded-xl border border-stone-200 bg-stone-50 text-xs font-bold text-stone-900 focus:bg-white focus:border-emerald-600 outline-none"
+                      className="w-full h-10 px-3.5 pr-28 rounded-xl border border-stone-200 bg-stone-50 text-xs font-bold text-stone-900 focus:bg-white focus:border-emerald-600 outline-none"
                     />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400">
-                      VND / {planType === "weekly" ? "week" : "month"}
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-500">
+                      VND / {planType === "weekly" ? "tuần" : "tháng"}
                     </span>
                   </div>
                   <p className="text-[11px] text-stone-500 mt-1">
-                    AI will prioritize cost-effective ingredients while keeping full nutritional targets.
+                    AI sẽ tính toán chi phí nguyên liệu cho từng bữa ăn đảm bảo tổng chi phí không vượt quá mức ngân sách này.
                   </p>
                 </div>
               )}
