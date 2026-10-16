@@ -1,5 +1,7 @@
+import { apiClient } from "@/lib/apiClient";
+import { tokenStorage } from "@/lib/tokenStorage";
 import { storage, STORAGE_KEYS } from "@/utils/storage/storage";
-import { UserSubscription, SubscriptionTier } from "../types";
+import { UserSubscription, SubscriptionTier, SubscriptionPlan } from "../types";
 import { DEFAULT_SUBSCRIPTION, MOCK_PLANS } from "../data/mockSubscriptions";
 
 const SUBSCRIPTION_PLAN_KEY = "subscriptionPlan";
@@ -57,10 +59,72 @@ export const subscriptionService = {
     return this.getSubscriptionPlan() === "premium";
   },
 
+  /**
+   * Đồng bộ trạng thái Premium từ backend
+   * GET /subscriptions/me/premium-status hoặc GET /users/me/subscription
+   */
+  async fetchServerStatus(): Promise<UserSubscription> {
+    const token = tokenStorage.getToken();
+    if (!token) {
+      return this.getSubscription();
+    }
+
+    try {
+      // 1. Thử gọi GET /users/me/subscription
+      const res = await apiClient
+        .get<{ isPremium?: boolean; is_premium?: boolean; status?: string }>("/users/me/subscription")
+        .catch(() =>
+          // 2. Fallback gọi GET /subscriptions/me/premium-status
+          apiClient.get<{ isPremium: boolean }>("/subscriptions/me/premium-status")
+        );
+
+      const isPrem = !!(res?.isPremium ?? res?.is_premium ?? (res?.status === "active"));
+
+      if (isPrem) {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(SUBSCRIPTION_PLAN_KEY, "premium");
+        }
+        const premiumPlan = MOCK_PLANS.find((p) => p.id === "premium") || MOCK_PLANS[1];
+        const activeSub: UserSubscription = {
+          status: "active",
+          planId: "premium",
+          planName: premiumPlan.name,
+          autoRenew: true,
+        };
+        storage.setItem(STORAGE_KEYS.SUBSCRIPTION, activeSub);
+        return activeSub;
+      } else {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(SUBSCRIPTION_PLAN_KEY, "free");
+        }
+        storage.setItem(STORAGE_KEYS.SUBSCRIPTION, DEFAULT_SUBSCRIPTION);
+        return DEFAULT_SUBSCRIPTION;
+      }
+    } catch {
+      return this.getSubscription();
+    }
+  },
+
+  /**
+   * Lấy danh sách các gói dịch vụ
+   * GET /subscriptions/plans
+   */
+  async getPlans(): Promise<SubscriptionPlan[]> {
+    try {
+      const res = await apiClient.get<SubscriptionPlan[]>("/subscriptions/plans");
+      if (Array.isArray(res) && res.length > 0) return res;
+    } catch {}
+    return MOCK_PLANS;
+  },
+
   upgradeToPremium(): UserSubscription {
     return this.purchasePlan("premium");
   },
 
+  /**
+   * Mua gói Premium:
+   * POST /users/me/subscription/purchase hoặc POST /subscriptions/checkout
+   */
   purchasePlan(planId: SubscriptionTier = "premium"): UserSubscription {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(SUBSCRIPTION_PLAN_KEY, "premium");
@@ -81,9 +145,23 @@ export const subscriptionService = {
     };
 
     storage.setItem(STORAGE_KEYS.SUBSCRIPTION, updated);
+
+    // Call checkout endpoint asynchronously if logged in
+    const token = tokenStorage.getToken();
+    if (token) {
+      apiClient
+        .post<{ gateway_txn_ref?: string }>("/users/me/subscription/purchase")
+        .catch(() => apiClient.post("/subscriptions/checkout"))
+        .catch(() => {});
+    }
+
     return updated;
   },
 
+  /**
+   * Hủy gói Premium:
+   * DELETE /users/me/subscription hoặc DELETE /subscriptions/:id
+   */
   cancelSubscription(): UserSubscription {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(SUBSCRIPTION_PLAN_KEY, "free");
@@ -96,6 +174,15 @@ export const subscriptionService = {
       planName: "Free Plan",
     };
     storage.setItem(STORAGE_KEYS.SUBSCRIPTION, updated);
+
+    const token = tokenStorage.getToken();
+    if (token) {
+      apiClient
+        .delete("/users/me/subscription")
+        .catch(() => apiClient.delete("/subscriptions/1"))
+        .catch(() => {});
+    }
+
     return updated;
   },
 
@@ -106,4 +193,3 @@ export const subscriptionService = {
     return this.upgradeToPremium();
   },
 };
-

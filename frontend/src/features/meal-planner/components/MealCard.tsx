@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Flame, Clock, Users, RefreshCw, Tag, AlertCircle, Info } from "lucide-react";
 import { Recipe } from "@/features/recipes/types";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
@@ -99,9 +100,12 @@ export function MealCard({
             <RecipeAllergyBadge recipe={recipe} compact />
           </div>
 
-          <h4 className="font-semibold text-stone-900 text-sm leading-snug line-clamp-2 group-hover:text-emerald-700 transition-colors">
+          <Link
+            href={`/recipes/${recipe.id}`}
+            className="block font-semibold text-stone-900 text-sm leading-snug line-clamp-2 hover:text-emerald-700 hover:underline transition-colors cursor-pointer"
+          >
             {recipe.name || recipe.title}
-          </h4>
+          </Link>
 
           {/* Calories & Serving */}
           <div className="flex items-center gap-2 mt-2 text-xs text-stone-500">

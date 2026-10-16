@@ -2,6 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { X, ExternalLink, Tag, AlertCircle, Info } from "lucide-react";
 import { Recipe } from "@/features/recipes/types";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
@@ -190,7 +191,15 @@ export function AdminRecipeDetailModal({
           </div>
 
           {/* Footer Action */}
-          <div className="pt-4 border-t flex justify-end gap-3">
+          <div className="pt-4 border-t flex items-center justify-between gap-3">
+            <Link
+              href={`/recipes/${recipe.id}`}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline"
+            >
+              <span>Mở trang chi tiết đầy đủ</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </Link>
+
             <button
               onClick={() => {
                 onClose();

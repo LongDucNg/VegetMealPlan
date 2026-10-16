@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
 import { MODERATION_QUEUE, ModerationItem } from "@/features/admin";
+import Link from "next/link";
 import {
   ShieldCheck,
   AlertTriangle,
@@ -15,6 +16,7 @@ import {
   ArrowUpRight,
   CheckCircle2,
   Info,
+  ChefHat,
 } from "lucide-react";
 
 const REASON_COLORS: Record<string, string> = {
@@ -147,6 +149,28 @@ function ModerationContent() {
 
   return (
     <div className="space-y-8">
+      {/* Recipe Moderation Queue Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-emerald-50/80 border border-emerald-200 rounded-[14px] px-5 py-3.5 shadow-2xs">
+        <div className="flex items-center gap-3">
+          <ChefHat className="w-5 h-5 text-emerald-700 shrink-0" />
+          <div>
+            <p className="text-sm text-stone-900 font-semibold">
+              Kiểm duyệt công thức món ăn thành viên đăng tải
+            </p>
+            <p className="text-xs text-stone-500">
+              Xem xét, duyệt hoặc từ chối các công thức món ăn mới do cộng đồng đóng góp.
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/admin/recipes"
+          className="text-xs px-4 py-2 rounded-xl bg-emerald-700 text-white font-semibold hover:bg-emerald-800 transition-colors shadow-2xs cursor-pointer flex items-center gap-1.5"
+        >
+          <span>Mở duyệt công thức</span>
+          <ArrowUpRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+
       {/* Policy banner */}
       <div className="flex items-center gap-4 bg-stone-50 border border-stone-200 rounded-[14px] px-5 py-3.5">
         <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
