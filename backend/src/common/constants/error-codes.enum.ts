@@ -35,6 +35,8 @@ export enum ErrorCode {
   AUTH_GOOGLE_NOT_CONFIGURED = 'AUTH_GOOGLE_NOT_CONFIGURED',
   /** 401: mã đổi token sau khi đăng nhập Google không tồn tại, đã dùng hoặc đã hết hạn. */
   AUTH_GOOGLE_CODE_INVALID = 'AUTH_GOOGLE_CODE_INVALID',
+  /** 401: refresh token sai, hết hạn, đã bị thu hồi hoặc đã dùng (xoay vòng). FE phải cho đăng nhập lại. */
+  AUTH_REFRESH_TOKEN_INVALID = 'AUTH_REFRESH_TOKEN_INVALID',
 
   // ---- User / hồ sơ ----
   /** 404 */
@@ -51,7 +53,11 @@ export enum ErrorCode {
   // ---- Danh mục ----
   /** 404 */
   CATEGORY_NOT_FOUND = 'CATEGORY_NOT_FOUND',
-
+ // ---- Diễn đàn ----
+  /** 404 */
+  FORUM_POST_NOT_FOUND = 'FORUM_POST_NOT_FOUND',
+  /** 400: category_id không tồn tại, đã tắt, hoặc không thuộc diễn đàn. */
+  FORUM_CATEGORY_INVALID = 'FORUM_CATEGORY_INVALID',
   // ---- Recipe / Nguyên liệu / Thực đơn ----
   /** 404 */
   RECIPE_NOT_FOUND = 'RECIPE_NOT_FOUND',

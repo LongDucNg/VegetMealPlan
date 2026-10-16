@@ -17,34 +17,34 @@ export const DEFAULT_MOCK_PROFILE: UserProfile = {
 };
 
 export const ALLERGY_MASTER_LIST = [
-  { id: "peanut", label: "Peanuts" },
-  { id: "soy", label: "Soy & Tofu" },
-  { id: "gluten", label: "Gluten / Wheat" },
-  { id: "dairy", label: "Dairy (Lactose)" },
-  { id: "treenut", label: "Tree Nuts (Cashews, Almonds, Walnuts)" },
-  { id: "sesame", label: "Sesame" },
-  { id: "corn", label: "Corn" },
-  { id: "egg", label: "Eggs" },
+  { id: "peanut", label: "Đậu phộng (Lạc)" },
+  { id: "soy", label: "Đậu nành & Đậu hũ" },
+  { id: "gluten", label: "Gluten / Lúa mì" },
+  { id: "dairy", label: "Sữa & Chế phẩm sữa (Lactose)" },
+  { id: "treenut", label: "Hạt cây (Điều, Hạnh nhân, Óc chó)" },
+  { id: "sesame", label: "Mè (Vừng)" },
+  { id: "corn", label: "Bắp (Ngô)" },
+  { id: "egg", label: "Trứng" },
 ];
 
 export const VEGETARIAN_TYPE_OPTIONS: { id: UserProfile["vegetarianType"]; label: string; desc: string }[] = [
-  { id: "vegan", label: "Vegan", desc: "100% plant-based, no animal products" },
-  { id: "lacto_vegetarian", label: "Lacto Vegetarian", desc: "Plant-based + dairy products" },
-  { id: "ovo_vegetarian", label: "Ovo Vegetarian", desc: "Plant-based + eggs" },
-  { id: "lacto_ovo_vegetarian", label: "Lacto-Ovo Vegetarian", desc: "Plant-based + dairy + eggs" },
+  { id: "vegan", label: "Thuần chay (Vegan)", desc: "100% nguồn gốc thực vật, không dùng sản phẩm động vật" },
+  { id: "lacto_vegetarian", label: "Chay có sữa (Lacto)", desc: "Ăn thực vật + các chế phẩm từ sữa" },
+  { id: "ovo_vegetarian", label: "Chay có trứng (Ovo)", desc: "Ăn thực vật + trứng gà/vịt" },
+  { id: "lacto_ovo_vegetarian", label: "Chay có trứng & sữa (Ovo-Lacto)", desc: "Ăn thực vật + trứng + sữa" },
 ];
 
 export const HEALTH_GOAL_OPTIONS: { id: UserProfile["healthGoal"]; label: string; desc: string }[] = [
-  { id: "lose_weight", label: "Lose Weight", desc: "Deficit of ~500 kcal for steady fat loss" },
-  { id: "maintain_weight", label: "Maintain Weight", desc: "Balanced energy intake aligned with your TDEE" },
-  { id: "gain_weight", label: "Gain Muscle / Weight", desc: "Surplus of ~400 kcal + higher plant protein" },
-  { id: "healthy_eating", label: "Healthy Eating", desc: "Nutrient-dense variety and gut vitality" },
+  { id: "lose_weight", label: "Giảm cân", desc: "Thâm hụt ~500 kcal giúp đốt mỡ đều đặn" },
+  { id: "maintain_weight", label: "Duy trì vóc dáng", desc: "Cân bằng năng lượng phù hợp chỉ số TDEE" },
+  { id: "gain_weight", label: "Tăng cơ / Tăng cân", desc: "Dư thừa ~400 kcal + tối ưu đạm thực vật" },
+  { id: "healthy_eating", label: "Ăn uống lành mạnh", desc: "Đa dạng vi chất dinh dưỡng và tiêu hóa khỏe" },
 ];
 
 export const ACTIVITY_LEVEL_OPTIONS: { id: UserProfile["activityLevel"]; label: string; factor: number; desc: string }[] = [
-  { id: "sedentary", label: "Sedentary", factor: 1.2, desc: "Little or no exercise, desk job" },
-  { id: "light", label: "Light Activity", factor: 1.375, desc: "Light exercise/sports 1-3 days/week" },
-  { id: "moderate", label: "Moderate Activity", factor: 1.55, desc: "Moderate exercise 3-5 days/week" },
-  { id: "active", label: "Active", factor: 1.725, desc: "Hard exercise 6-7 days/week" },
-  { id: "very_active", label: "Very Active", factor: 1.9, desc: "Physical job or twice-per-day training" },
+  { id: "sedentary", label: "Ít vận động", factor: 1.2, desc: "Hầu như không tập luyện, công việc văn phòng" },
+  { id: "light", label: "Vận động nhẹ", factor: 1.375, desc: "Tập luyện nhẹ nhàng / thể thao 1 - 3 ngày/tuần" },
+  { id: "moderate", label: "Vận động vừa phải", factor: 1.55, desc: "Tập luyện thể thao 3 - 5 ngày/tuần" },
+  { id: "active", label: "Vận động nhiều", factor: 1.725, desc: "Tập luyện cường độ cao 6 - 7 ngày/tuần" },
+  { id: "very_active", label: "Vận động rất nhiều", factor: 1.9, desc: "Lao động thể lực nặng hoặc tập 2 buổi/ngày" },
 ];
