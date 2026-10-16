@@ -4,6 +4,8 @@ export interface AuthUser {
   user_id: number;
   email: string;
   role: string;
+  /** Phiên đăng nhập (bảng user_sessions) mà token này thuộc về. */
+  sid: string;
 }
 
 /** Lấy user từ JWT: @CurrentUser() user  hoặc  @CurrentUser('user_id') id */
