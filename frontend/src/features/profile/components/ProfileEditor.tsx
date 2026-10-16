@@ -84,7 +84,7 @@ export function ProfileEditor() {
   };
 
   const handleReset = () => {
-    if (window.confirm("Reset profile to default demo user?")) {
+    if (window.confirm("Bạn có chắc chắn muốn đặt lại hồ sơ về thông tin mặc định?")) {
       const def = resetProfile();
       setName(def.name);
       setAge(def.age);
@@ -98,6 +98,18 @@ export function ProfileEditor() {
     }
   };
 
+  const BMI_LABEL_MAP: Record<string, string> = {
+    Balanced: "Cân đối",
+    Underweight: "Nhẹ cân",
+    Overweight: "Thừa cân",
+    Obese: "Béo phì",
+  };
+
+  const getBmiCategoryLabel = (cat?: string) => {
+    if (!cat) return "Chưa đủ chỉ số";
+    return BMI_LABEL_MAP[cat] || cat;
+  };
+
   return (
     <form onSubmit={handleSave} className="space-y-6">
       {/* Live Health Target Highlight */}
@@ -105,7 +117,7 @@ export function ProfileEditor() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-200">
-              Live Calculated Metabolic Metrics
+              CHỈ SỐ TRAO ĐỔI CHẤT TÍNH TOÁN TRỰC TIẾP
             </span>
             <div className="flex flex-wrap items-baseline gap-4 mt-1">
               <div>
@@ -114,20 +126,20 @@ export function ProfileEditor() {
                   {bmiInfo ? bmiInfo.formattedBMI : "—"}
                 </span>
                 <span className="ml-1.5 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-700 text-emerald-100">
-                  {bmiInfo ? bmiInfo.category : "Enter metrics"}
+                  {bmiInfo ? getBmiCategoryLabel(bmiInfo.category) : "Nhập chỉ số"}
                 </span>
               </div>
               <div>
-                <span className="text-xs text-emerald-200">Target Calories: </span>
+                <span className="text-xs text-emerald-200">Mục tiêu calo: </span>
                 <span className="font-serif font-bold text-2xl text-amber-300">
-                  ~{nutrition.dailyCalorieTarget.toLocaleString()} kcal/day
+                  ~{nutrition.dailyCalorieTarget.toLocaleString()} kcal/ngày
                 </span>
               </div>
             </div>
             <p className="text-xs text-emerald-100 mt-2">
-              Goal: <strong className="text-white">{nutrition.goalTitle}</strong> · Macros:{" "}
-              {nutrition.macros.proteinGrams}g Protein ({nutrition.macros.proteinPct}%),{" "}
-              {nutrition.macros.carbsGrams}g Carbs, {nutrition.macros.fatGrams}g Fat
+              Mục tiêu: <strong className="text-white">{nutrition.goalTitle}</strong> · Tỷ lệ dinh dưỡng:{" "}
+              {nutrition.macros.proteinGrams}g Đạm ({nutrition.macros.proteinPct}%),{" "}
+              {nutrition.macros.carbsGrams}g Tinh bột, {nutrition.macros.fatGrams}g Chất béo
             </p>
           </div>
         </div>
@@ -138,13 +150,13 @@ export function ProfileEditor() {
         <div className="bg-white border border-stone-200 rounded-3xl p-6 shadow-xs space-y-4">
           <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 border-b pb-2 flex items-center gap-1.5">
             <Activity className="w-4 h-4 text-emerald-600" />
-            1. Physical Metrics
+            1. Chỉ số thể trạng cá nhân
           </h3>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
               <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Display Name
+                Tên hiển thị
               </label>
               <input
                 type="text"
@@ -156,7 +168,7 @@ export function ProfileEditor() {
 
             <div>
               <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Age (years) *
+                Tuổi (năm) *
               </label>
               <input
                 type="number"
@@ -171,22 +183,22 @@ export function ProfileEditor() {
 
             <div>
               <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Gender *
+                Giới tính *
               </label>
               <select
                 value={gender}
                 onChange={(e) => setGender(e.target.value as Gender)}
                 className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm focus:bg-white focus:border-emerald-600 outline-none"
               >
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
+                <option value="male">Nam</option>
+                <option value="female">Nữ</option>
+                <option value="other">Khác</option>
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Height (cm) *
+                Chiều cao (cm) *
               </label>
               <input
                 type="number"
@@ -201,7 +213,7 @@ export function ProfileEditor() {
 
             <div>
               <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Weight (kg) *
+                Cân nặng (kg) *
               </label>
               <input
                 type="number"
@@ -217,7 +229,7 @@ export function ProfileEditor() {
 
           <div>
             <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-              Activity Level *
+              Mức độ vận động *
             </label>
             <div className="space-y-1.5">
               {ACTIVITY_LEVEL_OPTIONS.map((lvl) => (
@@ -251,13 +263,13 @@ export function ProfileEditor() {
         <div className="bg-white border border-stone-200 rounded-3xl p-6 shadow-xs space-y-4">
           <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 border-b pb-2 flex items-center gap-1.5">
             <Target className="w-4 h-4 text-emerald-600" />
-            2. Goal & Diet Type
+            2. Mục tiêu & Chế độ ăn uống
           </h3>
 
           {/* Health Goal */}
           <div>
             <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-              Health Goal *
+              Mục tiêu sức khỏe *
             </label>
             <div className="grid grid-cols-2 gap-2">
               {HEALTH_GOAL_OPTIONS.map((g) => (
@@ -281,7 +293,7 @@ export function ProfileEditor() {
           {/* Vegetarian Type */}
           <div>
             <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-              Vegetarian Diet Type *
+              Trường phái ăn chay *
             </label>
             <div className="grid grid-cols-2 gap-2">
               {VEGETARIAN_TYPE_OPTIONS.map((v) => (
@@ -305,10 +317,10 @@ export function ProfileEditor() {
           {/* Allergies */}
           <div>
             <label className="block text-xs font-semibold text-stone-700 mb-1">
-              Food Allergies / Avoid *
+              Dị ứng thực phẩm / Cần tránh *
             </label>
             <p className="text-[11px] text-stone-500 mb-2">
-              Select any ingredients you are allergic to. Recipes with these allergens will be automatically flagged with warnings.
+              Chọn các thành phần bạn bị dị ứng. Các món ăn có chứa thành phần này sẽ tự động được AI gắn cờ cảnh báo và loại trừ.
             </p>
             <div className="flex flex-wrap gap-2">
               {ALLERGY_MASTER_LIST.map((item) => {
@@ -341,7 +353,7 @@ export function ProfileEditor() {
           className="text-xs text-stone-500 hover:text-stone-800 underline underline-offset-2 flex items-center gap-1 cursor-pointer"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          Reset Demo Profile
+          Đặt lại hồ sơ mẫu
         </button>
 
         <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
@@ -353,7 +365,7 @@ export function ProfileEditor() {
           {saved && (
             <span className="flex items-center gap-1 text-xs text-emerald-700 font-bold animate-in fade-in">
               <CheckCircle2 className="w-4 h-4" />
-              Profile updated & recalculated!
+              Đã cập nhật hồ sơ & tính toán lại dinh dưỡng!
             </span>
           )}
           <button
@@ -361,7 +373,7 @@ export function ProfileEditor() {
             disabled={isSaving}
             className="h-11 px-8 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-semibold text-sm shadow-xs transition-colors cursor-pointer flex items-center gap-2"
           >
-            {isSaving ? "Saving changes..." : "Save Profile & Update Plan"}
+            {isSaving ? "Đang lưu thay đổi..." : "Lưu hồ sơ & Cập nhật kế hoạch"}
           </button>
         </div>
       </div>
