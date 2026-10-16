@@ -18,15 +18,15 @@ import {
 } from "lucide-react";
 
 function StatusBadge({ status }: { status: AdminMember["status"] }) {
-  if (status === "Active") return <Badge variant="success">Active</Badge>;
-  if (status === "Suspended") return <Badge variant="flagged">Suspended</Badge>;
-  return <Badge variant="info">Pending</Badge>;
+  if (status === "Active") return <Badge variant="success">Hoạt động</Badge>;
+  if (status === "Suspended") return <Badge variant="flagged">Đã khóa</Badge>;
+  return <Badge variant="info">Chờ duyệt</Badge>;
 }
 
 function RoleBadge({ role }: { role: AdminMember["role"] }) {
-  if (role === "Admin") return <Badge variant="info">Admin</Badge>;
-  if (role === "Member") return <Badge variant="recipeOfDay">Member</Badge>;
-  return <span className="text-xs text-stone-400">Guest</span>;
+  if (role === "Admin") return <Badge variant="info">Quản trị viên</Badge>;
+  if (role === "Member") return <Badge variant="recipeOfDay">Thành viên</Badge>;
+  return <span className="text-xs text-stone-400">Khách</span>;
 }
 
 function MembersContent() {
@@ -100,7 +100,7 @@ function MembersContent() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search members…"
+            placeholder="Tìm kiếm thành viên…"
             className="w-full h-10 rounded-xl border border-stone-200 bg-white pl-9 pr-4 text-sm focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none"
           />
         </div>
@@ -115,21 +115,21 @@ function MembersContent() {
                   : "bg-stone-100 text-stone-600 hover:bg-stone-200"
               }`}
             >
-              {s === "all" ? "All" : s}
+              {s === "all" ? "Tất cả" : s === "Active" ? "Hoạt động" : s === "Suspended" ? "Đã khóa" : "Chờ duyệt"}
             </button>
           ))}
         </div>
-        <span className="text-xs text-stone-500 ml-auto">{filtered.length} members</span>
+        <span className="text-xs text-stone-500 ml-auto">{filtered.length} thành viên</span>
       </div>
 
       {/* Table */}
       <DataTable
         columns={[
-          { key: "member", label: "Member" },
-          { key: "role", label: "Role" },
-          { key: "content", label: "Content" },
-          { key: "joined", label: "Joined" },
-          { key: "status", label: "Status" },
+          { key: "member", label: "Thành viên" },
+          { key: "role", label: "Vai trò" },
+          { key: "content", label: "Đóng góp" },
+          { key: "joined", label: "Ngày tham gia" },
+          { key: "status", label: "Trạng thái" },
           { key: "actions", label: "" },
         ]}
         rows={filtered.map((m) => ({
@@ -145,7 +145,7 @@ function MembersContent() {
           role: <RoleBadge role={m.role} />,
           content: (
             <span className="text-xs text-stone-600">
-              {m.videoCount}v · {m.postCount}p
+              {m.videoCount} video · {m.postCount} bài
             </span>
           ),
           joined: <span className="text-xs text-stone-500">{m.joinedDate}</span>,
@@ -154,7 +154,7 @@ function MembersContent() {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => toggleSuspend(m.id)}
-                title={m.status === "Suspended" ? "Unsuspend" : "Suspend"}
+                title={m.status === "Suspended" ? "Mở khóa tài khoản" : "Khóa tài khoản"}
                 className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                   m.status === "Suspended"
                     ? "hover:bg-emerald-50 text-stone-500 hover:text-emerald-700"
@@ -169,7 +169,7 @@ function MembersContent() {
               </button>
               <button
                 onClick={() => toggleRole(m.id)}
-                title={m.role === "Admin" ? "Demote to Member" : "Grant Admin role"}
+                title={m.role === "Admin" ? "Hạ xuống Thành viên" : "Cấp quyền Quản trị viên"}
                 className={`p-1.5 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer ${
                   m.role === "Admin" ? "text-emerald-700 bg-emerald-50" : "text-stone-400 hover:text-stone-600"
                 }`}
@@ -177,7 +177,7 @@ function MembersContent() {
                 <ShieldCheck className="w-3.5 h-3.5" />
               </button>
               <button
-                title="More actions"
+                title="Tùy chọn khác"
                 className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-400 hover:text-stone-600 transition-colors cursor-pointer"
               >
                 <MoreHorizontal className="w-3.5 h-3.5" />
@@ -197,9 +197,9 @@ export default function AdminMembersPage() {
     <AppShell showRightRail={false}>
       <div className="max-w-[1240px] mx-auto w-full">
         <PageHeader
-          eyebrow="Administration"
-          title="Member Management"
-          subtitle="View, search, and moderate VeggieHub members."
+          eyebrow="Quản trị hệ thống"
+          title="Quản lý Thành viên"
+          subtitle="Xem, tìm kiếm và phân quyền các thành viên trên hệ thống VeggieHub."
         />
         {!ready ? (
           <GatedSkeleton />

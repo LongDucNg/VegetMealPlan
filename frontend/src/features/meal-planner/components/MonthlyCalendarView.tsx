@@ -17,8 +17,8 @@ export function MonthlyCalendarView({
 }: MonthlyCalendarViewProps) {
   const { days, monthName, totalEstimatedCost, averageDailyCalories } = monthlyPlan;
 
-  // Weekday columns starting with Monday (Vietnamese & International standard)
-  const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  // Weekday columns starting with Monday (Vietnamese standard)
+  const weekdays = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 
   // Calculate empty spaces before day 1
   const firstDayOfWeek = new Date(monthlyPlan.year, monthlyPlan.month, 1).getDay();
@@ -36,25 +36,25 @@ export function MonthlyCalendarView({
           </div>
           <div>
             <h3 className="font-serif font-bold text-xl text-stone-900">
-              {monthName} Calendar
+              Lịch thực đơn {monthName}
             </h3>
             <p className="text-xs text-stone-500">
-              Click any date to inspect and customize its 4 daily planned meals
+              Nhấn vào ngày bất kỳ để xem chi tiết và tùy biến 4 bữa ăn
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3 text-xs">
           <div className="bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200">
-            <span className="text-stone-400 block text-[10px]">Monthly Total:</span>
+            <span className="text-stone-400 block text-[10px]">Tổng chi phí tháng:</span>
             <span className="font-bold text-emerald-800">
-              ~{totalEstimatedCost.toLocaleString("vi-VN")} VND
+              ~{totalEstimatedCost.toLocaleString("vi-VN")} đ
             </span>
           </div>
           <div className="bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200">
-            <span className="text-amber-600 block text-[10px]">Daily Average:</span>
+            <span className="text-amber-600 block text-[10px]">Trung bình ngày:</span>
             <span className="font-bold text-amber-900">
-              {averageDailyCalories} kcal/day
+              {averageDailyCalories} kcal/ngày
             </span>
           </div>
         </div>
