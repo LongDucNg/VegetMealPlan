@@ -183,7 +183,7 @@ export function FavoritesModal({
   };
 
   const handleRemoveSavedPlan = (id: string) => {
-    if (confirm("Remove this saved meal plan from favorites?")) {
+    if (confirm("Bạn có chắc muốn xóa thực đơn đã lưu này khỏi danh sách?")) {
       favoriteService.removeSavedMealPlan(userId, id);
       reloadData();
     }
@@ -200,10 +200,10 @@ export function FavoritesModal({
             </div>
             <div>
               <h3 className="font-serif font-bold text-lg text-stone-900">
-                My Favorites
+                Bộ sưu tập yêu thích
               </h3>
               <p className="text-xs text-stone-500">
-                Personalized recipes and saved meal plan templates
+                Công thức cá nhân hóa & các mẫu thực đơn đã lưu
               </p>
             </div>
           </div>
@@ -225,7 +225,7 @@ export function FavoritesModal({
                 : "border-transparent text-stone-500 hover:text-stone-800"
             }`}
           >
-            Favorite Recipes ({favRecipes.length})
+            Món ăn yêu thích ({favRecipes.length})
           </button>
           <button
             onClick={() => setActiveTab("plans")}
@@ -235,7 +235,7 @@ export function FavoritesModal({
                 : "border-transparent text-stone-500 hover:text-stone-800"
             }`}
           >
-            Saved Meal Plans ({savedPlans.length})
+            Thực đơn đã lưu ({savedPlans.length})
           </button>
         </div>
 
@@ -246,10 +246,10 @@ export function FavoritesModal({
               <div className="p-12 text-center text-stone-400">
                 <Heart className="w-10 h-10 mx-auto mb-2 text-stone-300" />
                 <p className="font-medium text-sm text-stone-600">
-                  You haven&apos;t added any favorite recipes yet.
+                  Bạn chưa lưu món ăn yêu thích nào.
                 </p>
                 <p className="text-xs text-stone-400 mt-1">
-                  Click the ♡ icon on any recipe to save it to your favorites.
+                  Nhấn vào biểu tượng ♡ trên bất kỳ công thức nào để lưu vào danh sách yêu thích.
                 </p>
               </div>
             ) : (
@@ -305,10 +305,10 @@ export function FavoritesModal({
                     <div>
                       <h4 className="font-serif font-bold text-base text-emerald-950 flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-emerald-700" />
-                        Create Meal Plan from Favorites
+                        Tự tạo thực đơn 1 ngày từ món yêu thích
                       </h4>
                       <p className="text-xs text-emerald-800/80">
-                        Pick favorite recipes for each meal slot and let AI calibrate them to your nutrition target.
+                        Chọn món yêu thích cho từng bữa ăn và để AI hỗ trợ cân đối chuẩn mục tiêu calo.
                       </p>
                     </div>
 
@@ -317,7 +317,7 @@ export function FavoritesModal({
                       disabled={!selectedBreakfast && !selectedLunch && !selectedDinner && !selectedSnack}
                       className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
                     >
-                      Create Meal Plan
+                      Áp dụng thực đơn
                     </button>
                   </div>
 
@@ -326,7 +326,7 @@ export function FavoritesModal({
                     {/* Breakfast */}
                     <div className="bg-white p-3 rounded-2xl border border-emerald-100 text-xs">
                       <span className="font-bold text-stone-500 block mb-1">
-                        1. Breakfast:
+                        1. Bữa sáng:
                       </span>
                       <select
                         value={selectedBreakfast?.id || ""}
@@ -336,7 +336,7 @@ export function FavoritesModal({
                         }}
                         className="w-full text-xs p-1.5 rounded-lg border border-stone-200 bg-stone-50 outline-none"
                       >
-                        <option value="">-- Choose or Auto --</option>
+                        <option value="">-- Chọn món hoặc tự động --</option>
                         {breakfastOptions.map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.name || r.title} ({r.calories} kcal)
@@ -353,7 +353,7 @@ export function FavoritesModal({
                     {/* Lunch */}
                     <div className="bg-white p-3 rounded-2xl border border-emerald-100 text-xs">
                       <span className="font-bold text-stone-500 block mb-1">
-                        2. Lunch:
+                        2. Bữa trưa:
                       </span>
                       <select
                         value={selectedLunch?.id || ""}
@@ -363,7 +363,7 @@ export function FavoritesModal({
                         }}
                         className="w-full text-xs p-1.5 rounded-lg border border-stone-200 bg-stone-50 outline-none"
                       >
-                        <option value="">-- Choose or Auto --</option>
+                        <option value="">-- Chọn món hoặc tự động --</option>
                         {lunchOptions.map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.name || r.title} ({r.calories} kcal)
@@ -380,7 +380,7 @@ export function FavoritesModal({
                     {/* Dinner */}
                     <div className="bg-white p-3 rounded-2xl border border-emerald-100 text-xs">
                       <span className="font-bold text-stone-500 block mb-1">
-                        3. Dinner:
+                        3. Bữa tối:
                       </span>
                       <select
                         value={selectedDinner?.id || ""}
@@ -390,7 +390,7 @@ export function FavoritesModal({
                         }}
                         className="w-full text-xs p-1.5 rounded-lg border border-stone-200 bg-stone-50 outline-none"
                       >
-                        <option value="">-- Choose or Auto --</option>
+                        <option value="">-- Chọn món hoặc tự động --</option>
                         {dinnerOptions.map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.name || r.title} ({r.calories} kcal)
@@ -407,7 +407,7 @@ export function FavoritesModal({
                     {/* Snack */}
                     <div className="bg-white p-3 rounded-2xl border border-emerald-100 text-xs">
                       <span className="font-bold text-stone-500 block mb-1">
-                        4. Snack:
+                        4. Bữa phụ:
                       </span>
                       <select
                         value={selectedSnack?.id || ""}
@@ -417,7 +417,7 @@ export function FavoritesModal({
                         }}
                         className="w-full text-xs p-1.5 rounded-lg border border-stone-200 bg-stone-50 outline-none"
                       >
-                        <option value="">-- Choose or Auto --</option>
+                        <option value="">-- Chọn món hoặc tự động --</option>
                         {snackOptions.map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.name || r.title} ({r.calories} kcal)
@@ -439,7 +439,7 @@ export function FavoritesModal({
                         <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                         <div>
                           <p className="font-bold">
-                            Some selected recipes may not perfectly match your nutrition target:
+                            Một số món ăn chưa hoàn toàn khớp với mục tiêu dinh dưỡng hôm nay:
                           </p>
                           <ul className="list-disc pl-4 mt-1 space-y-0.5 text-stone-700">
                             {validationResult.warnings.map((w, i) => (
@@ -447,7 +447,7 @@ export function FavoritesModal({
                             ))}
                           </ul>
                           <p className="mt-2 text-[11px] text-stone-500">
-                            Planned Calories: <strong>{validationResult.dayPlan.totalCalories} kcal</strong> vs Target: <strong>{profile.weight ? `${validationResult.dayPlan.targetCalories} kcal` : "Custom"}</strong>
+                            Calo dự tính: <strong>{validationResult.dayPlan.totalCalories} kcal</strong> so với Mục tiêu: <strong>{profile.weight ? `${validationResult.dayPlan.targetCalories} kcal` : "Tùy chỉnh"}</strong>
                           </p>
                         </div>
                       </div>
@@ -457,13 +457,13 @@ export function FavoritesModal({
                           onClick={handleAdjustAutomatically}
                           className="px-3.5 py-1.5 rounded-xl bg-white border border-amber-300 hover:bg-amber-100 font-bold text-amber-900 text-xs transition-colors cursor-pointer"
                         >
-                          Adjust automatically
+                          Tự động cân bằng AI
                         </button>
                         <button
                           onClick={handleKeepMySelection}
                           className="px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 font-bold text-white text-xs shadow-2xs transition-colors cursor-pointer"
                         >
-                          Keep my selection
+                          Giữ nguyên lựa chọn
                         </button>
                       </div>
                     </div>
@@ -473,7 +473,7 @@ export function FavoritesModal({
                 {/* Favorites List Grid */}
                 <div>
                   <h4 className="font-semibold text-stone-800 text-xs uppercase tracking-wider mb-3">
-                    All Favorited Recipes
+                    Tất cả món đã yêu thích ({favRecipes.length})
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {favRecipes.map((r) => {
@@ -514,7 +514,7 @@ export function FavoritesModal({
                               favoriteService.toggleFavoriteRecipe(userId, r.id);
                               reloadData();
                             }}
-                            title="Remove from favorites"
+                            title="Bỏ khỏi yêu thích"
                             className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 cursor-pointer"
                           >
                             <Heart className="w-4 h-4 fill-rose-500" />
@@ -536,10 +536,10 @@ export function FavoritesModal({
               <div className="p-12 text-center text-stone-400">
                 <CalendarDays className="w-10 h-10 mx-auto mb-2 text-stone-300" />
                 <p className="font-medium text-sm text-stone-600">
-                  No saved meal plans yet.
+                  Chưa có thực đơn nào được lưu.
                 </p>
                 <p className="text-xs text-stone-400 mt-1">
-                  Once you generate a weekly or monthly plan, click &quot;Save Plan&quot; to store it as a reusable template.
+                  Khi tạo thực đơn tuần hoặc tháng, hãy nhấn &quot;Lưu thực đơn&quot; để lưu lại làm mẫu kế hoạch mẫu.
                 </p>
               </div>
             ) : (
@@ -552,14 +552,14 @@ export function FavoritesModal({
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900">
-                          {plan.planType}
+                          {plan.planType === "monthly" ? "Thực đơn tháng" : "Thực đơn tuần"}
                         </span>
                         <h4 className="font-bold text-stone-900 text-sm">
                           {plan.name}
                         </h4>
                       </div>
                       <p className="text-xs text-stone-500 mt-1">
-                        {plan.days.length} days planned · Target: {plan.targetCalories} kcal/day · Est. Cost: ~{plan.totalEstimatedCost.toLocaleString("vi-VN")} VND
+                        Kế hoạch {plan.days.length} ngày · Mục tiêu: {plan.targetCalories} kcal/ngày · Chi phí ước tính: ~{plan.totalEstimatedCost.toLocaleString("vi-VN")} đ
                       </p>
                     </div>
 
@@ -571,12 +571,12 @@ export function FavoritesModal({
                         }}
                         className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer"
                       >
-                        Load Plan
+                        Áp dụng
                       </button>
                       <button
                         onClick={() => handleRemoveSavedPlan(plan.id)}
                         className="p-2 rounded-xl text-stone-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                        title="Remove plan"
+                        title="Xóa thực đơn"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

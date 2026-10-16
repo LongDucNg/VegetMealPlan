@@ -1,12 +1,12 @@
 import { ForumPost, TrendingTopic } from "../types";
 
 export const FORUM_CATEGORIES = [
-  "All discussions",
-  "Recipes & Tips",
-  "Nutrition & B12",
-  "Restaurant Finds",
-  "Beginners Guide",
-  "Saigon Vegan Community",
+  "Tất cả thảo luận",
+  "Công thức & Mẹo bếp",
+  "Dinh dưỡng & Sức khỏe",
+  "Quán chay ngon",
+  "Dành cho người mới",
+  "Cộng đồng ăn chay",
 ];
 
 export const TRENDING_TOPICS: TrendingTopic[] = [

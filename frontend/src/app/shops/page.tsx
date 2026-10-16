@@ -127,7 +127,7 @@ function InteractiveMap({
       {/* Map Corner Info Badge */}
       <div className="absolute left-4 bottom-4 bg-white/90 backdrop-blur-xs px-3 py-1.5 rounded-xl border border-stone-200 text-xs font-semibold text-stone-700 shadow-xs flex items-center gap-2">
         <Navigation className="w-3.5 h-3.5 text-emerald-600" />
-        <span>Ho Chi Minh City · Central Districts</span>
+        <span>Thành phố Hồ Chí Minh · Các quận trung tâm</span>
       </div>
     </div>
   );
@@ -300,9 +300,9 @@ export default function ShopsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <PageHeader
-            eyebrow="NEIGHBORHOOD GUIDE"
-            title="Nearby vegan & vegetarian spots"
-            subtitle="Curated plant-based restaurants, neighborhood grocers, and ethical cafés in Ho Chi Minh City."
+            eyebrow="BẢN ĐỒ ĂN UỐNG"
+            title="Quán chay & địa điểm thuần chay gần bạn"
+            subtitle="Khám phá nhà hàng chay, quán cơm chay thanh tịnh, siêu thị thực phẩm sạch và quán café thân thiện tại TP.HCM."
           />
           {isAdmin && (
             <button
@@ -343,9 +343,9 @@ export default function ShopsPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2.5 mb-1.5">
-                  <Badge variant="success">{selectedPlace.type}</Badge>
+                  <Badge variant="success">{selectedPlace.type === 'Vegan' ? 'Thuần chay' : selectedPlace.type === 'Vegetarian' ? 'Chay' : selectedPlace.type === 'Café' ? 'Quán Cafe' : 'Cửa hàng'}</Badge>
                   <span className="text-sm font-semibold text-stone-500">
-                    {selectedPlace.district} · {selectedPlace.distance} away
+                    {selectedPlace.district} · Cách bạn {selectedPlace.distance}
                   </span>
                 </div>
                 <h2 className="font-serif font-bold text-2xl text-stone-900">
@@ -374,7 +374,7 @@ export default function ShopsPage() {
               <div className="flex items-center gap-2">
                 <Utensils className="w-4 h-4 text-emerald-700 shrink-0" />
                 <span>
-                  <strong>Signature dish:</strong> {selectedPlace.popularDish}
+                  <strong>Món đặc trưng:</strong> {selectedPlace.popularDish}
                 </span>
               </div>
 
@@ -406,7 +406,7 @@ export default function ShopsPage() {
         {/* Full Places Directory List */}
         <div>
           <h2 className="font-serif font-bold text-2xl text-stone-900 tracking-tight mb-4">
-            All spots ({filteredPlaces.length})
+            Tất cả địa điểm ({filteredPlaces.length})
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredPlaces.map((place) => (
@@ -423,7 +423,7 @@ export default function ShopsPage() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full">
-                        {place.type}
+                        {place.type === 'Vegan' ? 'Thuần chay' : place.type === 'Vegetarian' ? 'Chay' : place.type === 'Café' ? 'Quán Cafe' : 'Cửa hàng'}
                       </span>
                       <span className="text-xs text-stone-400">
                         {place.distance}
@@ -441,7 +441,7 @@ export default function ShopsPage() {
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs text-stone-600">
-                  <span>Open: {place.openingHours}</span>
+                  <span>Mở cửa: {place.openingHours}</span>
                   <span className="text-emerald-700 font-medium">
                     {place.popularDish.split("&")[0]}
                   </span>
@@ -456,7 +456,7 @@ export default function ShopsPage() {
           <div className="flex items-center gap-2 mb-4">
             <Sparkles className="w-5 h-5 text-amber-500" />
             <h2 className="font-serif font-bold text-2xl text-stone-900 tracking-tight">
-              Where to order recipe matches in Saigon
+              Gợi ý quán chay chuẩn vị theo món ăn
             </h2>
           </div>
 
@@ -464,7 +464,7 @@ export default function ShopsPage() {
             {suggestedSpots.map((sug) => (
               <Card key={sug.dish} className="p-5">
                 <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700 mb-1">
-                  CRAVING THIS DISH?
+                  BẠN ĐANG THÈM MÓN NÀY?
                 </p>
                 <h3 className="font-serif font-bold text-lg text-stone-900 mb-3">
                   {sug.dish}

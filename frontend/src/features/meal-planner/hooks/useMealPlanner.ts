@@ -425,10 +425,10 @@ export function useMealPlanner() {
   );
 
   /**
-   * Save currently active plan to User Favorites (Requirement 1)
+   * Save currently active plan to User Favorites and PostgreSQL Database
    */
   const saveCurrentMealPlan = useCallback(
-    (name: string): SavedMealPlan | null => {
+    async (name: string): Promise<SavedMealPlan | null> => {
       const days = planType === "weekly" ? weeklyPlan?.days : monthlyPlan?.days;
       if (!days || days.length === 0) return null;
 
@@ -437,7 +437,7 @@ export function useMealPlanner() {
           ? weeklyPlan?.totalEstimatedCost || 0
           : monthlyPlan?.totalEstimatedCost || 0;
 
-      const saved = favoriteService.saveMealPlan(String(profile.id || "u1"), {
+      const saved = await favoriteService.saveMealPlan(String(profile.id || "u1"), {
         name,
         planType,
         targetCalories: nutritionSummary.dailyCalorieTarget,

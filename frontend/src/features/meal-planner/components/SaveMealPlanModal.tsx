@@ -63,13 +63,13 @@ export function SaveMealPlanModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-              Meal Plan Title:
+              Tên mẫu thực đơn:
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. My Favorite High-Protein Week"
+              placeholder="Ví dụ: Thực đơn giàu đạm tuần 1"
               className="w-full h-11 px-4 rounded-xl border border-stone-200 bg-stone-50 text-sm font-semibold text-stone-900 focus:bg-white focus:border-emerald-600 outline-none"
               autoFocus
               required
@@ -78,15 +78,17 @@ export function SaveMealPlanModal({
 
           <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 text-xs text-stone-600 space-y-1">
             <div className="flex justify-between">
-              <span>Plan Type:</span>
-              <span className="font-bold text-stone-900 capitalize">{planType}</span>
+              <span>Loại thực đơn:</span>
+              <span className="font-bold text-stone-900">
+                {planType === "weekly" ? "Thực đơn tuần (7 ngày)" : "Thực đơn tháng (30 ngày)"}
+              </span>
             </div>
             <div className="flex justify-between">
-              <span>Daily Target:</span>
+              <span>Mục tiêu calo / ngày:</span>
               <span className="font-bold text-amber-700">{targetCalories} kcal</span>
             </div>
             <div className="flex justify-between">
-              <span>Estimated Cost:</span>
+              <span>Chi phí ước tính:</span>
               <span className="font-bold text-emerald-800">
                 ~{totalCost.toLocaleString("vi-VN")} VND
               </span>
@@ -99,14 +101,14 @@ export function SaveMealPlanModal({
               onClick={onClose}
               className="h-10 px-4 rounded-xl border border-stone-200 text-stone-600 text-xs font-semibold hover:bg-stone-50 transition-colors cursor-pointer"
             >
-              Cancel
+              Hủy
             </button>
             <button
               type="submit"
               className="h-10 px-5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
             >
               <Check className="w-4 h-4" />
-              Save Plan
+              Lưu vào Database
             </button>
           </div>
         </form>
