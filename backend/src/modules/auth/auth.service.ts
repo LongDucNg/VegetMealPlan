@@ -1,6 +1,6 @@
-import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { User, UserStatus } from '../users/entities/user.entity';
@@ -12,9 +12,20 @@ import { GoogleProfile } from './strategies/google.strategy';
 import { GoogleLoginCodeStore } from './google-login-code.store';
 import { SessionMeta, SessionService } from './session.service';
 import { JwtPayload } from './strategies/jwt.strategy';
+import { UserSession } from './entities/user-session.entity';
+import { EmailOtpPurpose } from './entities/email-otp.entity';
+import { EmailOtpService, OTP_RESEND_AFTER_SECONDS, OTP_TTL_SECONDS } from './email-otp.service';
+import { IpRateLimiter } from './ip-rate-limiter';
+import { MailService } from '../mail/mail.service';
+import { ChangePasswordDto, ResetPasswordDto } from './dto/password.dto';
+
+const FORGOT_PER_IP_LIMIT = 10;
+const FORGOT_PER_IP_WINDOW_MS = 15 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
@@ -22,6 +33,9 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly googleCodes: GoogleLoginCodeStore,
     private readonly sessionService: SessionService,
+    private readonly otpService: EmailOtpService,
+    private readonly mailService: MailService,
+    private readonly ipLimiter: IpRateLimiter,
   ) {}
 
   async register(dto: RegisterDto, meta: SessionMeta = {}) {
@@ -155,6 +169,100 @@ export class AuthService {
     return { message: 'Đã đăng xuất khỏi mọi thiết bị', revoked_sessions: revoked };
   }
 
+  // ---- Quên mật khẩu / đổi mật khẩu ----
+
+  /**
+   * POST /auth/forgot-password: gửi OTP 6 số tới email.
+   * Luôn trả cùng một câu dù email có tồn tại hay không, bị khoá hay đang trong 60 giây chờ,
+   * để người ngoài không dò được email nào đã đăng ký. Mail gửi ở nền (không await) để thời gian
+   * phản hồi cũng không khác nhau giữa email có và không có tài khoản.
+   * Chỉ chặn công khai khi một IP gọi quá 10 lần / 15 phút (không lộ gì về email).
+   */
+  async forgotPassword(rawEmail: string, ip: string | null) {
+    this.ipLimiter.hit(`forgot:${ip ?? 'unknown'}`, FORGOT_PER_IP_LIMIT, FORGOT_PER_IP_WINDOW_MS);
+
+    const email = normalizeEmail(rawEmail);
+    const user = await this.findByEmail(email);
+
+    if (user && user.status !== UserStatus.LOCKED) {
+      try {
+        const code = await this.otpService.issue(email, EmailOtpPurpose.RESET_PASSWORD);
+        this.mailService
+          .sendResetPasswordOtp(user.email, code, OTP_TTL_SECONDS / 60)
+          .catch((err) => this.logger.error(`Gửi OTP quên mật khẩu tới ${user.email} thất bại: ${err?.message ?? err}`));
+      } catch (err) {
+        // Đang trong 60 giây chờ: nuốt lỗi, trả như bình thường. Lỗi khác (DB...) vẫn ném ra.
+        const code = (err as { response?: { code?: string } })?.response?.code;
+        if (code !== ErrorCode.AUTH_OTP_RATE_LIMITED) throw err;
+      }
+    }
+
+    return {
+      message: 'Nếu email đã đăng ký, mã xác minh 6 số sẽ được gửi tới hộp thư trong ít phút',
+      expires_in_seconds: OTP_TTL_SECONDS,
+      resend_after_seconds: OTP_RESEND_AFTER_SECONDS,
+    };
+  }
+
+  /**
+   * POST /auth/reset-password: kiểm tra OTP rồi đặt mật khẩu mới.
+   * Đổi mật khẩu và thu hồi mọi phiên chạy chung một transaction: kẻ đã chiếm tài khoản bị đá ra ngay.
+   * Tài khoản chỉ đăng nhập Google (chưa có mật khẩu) đi qua đây sẽ có thêm mật khẩu; chấp nhận được
+   * vì người làm đã chứng minh sở hữu email, giống cách Google đã xác minh email đó.
+   */
+  async resetPassword(dto: ResetPasswordDto) {
+    const email = normalizeEmail(dto.email);
+    await this.otpService.consume(email, EmailOtpPurpose.RESET_PASSWORD, dto.code);
+
+    const user = await this.findByEmail(email);
+    if (!user) throw new BadRequestException({ code: ErrorCode.AUTH_OTP_INVALID, message: 'Mã xác minh không đúng' });
+
+    const password_hash = await bcrypt.hash(dto.new_password, 10);
+    await this.userRepo.manager.transaction(async (manager) => {
+      await manager.update(User, { user_id: user.user_id }, { password_hash });
+      await manager.update(UserSession, { user_id: user.user_id, revoked_at: IsNull() }, { revoked_at: new Date() });
+    });
+
+    this.notifyPasswordChanged(user.email);
+    return { message: 'Đặt lại mật khẩu thành công, vui lòng đăng nhập lại' };
+  }
+
+  /** PUT /auth/change-password: đổi mật khẩu khi đang đăng nhập, giữ phiên hiện tại, đăng xuất các thiết bị khác. */
+  async changePassword(user_id: number, session_id: string, dto: ChangePasswordDto) {
+    const user = await this.userRepo.findOne({ where: { user_id } });
+    if (!user) throw new UnauthorizedException({ code: ErrorCode.AUTH_UNAUTHORIZED, message: 'Phiên đăng nhập đã kết thúc' });
+    if (!user.password_hash) {
+      throw new BadRequestException({
+        code: ErrorCode.AUTH_PASSWORD_NOT_SET,
+        message: 'Tài khoản đăng nhập bằng Google chưa có mật khẩu. Dùng "Quên mật khẩu" để tạo mật khẩu',
+      });
+    }
+    if (!(await bcrypt.compare(dto.current_password, user.password_hash))) {
+      throw new BadRequestException({ code: ErrorCode.AUTH_WRONG_PASSWORD, message: 'Mật khẩu hiện tại không đúng' });
+    }
+    if (dto.current_password === dto.new_password) {
+      throw new BadRequestException({ code: ErrorCode.AUTH_PASSWORD_UNCHANGED, message: 'Mật khẩu mới phải khác mật khẩu hiện tại' });
+    }
+
+    await this.userRepo.update({ user_id }, { password_hash: await bcrypt.hash(dto.new_password, 10) });
+    const revoked = await this.sessionService.revokeOthers(user_id, session_id);
+
+    this.notifyPasswordChanged(user.email);
+    return { message: 'Đổi mật khẩu thành công', revoked_sessions: revoked };
+  }
+
+  /** Mail cảnh báo gửi ở nền: gửi lỗi chỉ ghi log, không làm hỏng việc đổi mật khẩu đã xong. */
+  private notifyPasswordChanged(email: string) {
+    this.mailService
+      .sendPasswordChanged(email)
+      .catch((err) => this.logger.error(`Gửi mail báo đổi mật khẩu tới ${email} thất bại: ${err?.message ?? err}`));
+  }
+
+  /** Tìm user theo email không phân biệt hoa thường (không dùng ILike vì "_" và "%" là ký tự đại diện). */
+  private findByEmail(email: string) {
+    return this.userRepo.createQueryBuilder('user').where('LOWER(user.email) = :email', { email }).getOne();
+  }
+
   /** Mở phiên mới rồi trả access_token (JWT có sid) + refresh_token. Dùng cho đăng ký, đăng nhập, Google. */
   private async issueTokens(user: User, meta: SessionMeta) {
     const { session, refreshToken } = await this.sessionService.create(user.user_id, meta);
@@ -174,4 +282,8 @@ export class AuthService {
       },
     };
   }
+}
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
 }
