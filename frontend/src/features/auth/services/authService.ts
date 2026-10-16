@@ -33,8 +33,11 @@ export const authService = {
   async login(payload: LoginPayload): Promise<AuthResponse> {
     const data = await apiClient.post<AuthResponse>("/auth/login", payload);
     if (data?.access_token) {
-      tokenStorage.setToken(data.access_token);
-      tokenStorage.setUser(data.user);
+      tokenStorage.saveAuthSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        user: data.user,
+      });
     }
     return data;
   },
@@ -46,10 +49,40 @@ export const authService = {
   async register(payload: RegisterPayload): Promise<AuthResponse> {
     const data = await apiClient.post<AuthResponse>("/auth/register", payload);
     if (data?.access_token) {
-      tokenStorage.setToken(data.access_token);
-      tokenStorage.setUser(data.user);
+      tokenStorage.saveAuthSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        user: data.user,
+      });
     }
     return data;
+  },
+
+  /**
+   * Làm mới access_token bằng refresh_token
+   * POST /auth/refresh
+   */
+  async refresh(): Promise<AuthResponse | null> {
+    const refreshToken = tokenStorage.getRefreshToken();
+    if (!refreshToken) return null;
+
+    try {
+      const data = await apiClient.post<AuthResponse>("/auth/refresh", {
+        refresh_token: refreshToken,
+      });
+      if (data?.access_token) {
+        tokenStorage.saveAuthSession({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+          user: data.user,
+        });
+        return data;
+      }
+    } catch (err) {
+      console.warn("[authService] Token refresh failed:", err);
+      tokenStorage.clearAll();
+    }
+    return null;
   },
 
   /**
@@ -116,17 +149,53 @@ export const authService = {
       { code }
     );
     if (res?.access_token) {
-      tokenStorage.setToken(res.access_token);
-      tokenStorage.setUser(res.user);
+      tokenStorage.saveAuthSession({
+        access_token: res.access_token,
+        refresh_token: res.refresh_token,
+        user: res.user,
+      });
     }
     return res;
   },
 
   /**
-   * Đăng xuất, xóa token và phiên làm việc
+   * Đường dẫn khởi động luồng đăng nhập Google qua OAuth2 Backend
    */
-  logout(): void {
-    tokenStorage.clearAll();
+  getGoogleLoginUrl(): string {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
+    return `${apiUrl.replace(/\/$/, "")}/auth/google`;
+  },
+
+  /**
+   * Đăng xuất trên thiết bị hiện tại (thu hồi phiên hiện tại trên backend)
+   * POST /auth/logout
+   */
+  async logout(): Promise<void> {
+    try {
+      const token = tokenStorage.getToken();
+      if (token) {
+        await apiClient.post("/auth/logout");
+      }
+    } catch (err) {
+      console.warn("[authService] Backend logout error (ignoring and clearing local storage):", err);
+    } finally {
+      tokenStorage.clearAll();
+    }
+  },
+
+  /**
+   * Đăng xuất khỏi mọi thiết bị (thu hồi toàn bộ phiên của tài khoản)
+   * POST /auth/logout-all
+   */
+  async logoutAll(): Promise<{ message: string; revoked_sessions: number }> {
+    try {
+      const res = await apiClient.post<{ message: string; revoked_sessions: number }>(
+        "/auth/logout-all"
+      );
+      return res;
+    } finally {
+      tokenStorage.clearAll();
+    }
   },
 
   /**
