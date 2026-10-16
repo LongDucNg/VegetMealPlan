@@ -5,7 +5,6 @@ import {
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
-  UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Category } from '../../category/entities/category.entity';
@@ -43,12 +42,6 @@ export class Blog {
   @Column('text')
   content: string;
 
-  @Column('text', { array: true, default: () => "'{}'" })
-  tags: string[];
-
-  @Column({ type: 'int', default: 0 })
-  views: number;
-
   @Column({ type: 'enum', enum: ContentStatus, default: ContentStatus.DRAFT })
   status: ContentStatus;
 
@@ -64,7 +57,4 @@ export class Blog {
 
   @CreateDateColumn()
   created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
 }
