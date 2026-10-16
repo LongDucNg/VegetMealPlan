@@ -27,14 +27,14 @@ export function RecipeAllergyBadge({
   const allergenText = allergyResult.allergens.join(", ");
   const warningLabel =
     allergyResult.allergens.length === 1
-      ? `Contains ${allergenText}`
-      : `Allergy Warning: Contains ${allergenText}`;
+      ? `Chứa ${allergenText}`
+      : `Cảnh báo: Chứa ${allergenText}`;
 
   if (compact) {
     return (
       <span
         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs ${className}`}
-        title={`Allergy Warning: Contains ${allergenText}`}
+        title={`Cảnh báo dị ứng: Chứa ${allergenText}`}
       >
         <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
         <span className="truncate">⚠ {warningLabel}</span>
@@ -50,9 +50,9 @@ export function RecipeAllergyBadge({
         <AlertTriangle className="w-3.5 h-3.5 stroke-[2.25]" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-bold text-amber-900">⚠ Allergy Warning</p>
+        <p className="font-bold text-amber-900">⚠ Cảnh báo dị ứng</p>
         <p className="text-amber-800 mt-0.5 leading-relaxed">
-          Contains: <span className="font-bold text-amber-950">{allergenText}</span>
+          Có chứa thành phần: <span className="font-bold text-amber-950">{allergenText}</span>
         </p>
       </div>
     </div>
