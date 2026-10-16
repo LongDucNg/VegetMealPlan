@@ -11,13 +11,13 @@ import { useRecipes } from "@/features/recipes/hooks/useRecipes";
 
 
 export default function VideosPage() {
-  const [activeFilter, setActiveFilter] = useState("All");
+  const [activeFilter, setActiveFilter] = useState("Tất cả");
   const [searchQuery, setSearchQuery] = useState("");
   const { recipes } = useRecipes();
 
   const filteredVideos = recipes.filter((recipe) => {
     const matchesFilter =
-      activeFilter === "All" ||
+      activeFilter === "Tất cả" ||
       recipe.category.toLowerCase().includes(activeFilter.toLowerCase()) ||
       activeFilter.toLowerCase().includes(recipe.category.toLowerCase()) ||
       (recipe.cuisine && recipe.cuisine.toLowerCase().includes(activeFilter.toLowerCase()));
@@ -37,9 +37,9 @@ export default function VideosPage() {
       <div className="flex flex-col space-y-8">
         {/* Page Header */}
         <PageHeader
-          eyebrow="WATCH & COOK"
-          title="Video recipes"
-          subtitle="Follow along with plant-based culinary creators. Automatic allergy detection based on your user profile."
+          eyebrow="XEM & NẤU ĂN"
+          title="Video công thức món chay"
+          subtitle="Đồng hành cùng các đầu bếp ẩm thực chay sáng tạo. Tự động cảnh báo dị ứng dựa trên hồ sơ cá nhân của bạn."
         />
 
         {/* Search and Filters Bar */}
@@ -47,7 +47,7 @@ export default function VideosPage() {
           <div className="max-w-md">
             <Input
               variant="search"
-              placeholder="Filter by recipe title, author or ingredient…"
+              placeholder="Tìm kiếm theo tên món, đầu bếp hoặc nguyên liệu…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -68,7 +68,7 @@ export default function VideosPage() {
 
             {/* Total Count */}
             <span className="text-xs text-stone-500 ml-auto">
-              {filteredVideos.length} recipes available
+              {filteredVideos.length} công thức món chay
             </span>
           </div>
         </div>
@@ -92,10 +92,10 @@ export default function VideosPage() {
         {filteredVideos.length === 0 && (
           <Card className="text-center py-12">
             <p className="text-lg font-semibold text-stone-800">
-              No recipes match your criteria
+              Không tìm thấy công thức phù hợp
             </p>
             <p className="mt-1 text-sm text-stone-500">
-              Try changing your filter chip or searching for a different ingredient.
+              Hãy thử chọn bộ lọc khác hoặc tìm kiếm với nguyên liệu khác.
             </p>
           </Card>
         )}

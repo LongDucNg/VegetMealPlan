@@ -126,10 +126,10 @@ function CategoriesContent() {
   const renderTable = (items: CategoryItem[]) => (
     <DataTable
       columns={[
-        { key: "name", label: "Name" },
-        { key: "slug", label: "Slug / Description" },
-        { key: "count", label: "Recipes" },
-        { key: "status", label: "Status" },
+        { key: "name", label: "Tên danh mục" },
+        { key: "slug", label: "Định danh / Mô tả" },
+        { key: "count", label: "Số công thức" },
+        { key: "status", label: "Trạng thái" },
         { key: "actions", label: "" },
       ]}
       rows={items.map((item) => ({
@@ -146,16 +146,16 @@ function CategoriesContent() {
         ),
         status:
           item.status === "Active" ? (
-            <Badge variant="success">Active</Badge>
+            <Badge variant="success">Hoạt động</Badge>
           ) : (
-            <Badge variant="info">Archived</Badge>
+            <Badge variant="info">Lưu trữ</Badge>
           ),
         actions: (
           <div className="flex items-center gap-1 justify-end">
             <button
               onClick={() => openEdit(item)}
               className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors cursor-pointer"
-              title="Edit"
+              title="Chỉnh sửa"
             >
               <Pencil className="w-3.5 h-3.5" />
             </button>
@@ -166,7 +166,7 @@ function CategoriesContent() {
                   ? "hover:bg-amber-50 text-stone-400 hover:text-amber-700"
                   : "hover:bg-emerald-50 text-stone-400 hover:text-emerald-700"
               }`}
-              title={item.status === "Active" ? "Archive" : "Restore"}
+              title={item.status === "Active" ? "Lưu trữ" : "Khôi phục"}
             >
               {item.status === "Active" ? (
                 <Archive className="w-3.5 h-3.5" />
@@ -177,7 +177,7 @@ function CategoriesContent() {
             <button
               onClick={() => handleDelete(item.id, item.name)}
               className="p-1.5 rounded-lg hover:bg-red-50 text-stone-400 hover:text-red-700 transition-colors cursor-pointer"
-              title="Delete Category"
+              title="Xóa danh mục"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -199,7 +199,7 @@ function CategoriesContent() {
           className="flex items-center gap-2 h-10 px-4 rounded-xl bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-800 transition-colors cursor-pointer shadow-sm"
         >
           <Plus className="w-4 h-4" />
-          Add Category
+          Thêm danh mục
         </button>
       </div>
 
@@ -213,7 +213,7 @@ function CategoriesContent() {
           {/* Food Types */}
           <div className="space-y-3">
             <h3 className="font-semibold text-stone-800 flex items-center gap-2">
-              Food Types
+              Trường phái ẩm thực (Food Types)
               <span className="text-xs font-normal text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
                 {foodTypes.length}
               </span>
@@ -224,7 +224,7 @@ function CategoriesContent() {
           {/* Recipe Categories */}
           <div className="space-y-3">
             <h3 className="font-semibold text-stone-800 flex items-center gap-2">
-              Recipe Categories
+              Danh mục món ăn (Recipe Categories)
               <span className="text-xs font-normal text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
                 {recipeCategories.length}
               </span>
@@ -238,7 +238,7 @@ function CategoriesContent() {
       <Modal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editItem ? "Edit Category" : "Add New Category"}
+        title={editItem ? "Chỉnh sửa danh mục" : "Thêm danh mục mới"}
       >
         <div className="space-y-4 pt-2">
           {errorMsg && (
@@ -250,41 +250,41 @@ function CategoriesContent() {
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1.5">
-              Category Name *
+              Tên danh mục *
             </label>
             <input
               type="text"
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
-              placeholder="e.g. High-Protein Meals"
+              placeholder="Ví dụ: Món chay giàu đạm"
               className="w-full h-10 px-3.5 rounded-xl border border-stone-200 text-sm focus:border-emerald-600 outline-none"
             />
           </div>
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1.5">
-              Slug / Description
+              Định danh / Mô tả (Slug)
             </label>
             <input
               type="text"
               value={formSlug}
               onChange={(e) => setFormSlug(e.target.value)}
-              placeholder="e.g. high-protein-meals"
+              placeholder="Ví dụ: mon-chay-giau-dam"
               className="w-full h-10 px-3.5 rounded-xl border border-stone-200 text-sm focus:border-emerald-600 outline-none"
             />
           </div>
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1.5">
-              Type
+              Loại hình danh mục
             </label>
             <select
               value={formType}
               onChange={(e) => setFormType(e.target.value as CategoryItem["type"])}
               className="w-full h-10 px-3.5 rounded-xl border border-stone-200 text-sm focus:border-emerald-600 outline-none bg-white"
             >
-              <option value="Recipe Category">Recipe Category</option>
-              <option value="Food Type">Food Type</option>
+              <option value="Recipe Category">Danh mục món ăn (Recipe Category)</option>
+              <option value="Food Type">Trường phái ẩm thực (Food Type)</option>
             </select>
           </div>
 
@@ -294,7 +294,7 @@ function CategoriesContent() {
               onClick={() => setModalOpen(false)}
               className="h-10 px-4 rounded-xl border border-stone-200 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors cursor-pointer"
             >
-              Cancel
+              Hủy
             </button>
             <button
               type="button"
@@ -303,7 +303,7 @@ function CategoriesContent() {
               className="h-10 px-5 rounded-xl bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-800 disabled:opacity-60 transition-colors cursor-pointer flex items-center gap-2 shadow-xs"
             >
               {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-              {editItem ? "Save Changes" : "Create Category"}
+              {editItem ? "Lưu thay đổi" : "Tạo danh mục"}
             </button>
           </div>
         </div>
@@ -319,9 +319,9 @@ export default function AdminCategoriesPage() {
     <AppShell showRightRail={false}>
       <div className="max-w-[1240px] mx-auto w-full">
         <PageHeader
-          eyebrow="Administration"
-          title="Categories & Taxonomies"
-          subtitle="Manage dietary classifications, ingredient taxonomy, and recipe groupings."
+          eyebrow="Quản trị hệ thống"
+          title="Quản lý Danh mục & Phân loại"
+          subtitle="Quản lý các trường phái ăn chay, nhóm nguyên liệu và phân loại món ăn."
         />
         {!ready ? (
           <GatedSkeleton />
