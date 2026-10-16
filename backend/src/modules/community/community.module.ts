@@ -4,11 +4,15 @@ import { Blog } from './entities/blog.entity';
 import { Video } from './entities/video.entity';
 import { Comment } from './entities/comment.entity';
 import { Vote } from './entities/vote.entity';
+import { Category } from '../category/entities/category.entity';
+import { ForumController } from './forum.controller';
+import { ForumService } from './forum.service';
 
-// TODO: BlogService/VideoService/CommentService/VoteService + controllers CRUD.
-// Gợi ý chia: 1 bạn FE-BE phối hợp làm Blog+Comment, 1 bạn làm Video+Vote.
+// TODO: VideoService, comment, vote, admin moderation (làm ở các đợt sau).
 @Module({
-  imports: [TypeOrmModule.forFeature([Blog, Video, Comment, Vote])],
+  imports: [TypeOrmModule.forFeature([Blog, Video, Comment, Vote, Category])],
+  controllers: [ForumController],
+  providers: [ForumService],
   exports: [TypeOrmModule],
 })
 export class CommunityModule {}
