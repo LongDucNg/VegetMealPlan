@@ -1,30 +1,44 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Put } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
-import { UpdateBodyMetricsDto } from './dto/update-body-metrics.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateAllergiesDto } from './dto/update-allergies.dto';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
+// Mọi route lấy user từ JWT (JwtAuthGuard toàn cục), không nhận userId trên path.
 @ApiTags('users')
-@Controller('users')
+@ApiBearerAuth()
+@Controller('users/me')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  // TODO: gắn @UseGuards(JwtAuthGuard) sau khi module auth xong,
-  // và lấy user_id từ token thay vì param khi ráp thật.
-  @Get()
-  findAll() {
-    return this.usersService.findAll();
+  @Get('profile')
+  @ApiOperation({ summary: 'Xem hồ sơ cá nhân (kèm BMI, dị ứng, trạng thái Premium)' })
+  getProfile(@CurrentUser('user_id') userId: number) {
+    return this.usersService.getProfile(userId);
   }
 
-  @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.findOne(id);
+  @Put('profile')
+  @ApiOperation({ summary: 'Cập nhật hồ sơ; BMI được server tự tính lại' })
+  updateProfile(@CurrentUser('user_id') userId: number, @Body() dto: UpdateProfileDto) {
+    return this.usersService.updateProfile(userId, dto);
   }
 
-  @Patch(':id/body-metrics')
-  updateBodyMetrics(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateBodyMetricsDto,
-  ) {
-    return this.usersService.updateBodyMetrics(id, dto.height_cm, dto.weight_kg);
+  @Get('allergies')
+  @ApiOperation({ summary: 'Xem danh sách dị ứng hiện tại' })
+  getAllergies(@CurrentUser('user_id') userId: number) {
+    return this.usersService.getAllergies(userId);
+  }
+
+  @Put('allergies')
+  @ApiOperation({ summary: 'Đặt lại toàn bộ danh sách dị ứng (ghi đè danh sách cũ)' })
+  setAllergies(@CurrentUser('user_id') userId: number, @Body() dto: UpdateAllergiesDto) {
+    return this.usersService.setAllergies(userId, dto);
+  }
+
+  @Get('nutrition-summary')
+  @ApiOperation({ summary: 'Tóm tắt dinh dưỡng: BMR, TDEE, calo mục tiêu, macro, calo từng bữa' })
+  nutritionSummary(@CurrentUser('user_id') userId: number) {
+    return this.usersService.getNutritionSummary(userId);
   }
 }

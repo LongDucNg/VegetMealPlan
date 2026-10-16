@@ -16,6 +16,9 @@ import { storage, STORAGE_KEYS } from "@/utils/storage/storage";
 import { Recipe } from "@/features/recipes/types";
 import { UserProfile } from "@/features/profile/types";
 import { SavedMealPlan, favoriteService } from "@/features/recipes/services/favoriteService";
+import { recipeService } from "@/features/recipes/services/recipeService";
+import { mealPlanApiService } from "../services/mealPlanApiService";
+import { profileService } from "@/features/profile/services/profileService";
 
 export function useMealPlanner() {
   const { profile } = useProfile();
@@ -71,8 +74,8 @@ export function useMealPlanner() {
   });
 
 
-  const [selectedMonth, setSelectedMonth] = useState<number>(8); // 8 = September
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
   const [budgetLimit, setBudgetLimit] = useState<number | undefined>(undefined);
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -128,18 +131,48 @@ export function useMealPlanner() {
   /**
    * Generates Weekly Meal Plan on explicit user action (Requirement 18, 19, 22)
    */
+  /**
+   * Generates Weekly Meal Plan using real database recipes and backend AI API (Requirement 18, 19, 22)
+   */
   const generateWeekly = useCallback(
-    (options?: Partial<GenerationPlanOptions>, onComplete?: () => void) => {
+    async (options?: Partial<GenerationPlanOptions>, onComplete?: () => void) => {
       setIsGenerating(true);
-      setGenerationFeedback("AI analyzing your profile & calorie target...");
+      setGenerationFeedback("AI đang phân tích hồ sơ dinh dưỡng & công thức thật...");
 
-      setTimeout(() => {
-        const seed = Math.floor(Math.random() * 100);
-        const plan = mealPlannerService.generateWeeklyPlan(activeProfile, seed, {
-          planType: "weekly",
-          budgetLimit: options?.budgetLimit ?? budgetLimit,
-          favoriteRecipeIds: options?.favoriteRecipeIds,
-        });
+      try {
+        // 1. Đồng bộ công thức thật từ database
+        await recipeService.syncRecipesFromApi();
+
+        // 2. Đồng bộ profile nếu đã đăng nhập và là chính mình
+        if (!isPlanForSomeoneElse) {
+          await profileService.updateProfile(activeProfile).catch(() => {});
+        }
+
+        let plan: WeeklyMealPlan | null = null;
+
+        // 3. Nếu không có danh sách món yêu thích tùy biến, thử gọi Backend API #25
+        if (!options?.favoriteRecipeIds || options.favoriteRecipeIds.length === 0) {
+          try {
+            const apiRes = await mealPlanApiService.generateWeekly({
+              total_budget: options?.budgetLimit ?? budgetLimit,
+            });
+            if (apiRes && (apiRes.data || apiRes.weekly_plans || apiRes.meal_plan_id)) {
+              plan = mealPlannerService.convertBackendWeeklyPlan(apiRes, activeProfile);
+            }
+          } catch (apiErr) {
+            console.warn("Backend generateWeekly failed, falling back to local engine with real DB recipes:", apiErr);
+          }
+        }
+
+        // 4. Nếu chưa có plan (hoặc có favoriteRecipeIds), dùng engine với danh sách công thức thật
+        if (!plan) {
+          const seed = Math.floor(Math.random() * 100);
+          plan = mealPlannerService.generateWeeklyPlan(activeProfile, seed, {
+            planType: "weekly",
+            budgetLimit: options?.budgetLimit ?? budgetLimit,
+            favoriteRecipeIds: options?.favoriteRecipeIds,
+          });
+        }
 
         setWeeklyPlan(plan);
         setPlanType("weekly");
@@ -147,7 +180,7 @@ export function useMealPlanner() {
         setActiveDayIndex(0);
         setProfileChangedNotice(false);
         setIsGenerating(false);
-        setGenerationFeedback("✓ Generated 7-day personalized weekly meal plan!");
+        setGenerationFeedback("✓ Đã sinh thực đơn 7 ngày từ công thức thật!");
         storage.setItem(STORAGE_KEYS.GENERATED_PLAN, {
           planType: "weekly",
           weeklyPlan: plan,
@@ -156,31 +189,59 @@ export function useMealPlanner() {
         });
         setTimeout(() => setGenerationFeedback(null), 3000);
         onComplete?.();
-      }, 600);
+      } catch (err) {
+        console.error("Lỗi khi sinh thực đơn tuần:", err);
+        setIsGenerating(false);
+        setGenerationFeedback("Có lỗi khi sinh thực đơn");
+        setTimeout(() => setGenerationFeedback(null), 3000);
+      }
     },
-    [activeProfile, budgetLimit]
+    [activeProfile, budgetLimit, isPlanForSomeoneElse]
   );
 
   /**
-   * Generates Monthly Meal Plan on explicit user action (Requirement 18, 20, 21)
+   * Generates Monthly Meal Plan using real database recipes and backend AI API (Requirement 18, 20, 21)
    */
   const generateMonthly = useCallback(
-    (
+    async (
       month: number = selectedMonth,
       year: number = selectedYear,
       options?: Partial<GenerationPlanOptions>,
       onComplete?: () => void
     ) => {
       setIsGenerating(true);
-      setGenerationFeedback(`AI preparing complete calendar plan for ${year}...`);
+      setGenerationFeedback(`AI đang chuẩn bị thực đơn cả tháng ${month + 1}/${year}...`);
 
-      setTimeout(() => {
-        const seed = Math.floor(Math.random() * 100);
-        const plan = mealPlannerService.generateMonthlyPlan(activeProfile, year, month, seed, {
-          planType: "monthly",
-          budgetLimit: options?.budgetLimit ?? budgetLimit,
-          favoriteRecipeIds: options?.favoriteRecipeIds,
-        });
+      try {
+        await recipeService.syncRecipesFromApi();
+
+        if (!isPlanForSomeoneElse) {
+          await profileService.updateProfile(activeProfile).catch(() => {});
+        }
+
+        let plan: MonthlyMealPlan | null = null;
+
+        if (!options?.favoriteRecipeIds || options.favoriteRecipeIds.length === 0) {
+          try {
+            const apiRes = await mealPlanApiService.generateMonthly({
+              total_budget: options?.budgetLimit ?? budgetLimit,
+            });
+            if (apiRes && (apiRes.data || apiRes.weekly_plans || apiRes.meal_plan_id)) {
+              plan = mealPlannerService.convertBackendMonthlyPlan(apiRes, activeProfile, year, month);
+            }
+          } catch (apiErr) {
+            console.warn("Backend generateMonthly failed, falling back to local engine with real DB recipes:", apiErr);
+          }
+        }
+
+        if (!plan) {
+          const seed = Math.floor(Math.random() * 100);
+          plan = mealPlannerService.generateMonthlyPlan(activeProfile, year, month, seed, {
+            planType: "monthly",
+            budgetLimit: options?.budgetLimit ?? budgetLimit,
+            favoriteRecipeIds: options?.favoriteRecipeIds,
+          });
+        }
 
         setMonthlyPlan(plan);
         setSelectedMonth(month);
@@ -190,7 +251,7 @@ export function useMealPlanner() {
         setActiveDayIndex(0);
         setProfileChangedNotice(false);
         setIsGenerating(false);
-        setGenerationFeedback(`✓ Generated complete monthly plan for ${plan.monthName}!`);
+        setGenerationFeedback(`✓ Đã sinh thực đơn cả tháng cho ${plan.monthName}!`);
         storage.setItem(STORAGE_KEYS.GENERATED_PLAN, {
           planType: "monthly",
           weeklyPlan: null,
@@ -199,9 +260,14 @@ export function useMealPlanner() {
         });
         setTimeout(() => setGenerationFeedback(null), 3000);
         onComplete?.();
-      }, 750);
+      } catch (err) {
+        console.error("Lỗi khi sinh thực đơn tháng:", err);
+        setIsGenerating(false);
+        setGenerationFeedback("Có lỗi khi sinh thực đơn tháng");
+        setTimeout(() => setGenerationFeedback(null), 3000);
+      }
     },
-    [activeProfile, selectedMonth, selectedYear, budgetLimit]
+    [activeProfile, selectedMonth, selectedYear, budgetLimit, isPlanForSomeoneElse]
   );
 
   /**

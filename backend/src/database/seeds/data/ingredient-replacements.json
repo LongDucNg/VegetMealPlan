@@ -1,0 +1,490 @@
+[
+ {
+  "original_ingredient_id": 185,
+  "replacement_ingredient_id": 130,
+  "ratio": "1 trứng = 1 muỗng canh bột hạt lanh + 3 muỗng canh nước, để 5 phút",
+  "reason": "Chất kết dính trong bánh, chả",
+  "applicable_when": "Dị ứng trứng / thuần chay",
+  "note": "Hợp món nướng, chiên; không hợp trứng chiên/ốp la"
+ },
+ {
+  "original_ingredient_id": 185,
+  "replacement_ingredient_id": 129,
+  "ratio": "1 trứng = 1 muỗng canh hạt chia + 3 muỗng canh nước",
+  "reason": "Kết dính",
+  "applicable_when": "Dị ứng trứng / thuần chay",
+  "note": "Có độ nhớt, hợp bánh"
+ },
+ {
+  "original_ingredient_id": 185,
+  "replacement_ingredient_id": 33,
+  "ratio": "1 trứng = 60 g đậu hũ non nghiền",
+  "reason": "Tạo độ béo mềm",
+  "applicable_when": "Dị ứng trứng / thuần chay",
+  "note": "Hợp trứng bác, bánh flan chay"
+ },
+ {
+  "original_ingredient_id": 185,
+  "replacement_ingredient_id": 20,
+  "ratio": "1 trứng = 1 muỗng canh bột năng + 2 muỗng canh nước",
+  "reason": "Kết dính",
+  "applicable_when": "Dị ứng trứng",
+  "note": "Hợp chả, bánh"
+ },
+ {
+  "original_ingredient_id": 179,
+  "replacement_ingredient_id": 36,
+  "ratio": "1:1",
+  "reason": "Tương đương đạm và độ béo",
+  "applicable_when": "Dị ứng sữa / thuần chay",
+  "note": "Chọn loại không đường"
+ },
+ {
+  "original_ingredient_id": 179,
+  "replacement_ingredient_id": 187,
+  "ratio": "1:1",
+  "reason": "Vị nhẹ, ít đạm hơn",
+  "applicable_when": "Dị ứng sữa (không dị ứng hạt)",
+  "note": "Không dùng nếu dị ứng hạt cây"
+ },
+ {
+  "original_ingredient_id": 179,
+  "replacement_ingredient_id": 117,
+  "ratio": "1 phần cốt dừa : 2 phần nước",
+  "reason": "Béo, thơm",
+  "applicable_when": "Dị ứng sữa",
+  "note": "Vị dừa rõ, hợp món Việt/cà ri"
+ },
+ {
+  "original_ingredient_id": 180,
+  "replacement_ingredient_id": 117,
+  "ratio": "1:1 + đường theo vị",
+  "reason": "Thay sữa đặc",
+  "applicable_when": "Dị ứng sữa / thuần chay",
+  "note": "Thêm đường để đạt độ ngọt"
+ },
+ {
+  "original_ingredient_id": 181,
+  "replacement_ingredient_id": 117,
+  "ratio": "1:1 (phần đặc)",
+  "reason": "Béo ngậy",
+  "applicable_when": "Dị ứng sữa / thuần chay",
+  "note": "Vị dừa"
+ },
+ {
+  "original_ingredient_id": 182,
+  "replacement_ingredient_id": 151,
+  "ratio": "1 muỗng bơ = 3/4 muỗng dầu",
+  "reason": "Tạo béo",
+  "applicable_when": "Dị ứng sữa / thuần chay",
+  "note": "Không tạo độ xốp như bơ trong bánh"
+ },
+ {
+  "original_ingredient_id": 182,
+  "replacement_ingredient_id": 149,
+  "ratio": "1:1 (dạng đặc)",
+  "reason": "Tạo béo",
+  "applicable_when": "Dị ứng sữa / thuần chay",
+  "note": "Có mùi dừa nhẹ"
+ },
+ {
+  "original_ingredient_id": 183,
+  "replacement_ingredient_id": 174,
+  "ratio": "20 g phô mai = 1 muỗng canh men dinh dưỡng",
+  "reason": "Vị umami giống phô mai",
+  "applicable_when": "Dị ứng sữa / thuần chay",
+  "note": "Không tan chảy"
+ },
+ {
+  "original_ingredient_id": 183,
+  "replacement_ingredient_id": 33,
+  "ratio": "1:1 nghiền + chanh + muối",
+  "reason": "Vị béo mềm",
+  "applicable_when": "Dị ứng sữa / thuần chay",
+  "note": "Hợp món sốt kem"
+ },
+ {
+  "original_ingredient_id": 184,
+  "replacement_ingredient_id": 36,
+  "ratio": "1:1 (loại lên men)",
+  "reason": "Thay sữa chua",
+  "applicable_when": "Dị ứng sữa / thuần chay",
+  "note": "Chọn loại sữa chua đậu nành"
+ },
+ {
+  "original_ingredient_id": 157,
+  "replacement_ingredient_id": 156,
+  "ratio": "1:1",
+  "reason": "Thay chất ngọt",
+  "applicable_when": "Thuần chay",
+  "note": "Vị hơi khác"
+ },
+ {
+  "original_ingredient_id": 157,
+  "replacement_ingredient_id": 155,
+  "ratio": "1:1",
+  "reason": "Thay chất ngọt",
+  "applicable_when": "Thuần chay",
+  "note": "Đường thốt nốt vị caramel"
+ },
+ {
+  "original_ingredient_id": 159,
+  "replacement_ingredient_id": 162,
+  "ratio": "1:1",
+  "reason": "Không chứa đậu nành lên men trong một số loại",
+  "applicable_when": "Dị ứng đậu nành (kiểm tra nhãn)",
+  "note": "Một số nước mắm chay cũng chứa đậu nành"
+ },
+ {
+  "original_ingredient_id": 159,
+  "replacement_ingredient_id": 158,
+  "ratio": "1 muỗng nước tương = 1/3 muỗng muối + chút đường",
+  "reason": "Giữ độ mặn",
+  "applicable_when": "Dị ứng đậu nành",
+  "note": "Mất màu và umami"
+ },
+ {
+  "original_ingredient_id": 32,
+  "replacement_ingredient_id": 46,
+  "ratio": "100 g đậu hũ = 80 g đậu gà nghiền",
+  "reason": "Đạm thực vật",
+  "applicable_when": "Dị ứng đậu nành",
+  "note": "Kết cấu khác"
+ },
+ {
+  "original_ingredient_id": 32,
+  "replacement_ingredient_id": 92,
+  "ratio": "1:1",
+  "reason": "Giữ độ mềm, giảm calo",
+  "applicable_when": "Dị ứng đậu nành",
+  "note": "Hợp món xào, kho"
+ },
+ {
+  "original_ingredient_id": 34,
+  "replacement_ingredient_id": 89,
+  "ratio": "1:1",
+  "reason": "Nấm cho kết cấu dai",
+  "applicable_when": "Dị ứng đậu nành",
+  "note": "Hợp món kho"
+ },
+ {
+  "original_ingredient_id": 34,
+  "replacement_ingredient_id": 40,
+  "ratio": "1:1",
+  "reason": "Mì căn giàu đạm",
+  "applicable_when": "Dị ứng đậu nành (không dị ứng gluten)",
+  "note": "Chứa gluten"
+ },
+ {
+  "original_ingredient_id": 36,
+  "replacement_ingredient_id": 187,
+  "ratio": "1:1",
+  "reason": "Thay sữa thực vật",
+  "applicable_when": "Dị ứng đậu nành",
+  "note": "Không dùng nếu dị ứng hạt"
+ },
+ {
+  "original_ingredient_id": 36,
+  "replacement_ingredient_id": 117,
+  "ratio": "1 : 2 nước",
+  "reason": "Thay sữa thực vật",
+  "applicable_when": "Dị ứng đậu nành",
+  "note": "Vị dừa"
+ },
+ {
+  "original_ingredient_id": 49,
+  "replacement_ingredient_id": 127,
+  "ratio": "1:1",
+  "reason": "Hạt giòn, béo",
+  "applicable_when": "Dị ứng đậu phộng",
+  "note": "Hợp rắc salad, gỏi"
+ },
+ {
+  "original_ingredient_id": 49,
+  "replacement_ingredient_id": 128,
+  "ratio": "1:1",
+  "reason": "Hạt giòn",
+  "applicable_when": "Dị ứng đậu phộng",
+  "note": "Hợp gỏi, bánh tráng trộn"
+ },
+ {
+  "original_ingredient_id": 50,
+  "replacement_ingredient_id": 127,
+  "ratio": "1:1",
+  "reason": "Hạt giòn",
+  "applicable_when": "Dị ứng đậu phộng",
+  "note": "Hợp rắc món gỏi"
+ },
+ {
+  "original_ingredient_id": 122,
+  "replacement_ingredient_id": 127,
+  "ratio": "1:1",
+  "reason": "Thay hạt cây",
+  "applicable_when": "Dị ứng hạt cây",
+  "note": "Vị nhẹ, ít béo hơn"
+ },
+ {
+  "original_ingredient_id": 122,
+  "replacement_ingredient_id": 128,
+  "ratio": "1:1",
+  "reason": "Thay hạt cây",
+  "applicable_when": "Dị ứng hạt cây",
+  "note": "Hợp sữa hạt"
+ },
+ {
+  "original_ingredient_id": 123,
+  "replacement_ingredient_id": 127,
+  "ratio": "1:1",
+  "reason": "Thay hạt cây",
+  "applicable_when": "Dị ứng hạt cây",
+  "note": "Dùng làm sữa hạt"
+ },
+ {
+  "original_ingredient_id": 124,
+  "replacement_ingredient_id": 128,
+  "ratio": "1:1",
+  "reason": "Thay hạt cây giàu omega",
+  "applicable_when": "Dị ứng hạt cây",
+  "note": "Hợp salad"
+ },
+ {
+  "original_ingredient_id": 124,
+  "replacement_ingredient_id": 130,
+  "ratio": "1/2 lượng",
+  "reason": "Omega-3",
+  "applicable_when": "Dị ứng hạt cây",
+  "note": "Cần nghiền"
+ },
+ {
+  "original_ingredient_id": 22,
+  "replacement_ingredient_id": 18,
+  "ratio": "1:1 (có thể thêm 1 muỗng bột năng)",
+  "reason": "Không gluten",
+  "applicable_when": "Dị ứng gluten / celiac",
+  "note": "Kết cấu giòn hơn"
+ },
+ {
+  "original_ingredient_id": 22,
+  "replacement_ingredient_id": 20,
+  "ratio": "1:1",
+  "reason": "Không gluten",
+  "applicable_when": "Dị ứng gluten",
+  "note": "Dai, dẻo"
+ },
+ {
+  "original_ingredient_id": 22,
+  "replacement_ingredient_id": 21,
+  "ratio": "1:1",
+  "reason": "Không gluten",
+  "applicable_when": "Dị ứng gluten",
+  "note": "Dùng cho bánh ngô"
+ },
+ {
+  "original_ingredient_id": 40,
+  "replacement_ingredient_id": 35,
+  "ratio": "1:1",
+  "reason": "Mì căn chứa gluten",
+  "applicable_when": "Dị ứng gluten",
+  "note": "Có đậu nành"
+ },
+ {
+  "original_ingredient_id": 40,
+  "replacement_ingredient_id": 90,
+  "ratio": "1:1",
+  "reason": "Kết cấu dai tương đương",
+  "applicable_when": "Dị ứng gluten",
+  "note": "Không đạm bằng"
+ },
+ {
+  "original_ingredient_id": 15,
+  "replacement_ingredient_id": 7,
+  "ratio": "1:1",
+  "reason": "Mì chứa gluten",
+  "applicable_when": "Dị ứng gluten",
+  "note": "Dùng bún gạo"
+ },
+ {
+  "original_ingredient_id": 15,
+  "replacement_ingredient_id": 14,
+  "ratio": "1:1",
+  "reason": "Mì chứa gluten",
+  "applicable_when": "Dị ứng gluten",
+  "note": "Miến đậu xanh"
+ },
+ {
+  "original_ingredient_id": 16,
+  "replacement_ingredient_id": 5,
+  "ratio": "1:1 khẩu phần tinh bột",
+  "reason": "Bánh mì chứa gluten",
+  "applicable_when": "Dị ứng gluten",
+  "note": "Thay bằng cơm/xôi"
+ },
+ {
+  "original_ingredient_id": 117,
+  "replacement_ingredient_id": 36,
+  "ratio": "1:1",
+  "reason": "Thay vị béo",
+  "applicable_when": "Dị ứng dừa (hiếm)",
+  "note": "Kém béo hơn"
+ },
+ {
+  "original_ingredient_id": 152,
+  "replacement_ingredient_id": 155,
+  "ratio": "1:1",
+  "reason": "Đường ít tinh luyện",
+  "applicable_when": "Chế độ ít đường tinh luyện",
+  "note": "Vị caramel"
+ },
+ {
+  "original_ingredient_id": 152,
+  "replacement_ingredient_id": 156,
+  "ratio": "1:1",
+  "reason": "Chất ngọt tự nhiên",
+  "applicable_when": "Thay thế đường tinh luyện",
+  "note": "Vị hơi đậm"
+ },
+ {
+  "original_ingredient_id": 1,
+  "replacement_ingredient_id": 2,
+  "ratio": "1:1",
+  "reason": "Nhiều chất xơ",
+  "applicable_when": "Giảm đường huyết / ăn kiêng",
+  "note": "Nấu lâu hơn"
+ },
+ {
+  "original_ingredient_id": 27,
+  "replacement_ingredient_id": 28,
+  "ratio": "1:1",
+  "reason": "Chỉ số đường huyết thấp hơn",
+  "applicable_when": "Giảm đường huyết",
+  "note": "Vị ngọt hơn"
+ },
+ {
+  "original_ingredient_id": 20,
+  "replacement_ingredient_id": 21,
+  "ratio": "1:1",
+  "reason": "Làm đặc sốt",
+  "applicable_when": "Hết bột năng",
+  "note": "Sốt đục hơn"
+ },
+ {
+  "original_ingredient_id": 125,
+  "replacement_ingredient_id": 127,
+  "ratio": "1:1",
+  "reason": "Thay hạt mè",
+  "applicable_when": "Dị ứng mè",
+  "note": "Hợp rắc"
+ },
+ {
+  "original_ingredient_id": 150,
+  "replacement_ingredient_id": 151,
+  "ratio": "1:1",
+  "reason": "Thay dầu mè",
+  "applicable_when": "Dị ứng mè",
+  "note": "Mất mùi mè"
+ },
+ {
+  "original_ingredient_id": 88,
+  "replacement_ingredient_id": 92,
+  "ratio": "1:1",
+  "reason": "Thay loại nấm",
+  "applicable_when": "Hết nấm rơm",
+  "note": "Cùng độ ngọt nước"
+ },
+ {
+  "original_ingredient_id": 90,
+  "replacement_ingredient_id": 89,
+  "ratio": "1:1",
+  "reason": "Thay loại nấm",
+  "applicable_when": "Không có nấm đùi gà",
+  "note": "Mềm hơn"
+ },
+ {
+  "original_ingredient_id": 93,
+  "replacement_ingredient_id": 92,
+  "ratio": "1:1",
+  "reason": "Thay loại nấm",
+  "applicable_when": "Giảm chi phí",
+  "note": "Kém thơm"
+ },
+ {
+  "original_ingredient_id": 144,
+  "replacement_ingredient_id": 145,
+  "ratio": "1:1",
+  "reason": "Thay vị cay thơm",
+  "applicable_when": "Kỵ hành tỏi (ăn chay Phật giáo)",
+  "note": "Hành tím cũng thuộc họ hành tỏi, dùng gừng nếu kiêng hoàn toàn"
+ },
+ {
+  "original_ingredient_id": 144,
+  "replacement_ingredient_id": 141,
+  "ratio": "1:1",
+  "reason": "Thay vị cay thơm",
+  "applicable_when": "Ăn chay kiêng ngũ vị tân",
+  "note": "Vị khác"
+ },
+ {
+  "original_ingredient_id": 132,
+  "replacement_ingredient_id": 133,
+  "ratio": "1:1",
+  "reason": "Thay rau thơm",
+  "applicable_when": "Kỵ hành",
+  "note": "Dùng rau mùi, ngò"
+ },
+ {
+  "original_ingredient_id": 146,
+  "replacement_ingredient_id": 55,
+  "ratio": "1:1",
+  "reason": "Giữ độ ngọt giòn",
+  "applicable_when": "Kỵ hành",
+  "note": "Ít thơm hơn"
+ },
+ {
+  "original_ingredient_id": 188,
+  "replacement_ingredient_id": 189,
+  "ratio": "1:1",
+  "reason": "Thay nước dùng",
+  "applicable_when": "Cần vị umami đậm hơn",
+  "note": "Nước dùng nấm đậm hơn"
+ },
+ {
+  "original_ingredient_id": 135,
+  "replacement_ingredient_id": 131,
+  "ratio": "1:1",
+  "reason": "Thay rau thơm",
+  "applicable_when": "Hết rau răm",
+  "note": "Vị khác"
+ },
+ {
+  "original_ingredient_id": 98,
+  "replacement_ingredient_id": 99,
+  "ratio": "1:1",
+  "reason": "Thay trái cây chua ngọt",
+  "applicable_when": "Hết dứa",
+  "note": "Kém chua"
+ },
+ {
+  "original_ingredient_id": 119,
+  "replacement_ingredient_id": 105,
+  "ratio": "1 phần me = 1/2 phần chanh",
+  "reason": "Tạo vị chua",
+  "applicable_when": "Hết me",
+  "note": "Chua gắt hơn"
+ },
+ {
+  "original_ingredient_id": 163,
+  "replacement_ingredient_id": 105,
+  "ratio": "1:1",
+  "reason": "Tạo vị chua",
+  "applicable_when": "Hết giấm",
+  "note": "Thơm hơn"
+ },
+ {
+  "original_ingredient_id": 177,
+  "replacement_ingredient_id": 20,
+  "ratio": "dùng gelatin không thích hợp; agar 1 phần = 8 phần bột năng (nấu sệt)",
+  "reason": "Tạo độ đông",
+  "applicable_when": "Thuần chay",
+  "note": "Chỉ tạo sệt, không đông cứng"
+ }
+]

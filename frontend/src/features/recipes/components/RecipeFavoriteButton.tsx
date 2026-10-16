@@ -6,6 +6,8 @@ import { favoriteService } from "../services/favoriteService";
 import { useProfile } from "@/features/profile/hooks/useProfile";
 import { storage, STORAGE_KEYS } from "@/utils/storage/storage";
 
+import { tokenStorage } from "@/lib/tokenStorage";
+
 export interface RecipeFavoriteButtonProps {
   recipeId: string;
   size?: "sm" | "md";
@@ -18,12 +20,17 @@ export function RecipeFavoriteButton({
   className = "",
 }: RecipeFavoriteButtonProps) {
   const { profile } = useProfile();
-  const userId = String(profile.id || "u1");
+  const authUser = tokenStorage.getUser();
+  const userId = String(authUser?.user_id || profile.id || "1");
   const [isFav, setIsFav] = useState(() => {
     return favoriteService.isRecipeFavorite(userId, recipeId);
   });
 
   useEffect(() => {
+    favoriteService.fetchServerFavorites(userId).then(() => {
+      setIsFav(favoriteService.isRecipeFavorite(userId, recipeId));
+    });
+
     const unsubscribe = storage.subscribe((event) => {
       if (event.key === STORAGE_KEYS.FAVORITES) {
         setIsFav(favoriteService.isRecipeFavorite(userId, recipeId));

@@ -1,47 +1,24 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseIntPipe,
-  Patch,
-  Post,
-} from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CategoryService } from './category.service';
-import { CreateCategoryDto } from './dto/create-category.dto';
-import { UpdateCategoryDto } from './dto/update-category.dto';
+import { Public } from '../../common/decorators/public.decorator';
 
+// Đọc danh mục công khai (FE dùng cho bộ lọc). Ghi/sửa/xoá nằm ở AdminCategoryController (/admin/categories).
 @ApiTags('categories')
+@Public()
 @Controller('categories')
 export class CategoryController {
   constructor(private readonly categoryService: CategoryService) {}
 
-  // TODO: @UseGuards(JwtAuthGuard, RolesGuard) + @Roles('admin') khi auth module xong
-  @Post()
-  create(@Body() dto: CreateCategoryDto) {
-    const adminId = 1; // placeholder — lấy từ req.user sau khi có auth
-    return this.categoryService.create(dto, adminId);
-  }
-
   @Get()
+  @ApiOperation({ summary: 'Danh sách danh mục món ăn (công khai)' })
   findAll() {
     return this.categoryService.findAll();
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Chi tiết một danh mục (công khai)' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.categoryService.findOne(id);
-  }
-
-  @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateCategoryDto) {
-    return this.categoryService.update(id, dto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.categoryService.remove(id);
   }
 }
