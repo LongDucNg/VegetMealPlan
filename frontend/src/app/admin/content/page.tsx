@@ -13,9 +13,9 @@ import { CheckCircle2, EyeOff, Flag, FileText, Video, MessageSquare } from "luci
 type ContentTab = "all" | "Blog" | "Video" | "Comment";
 
 function StatusBadge({ status }: { status: AdminContentItem["status"] }) {
-  if (status === "Published") return <Badge variant="success">Published</Badge>;
-  if (status === "Under Review") return <Badge variant="info">Under Review</Badge>;
-  return <Badge variant="flagged">Removed</Badge>;
+  if (status === "Published") return <Badge variant="success">Đã xuất bản</Badge>;
+  if (status === "Under Review") return <Badge variant="info">Đang xét duyệt</Badge>;
+  return <Badge variant="flagged">Đã gỡ bỏ</Badge>;
 }
 
 function TypeIcon({ type }: { type: AdminContentItem["type"] }) {
@@ -29,10 +29,10 @@ function ContentManagement() {
   const [items, setItems] = useState<AdminContentItem[]>([...ADMIN_CONTENT_ITEMS]);
 
   const tabs: { id: ContentTab; label: string }[] = [
-    { id: "all", label: "All Content" },
-    { id: "Blog", label: "Blogs" },
-    { id: "Video", label: "Videos" },
-    { id: "Comment", label: "Comments" },
+    { id: "all", label: "Tất cả nội dung" },
+    { id: "Blog", label: "Bài viết" },
+    { id: "Video", label: "Video" },
+    { id: "Comment", label: "Bình luận" },
   ];
 
   const filtered = activeTab === "all" ? items : items.filter((i) => i.type === activeTab);
@@ -66,13 +66,13 @@ function ContentManagement() {
       {/* Table */}
       <DataTable
         columns={[
-          { key: "content", label: "Content" },
-          { key: "type", label: "Type" },
-          { key: "author", label: "Author" },
-          { key: "date", label: "Date" },
-          { key: "reports", label: "Reports" },
-          { key: "status", label: "Status" },
-          { key: "actions", label: "Actions" },
+          { key: "content", label: "Nội dung" },
+          { key: "type", label: "Phân loại" },
+          { key: "author", label: "Tác giả" },
+          { key: "date", label: "Ngày đăng" },
+          { key: "reports", label: "Báo cáo" },
+          { key: "status", label: "Trạng thái" },
+          { key: "actions", label: "Thao tác" },
         ]}
         rows={filtered.map((item) => ({
           content: (
@@ -83,7 +83,7 @@ function ContentManagement() {
           type: (
             <span className="flex items-center gap-1.5 text-xs font-medium text-stone-600">
               <TypeIcon type={item.type} />
-              {item.type}
+              {item.type === "Video" ? "Video" : item.type === "Blog" ? "Bài viết" : "Bình luận"}
             </span>
           ),
           author: <span className="text-xs text-stone-600">{item.author}</span>,
@@ -99,31 +99,31 @@ function ContentManagement() {
               {item.status !== "Published" && (
                 <button
                   onClick={() => setStatus(item.id, "Published")}
-                  title="Approve"
+                  title="Duyệt bài"
                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-semibold transition-colors cursor-pointer"
                 >
                   <CheckCircle2 className="w-3 h-3" />
-                  Approve
+                  Duyệt
                 </button>
               )}
               {item.status !== "Removed" && (
                 <button
                   onClick={() => setStatus(item.id, "Removed")}
-                  title="Remove"
+                  title="Gỡ bỏ"
                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 text-xs font-semibold transition-colors cursor-pointer"
                 >
                   <EyeOff className="w-3 h-3" />
-                  Remove
+                  Gỡ bỏ
                 </button>
               )}
               {item.status !== "Under Review" && (
                 <button
                   onClick={() => setStatus(item.id, "Under Review")}
-                  title="Flag for review"
+                  title="Chuyển xét duyệt"
                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 text-xs font-semibold transition-colors cursor-pointer"
                 >
                   <Flag className="w-3 h-3" />
-                  Flag
+                  Gắn cờ
                 </button>
               )}
             </div>
@@ -143,15 +143,15 @@ export default function AdminContentPage() {
     <AppShell showRightRail={false}>
       <div className="max-w-[1240px] mx-auto w-full">
         <PageHeader
-          eyebrow="Administration"
-          title="Content Management"
-          subtitle="Review, approve, flag, and remove blogs, videos, and comments."
+          eyebrow="Quản trị hệ thống"
+          title="Quản lý Nội dung"
+          subtitle="Duyệt bài, gắn cờ và quản lý các bài viết, video công thức, bình luận của cộng đồng."
           action={
             <Link
               href="/admin/recipes"
               className="h-10 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-xs"
             >
-              <span>Manage Recipes CRUD →</span>
+              <span>Quản lý công thức (CRUD) →</span>
             </Link>
           }
         />

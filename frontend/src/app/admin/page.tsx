@@ -30,11 +30,11 @@ const STAT_ICONS = [
 ];
 
 const RECENT_ACTIVITY = [
-  { id: "a1", text: "Linh Nguyen published a new recipe video", time: "8 min ago", icon: <Video className="w-3.5 h-3.5" />, color: "text-emerald-600" },
-  { id: "a2", text: "AI flagged 1 post for Dangerous claim", time: "18 min ago", icon: <AlertTriangle className="w-3.5 h-3.5" />, color: "text-red-600" },
-  { id: "a3", text: "24 new members joined this week", time: "1 hr ago", icon: <Users className="w-3.5 h-3.5" />, color: "text-blue-600" },
-  { id: "a4", text: "Content moderation model updated to v1.9", time: "3 hr ago", icon: <Activity className="w-3.5 h-3.5" />, color: "text-violet-600" },
-  { id: "a5", text: "Category 'High-Protein Meals' hit 480 recipes", time: "Yesterday", icon: <TrendingUp className="w-3.5 h-3.5" />, color: "text-amber-600" },
+  { id: "a1", text: "Linh Nguyễn đã đăng tải video công thức mới", time: "8 phút trước", icon: <Video className="w-3.5 h-3.5" />, color: "text-emerald-600" },
+  { id: "a2", text: "AI đã gắn cờ 1 bài viết vì tuyên bố nguy hại", time: "18 phút trước", icon: <AlertTriangle className="w-3.5 h-3.5" />, color: "text-red-600" },
+  { id: "a3", text: "24 thành viên mới đã tham gia trong tuần", time: "1 giờ trước", icon: <Users className="w-3.5 h-3.5" />, color: "text-blue-600" },
+  { id: "a4", text: "Cập nhật mô hình kiểm duyệt nội dung lên v1.9", time: "3 giờ trước", icon: <Activity className="w-3.5 h-3.5" />, color: "text-violet-600" },
+  { id: "a5", text: "Danh mục 'Món giàu đạm' đạt mốc 480 công thức", time: "Hôm qua", icon: <TrendingUp className="w-3.5 h-3.5" />, color: "text-amber-600" },
 ];
 
 function AdminContent() {
@@ -57,17 +57,17 @@ function AdminContent() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-red-900 text-sm">
-              {pendingMod.length} items awaiting moderation review
+              {pendingMod.length} mục đang chờ quản trị viên xét duyệt
             </p>
             <p className="text-xs text-red-700 mt-0.5">
-              AI-flagged content requires human approval before any action is taken.
+              Nội dung do AI gắn cờ cần quản trị viên xem xét và phê duyệt trước khi áp dụng hành động.
             </p>
           </div>
           <Link
             href="/admin/moderation"
             className="shrink-0 h-9 px-4 rounded-xl bg-red-700 text-white text-sm font-semibold hover:bg-red-800 transition-colors"
           >
-            Review queue →
+            Hàng đợi kiểm duyệt →
           </Link>
         </div>
       )}
@@ -96,9 +96,9 @@ function AdminContent() {
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-4">
             <Sparkles className="w-4 h-4 text-amber-500" />
-            <h3 className="font-semibold text-stone-800">AI Model Health</h3>
+            <h3 className="font-semibold text-stone-800">Trạng thái các mô hình AI</h3>
             <Link href="/admin/ai" className="ml-auto text-xs text-emerald-700 font-semibold hover:underline">
-              View all →
+              Xem tất cả →
             </Link>
           </div>
           <div className="space-y-3">
@@ -106,12 +106,12 @@ function AdminContent() {
               <div key={m.id} className="flex items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-stone-900 truncate">{m.name}</p>
-                  <p className="text-xs text-stone-500">{m.version} · {m.latencyMs}ms avg</p>
+                  <p className="text-xs text-stone-500">{m.version} · độ trễ TB {m.latencyMs}ms</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <div className="text-right">
                     <p className="text-sm font-bold text-emerald-700">{m.accuracy}%</p>
-                    <p className="text-xs text-stone-500">accuracy</p>
+                    <p className="text-xs text-stone-500">độ chính xác</p>
                   </div>
                   <div className={`w-2 h-2 rounded-full shrink-0 ${m.status === "Optimal" ? "bg-emerald-500" : m.status === "Degraded" ? "bg-amber-500" : "bg-red-500"}`} />
                 </div>
@@ -124,7 +124,7 @@ function AdminContent() {
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-4">
             <Activity className="w-4 h-4 text-stone-600" />
-            <h3 className="font-semibold text-stone-800">Recent Activity</h3>
+            <h3 className="font-semibold text-stone-800">Hoạt động gần đây</h3>
           </div>
           <div className="space-y-3">
             {RECENT_ACTIVITY.map((a) => (
@@ -147,14 +147,14 @@ function AdminContent() {
 
       {/* Quick links */}
       <div>
-        <h3 className="font-semibold text-stone-800 mb-4">Quick Actions</h3>
+        <h3 className="font-semibold text-stone-800 mb-4">Thao tác nhanh</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {[
-            { label: "Members", href: "/admin/members", icon: <Users className="w-5 h-5" /> },
-            { label: "Content", href: "/admin/content", icon: <Video className="w-5 h-5" /> },
-            { label: "Categories", href: "/admin/categories", icon: <ShieldCheck className="w-5 h-5" /> },
-            { label: "AI Models", href: "/admin/ai", icon: <Sparkles className="w-5 h-5" /> },
-            { label: "Moderation", href: "/admin/moderation", icon: <AlertTriangle className="w-5 h-5" /> },
+            { label: "Thành viên", href: "/admin/members", icon: <Users className="w-5 h-5" /> },
+            { label: "Nội dung", href: "/admin/content", icon: <Video className="w-5 h-5" /> },
+            { label: "Danh mục", href: "/admin/categories", icon: <ShieldCheck className="w-5 h-5" /> },
+            { label: "Mô hình AI", href: "/admin/ai", icon: <Sparkles className="w-5 h-5" /> },
+            { label: "Kiểm duyệt", href: "/admin/moderation", icon: <AlertTriangle className="w-5 h-5" /> },
           ].map((qa) => (
             <Link
               key={qa.href}
@@ -176,8 +176,8 @@ function AdminContent() {
       <div className="flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-[14px] px-5 py-3.5">
         <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
         <p className="text-sm text-stone-600">
-          <span className="font-semibold text-stone-800">AI flag → Human review policy active.</span>{" "}
-          No content is automatically removed. Every AI decision requires an admin action.
+          <span className="font-semibold text-stone-800">Chính sách: AI gắn cờ → Quản trị viên duyệt thủ công.</span>{" "}
+          Không có nội dung nào bị xóa tự động. Mọi quyết định gắn cờ của AI đều cần quản trị viên duyệt.
         </p>
       </div>
     </div>
@@ -191,11 +191,11 @@ export default function AdminPage() {
     <AppShell showRightRail={false}>
       <div className="max-w-[1240px] mx-auto w-full">
         <PageHeader
-          eyebrow="Administration"
-          title="Admin Dashboard"
+          eyebrow="Quản trị hệ thống"
+          title="Bảng điều khiển Quản trị"
           action={
             <Badge variant="info" className="text-sm px-3 py-1">
-              Admin Panel
+              Bảng Quản Trị
             </Badge>
           }
         />
