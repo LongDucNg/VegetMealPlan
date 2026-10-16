@@ -29,7 +29,8 @@ export interface AuthContextType {
   setRole: (role: UserRole) => void;
   login: (payload: LoginPayload) => Promise<AuthResponse>;
   register: (payload: RegisterPayload) => Promise<AuthResponse>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  logoutAll: () => Promise<{ message: string; revoked_sessions: number }>;
   refreshMe: () => Promise<AuthUser | null>;
 }
 
@@ -105,10 +106,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const logout = useCallback(() => {
-    authService.logout();
-    setUser(null);
-    setRoleState("Guest");
+  const logout = useCallback(async () => {
+    try {
+      await authService.logout();
+    } finally {
+      setUser(null);
+      setRoleState("Guest");
+    }
+  }, []);
+
+  const logoutAll = useCallback(async () => {
+    try {
+      return await authService.logoutAll();
+    } finally {
+      setUser(null);
+      setRoleState("Guest");
+    }
   }, []);
 
   // Deprecated manual switcher - roles are strictly driven by backend JWT
@@ -135,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        logoutAll,
         refreshMe,
       }}
     >
