@@ -5,10 +5,12 @@ import {
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
+  Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
 @Entity('comments')
+@Index('IDX_comments_content', ['content_type', 'content_id'])
 export class Comment {
   @PrimaryGeneratedColumn()
   comment_id: number;

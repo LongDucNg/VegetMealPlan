@@ -35,6 +35,8 @@ export enum ErrorCode {
   AUTH_GOOGLE_NOT_CONFIGURED = 'AUTH_GOOGLE_NOT_CONFIGURED',
   /** 401: mã đổi token sau khi đăng nhập Google không tồn tại, đã dùng hoặc đã hết hạn. */
   AUTH_GOOGLE_CODE_INVALID = 'AUTH_GOOGLE_CODE_INVALID',
+  /** 401: refresh token sai, hết hạn, đã bị thu hồi hoặc đã dùng (xoay vòng). FE phải cho đăng nhập lại. */
+  AUTH_REFRESH_TOKEN_INVALID = 'AUTH_REFRESH_TOKEN_INVALID',
 
   // ---- User / hồ sơ ----
   /** 404 */
