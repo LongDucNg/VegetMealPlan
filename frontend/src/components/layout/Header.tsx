@@ -47,7 +47,7 @@ export function Header() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleSearchKeyDown}
-            placeholder="Search recipes, threads, restaurants…"
+            placeholder="Tìm món ăn, bài viết, quán chay…"
             className="w-full bg-transparent text-base text-stone-900 placeholder:text-stone-400 outline-none"
           />
           <kbd className="h-5 px-1.5 rounded-md bg-white border border-stone-200 text-[11px] font-medium text-stone-400 flex items-center justify-center shrink-0 shadow-xs select-none">
@@ -64,13 +64,13 @@ export function Header() {
               href="/login"
               className="text-base font-medium text-stone-800 hover:text-stone-950 transition-colors cursor-pointer"
             >
-              Log in
+              Đăng nhập
             </Link>
             <Link
               href="/register"
               className="h-9 px-5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-base font-semibold transition-colors cursor-pointer shadow-sm inline-flex items-center justify-center focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
             >
-              Join free
+              Đăng ký
             </Link>
           </>
         ) : (
