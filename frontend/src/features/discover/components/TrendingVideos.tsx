@@ -22,9 +22,9 @@ export function TrendingVideos() {
     <section className="mt-11">
       {/* Section Header */}
       <SectionHeader
-        eyebrow="WATCH & COOK"
-        title="Trending video recipes"
-        actionText="See all"
+        eyebrow="XEM & NẤU ĂN"
+        title="Công thức video thịnh hành"
+        actionText="Xem tất cả"
       />
 
       {/* Filter Row */}
@@ -47,7 +47,7 @@ export function TrendingVideos() {
           className="h-10 px-4 text-sm font-semibold rounded-full border border-stone-200 bg-white text-stone-700 hover:text-stone-900 hover:border-stone-300 transition-colors inline-flex items-center gap-2 shrink-0 whitespace-nowrap cursor-pointer shadow-xs"
         >
           <SlidersHorizontal className="w-4 h-4 text-stone-500" strokeWidth={1.75} />
-          <span>Filters</span>
+          <span>Bộ lọc</span>
         </button>
       </div>
 

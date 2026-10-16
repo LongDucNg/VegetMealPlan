@@ -73,35 +73,34 @@ export function Hero() {
           <div className="flex items-center gap-3">
             <span className="h-8 px-3 rounded-full bg-amber-400 text-amber-950 text-sm font-semibold inline-flex items-center gap-1.5">
               <Flame className="w-3.5 h-3.5 fill-current" />
-              <span>Recipe of the day</span>
+              <span>Món ngon trong ngày</span>
             </span>
             <span className="text-sm font-semibold text-emerald-200">
-              Vietnamese
+              Món Việt
             </span>
           </div>
 
           {/* Heading H1 */}
           <h1 className="mt-6 font-serif font-bold text-[46px] leading-[50px] text-white tracking-tight">
-            Lemongrass
+            Cơm Đậu Hũ
             <br />
-            Tofu Rice Bowl
+            Sả Ớt Giòn Rụm
           </h1>
 
           {/* Description */}
           <p className="mt-5 text-lg leading-[27px] text-emerald-100">
-            Crispy lemongrass-chili tofu over jasmine rice with pickled carrot,
-            cucumber and a punchy vegan nuoc cham.
+            Đậu hũ chiên sả ớt giòn thơm dùng kèm cơm lài dẻo thơm, đồ chua thanh mát và nước mắm chay đậm đà chuẩn vị.
           </p>
 
           {/* Meta Row */}
           <div className="mt-5 flex items-center gap-6 text-base font-semibold text-white">
             <div className="flex items-center gap-2">
               <Clock className="w-[18px] h-[18px] text-emerald-200" />
-              <span>35 min</span>
+              <span>35 phút</span>
             </div>
             <div className="flex items-center gap-2">
               <ChefHat className="w-[18px] h-[18px] text-emerald-200" />
-              <span>Easy</span>
+              <span>Dễ làm</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Star className="w-[18px] h-[18px] fill-amber-400 text-amber-400" />
@@ -121,7 +120,7 @@ export function Hero() {
               className="h-[54px] px-7 rounded-full bg-amber-400 hover:bg-amber-500 text-amber-950 text-[17px] font-medium inline-flex items-center gap-2.5 transition-colors cursor-pointer shadow-sm focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-900"
             >
               <Play className="w-[18px] h-[18px] fill-current" />
-              <span>Watch recipe</span>
+              <span>Xem công thức</span>
             </Link>
             <button
               type="button"

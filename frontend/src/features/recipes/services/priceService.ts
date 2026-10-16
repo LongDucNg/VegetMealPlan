@@ -208,9 +208,12 @@ export const priceService = {
     return userPrices[recipeId];
   },
 
-  setMyPrice(userId: string, recipeId: string, actualPrice: number): void {
+  async setMyPrice(userId: string, recipeId: string, actualPrice: number): Promise<void> {
     const safeId = userId || "1";
     if (!recipeId) return;
+    const rounded = Math.max(0, Math.round(actualPrice));
+
+    // 1. Lưu cục bộ cache
     const all = storage.getItem<Record<string, Record<string, number>>>(
       STORAGE_KEYS.RECIPE_PRICES,
       {}
@@ -218,11 +221,22 @@ export const priceService = {
     if (!all[safeId]) {
       all[safeId] = {};
     }
-    all[safeId][recipeId] = Math.max(0, Math.round(actualPrice));
+    all[safeId][recipeId] = rounded;
     storage.setItem(STORAGE_KEYS.RECIPE_PRICES, all);
+
+    // 2. Gửi API backend: PUT /users/me/recipe-prices/:recipeId
+    const numericId = parseInt(recipeId.replace(/\D/g, ""), 10);
+    if (!isNaN(numericId)) {
+      try {
+        const { ingredientApiService } = await import("./ingredientApiService");
+        await ingredientApiService.setMyRecipePrice(numericId, rounded);
+      } catch (err) {
+        console.warn("[priceService] Lưu giá lên server thất bại, đã lưu tạm cục bộ:", err);
+      }
+    }
   },
 
-  removeMyPrice(userId: string, recipeId: string): void {
+  async removeMyPrice(userId: string, recipeId: string): Promise<void> {
     const safeId = userId || "1";
     if (!recipeId) return;
     const all = storage.getItem<Record<string, Record<string, number>>>(
@@ -233,6 +247,47 @@ export const priceService = {
       delete all[safeId][recipeId];
       storage.setItem(STORAGE_KEYS.RECIPE_PRICES, all);
     }
+
+    // Gửi API backend: DELETE /users/me/recipe-prices/:recipeId
+    const numericId = parseInt(recipeId.replace(/\D/g, ""), 10);
+    if (!isNaN(numericId)) {
+      try {
+        const { ingredientApiService } = await import("./ingredientApiService");
+        await ingredientApiService.removeMyRecipePrice(numericId);
+      } catch (err) {
+        console.warn("[priceService] Xóa giá trên server thất bại, đã xóa cục bộ:", err);
+      }
+    }
+  },
+
+  /**
+   * Đồng bộ bảng giá cá nhân từ backend database
+   * GET /users/me/recipe-prices
+   */
+  async syncUserPricesFromServer(userId: string): Promise<Record<string, number>> {
+    const safeId = userId || "1";
+    try {
+      const { ingredientApiService } = await import("./ingredientApiService");
+      const res = await ingredientApiService.getMyRecipePrices();
+      const list = Array.isArray(res) ? res : (res as any)?.data || [];
+      if (Array.isArray(list)) {
+        const prices: Record<string, number> = {};
+        for (const item of list) {
+          const rId = String(item.recipe_id || item.recipeId);
+          prices[rId] = Number(item.actual_price ?? 0);
+        }
+        const all = storage.getItem<Record<string, Record<string, number>>>(
+          STORAGE_KEYS.RECIPE_PRICES,
+          {}
+        );
+        all[safeId] = { ...(all[safeId] || {}), ...prices };
+        storage.setItem(STORAGE_KEYS.RECIPE_PRICES, all);
+        return all[safeId];
+      }
+    } catch (err) {
+      console.warn("[priceService] Không thể đồng bộ giá từ server:", err);
+    }
+    return this.getUserPrices(safeId);
   },
 
   /**
