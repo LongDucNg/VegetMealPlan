@@ -17,10 +17,10 @@ export function ProfileEditor() {
   const { profile, updateProfile, resetProfile } = useProfile();
 
   const [name, setName] = useState(profile.name);
-  const [age, setAge] = useState(profile.age);
+  const [age, setAge] = useState<number | string>(profile.age);
   const [gender, setGender] = useState<Gender>(profile.gender);
-  const [height, setHeight] = useState(profile.height);
-  const [weight, setWeight] = useState(profile.weight);
+  const [height, setHeight] = useState<number | string>(profile.height);
+  const [weight, setWeight] = useState<number | string>(profile.weight);
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>(profile.activityLevel);
   const [healthGoal, setHealthGoal] = useState<HealthGoal>(profile.healthGoal);
   const [vegetarianType, setVegetarianType] = useState<VegetarianType>(profile.vegetarianType);
@@ -29,6 +29,13 @@ export function ProfileEditor() {
   const [saved, setSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Hàm loại bỏ hoàn toàn số 0 đứng ở đầu khi nhập số (VD: "001" -> "1", "0170" -> "170")
+  const cleanNumberInput = (raw: string) => {
+    if (!raw) return "";
+    if (raw === "0") return "";
+    return raw.replace(/^0+(?=\d)/, "");
+  };
 
   // Sync state when profile is fetched from server
   React.useEffect(() => {
@@ -42,6 +49,7 @@ export function ProfileEditor() {
     setVegetarianType(profile.vegetarianType);
     setAllergies(profile.allergies);
   }, [profile]);
+
 
   // Real-time live calculations based on current inputs
   const liveProfile: UserProfile = {
@@ -175,8 +183,8 @@ export function ProfileEditor() {
                 min="10"
                 max="100"
                 required
-                value={age}
-                onChange={(e) => setAge(Number(e.target.value))}
+                value={age === 0 ? "" : age}
+                onChange={(e) => setAge(cleanNumberInput(e.target.value))}
                 className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm focus:bg-white focus:border-emerald-600 outline-none"
               />
             </div>
@@ -205,8 +213,8 @@ export function ProfileEditor() {
                 min="50"
                 max="250"
                 required
-                value={height}
-                onChange={(e) => setHeight(Number(e.target.value))}
+                value={height === 0 ? "" : height}
+                onChange={(e) => setHeight(cleanNumberInput(e.target.value))}
                 className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm focus:bg-white focus:border-emerald-600 outline-none"
               />
             </div>
@@ -219,13 +227,15 @@ export function ProfileEditor() {
                 type="number"
                 min="20"
                 max="300"
+                step="any"
                 required
-                value={weight}
-                onChange={(e) => setWeight(Number(e.target.value))}
+                value={weight === 0 ? "" : weight}
+                onChange={(e) => setWeight(cleanNumberInput(e.target.value))}
                 className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm focus:bg-white focus:border-emerald-600 outline-none"
               />
             </div>
           </div>
+
 
           <div>
             <label className="block text-xs font-semibold text-stone-700 mb-1.5">
