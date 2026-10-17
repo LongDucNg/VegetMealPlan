@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { ActivityLevel, BmiCategory, DietType, User, UserRole, UserStatus } from './entities/user.entity';
 import { HealthGoal } from '../health-goal/entities/health-goal.entity';
 import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
 import { Ingredient } from '../ingredient/entities/ingredient.entity';
+import { UserSession } from '../auth/entities/user-session.entity';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateAllergiesDto } from './dto/update-allergies.dto';
 import { ALLERGEN_GROUPS } from './allergen-groups';
@@ -27,6 +28,7 @@ export class UsersService {
     @InjectRepository(HealthGoal) private readonly goalRepo: Repository<HealthGoal>,
     @InjectRepository(UserAllergy) private readonly allergyRepo: Repository<UserAllergy>,
     @InjectRepository(Ingredient) private readonly ingredientRepo: Repository<Ingredient>,
+    @InjectRepository(UserSession) private readonly sessionRepo: Repository<UserSession>,
   ) {}
 
   findAll(): Promise<User[]> {
@@ -198,20 +200,44 @@ export class UsersService {
     return qb.getMany();
   }
 
-  /** Cập nhật trạng thái Active/Locked */
-  async updateMemberStatus(id: number, status: string): Promise<User> {
+  /**
+   * Admin khóa / mở khóa tài khoản. Khóa thì thu hồi luôn mọi phiên đăng nhập của người đó
+   * (bảng user_sessions), không chờ token hết hạn.
+   */
+  async updateMemberStatus(adminId: number, id: number, status: UserStatus) {
+    this.assertNotSelf(adminId, id);
     const user = await this.findOne(id);
-    const lower = (status || '').toLowerCase();
-    user.status = lower === 'suspended' || lower === 'locked' ? UserStatus.LOCKED : UserStatus.ACTIVE;
-    return this.userRepo.save(user);
+    user.status = status;
+    await this.userRepo.save(user);
+    if (status === UserStatus.LOCKED) {
+      await this.sessionRepo.update({ user_id: id, revoked_at: IsNull() }, { revoked_at: new Date() });
+    }
+    return toMember(user);
   }
 
-  /** Cập nhật vai trò Admin/Authorized */
-  async updateMemberRole(id: number, role: string): Promise<User> {
+  /** Admin thăng / hạ vai trò. Có hiệu lực ngay vì JwtStrategy đọc role từ DB ở mỗi request. */
+  async updateMemberRole(adminId: number, id: number, role: UserRole) {
+    this.assertNotSelf(adminId, id);
     const user = await this.findOne(id);
-    const lower = (role || '').toLowerCase();
-    user.role = lower === 'admin' ? UserRole.ADMIN : UserRole.AUTHORIZED;
-    return this.userRepo.save(user);
+    user.role = role;
+    await this.userRepo.save(user);
+    return toMember(user);
   }
+
+  /** Không cho admin tự khóa hoặc tự hạ quyền chính mình (tránh hệ thống không còn admin nào). */
+  private assertNotSelf(adminId: number, targetId: number) {
+    if (adminId === targetId) {
+      throw new BadRequestException({
+        code: ErrorCode.USER_CANNOT_MODIFY_SELF,
+        message: 'Không thể tự thay đổi trạng thái hoặc vai trò của chính mình',
+      });
+    }
+  }
+
 }
 
+/** Chỉ trả các cột an toàn cho trang quản lý thành viên (không có password_hash, google_id). */
+function toMember(user: User) {
+  const { user_id, full_name, email, role, status, created_at } = user;
+  return { user_id, full_name, email, role, status, created_at };
+}
