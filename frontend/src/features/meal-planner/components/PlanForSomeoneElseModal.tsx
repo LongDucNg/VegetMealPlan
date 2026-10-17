@@ -36,10 +36,18 @@ export function PlanForSomeoneElseModal({
   isPlanForSomeoneElse,
 }: PlanForSomeoneElseModalProps) {
   const [name, setName] = useState(currentOtherProfile?.name || "Người thân");
-  const [age, setAge] = useState<number>(currentOtherProfile?.age || 28);
+  const [age, setAge] = useState<number | string>(currentOtherProfile?.age || 28);
   const [gender, setGender] = useState<Gender>(currentOtherProfile?.gender || "female");
-  const [weight, setWeight] = useState<number>(currentOtherProfile?.weight || 58);
-  const [height, setHeight] = useState<number>(currentOtherProfile?.height || 162);
+  const [weight, setWeight] = useState<number | string>(currentOtherProfile?.weight || 58);
+  const [height, setHeight] = useState<number | string>(currentOtherProfile?.height || 162);
+
+  // Hàm loại bỏ số 0 ở đầu khi nhập số (VD: "001" -> "1", "0170" -> "170")
+  const cleanNumberInput = (raw: string) => {
+    if (!raw) return "";
+    if (raw === "0") return "";
+    return raw.replace(/^0+(?=\d)/, "");
+  };
+
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>(
     currentOtherProfile?.activityLevel || "moderate"
   );
@@ -157,13 +165,14 @@ export function PlanForSomeoneElseModal({
                 type="number"
                 min="10"
                 max="100"
-                value={age}
-                onChange={(e) => setAge(Number(e.target.value))}
+                value={age === 0 ? "" : age}
+                onChange={(e) => setAge(cleanNumberInput(e.target.value))}
                 className="w-full h-10 px-3.5 rounded-xl border border-stone-200 bg-stone-50 text-sm focus:bg-white focus:border-emerald-600 outline-none"
                 required
               />
             </div>
           </div>
+
 
           {/* Gender & Diet */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -206,11 +215,11 @@ export function PlanForSomeoneElseModal({
               </label>
               <input
                 type="number"
-                step="0.5"
+                step="any"
                 min="30"
                 max="200"
-                value={weight}
-                onChange={(e) => setWeight(Number(e.target.value))}
+                value={weight === 0 ? "" : weight}
+                onChange={(e) => setWeight(cleanNumberInput(e.target.value))}
                 className="w-full h-10 px-3.5 rounded-xl border border-stone-200 bg-stone-50 text-sm focus:bg-white focus:border-emerald-600 outline-none"
                 required
               />
@@ -223,13 +232,14 @@ export function PlanForSomeoneElseModal({
                 type="number"
                 min="100"
                 max="230"
-                value={height}
-                onChange={(e) => setHeight(Number(e.target.value))}
+                value={height === 0 ? "" : height}
+                onChange={(e) => setHeight(cleanNumberInput(e.target.value))}
                 className="w-full h-10 px-3.5 rounded-xl border border-stone-200 bg-stone-50 text-sm focus:bg-white focus:border-emerald-600 outline-none"
                 required
               />
             </div>
           </div>
+
 
           {/* Activity & Goal */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
