@@ -1,17 +1,28 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowRight, Leaf, Loader2, Lock, Mail } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  Leaf,
+  Loader2,
+  Lock,
+  Mail,
+} from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { useAuth, authService } from "@/features/auth";
 import { ApiError } from "@/lib/apiClient";
 
-export default function LoginPage() {
+function LoginFormContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const resetSuccess = searchParams.get("reset") === "success";
+
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -45,9 +56,13 @@ export default function LoginPage() {
     window.location.href = authService.getGoogleLoginUrl();
   };
 
+  const forgotPasswordHref = email.trim()
+    ? `/forgot-password?email=${encodeURIComponent(email.trim())}`
+    : "/forgot-password";
+
   return (
     <AppShell showRightRail={false}>
-      <div className="w-full flex justify-center py-10">
+      <div className="w-full flex justify-center py-10 px-4">
         <Card className="max-w-md w-full p-8 shadow-sm">
           {/* Logo Brand Header */}
           <div className="flex flex-col items-center text-center mb-7 select-none">
@@ -62,6 +77,16 @@ export default function LoginPage() {
             </p>
           </div>
 
+          {/* Reset Password Success Banner */}
+          {resetSuccess && !errorMsg && (
+            <div className="mb-5 flex items-start gap-2.5 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-sm animate-in fade-in duration-200">
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+              <div className="flex-1 font-medium text-xs leading-relaxed">
+                Đặt lại mật khẩu thành công! Vui lòng đăng nhập bằng mật khẩu mới của bạn.
+              </div>
+            </div>
+          )}
+
           {/* Error Banner */}
           {errorMsg && (
             <div className="mb-5 flex items-start gap-2.5 p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm animate-in fade-in duration-200">
@@ -74,7 +99,7 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1.5">
-                Địa chỉ Email
+                Email
               </label>
               <Input
                 type="email"
@@ -103,9 +128,12 @@ export default function LoginPage() {
                 disabled={isLoading}
               />
               <div className="flex justify-end mt-2">
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-red-500 hover:text-red-600 hover:underline underline-offset-4 cursor-pointer transition-all duration-200">
+                <Link
+                  href={forgotPasswordHref}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline underline-offset-4 cursor-pointer transition-all duration-200"
+                >
                   Quên mật khẩu?
-                </span>
+                </Link>
               </div>
             </div>
 
@@ -180,5 +208,21 @@ export default function LoginPage() {
         </Card>
       </div>
     </AppShell>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppShell showRightRail={false}>
+          <div className="w-full flex justify-center py-20">
+            <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+          </div>
+        </AppShell>
+      }
+    >
+      <LoginFormContent />
+    </Suspense>
   );
 }
