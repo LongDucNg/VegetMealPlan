@@ -63,6 +63,8 @@ export enum ErrorCode {
   USER_PROFILE_INCOMPLETE = 'USER_PROFILE_INCOMPLETE',
   /** 400: ingredient_id trong danh sách dị ứng không tồn tại. */
   USER_ALLERGY_INGREDIENT_NOT_FOUND = 'USER_ALLERGY_INGREDIENT_NOT_FOUND',
+  /** 400: admin tự khóa hoặc tự đổi vai trò của chính mình. */
+  USER_CANNOT_MODIFY_SELF = 'USER_CANNOT_MODIFY_SELF',
 
   // ---- Danh mục ----
   /** 404 */
