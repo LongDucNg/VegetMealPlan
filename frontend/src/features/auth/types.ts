@@ -76,3 +76,33 @@ export interface LoginPayload {
   email: string;
   password: string;
 }
+
+export interface ForgotPasswordPayload {
+  email: string;
+}
+
+export interface ForgotPasswordResponse {
+  message: string;
+  expires_in_seconds?: number;
+  resend_after_seconds?: number;
+}
+
+export interface ResetPasswordPayload {
+  email: string;
+  code: string;
+  new_password: string;
+}
+
+export interface ResetPasswordResponse {
+  message: string;
+}
+
+export interface ChangePasswordPayload {
+  current_password: string;
+  new_password: string;
+}
+
+export interface ChangePasswordResponse {
+  message: string;
+  revoked_sessions?: number;
+}

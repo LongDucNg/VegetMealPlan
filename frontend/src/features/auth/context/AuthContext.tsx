@@ -14,6 +14,12 @@ import {
   LoginPayload,
   RegisterPayload,
   AuthResponse,
+  ForgotPasswordPayload,
+  ForgotPasswordResponse,
+  ResetPasswordPayload,
+  ResetPasswordResponse,
+  ChangePasswordPayload,
+  ChangePasswordResponse,
 } from "../types";
 import { authService } from "../services/authService";
 import { tokenStorage } from "@/lib/tokenStorage";
@@ -32,6 +38,9 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   logoutAll: () => Promise<{ message: string; revoked_sessions: number }>;
   refreshMe: () => Promise<AuthUser | null>;
+  forgotPassword: (payload: ForgotPasswordPayload) => Promise<ForgotPasswordResponse>;
+  resetPassword: (payload: ResetPasswordPayload) => Promise<ResetPasswordResponse>;
+  changePassword: (payload: ChangePasswordPayload) => Promise<ChangePasswordResponse>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -124,6 +133,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const forgotPassword = useCallback(async (payload: ForgotPasswordPayload) => {
+    return await authService.forgotPassword(payload);
+  }, []);
+
+  const resetPassword = useCallback(async (payload: ResetPasswordPayload) => {
+    return await authService.resetPassword(payload);
+  }, []);
+
+  const changePassword = useCallback(async (payload: ChangePasswordPayload) => {
+    return await authService.changePassword(payload);
+  }, []);
+
   // Deprecated manual switcher - roles are strictly driven by backend JWT
   const setRole = useCallback((_newRole: UserRole) => {
     console.info("[AuthContext] Manual role switching disabled. Please log in with a valid account.");
@@ -150,6 +171,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         logoutAll,
         refreshMe,
+        forgotPassword,
+        resetPassword,
+        changePassword,
       }}
     >
       {children}
