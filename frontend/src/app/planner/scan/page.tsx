@@ -375,11 +375,10 @@ function PantryManager() {
                         setSelectedIngredientId(ing.ingredient_id);
                         setUnit(ing.unit || "g");
                       }}
-                      className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between hover:bg-emerald-50 transition-colors cursor-pointer ${
-                        selectedIngredientId === ing.ingredient_id
+                      className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between hover:bg-emerald-50 transition-colors cursor-pointer ${selectedIngredientId === ing.ingredient_id
                           ? "bg-emerald-100/70 font-bold text-emerald-900"
                           : "text-stone-700"
-                      }`}
+                        }`}
                     >
                       <span>{ing.ingredient_name}</span>
                       <span className="text-[11px] text-stone-400">
@@ -473,22 +472,20 @@ function ScanContent() {
       <div className="flex items-center gap-2 border-b border-stone-200 pb-3">
         <button
           onClick={() => setActiveTab("pantry")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
-            activeTab === "pantry"
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${activeTab === "pantry"
               ? "bg-emerald-700 text-white shadow-xs"
               : "text-stone-600 hover:bg-stone-100"
-          }`}
+            }`}
         >
           <Refrigerator className="w-4 h-4" />
-          <span>Tủ lạnh của tôi (Database PostgreSQL)</span>
+          <span>Tủ lạnh của tôi</span>
         </button>
         <button
           onClick={() => setActiveTab("scan")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
-            activeTab === "scan"
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${activeTab === "scan"
               ? "bg-emerald-700 text-white shadow-xs"
               : "text-stone-600 hover:bg-stone-100"
-          }`}
+            }`}
         >
           <Camera className="w-4 h-4" />
           <span>Quét ảnh AI & Nhận diện</span>
@@ -509,11 +506,10 @@ function ScanContent() {
                   setActivePreset(p);
                   setScanned(false);
                 }}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-                  activePreset.id === p.id
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${activePreset.id === p.id
                     ? "bg-emerald-700 text-white"
                     : "bg-stone-100 text-stone-700 hover:bg-stone-200"
-                }`}
+                  }`}
               >
                 {p.label}
               </button>
