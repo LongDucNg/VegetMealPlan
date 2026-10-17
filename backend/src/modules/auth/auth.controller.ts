@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Put, Req, Res, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiExcludeEndpoint, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
@@ -12,6 +12,7 @@ import { ALLERGEN_GROUPS } from '../users/allergen-groups';
 import { DietType } from '../users/entities/user.entity';
 import { GoogleExchangeDto } from './dto/google-exchange.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ChangePasswordDto, ForgotPasswordDto, ResetPasswordDto } from './dto/password.dto';
 import { SessionMeta } from './session.service';
 import { GoogleAuthCallbackGuard, GoogleAuthGuard, GoogleConfiguredGuard } from './guards/google.guards';
 import { GoogleProfile } from './strategies/google.strategy';
@@ -70,6 +71,49 @@ export class AuthController {
   @ApiOperation({ summary: 'Đăng xuất khỏi mọi thiết bị (thu hồi mọi phiên của tài khoản)' })
   logoutAll(@CurrentUser('user_id') userId: number) {
     return this.authService.logoutAll(userId);
+  }
+
+  // ---- Quên mật khẩu (OTP qua email) và đổi mật khẩu ----
+
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Bước 1 quên mật khẩu: gửi mã OTP 6 số tới email',
+    description:
+      'Luôn trả cùng một câu dù email có tồn tại hay không (chống dò email). Mã hiệu lực 10 phút, ' +
+      'gửi lại phải cách 60 giây. FE gọi xong thì chuyển sang màn nhập mã; nút "Gửi lại mã" gọi lại API này.',
+  })
+  @ApiResponse({ status: 429, description: 'AUTH_OTP_RATE_LIMITED: một IP gọi quá 10 lần trong 15 phút' })
+  forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
+    return this.authService.forgotPassword(dto.email, req.ip ?? null);
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Bước 2 quên mật khẩu: nhập mã OTP và mật khẩu mới',
+    description: 'Thành công thì mọi thiết bị đang đăng nhập bị đăng xuất; FE chuyển về trang đăng nhập.',
+  })
+  @ApiResponse({ status: 400, description: 'AUTH_OTP_INVALID, AUTH_OTP_EXPIRED, AUTH_OTP_TOO_MANY_ATTEMPTS hoặc VALIDATION_FAILED' })
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
+  }
+
+  @ApiBearerAuth()
+  @Put('change-password')
+  @ApiOperation({
+    summary: 'Đổi mật khẩu khi đang đăng nhập',
+    description: 'Giữ phiên hiện tại, đăng xuất mọi thiết bị khác. Gửi mail báo đã đổi mật khẩu.',
+  })
+  @ApiResponse({ status: 400, description: 'AUTH_WRONG_PASSWORD, AUTH_PASSWORD_NOT_SET (tài khoản Google), AUTH_PASSWORD_UNCHANGED' })
+  changePassword(
+    @CurrentUser('user_id') userId: number,
+    @CurrentUser('sid') sid: string,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(userId, sid, dto);
   }
 
   // ---- Đăng nhập Google (OAuth2 redirect phía server) ----
