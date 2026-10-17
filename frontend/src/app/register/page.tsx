@@ -105,6 +105,13 @@ export default function RegisterPage() {
     );
   };
 
+  // Hàm loại bỏ số 0 ở đầu khi nhập số (VD: "001" -> "1", "0170" -> "170")
+  const cleanNumberInput = (raw: string) => {
+    if (!raw) return "";
+    if (raw === "0") return "";
+    return raw.replace(/^0+(?=\d)/, "");
+  };
+
   // Tính BMI tham khảo nhanh nếu người dùng nhập chiều cao và cân nặng
   const numHeight = parseFloat(height);
   const numWeight = parseFloat(weight);
@@ -112,6 +119,7 @@ export default function RegisterPage() {
     numHeight > 0 && numWeight > 0
       ? (numWeight / ((numHeight / 100) * (numHeight / 100))).toFixed(1)
       : null;
+
 
   const handleNextStep = (e: React.FormEvent) => {
     e.preventDefault();
@@ -464,7 +472,7 @@ export default function RegisterPage() {
                       min={5}
                       max={120}
                       value={age}
-                      onChange={(e) => setAge(e.target.value)}
+                      onChange={(e) => setAge(cleanNumberInput(e.target.value))}
                       placeholder="25"
                       className="h-10 text-xs"
                     />
@@ -477,7 +485,7 @@ export default function RegisterPage() {
                       min={50}
                       max={250}
                       value={height}
-                      onChange={(e) => setHeight(e.target.value)}
+                      onChange={(e) => setHeight(cleanNumberInput(e.target.value))}
                       placeholder="165"
                       className="h-10 text-xs"
                     />
@@ -490,11 +498,12 @@ export default function RegisterPage() {
                       min={20}
                       max={250}
                       value={weight}
-                      onChange={(e) => setWeight(e.target.value)}
+                      onChange={(e) => setWeight(cleanNumberInput(e.target.value))}
                       placeholder="55"
                       className="h-10 text-xs"
                     />
                   </div>
+
                 </div>
 
                 {/* BMI Preview Banner */}
