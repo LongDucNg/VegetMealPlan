@@ -9,6 +9,12 @@ import {
   LoginPayload,
   RegisterPayload,
   UserRole,
+  ForgotPasswordPayload,
+  ForgotPasswordResponse,
+  ResetPasswordPayload,
+  ResetPasswordResponse,
+  ChangePasswordPayload,
+  ChangePasswordResponse,
 } from "../types";
 
 export const authService = {
@@ -196,6 +202,30 @@ export const authService = {
     } finally {
       tokenStorage.clearAll();
     }
+  },
+
+  /**
+   * Quên mật khẩu - Bước 1: Gửi mã OTP 6 số tới email
+   * POST /auth/forgot-password
+   */
+  async forgotPassword(payload: ForgotPasswordPayload): Promise<ForgotPasswordResponse> {
+    return apiClient.post<ForgotPasswordResponse>("/auth/forgot-password", payload);
+  },
+
+  /**
+   * Quên mật khẩu - Bước 2: Nhập mã OTP và mật khẩu mới
+   * POST /auth/reset-password
+   */
+  async resetPassword(payload: ResetPasswordPayload): Promise<ResetPasswordResponse> {
+    return apiClient.post<ResetPasswordResponse>("/auth/reset-password", payload);
+  },
+
+  /**
+   * Đổi mật khẩu khi đang đăng nhập
+   * PUT /auth/change-password
+   */
+  async changePassword(payload: ChangePasswordPayload): Promise<ChangePasswordResponse> {
+    return apiClient.put<ChangePasswordResponse>("/auth/change-password", payload);
   },
 
   /**
