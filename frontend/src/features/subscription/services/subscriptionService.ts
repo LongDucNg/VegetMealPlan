@@ -70,12 +70,11 @@ export const subscriptionService = {
     }
 
     try {
-      // 1. Thử gọi GET /users/me/subscription
+      // Gọi trực tiếp endpoint backend đã có: GET /subscriptions/me/premium-status
       const res = await apiClient
-        .get<{ isPremium?: boolean; is_premium?: boolean; status?: string }>("/users/me/subscription")
+        .get<{ isPremium?: boolean; is_premium?: boolean; status?: string }>("/subscriptions/me/premium-status")
         .catch(() =>
-          // 2. Fallback gọi GET /subscriptions/me/premium-status
-          apiClient.get<{ isPremium: boolean }>("/subscriptions/me/premium-status")
+          apiClient.get<{ isPremium?: boolean; is_premium?: boolean; status?: string }>("/users/me/subscription")
         );
 
       const isPrem = !!(res?.isPremium ?? res?.is_premium ?? (res?.status === "active"));
@@ -123,7 +122,7 @@ export const subscriptionService = {
 
   /**
    * Mua gói Premium:
-   * POST /users/me/subscription/purchase hoặc POST /subscriptions/checkout
+   * POST /subscriptions/checkout (Lưu giao dịch PENDING vào PostgreSQL)
    */
   purchasePlan(planId: SubscriptionTier = "premium"): UserSubscription {
     if (typeof window !== "undefined") {
@@ -146,12 +145,12 @@ export const subscriptionService = {
 
     storage.setItem(STORAGE_KEYS.SUBSCRIPTION, updated);
 
-    // Call checkout endpoint asynchronously if logged in
+    // Gọi trực tiếp endpoint backend: POST /subscriptions/checkout
     const token = tokenStorage.getToken();
     if (token) {
       apiClient
-        .post<{ gateway_txn_ref?: string }>("/users/me/subscription/purchase")
-        .catch(() => apiClient.post("/subscriptions/checkout"))
+        .post<{ gateway_txn_ref?: string }>("/subscriptions/checkout")
+        .catch(() => apiClient.post("/users/me/subscription/purchase"))
         .catch(() => {});
     }
 
@@ -160,7 +159,7 @@ export const subscriptionService = {
 
   /**
    * Hủy gói Premium:
-   * DELETE /users/me/subscription hoặc DELETE /subscriptions/:id
+   * DELETE /subscriptions/:id
    */
   cancelSubscription(): UserSubscription {
     if (typeof window !== "undefined") {
@@ -178,10 +177,11 @@ export const subscriptionService = {
     const token = tokenStorage.getToken();
     if (token) {
       apiClient
-        .delete("/users/me/subscription")
-        .catch(() => apiClient.delete("/subscriptions/1"))
+        .delete("/subscriptions/1")
+        .catch(() => apiClient.delete("/users/me/subscription"))
         .catch(() => {});
     }
+
 
     return updated;
   },

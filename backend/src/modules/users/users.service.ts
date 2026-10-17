@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { ActivityLevel, BmiCategory, DietType, User } from './entities/user.entity';
+import { ActivityLevel, BmiCategory, DietType, User, UserRole, UserStatus } from './entities/user.entity';
 import { HealthGoal } from '../health-goal/entities/health-goal.entity';
 import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
 import { Ingredient } from '../ingredient/entities/ingredient.entity';
@@ -175,4 +175,43 @@ export class UsersService {
     if (bmi < 30) return BmiCategory.OVERWEIGHT;
     return BmiCategory.OBESE;
   }
+
+  /** Lấy danh sách thành viên cho Admin kèm tìm kiếm và lọc trạng thái */
+  async findMembers(search?: string, status?: string): Promise<User[]> {
+    const qb = this.userRepo.createQueryBuilder('u').select([
+      'u.user_id',
+      'u.full_name',
+      'u.email',
+      'u.role',
+      'u.status',
+      'u.created_at',
+    ]);
+    if (search && search.trim()) {
+      qb.andWhere('(u.full_name ILIKE :s OR u.email ILIKE :s)', { s: `%${search.trim()}%` });
+    }
+    if (status && status !== 'all') {
+      const lower = status.toLowerCase();
+      const dbStatus = lower === 'suspended' || lower === 'locked' ? UserStatus.LOCKED : UserStatus.ACTIVE;
+      qb.andWhere('u.status = :status', { status: dbStatus });
+    }
+    qb.orderBy('u.user_id', 'ASC');
+    return qb.getMany();
+  }
+
+  /** Cập nhật trạng thái Active/Locked */
+  async updateMemberStatus(id: number, status: string): Promise<User> {
+    const user = await this.findOne(id);
+    const lower = (status || '').toLowerCase();
+    user.status = lower === 'suspended' || lower === 'locked' ? UserStatus.LOCKED : UserStatus.ACTIVE;
+    return this.userRepo.save(user);
+  }
+
+  /** Cập nhật vai trò Admin/Authorized */
+  async updateMemberRole(id: number, role: string): Promise<User> {
+    const user = await this.findOne(id);
+    const lower = (role || '').toLowerCase();
+    user.role = lower === 'admin' ? UserRole.ADMIN : UserRole.AUTHORIZED;
+    return this.userRepo.save(user);
+  }
 }
+
