@@ -12,11 +12,16 @@ import { GoogleStrategy } from './strategies/google.strategy';
 import { GoogleLoginCodeStore } from './google-login-code.store';
 import { SessionService } from './session.service';
 import { UserSession } from './entities/user-session.entity';
+import { EmailOtp } from './entities/email-otp.entity';
+import { EmailOtpService } from './email-otp.service';
+import { IpRateLimiter } from './ip-rate-limiter';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, UserSession]),
+    TypeOrmModule.forFeature([User, UserSession, EmailOtp]),
     UsersModule,
+    MailModule,
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -28,7 +33,7 @@ import { UserSession } from './entities/user-session.entity';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, GoogleLoginCodeStore, SessionService],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, GoogleLoginCodeStore, SessionService, EmailOtpService, IpRateLimiter],
   exports: [AuthService, SessionService],
 })
 export class AuthModule {}
