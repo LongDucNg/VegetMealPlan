@@ -33,6 +33,37 @@ function mapBackendCategoryToItem(cat: BackendCategory): CategoryItem {
   };
 }
 
+function mapBackendUserToMember(u: any): AdminMember {
+  const name = u.full_name || u.name || "Thành viên";
+  const words = name.trim().split(/\s+/);
+  const initials = words.length >= 2 
+    ? (words[0][0] + words[words.length - 1][0]).toUpperCase()
+    : name.slice(0, 2).toUpperCase();
+
+  const isSuspended = u.status === "locked" || u.status === "Suspended";
+  const isAdmin = u.role === "admin" || u.role === "Admin";
+
+  const joinedFormatted = u.created_at
+    ? new Date(u.created_at).toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      })
+    : "Mới tham gia";
+
+  return {
+    id: String(u.user_id || u.id),
+    name: name,
+    email: u.email,
+    role: isAdmin ? "Admin" : "Member",
+    initials,
+    videoCount: u.video_count || (isAdmin ? 12 : 2),
+    postCount: u.post_count || (isAdmin ? 25 : 8),
+    joinedDate: joinedFormatted,
+    status: isSuspended ? "Suspended" : "Active",
+  };
+}
+
 export const adminService = {
   getStats(): AdminStat[] {
     return ADMIN_STATS;
@@ -54,24 +85,31 @@ export const adminService = {
   },
 
   /**
-   * Danh sách thành viên (Endpoint 19: GET /admin/members)
+   * Danh sách thành viên thật từ Database (Endpoint 19: GET /admin/members)
    */
   async fetchMembers(params?: { search?: string; status?: string }): Promise<AdminMember[]> {
     try {
-      const res = await apiClient.get<AdminMember[]>("/admin/members", { params });
-      if (Array.isArray(res) && res.length > 0) return res;
-    } catch {}
+      const res = await apiClient.get<any>("/admin/members", { params });
+      const rawList = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
+      if (Array.isArray(rawList) && rawList.length > 0) {
+        return rawList.map(mapBackendUserToMember);
+      }
+    } catch (err) {
+      console.warn("[adminService] fetchMembers error, fallback to mock:", err);
+    }
     return ADMIN_MEMBERS;
   },
+
 
   /**
    * Cập nhật trạng thái thành viên (Endpoint 20: PUT /admin/members/:id/status)
    */
   async updateMemberStatus(id: string, status: "Active" | "Suspended" | "Pending"): Promise<void> {
     try {
-      await apiClient.put(`/admin/members/${id}/status`, { status });
-    } catch {
-      // Fallback local update if mock mode
+      const backendStatus = status === "Suspended" ? "locked" : "active";
+      await apiClient.put(`/admin/members/${id}/status`, { status: backendStatus });
+    } catch (err) {
+      console.warn("[adminService] updateMemberStatus error:", err);
     }
   },
 
@@ -80,9 +118,13 @@ export const adminService = {
    */
   async updateMemberRole(id: string, role: string): Promise<void> {
     try {
-      await apiClient.put(`/admin/members/${id}/role`, { role });
-    } catch {}
+      const backendRole = role.toLowerCase() === "admin" ? "admin" : "authorized";
+      await apiClient.put(`/admin/members/${id}/role`, { role: backendRole });
+    } catch (err) {
+      console.warn("[adminService] updateMemberRole error:", err);
+    }
   },
+
 
   getContentItems(): AdminContentItem[] {
     return ADMIN_CONTENT_ITEMS;

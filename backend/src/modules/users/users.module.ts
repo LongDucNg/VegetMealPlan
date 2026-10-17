@@ -6,10 +6,12 @@ import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
 import { Ingredient } from '../ingredient/entities/ingredient.entity';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
+import { AdminUsersController } from './admin-users.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([User, HealthGoal, UserAllergy, Ingredient])],
-  controllers: [UsersController],
+  controllers: [UsersController, AdminUsersController],
+
   providers: [UsersService],
   exports: [UsersService, TypeOrmModule],
 })
