@@ -24,10 +24,9 @@ VegetMealPlan/
 │   └── .env.example
 ├── frontend/                # Next.js (chạy cổng 3001)
 │   └── src/app/             # các trang: /recipes, /planner, /forum, /ai, /admin...
-├── docs/
-│   ├── algorithm.md         # công thức BMI, BMR (Mifflin-St Jeor), TDEE, macro
-│   └── erd.md               # sơ đồ quan hệ CSDL
-└── baocaotiendo.md          # báo cáo tiến độ
+└── docs/
+    ├── algorithm.md         # công thức BMI, BMR (Mifflin-St Jeor), TDEE, macro
+    └── erd.md               # sơ đồ quan hệ CSDL
 ```
 
 ---
@@ -128,7 +127,7 @@ Mọi đường dẫn có tiền tố `/api/v1`. Danh sách đầy đủ và th�
 | Nguyên liệu | `GET /ingredients`, `/users/me/ingredients`, `POST /users/me/recommendations/generate` |
 | Cộng đồng, AI | `/forum/posts`, `POST /chatbot/ask` |
 | Premium, thông báo | `/subscriptions/me/premium-status`, `POST /subscriptions/checkout`, `/notifications` |
-| Quản trị | `/admin/categories`, `/admin/ingredients`, `/admin/recipes`, `/admin/recipe-imports` |
+| Quản trị | `/admin/members`, `/admin/categories`, `/admin/ingredients`, `/admin/recipes`, `/admin/recipe-imports` |
 
 ### Quy ước chung
 
