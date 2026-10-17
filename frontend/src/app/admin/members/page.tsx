@@ -32,8 +32,8 @@ function RoleBadge({ role }: { role: AdminMember["role"] }) {
 function MembersContent() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | AdminMember["status"]>("all");
-  const [members, setMembers] = useState<AdminMember[]>([...ADMIN_MEMBERS]);
-  const [loading, setLoading] = useState(false);
+  const [members, setMembers] = useState<AdminMember[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -45,7 +45,7 @@ function MembersContent() {
       })
       .then((data) => {
         if (!active) return;
-        if (data && data.length > 0) setMembers(data);
+        setMembers(data);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -54,6 +54,7 @@ function MembersContent() {
       active = false;
     };
   }, [search, statusFilter]);
+
 
   const toggleSuspend = async (id: string) => {
     const target = members.find((m) => m.id === id);
