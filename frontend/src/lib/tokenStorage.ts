@@ -11,6 +11,7 @@ export interface AuthStoredUser {
   diet_type?: string | null;
   allergies?: string[];
   is_premium?: boolean;
+  premium_until?: string | Date | null;
   target_weight_kg?: number | null;
   target_date?: string | null;
   profile_complete?: boolean;

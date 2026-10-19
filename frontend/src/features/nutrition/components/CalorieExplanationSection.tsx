@@ -105,19 +105,19 @@ export function CalorieExplanationSection({
 
           {isOpen && (
             <div className="p-4 pt-1 border-t border-stone-100 space-y-3 bg-stone-50/40">
-              {explanation.map((item) => (
+              {explanation.map((item, index) => (
                 <div
-                  key={item.step}
+                  key={item.step || index}
                   className="p-3.5 rounded-xl bg-white border border-stone-200/80 shadow-2xs space-y-1.5"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold flex items-center justify-center">
-                        {item.step}
+                    <div className="text-xs font-bold text-emerald-900 flex items-center gap-2 min-w-0">
+                      <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold flex items-center justify-center shrink-0">
+                        {index + 1}
                       </span>
-                      Công thức bước {item.step}
-                    </span>
-                    <span className="text-xs font-bold text-stone-900 bg-stone-100 px-2 py-0.5 rounded-md">
+                      <span className="sm:whitespace-normal">{item.step}</span>
+                    </div>
+                    <span className="text-xs font-bold text-stone-900 bg-stone-100 px-2 py-0.5 rounded-md shrink-0 whitespace-nowrap">
                       {typeof item.result === "number" ? item.result.toLocaleString() : item.result} {item.unit}
                     </span>
                   </div>
