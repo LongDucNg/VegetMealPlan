@@ -30,24 +30,29 @@ export function SubscriptionPlans() {
   return (
     <div className="space-y-6">
       {/* Current plan notice */}
-      <div className="flex items-center justify-between p-4 rounded-2xl bg-stone-50 border border-stone-200">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-stone-50 border border-stone-200">
         <div>
-          <span className="text-xs text-stone-500">Current Membership:</span>
+          <span className="text-xs text-stone-500">Gói hội viên hiện tại:</span>
           <p className="font-serif font-bold text-lg text-stone-900 flex items-center gap-1.5 mt-0.5">
             {isPremium && <Crown className="w-4 h-4 text-amber-500 fill-amber-500" />}
             {subscription.planName}
           </p>
+          {isPremium && subscription.expiresAt && (
+            <p className="text-xs text-emerald-700 mt-0.5">
+              Hạn sử dụng đến: <span className="font-semibold">{new Date(subscription.expiresAt).toLocaleDateString("vi-VN")}</span>
+            </p>
+          )}
         </div>
         {isPremium ? (
           <button
             onClick={() => cancel()}
             className="text-xs text-red-600 hover:text-red-800 underline underline-offset-2 font-medium cursor-pointer"
           >
-            Cancel Subscription
+            Hủy gói Premium
           </button>
         ) : (
           <span className="text-xs font-semibold text-stone-500 bg-stone-200/70 px-2.5 py-1 rounded-full">
-            Free Tier
+            Gói Miễn Phí
           </span>
         )}
       </div>
@@ -102,7 +107,7 @@ export function SubscriptionPlans() {
                     disabled
                     className="w-full h-11 rounded-xl bg-stone-100 text-stone-500 font-semibold text-sm cursor-default"
                   >
-                    Current Plan
+                    Gói đang sử dụng
                   </button>
                 ) : (
                   <button
@@ -113,7 +118,7 @@ export function SubscriptionPlans() {
                         : "bg-stone-100 hover:bg-stone-200 text-stone-800"
                     }`}
                   >
-                    {plan.price > 0 ? "Upgrade Plan" : "Switch to Free"}
+                    {plan.price > 0 ? "Nâng cấp Premium" : "Chuyển về Miễn phí"}
                   </button>
                 )}
               </div>

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository, DataSource } from 'typeorm';
 import { ActivityLevel, BmiCategory, DietType, User, UserRole, UserStatus } from './entities/user.entity';
 import { HealthGoal } from '../health-goal/entities/health-goal.entity';
 import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
@@ -44,6 +44,7 @@ export class UsersService {
     @InjectRepository(UserAllergy) private readonly allergyRepo: Repository<UserAllergy>,
     @InjectRepository(Ingredient) private readonly ingredientRepo: Repository<Ingredient>,
     @InjectRepository(UserSession) private readonly sessionRepo: Repository<UserSession>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async findOne(user_id: number): Promise<User> {
@@ -320,6 +321,70 @@ export class UsersService {
     user.role = role;
     await this.userRepo.save(user);
     return toMember(user);
+  }
+
+  /**
+   * Admin xóa vĩnh viễn tài khoản người dùng khỏi database.
+   * Xóa sạch các dữ liệu liên quan trong transaction để không bị vi phạm ràng buộc Foreign Key.
+   */
+  async deleteMember(adminId: number, targetUserId: number) {
+    if (adminId === targetUserId) {
+      throw new BadRequestException({
+        code: ErrorCode.USER_CANNOT_MODIFY_SELF,
+        message: 'Không thể tự xóa tài khoản của chính mình',
+      });
+    }
+    const user = await this.findOne(targetUserId);
+
+    await this.dataSource.transaction(async (manager) => {
+      // 1. Gỡ tham chiếu tác giả / người kiểm duyệt
+      await manager.query(`UPDATE recipes SET approved_by = NULL WHERE approved_by = $1`, [targetUserId]);
+      await manager.query(`UPDATE blogs SET approved_by = NULL WHERE approved_by = $1`, [targetUserId]);
+      await manager.query(`UPDATE videos SET approved_by = NULL WHERE approved_by = $1`, [targetUserId]);
+      await manager.query(`UPDATE categories SET created_by = NULL WHERE created_by = $1`, [targetUserId]);
+      await manager.query(`UPDATE recipe_import_batches SET imported_by = NULL WHERE imported_by = $1`, [targetUserId]);
+
+      // 2. Xóa các bảng phụ thuộc trực tiếp của user
+      await manager.query(`DELETE FROM user_sessions WHERE user_id = $1`, [targetUserId]);
+      await manager.query(`DELETE FROM notifications WHERE user_id = $1`, [targetUserId]);
+      await manager.query(`DELETE FROM favorite_recipes WHERE user_id = $1`, [targetUserId]);
+      await manager.query(`DELETE FROM user_recipe_prices WHERE user_id = $1`, [targetUserId]);
+      await manager.query(`DELETE FROM user_ingredient_prices WHERE user_id = $1`, [targetUserId]);
+      await manager.query(`DELETE FROM user_ingredients WHERE user_id = $1`, [targetUserId]);
+      await manager.query(`DELETE FROM user_allergies WHERE user_id = $1`, [targetUserId]);
+      await manager.query(`DELETE FROM votes WHERE user_id = $1`, [targetUserId]);
+      await manager.query(`DELETE FROM comments WHERE user_id = $1`, [targetUserId]);
+      await manager.query(`DELETE FROM chatbot_conversations WHERE user_id = $1`, [targetUserId]);
+
+      // 3. Xóa gợi ý AI
+      await manager.query(
+        `DELETE FROM ai_recommendation_missing_ingredients WHERE recommendation_id IN (SELECT recommendation_id FROM ai_recommendations WHERE user_id = $1)`,
+        [targetUserId]
+      );
+      await manager.query(`DELETE FROM ai_recommendations WHERE user_id = $1`, [targetUserId]);
+
+      // 4. Xóa kế hoạch bữa ăn & hồ sơ mục tiêu
+      await manager.query(`DELETE FROM meal_plans WHERE user_id = $1`, [targetUserId]);
+      await manager.query(
+        `DELETE FROM profile_allergies WHERE profile_id IN (SELECT profile_id FROM meal_plan_profiles WHERE user_id = $1)`,
+        [targetUserId]
+      );
+      await manager.query(`DELETE FROM meal_plan_profiles WHERE user_id = $1`, [targetUserId]);
+
+      // 5. Xóa gói hội viên & giao dịch
+      await manager.query(`DELETE FROM subscriptions WHERE user_id = $1`, [targetUserId]);
+      await manager.query(`DELETE FROM payment_transactions WHERE user_id = $1`, [targetUserId]);
+
+      // 6. Xóa các nội dung do user tạo
+      await manager.query(`DELETE FROM recipes WHERE created_by = $1`, [targetUserId]);
+      await manager.query(`DELETE FROM blogs WHERE user_id = $1`, [targetUserId]);
+      await manager.query(`DELETE FROM videos WHERE user_id = $1`, [targetUserId]);
+
+      // 7. Xóa user khỏi bảng users
+      await manager.query(`DELETE FROM users WHERE user_id = $1`, [targetUserId]);
+    });
+
+    return { success: true, message: `Đã xóa tài khoản #${targetUserId} (${user.email}) thành công` };
   }
 
   /** Không cho admin tự khóa hoặc tự hạ quyền chính mình (tránh hệ thống không còn admin nào). */

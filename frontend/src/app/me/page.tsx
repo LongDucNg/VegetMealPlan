@@ -41,7 +41,12 @@ import { formatVegetarianType } from "@/features/profile/types";
 import { useSubscription } from "@/features/subscription/hooks/useSubscription";
 import { calculateBMI } from "@/features/nutrition/utils/bmi";
 import { calculateDailyNutrition } from "@/features/nutrition/utils/calorieCalculator";
-import { nutritionService, ServerNutritionSummary } from "@/features/nutrition";
+import {
+  nutritionService,
+  ServerNutritionSummary,
+  NutritionWarnings,
+  CalorieExplanationSection,
+} from "@/features/nutrition";
 import { favoriteService, SavedMealPlan } from "@/features/recipes/services/favoriteService";
 import { priceService, PRICE_WARNING_TEXT } from "@/features/recipes/services/priceService";
 import { recipeService } from "@/features/recipes/services/recipeService";
@@ -163,12 +168,19 @@ function ProfileContent() {
       });
   }, [profile]);
 
-  const bmiInfo = calculateBMI(profile.weight, profile.height);
+  const hasPhysicalMetrics = Number(profile.height) > 0 && Number(profile.weight) > 0;
+  const bmiInfo = hasPhysicalMetrics ? calculateBMI(profile.weight, profile.height) : null;
   const nutrition = calculateDailyNutrition(profile);
 
-  const displayBmi = serverNutrition?.bmi ?? profile.bmi ?? (bmiInfo ? Number(bmiInfo.formattedBMI) : null);
-  const displayBmiCategory = serverNutrition?.bmi_category ?? profile.bmiCategory ?? bmiInfo?.category;
-  const displayTargetCalories = serverNutrition?.target_calories ?? nutrition.dailyCalorieTarget;
+  const displayBmi = hasPhysicalMetrics
+    ? (serverNutrition?.bmi ?? profile.bmi ?? (bmiInfo ? Number(bmiInfo.formattedBMI) : null))
+    : null;
+  const displayBmiCategory = hasPhysicalMetrics
+    ? (serverNutrition?.bmi_category ?? profile.bmiCategory ?? bmiInfo?.category)
+    : null;
+  const displayTargetCalories = hasPhysicalMetrics
+    ? (serverNutrition?.target_calories ?? nutrition.dailyCalorieTarget)
+    : null;
 
   // Data queries
   const [allApprovedRecipes, setAllApprovedRecipes] = useState<Recipe[]>([]);
@@ -434,13 +446,13 @@ function ProfileContent() {
 
           <div className="flex flex-wrap items-center gap-2 mt-3">
             <span className="text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 font-semibold border border-emerald-200">
-              BMI: {displayBmi ? `${displayBmi} (${displayBmiCategory || "Bình thường"})` : "—"}
+              BMI: {displayBmi ? `${displayBmi} (${displayBmiCategory || "Bình thường"})` : "Chưa có chỉ số"}
             </span>
             <span className="text-xs px-3 py-1 rounded-full bg-amber-50 text-amber-800 font-semibold border border-amber-200">
-              Mục tiêu: ~{displayTargetCalories} kcal/ngày
+              Mục tiêu: {displayTargetCalories ? `~${displayTargetCalories} kcal/ngày` : "Chưa thiết lập"}
             </span>
             <span className="text-xs px-3 py-1 rounded-full bg-stone-100 text-stone-700 capitalize font-medium">
-              Chế độ: {formatVegetarianType(profile.vegetarianType)}
+              Chế độ: {profile.vegetarianType ? formatVegetarianType(profile.vegetarianType) : "Chưa chọn"}
             </span>
             {profile.allergies.length > 0 && (
               <span className="text-xs px-3 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 font-medium">
@@ -503,15 +515,27 @@ function ProfileContent() {
               Hủy gói hội viên
             </button>
           ) : (
-            <button
-              onClick={() => purchase("premium")}
-              className="text-xs bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold rounded-xl px-4 py-2 transition-colors cursor-pointer shadow-xs"
+            <Link
+              href="/me/settings?tab=subscription"
+              className="text-xs bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold rounded-xl px-4 py-2 transition-colors cursor-pointer shadow-xs inline-flex items-center"
             >
               Nâng cấp Premium
-            </button>
+            </Link>
           )}
         </div>
       </div>
+
+      {/* Cảnh báo dinh dưỡng từ Backend nếu có */}
+      {serverNutrition?.warnings && serverNutrition.warnings.length > 0 && (
+        <NutritionWarnings warnings={serverNutrition.warnings} />
+      )}
+
+      {/* Mục tiêu cân nặng & Giải thích Kcal */}
+      <CalorieExplanationSection
+        explanation={serverNutrition?.explanation}
+        targetGoal={serverNutrition?.target_goal}
+        targetCalories={serverNutrition?.target_calories}
+      />
 
       {/* Quick Overview Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -535,8 +559,8 @@ function ProfileContent() {
         />
         <StatCard
           label="Mục tiêu calo hàng ngày"
-          value={`~${displayTargetCalories}`}
-          subtext="Tính tự động từ BMI"
+          value={displayTargetCalories ? `~${displayTargetCalories}` : "—"}
+          subtext={hasPhysicalMetrics ? "Tính tự động từ BMI" : "Chưa có chỉ số"}
           icon={<Star className="w-4 h-4 text-emerald-600" />}
         />
       </div>
