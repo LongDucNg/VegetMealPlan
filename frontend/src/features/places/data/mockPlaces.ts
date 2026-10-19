@@ -93,14 +93,14 @@ export const SUGGESTED_FOOD_SPOTS: FoodSpotItem[] = [
   {
     dish: "Crispy Lemongrass Tofu Bowl",
     places: [
-      { name: "Hum Vegetarian Café", distance: "1.2 km", price: "85,000 VND" },
-      { name: "Bếp Chay An Lạc", distance: "3.2 km", price: "55,000 VND" },
+      { name: "Hum Vegetarian Café", distance: "1.2 km", price: "85,000 VNĐ" },
+      { name: "Bếp Chay An Lạc", distance: "3.2 km", price: "55,000 VNĐ" },
     ],
   },
   {
     dish: "Creamy Coconut Lime Noodle Soup",
     places: [
-      { name: "Loving Hut Hoa Đăng", distance: "2.1 km", price: "70,000 VND" },
+      { name: "Loving Hut Hoa Đăng", distance: "2.1 km", price: "70,000 VNĐ" },
     ],
   },
 ];

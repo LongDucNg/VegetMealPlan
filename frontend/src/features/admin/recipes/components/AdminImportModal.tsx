@@ -22,6 +22,7 @@ import {
   ImportSummary,
 } from "../services/excelImportService";
 import { Recipe } from "@/features/recipes/types";
+import { formatVegetarianType } from "@/features/profile/types";
 
 interface AdminImportModalProps {
   isOpen: boolean;
@@ -55,7 +56,7 @@ export function AdminImportModal({
       setSummary(res.summary);
       setItems(res.items);
     } catch (err: unknown) {
-      alert(`Error parsing file: ${(err as Error).message || "Invalid file format."}`);
+      alert(`Lỗi đọc tệp tin: ${(err as Error).message || "Định dạng tệp không hợp lệ."}`);
     } finally {
       setIsProcessing(false);
       if (fileInputRef.current) {
@@ -73,7 +74,7 @@ export function AdminImportModal({
   const handleApproveAllValid = () => {
     const approvedCount = excelImportService.approveAllValid();
     setItems((prev) => prev.filter((i) => !i.isValid));
-    alert(`Successfully approved and published ${approvedCount} valid recipes!`);
+    alert(`Đã phê duyệt và xuất bản thành công ${approvedCount} công thức hợp lệ!`);
     onCompleted();
   };
 
@@ -130,10 +131,10 @@ export function AdminImportModal({
             </div>
             <div>
               <h3 className="font-serif font-bold text-lg text-stone-900">
-                Import Recipes from Excel / CSV
+                Nhập công thức từ Excel / CSV
               </h3>
               <p className="text-xs text-stone-500">
-                Batch import with multi-row grouping, validation pipeline, and Admin review dashboard
+                Nhập dữ liệu hàng loạt, tự động gom nhóm nguyên liệu, kiểm tra quy tắc và xét duyệt trước khi xuất bản
               </p>
             </div>
           </div>
@@ -142,10 +143,10 @@ export function AdminImportModal({
             <button
               onClick={() => excelImportService.downloadTemplate()}
               className="h-8 px-3 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Download standard Excel template with multi-row examples"
+              title="Tải tệp mẫu Excel tiêu chuẩn kèm ví dụ nhiều dòng nguyên liệu"
             >
               <Download className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Download Template</span>
+              <span>Tải file mẫu</span>
             </button>
 
             <button
@@ -183,11 +184,11 @@ export function AdminImportModal({
               <div>
                 <p className="text-sm font-bold text-stone-800">
                   {isProcessing
-                    ? "Validating recipes & checking ingredients..."
-                    : "Click to upload or drag & drop .xlsx or .csv"}
+                    ? "Đang kiểm tra công thức & thành phần nguyên liệu..."
+                    : "Nhấn để tải lên hoặc kéo thả tệp .xlsx hoặc .csv"}
                 </p>
                 <p className="text-xs text-stone-500 mt-0.5">
-                  Multi-row ingredients grouped by Recipe Name · Automatic duplicate & allergy validation
+                  Hỗ trợ nhiều dòng nguyên liệu theo Tên công thức · Tự động kiểm tra trùng lặp & xung đột
                 </p>
               </div>
             </label>
@@ -198,7 +199,7 @@ export function AdminImportModal({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="font-serif font-bold text-base text-stone-900">
-                  Import Summary & Review Dashboard
+                  Tổng quan kết quả nhập & Xét duyệt
                 </h4>
 
                 {summary.validCount > 0 && (
@@ -207,7 +208,7 @@ export function AdminImportModal({
                     className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                   >
                     <Check className="w-3.5 h-3.5" />
-                    Approve All {summary.validCount} Valid Recipes
+                    Duyệt toàn bộ {summary.validCount} công thức hợp lệ
                   </button>
                 )}
               </div>
@@ -215,37 +216,37 @@ export function AdminImportModal({
               {/* Metric Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5 text-center text-xs">
                 <div className="p-3 rounded-2xl bg-stone-100 border border-stone-200">
-                  <span className="text-stone-500 block text-[10px] uppercase font-bold">Total</span>
+                  <span className="text-stone-500 block text-[10px] uppercase font-bold">Tổng số</span>
                   <span className="font-serif font-bold text-xl text-stone-900">
                     {summary.totalImported}
                   </span>
                 </div>
                 <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200">
-                  <span className="text-emerald-700 block text-[10px] uppercase font-bold">Valid</span>
+                  <span className="text-emerald-700 block text-[10px] uppercase font-bold">Hợp lệ</span>
                   <span className="font-serif font-bold text-xl text-emerald-800">
                     {summary.validCount}
                   </span>
                 </div>
                 <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200">
-                  <span className="text-amber-700 block text-[10px] uppercase font-bold">Duplicates</span>
+                  <span className="text-amber-700 block text-[10px] uppercase font-bold">Trùng lặp</span>
                   <span className="font-serif font-bold text-xl text-amber-800">
                     {summary.duplicateCount}
                   </span>
                 </div>
                 <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200">
-                  <span className="text-rose-700 block text-[10px] uppercase font-bold">Conflicts</span>
+                  <span className="text-rose-700 block text-[10px] uppercase font-bold">Cặp kỵ</span>
                   <span className="font-serif font-bold text-xl text-rose-800">
                     {summary.conflictCount}
                   </span>
                 </div>
                 <div className="p-3 rounded-2xl bg-red-50 border border-red-200">
-                  <span className="text-red-700 block text-[10px] uppercase font-bold">Non-Veg</span>
+                  <span className="text-red-700 block text-[10px] uppercase font-bold">Không chay</span>
                   <span className="font-serif font-bold text-xl text-red-800">
                     {summary.nonVegetarianCount}
                   </span>
                 </div>
                 <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200">
-                  <span className="text-stone-500 block text-[10px] uppercase font-bold">Missing</span>
+                  <span className="text-stone-500 block text-[10px] uppercase font-bold">Thiếu dữ liệu</span>
                   <span className="font-serif font-bold text-xl text-stone-700">
                     {summary.missingDataCount + summary.invalidDataCount}
                   </span>
@@ -255,12 +256,12 @@ export function AdminImportModal({
               {/* Tabs for filtering review list */}
               <div className="flex flex-wrap items-center gap-1.5 text-xs pt-1">
                 {[
-                  { id: "all", label: `All (${items.length})` },
-                  { id: "valid", label: "Valid Only" },
-                  { id: "duplicates", label: "Duplicates" },
-                  { id: "conflicts", label: "Ingredient Conflicts" },
-                  { id: "non_veg", label: "Non-Vegetarian" },
-                  { id: "invalid", label: "Missing / Invalid" },
+                  { id: "all", label: `Tất cả (${items.length})` },
+                  { id: "valid", label: "Hợp lệ" },
+                  { id: "duplicates", label: "Trùng lặp" },
+                  { id: "conflicts", label: "Xung đột nguyên liệu" },
+                  { id: "non_veg", label: "Không chay" },
+                  { id: "invalid", label: "Thiếu / Sai dữ liệu" },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -279,10 +280,6 @@ export function AdminImportModal({
               {/* Review Table (Requirement 14, 15) */}
               <div className="border border-stone-200 rounded-2xl overflow-hidden divide-y divide-stone-100 text-xs">
                 {filteredItems.map((item) => {
-                  const hasDuplicates = item.issues.some((iss) => iss.type === "DUPLICATE");
-                  const hasConflicts = item.issues.some((iss) => iss.type === "INGREDIENT_CONFLICT");
-                  const hasNonVeg = item.issues.some((iss) => iss.type === "NON_VEGETARIAN");
-
                   return (
                     <div
                       key={item.tempId}
@@ -297,17 +294,17 @@ export function AdminImportModal({
                             {item.recipe.mealType}
                           </span>
                           <span className="text-[10px] font-medium px-2 py-0.2 rounded-full bg-stone-100 text-stone-700">
-                            {item.recipe.vegetarianType.replace("_", " ")}
+                            {formatVegetarianType(item.recipe.vegetarianType)}
                           </span>
                           <span className="text-stone-400">· {item.recipe.calories} kcal</span>
-                          <span className="text-stone-400">· {item.recipe.ingredients.length} ingredients</span>
+                          <span className="text-stone-400">· {item.recipe.ingredients.length} nguyên liệu</span>
                         </div>
 
                         {/* Status / Issue Badges */}
                         {item.isValid ? (
                           <div className="flex items-center gap-1.5 text-emerald-700 font-semibold text-[11px]">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Valid · No issues found</span>
+                            <span>Hợp lệ · Không có lỗi</span>
                           </div>
                         ) : (
                           <div className="space-y-1 pt-0.5">
@@ -334,7 +331,7 @@ export function AdminImportModal({
                         {/* Source info (Requirement 16) */}
                         {item.recipe.source && (
                           <div className="text-[10px] text-stone-400">
-                            Source: {item.recipe.source.name}
+                            Nguồn: {item.recipe.source.name}
                             {item.recipe.source.url && (
                               <a
                                 href={item.recipe.source.url}
@@ -342,7 +339,7 @@ export function AdminImportModal({
                                 rel="noreferrer"
                                 className="ml-1 text-emerald-700 underline inline-flex items-center gap-0.5"
                               >
-                                [View Original Source <ExternalLink className="w-2.5 h-2.5 inline" />]
+                                [Xem nguồn gốc <ExternalLink className="w-2.5 h-2.5 inline" />]
                               </a>
                             )}
                           </div>
@@ -354,7 +351,7 @@ export function AdminImportModal({
                         <button
                           onClick={() => handleStartEdit(item)}
                           className="p-2 rounded-xl text-stone-600 hover:bg-stone-100 transition-colors cursor-pointer"
-                          title="Edit Recipe"
+                          title="Chỉnh sửa công thức"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
@@ -362,7 +359,7 @@ export function AdminImportModal({
                         <button
                           onClick={() => handleRemove(item.tempId)}
                           className="p-2 rounded-xl text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
-                          title="Remove from import"
+                          title="Xóa khỏi danh sách nhập"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -372,7 +369,7 @@ export function AdminImportModal({
                           className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1"
                         >
                           <Check className="w-3.5 h-3.5" />
-                          Approve
+                          Duyệt
                         </button>
                       </div>
                     </div>
@@ -381,7 +378,7 @@ export function AdminImportModal({
 
                 {filteredItems.length === 0 && (
                   <div className="p-8 text-center text-stone-400">
-                    No recipes in this review category.
+                    Không có công thức nào trong phân loại này.
                   </div>
                 )}
               </div>
@@ -393,11 +390,11 @@ export function AdminImportModal({
             <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 p-4">
               <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
                 <h4 className="font-serif font-bold text-base text-stone-900">
-                  Edit Recipe before Approving
+                  Chỉnh sửa công thức trước khi duyệt
                 </h4>
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 mb-1">
-                    Title:
+                    Tên công thức:
                   </label>
                   <input
                     type="text"
@@ -408,7 +405,7 @@ export function AdminImportModal({
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 mb-1">
-                    Calories (kcal):
+                    Năng lượng / Calo (kcal):
                   </label>
                   <input
                     type="number"
@@ -422,13 +419,13 @@ export function AdminImportModal({
                     onClick={() => setEditingItem(null)}
                     className="px-4 py-1.5 rounded-xl border border-stone-200 text-xs font-semibold"
                   >
-                    Cancel
+                    Hủy
                   </button>
                   <button
                     onClick={handleSaveEdit}
                     className="px-4 py-1.5 rounded-xl bg-emerald-700 text-white text-xs font-bold"
                   >
-                    Save & Approve
+                    Lưu & Duyệt
                   </button>
                 </div>
               </div>

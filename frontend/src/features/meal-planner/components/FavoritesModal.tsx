@@ -110,6 +110,7 @@ export function FavoritesModal({
       lunch: [],
       dinner: [],
       snack: [],
+      any: [],
     };
     for (const r of favRecipes) {
       const raw = (r.mealType || "").toLowerCase();
@@ -118,6 +119,10 @@ export function FavoritesModal({
       } else if (raw.includes("snack") || raw.includes("vặt") || raw.includes("phụ")) {
         map.snack.push(r);
       } else if (raw.includes("dinner") || raw.includes("tối")) {
+        map.dinner.push(r);
+      } else if (raw === "any" || raw.includes("any")) {
+        map.any.push(r);
+        map.lunch.push(r);
         map.dinner.push(r);
       } else {
         map.lunch.push(r);

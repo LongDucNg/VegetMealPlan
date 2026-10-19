@@ -48,7 +48,7 @@ export function MonthlyCalendarView({
           <div className="bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200">
             <span className="text-stone-400 block text-[10px]">Tổng chi phí tháng:</span>
             <span className="font-bold text-emerald-800">
-              ~{totalEstimatedCost.toLocaleString("vi-VN")} đ
+              ~{totalEstimatedCost.toLocaleString("vi-VN")} VNĐ
             </span>
           </div>
           <div className="bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200">
@@ -125,7 +125,7 @@ export function MonthlyCalendarView({
                     isSelected ? "text-emerald-100" : "text-stone-500"
                   }`}
                 >
-                  ~{day.estimatedCost.toLocaleString("vi-VN")} đ
+                  ~{day.estimatedCost.toLocaleString("vi-VN")} VNĐ
                 </div>
               </div>
 

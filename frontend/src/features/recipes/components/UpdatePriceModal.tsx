@@ -48,7 +48,7 @@ export function UpdatePriceModal({
     e.preventDefault();
     const parsed = parseInt(priceInput.replace(/\D/g, ""), 10);
     if (isNaN(parsed) || parsed <= 0) {
-      alert("Vui lòng nhập số tiền hợp lệ (lớn hơn 0 VND).");
+      alert("Vui lòng nhập số tiền hợp lệ (lớn hơn 0 VNĐ).");
       return;
     }
 
@@ -147,7 +147,7 @@ export function UpdatePriceModal({
           {/* Input */}
           <div>
             <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-              Giá thực tế của bạn (VND):
+              Giá thực tế của bạn (VNĐ):
             </label>
             <div className="relative">
               <input
@@ -161,7 +161,7 @@ export function UpdatePriceModal({
                 autoFocus
               />
               <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400">
-                VND
+                VNĐ
               </span>
             </div>
             <p className="text-[11px] text-stone-400 mt-1">

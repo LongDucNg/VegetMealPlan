@@ -24,6 +24,7 @@ import { useRecipes } from "@/features/recipes/hooks/useRecipes";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
 import { RecipeFavoriteButton } from "@/features/recipes/components/RecipeFavoriteButton";
 import { priceService } from "@/features/recipes/services/priceService";
+import { formatMealType } from "@/features/recipes";
 
 export function RecipesClient() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -100,11 +101,10 @@ export function RecipesClient() {
         <button
           key={`page-${pageNum}`}
           onClick={() => handlePageChange(pageNum)}
-          className={`w-9 h-9 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center justify-center ${
-            isActive
+          className={`w-9 h-9 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center justify-center ${isActive
               ? "bg-emerald-700 text-white shadow-sm shadow-emerald-800/20"
               : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50 hover:text-emerald-700"
-          }`}
+            }`}
         >
           {pageNum}
         </button>
@@ -153,16 +153,15 @@ export function RecipesClient() {
               { id: "all", label: "Tất cả" },
               { id: "breakfast", label: "Bữa sáng" },
               { id: "snack", label: "Bữa phụ" },
-              { id: "any", label: "Linh hoạt / Bất kỳ" },
+              { id: "any", label: "Trưa & Tối (Linh hoạt)" },
             ].map((m) => (
               <button
                 key={m.id}
                 onClick={() => setSelectedMealType(m.id)}
-                className={`px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer ${
-                  selectedMealType === m.id
+                className={`px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer ${selectedMealType === m.id
                     ? "bg-emerald-700 text-white font-semibold shadow-xs"
                     : "bg-stone-50 border border-stone-200 text-stone-600 hover:bg-stone-100"
-                }`}
+                  }`}
               >
                 {m.label}
               </button>
@@ -179,11 +178,10 @@ export function RecipesClient() {
               <button
                 key={d.id}
                 onClick={() => setSelectedDiet(d.id)}
-                className={`px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer ${
-                  selectedDiet === d.id
+                className={`px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer ${selectedDiet === d.id
                     ? "bg-emerald-700 text-white font-semibold shadow-xs"
                     : "bg-stone-50 border border-stone-200 text-stone-600 hover:bg-stone-100"
-                }`}
+                  }`}
               >
                 {d.label}
               </button>
@@ -267,7 +265,7 @@ export function RecipesClient() {
 
                       <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1.5">
                         <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-600 text-white shadow-2xs">
-                          {recipe.mealType || "Món chay"}
+                          {formatMealType(recipe.mealType)}
                         </span>
                       </div>
 

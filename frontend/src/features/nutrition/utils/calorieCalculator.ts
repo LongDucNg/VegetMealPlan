@@ -139,11 +139,11 @@ export function getNutritionGoal(bmiStatus: BMIStatus): NutritionGoalInfo {
         recommendedApproach:
           "Tăng dần lượng calo với thực phẩm giàu đạm thực vật và chất béo tốt.",
         suggestions: [
-          "Tăng lượng calorie hợp lý (calorie surplus)",
-          "Ưu tiên protein thực vật",
-          "Bổ sung healthy fats (bơ, các loại hạt)",
-          "Chia đều calories trong ngày",
-          "Không tạo calorie deficit",
+          "Tăng lượng calo hợp lý (dư thừa calo)",
+          "Ưu tiên đạm thực vật",
+          "Bổ sung chất béo tốt (bơ, các loại hạt)",
+          "Chia đều calo trong ngày",
+          "Tránh thâm hụt calo",
         ],
         calorieAdjustment: 350,
       };
@@ -154,10 +154,10 @@ export function getNutritionGoal(bmiStatus: BMIStatus): NutritionGoalInfo {
         recommendedApproach:
           "Thâm hụt calo vừa phải, ưu tiên đạm thực vật, chất xơ và thực phẩm giàu vi chất.",
         suggestions: [
-          "Tạo calorie deficit vừa phải",
-          "Ưu tiên thực phẩm giàu protein và chất xơ",
-          "Hạn chế thực phẩm nhiều đường / calorie rỗng",
-          "Không giảm calorie quá mức",
+          "Tạo thâm hụt calo vừa phải",
+          "Ưu tiên thực phẩm giàu đạm và chất xơ",
+          "Hạn chế thực phẩm nhiều đường / calo rỗng",
+          "Không giảm calo quá mức",
         ],
         calorieAdjustment: -450,
       };
@@ -169,8 +169,8 @@ export function getNutritionGoal(bmiStatus: BMIStatus): NutritionGoalInfo {
         recommendedApproach:
           "Duy trì mức năng lượng cân bằng với chế độ dinh dưỡng thuần thực vật.",
         suggestions: [
-          "Duy trì calorie target",
-          "Cân bằng protein / carbs / healthy fats",
+          "Duy trì mục tiêu calo",
+          "Cân bằng đạm / tinh bột / chất béo tốt",
           "Đảm bảo đủ chất xơ và vi chất",
           "Duy trì chế độ ăn chay phù hợp",
         ],

@@ -197,9 +197,15 @@ export const recipeService = {
         }
       }
 
-      // 3. Meal Type
+      // 3. Meal Type (any khớp với cả lunch và dinner)
       if (filters.mealType && filters.mealType !== "all") {
-        if (recipe.mealType !== filters.mealType) {
+        const target = filters.mealType.toLowerCase();
+        const cur = (recipe.mealType || "").toLowerCase();
+        const isMatch =
+          cur === target ||
+          cur === "any" ||
+          (target === "any" && (cur === "lunch" || cur === "dinner"));
+        if (!isMatch) {
           return false;
         }
       }
@@ -247,9 +253,17 @@ export const recipeService = {
       return !allergyCheck.hasAllergy;
     });
 
-    // 2. Filter by mealType if provided
+    // 2. Filter by mealType if provided (any khớp với cả lunch và dinner)
     let candidates = mealType
-      ? safeForUser.filter((r) => r.mealType === mealType)
+      ? safeForUser.filter((r) => {
+          const target = mealType.toLowerCase();
+          const cur = (r.mealType || "").toLowerCase();
+          return (
+            cur === target ||
+            cur === "any" ||
+            (target === "any" && (cur === "lunch" || cur === "dinner"))
+          );
+        })
       : safeForUser;
 
     // Fallback to all safe if candidates empty for this specific mealType
@@ -287,8 +301,14 @@ export const recipeService = {
 
     // 1. Same meal type, exclude current recipe, match diet & allergens
     const eligible = all.filter((r) => {
-      if (r.id === originalRecipe.id) return false;
-      if (r.mealType !== originalRecipe.mealType) return false;
+      const origType = (originalRecipe.mealType || "").toLowerCase();
+      const candType = (r.mealType || "").toLowerCase();
+      const isMealMatch =
+        origType === candType ||
+        origType === "any" ||
+        candType === "any" ||
+        ((origType === "lunch" || origType === "dinner") && (candType === "lunch" || candType === "dinner"));
+      if (!isMealMatch) return false;
       if (!this.isDietCompatible(r.vegetarianType, profile.vegetarianType)) return false;
       const allergy = checkRecipeAllergy(r, profile);
       return !allergy.hasAllergy;

@@ -19,6 +19,18 @@ export type VegetarianType =
   | "ovo_vegetarian"
   | "lacto_ovo_vegetarian";
 
+export const VEGETARIAN_TYPE_LABELS: Record<string, string> = {
+  vegan: "Thuần chay (Vegan)",
+  lacto_vegetarian: "Chay có sữa (Lacto)",
+  ovo_vegetarian: "Chay có trứng (Ovo)",
+  lacto_ovo_vegetarian: "Chay có trứng & sữa (Ovo-Lacto)",
+};
+
+export function formatVegetarianType(type?: string): string {
+  if (!type) return "Thuần chay (Vegan)";
+  return VEGETARIAN_TYPE_LABELS[type] || type.replace(/_/g, " ");
+}
+
 export interface UserProfile {
   id: number | string;
   name: string;

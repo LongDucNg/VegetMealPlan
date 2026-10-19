@@ -151,7 +151,7 @@ export default function AdminContentPage() {
               href="/admin/recipes"
               className="h-10 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-xs"
             >
-              <span>Quản lý công thức (CRUD) →</span>
+              <span>Quản lý công thức hệ thống →</span>
             </Link>
           }
         />

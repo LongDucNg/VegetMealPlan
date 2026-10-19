@@ -1,6 +1,20 @@
 import { VegetarianType } from "@/features/profile/types";
 
-export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
+export type MealType = "breakfast" | "lunch" | "dinner" | "snack" | "any";
+
+export const MEAL_TYPE_LABELS: Record<string, string> = {
+  breakfast: "Bữa sáng",
+  lunch: "Bữa trưa",
+  dinner: "Bữa tối",
+  snack: "Bữa phụ",
+  any: "Bữa trưa / Tối",
+};
+
+export function formatMealType(mealType?: string): string {
+  if (!mealType) return "Món chay";
+  const key = mealType.toLowerCase();
+  return MEAL_TYPE_LABELS[key] || mealType;
+}
 
 export type RecipeStatus =
   | "DRAFT"

@@ -218,7 +218,7 @@ function PantryManager() {
             Nguyên liệu trong tủ ({myIngredients.length})
           </h3>
           <span className="text-xs text-stone-500 bg-stone-100 px-3 py-1 rounded-full font-medium">
-            Tự động cập nhật vào Database
+            Tự động cập nhật vào hệ thống
           </span>
         </div>
 
