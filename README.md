@@ -69,6 +69,7 @@ Mở `.env` và sửa tối thiểu các biến sau:
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASS`, `MAIL_FROM` | SMTP gửi mã OTP quên mật khẩu; để trống `MAIL_HOST` thì nội dung mail (kèm mã) được in ra console |
 | `GUEST_CHATBOT_LIMIT`, `FREE_CHATBOT_LIMIT` | số lượt hỏi chatbot của khách / tài khoản free |
 | `MONTHLY_PLAN_PRICE` | giá gói Premium theo tháng (VND) |
+| `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_URL`, `VNPAY_RETURN_URL` | cổng thanh toán VNPay (sandbox hoặc thật); URL IPN khai trên trang quản trị VNPay: `<địa chỉ công khai>/api/v1/subscriptions/vnpay-ipn` |
 
 Sinh `JWT_SECRET` nhanh:
 
@@ -126,7 +127,7 @@ Mọi đường dẫn có tiền tố `/api/v1`. Danh sách đầy đủ và th�
 | Thực đơn | `POST /meal-plans/generate/weekly`, `/monthly`, `/for-someone`; `/users/me/meal-plans` |
 | Nguyên liệu | `GET /ingredients`, `/users/me/ingredients`, `POST /users/me/recommendations/generate` |
 | Cộng đồng, AI | `/forum/posts`, `POST /chatbot/ask` |
-| Premium, thông báo | `/subscriptions/me/premium-status`, `POST /subscriptions/checkout`, `/notifications` |
+| Premium, thông báo | `GET /subscriptions/plans`, `/subscriptions/me/premium-status`, `POST /subscriptions/checkout` → VNPay → `vnpay-ipn` / `vnpay-return`, `/notifications` |
 | Quản trị | `/admin/members`, `/admin/categories`, `/admin/ingredients`, `/admin/recipes`, `/admin/recipe-imports` |
 
 ### Quy ước chung
