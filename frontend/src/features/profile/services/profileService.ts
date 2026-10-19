@@ -97,6 +97,8 @@ function mapBackendProfileToUserProfile(backend: BackendProfile): UserProfile {
   };
 }
 
+let inFlightProfilePromise: Promise<UserProfile> | null = null;
+
 export const profileService = {
   /**
    * Lấy hồ sơ người dùng hiện tại (đồng bộ tức thì từ cache)
@@ -149,15 +151,28 @@ export const profileService = {
       return this.getProfile();
     }
 
-    try {
-      const data = await apiClient.get<BackendProfile>("/users/me/profile");
-      const mapped = mapBackendProfileToUserProfile(data);
-      storage.setItem(STORAGE_KEYS.USER_PROFILE, mapped);
-      return mapped;
-    } catch (err) {
-      console.warn("[profileService] Failed to fetch server profile, using cache:", err);
-      return this.getProfile();
+    if (inFlightProfilePromise) {
+      return inFlightProfilePromise;
     }
+
+    inFlightProfilePromise = (async () => {
+      try {
+        const data = await apiClient.get<BackendProfile>("/users/me/profile");
+        const mapped = mapBackendProfileToUserProfile(data);
+        storage.setItem(STORAGE_KEYS.USER_PROFILE, mapped);
+        return mapped;
+      } catch (err: any) {
+        // 401 UNAUTHORIZED là trạng thái bình thường khi phiên hết hạn hoặc chưa đăng nhập
+        if (err?.status !== 401 && err?.code !== "AUTH_UNAUTHORIZED") {
+          console.warn("[profileService] Failed to fetch server profile, using cache:", err);
+        }
+        return this.getProfile();
+      } finally {
+        inFlightProfilePromise = null;
+      }
+    })();
+
+    return inFlightProfilePromise;
   },
 
   /**

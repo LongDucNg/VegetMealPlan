@@ -21,7 +21,7 @@ export function SaveMealPlanModal({
   totalCost,
 }: SaveMealPlanModalProps) {
   const [name, setName] = useState(
-    `${planType === "weekly" ? "Weekly" : "Monthly"} Plan (${new Date().toLocaleDateString("vi-VN")})`
+    `${planType === "weekly" ? "Kế hoạch tuần" : "Kế hoạch tháng"} (${new Date().toLocaleDateString("vi-VN")})`
   );
 
   if (!isOpen) return null;
@@ -90,7 +90,7 @@ export function SaveMealPlanModal({
             <div className="flex justify-between">
               <span>Chi phí ước tính:</span>
               <span className="font-bold text-emerald-800">
-                ~{totalCost.toLocaleString("vi-VN")} VND
+                ~{totalCost.toLocaleString("vi-VN")} VNĐ
               </span>
             </div>
           </div>
@@ -108,7 +108,7 @@ export function SaveMealPlanModal({
               className="h-10 px-5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
             >
               <Check className="w-4 h-4" />
-              Lưu vào Database
+              Lưu thực đơn
             </button>
           </div>
         </form>
