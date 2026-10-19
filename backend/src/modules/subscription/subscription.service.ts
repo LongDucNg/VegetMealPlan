@@ -1,23 +1,44 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { Subscription, SubscriptionStatus } from './entities/subscription.entity';
-import {
-  PaymentTransaction,
-  PaymentTransactionStatus,
-} from './entities/payment-transaction.entity';
+import { PaymentTransaction, PaymentTransactionStatus } from './entities/payment-transaction.entity';
 import { User } from '../users/entities/user.entity';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/entities/notification.entity';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
+import { PAYMENT_LINK_TTL_MINUTES, VnpayService } from './vnpay.service';
 
-const MONTHLY_PLAN_PRICE = Number(process.env.MONTHLY_PLAN_PRICE) || 99000;
+const PLAN_TYPE = 'monthly';
 const PLAN_DURATION_DAYS = 30;
 const EXPIRING_SOON_DAYS = 3;
 
+/** Mã phản hồi IPN theo tài liệu VNPay. VNPay chỉ ngừng gọi lại khi nhận 00 hoặc 02. */
+export const IPN = {
+  OK: { RspCode: '00', Message: 'Confirm Success' },
+  ORDER_NOT_FOUND: { RspCode: '01', Message: 'Order not found' },
+  ALREADY_CONFIRMED: { RspCode: '02', Message: 'Order already confirmed' },
+  INVALID_AMOUNT: { RspCode: '04', Message: 'Invalid amount' },
+  INVALID_SIGNATURE: { RspCode: '97', Message: 'Invalid signature' },
+  UNKNOWN: { RspCode: '99', Message: 'Unknown error' },
+} as const;
+export type IpnResponse = (typeof IPN)[keyof typeof IPN];
+
+export interface PaymentResult {
+  ipn: IpnResponse;
+  status: 'success' | 'failed' | 'invalid';
+  txn_ref?: string;
+  premium_until?: Date | null;
+  message: string;
+}
+
 @Injectable()
 export class SubscriptionService {
+  private readonly logger = new Logger(SubscriptionService.name);
+  private readonly price: number;
+
   constructor(
     @InjectRepository(Subscription)
     private readonly subscriptionRepo: Repository<Subscription>,
@@ -26,103 +47,181 @@ export class SubscriptionService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly notificationService: NotificationService,
-  ) {}
+    private readonly vnpay: VnpayService,
+    config: ConfigService,
+  ) {
+    this.price = Number(config.get<string>('MONTHLY_PLAN_PRICE')) || 99000;
+  }
 
-  /** User dang co goi premium con hieu luc khong (dung o guard/quota check). */
+  /** GET /subscriptions/plans: hiện chỉ có một gói tháng. */
+  getPlans() {
+    return [
+      {
+        plan_type: PLAN_TYPE,
+        name: 'Premium 1 tháng',
+        price: this.price,
+        currency: 'VND',
+        duration_days: PLAN_DURATION_DAYS,
+        description: 'Mua thêm khi còn hạn sẽ cộng dồn từ ngày hết hạn hiện tại.',
+      },
+    ];
+  }
+
+  /** User đang có gói premium còn hiệu lực không (dùng ở chatbot, thực đơn cho người thân...). */
   async isPremium(user_id: number): Promise<boolean> {
     const user = await this.userRepo.findOne({ where: { user_id } });
-    if (!user || !user.premium_until) return false;
-    return user.premium_until.getTime() > Date.now();
+    return !!user?.premium_until && user.premium_until.getTime() > Date.now();
+  }
+
+  async premiumStatus(user_id: number) {
+    const user = await this.userRepo.findOne({ where: { user_id } });
+    const premium_until = user?.premium_until ?? null;
+    return { isPremium: !!premium_until && premium_until.getTime() > Date.now(), premium_until };
   }
 
   /**
-   * Buoc 1 cua flow VNPay: tao 1 giao dich pending, tra ve gateway_txn_ref
-   * de controller dung xay dung URL redirect sang VNPay.
-   * TODO: build URL VNPay that (vnp_TmnCode/vnp_HashSecret lay tu .env,
-   * ky HMAC theo tai lieu VNPay) - chua co merchant that nen chi stub o day.
+   * POST /subscriptions/checkout: tạo giao dịch pending rồi trả link thanh toán VNPay đã ký.
+   * Chưa cấu hình VNPay thì báo 503 trước khi tạo giao dịch, để không sinh giao dịch rác.
    */
-  async createPendingTransaction(user_id: number): Promise<PaymentTransaction> {
-    const gateway_txn_ref = `VMP-${Date.now()}-${randomUUID().slice(0, 8)}`;
-    const transaction = this.transactionRepo.create({
-      user_id,
-      amount: MONTHLY_PLAN_PRICE,
-      gateway_txn_ref,
-      status: PaymentTransactionStatus.PENDING,
+  async checkout(user_id: number, ipAddr: string) {
+    this.vnpay.assertConfigured();
+    const gateway_txn_ref = `VMP${Date.now()}${randomUUID().slice(0, 6).toUpperCase()}`;
+    const transaction = await this.transactionRepo.save(
+      this.transactionRepo.create({
+        user_id,
+        amount: this.price,
+        gateway_txn_ref,
+        status: PaymentTransactionStatus.PENDING,
+      }),
+    );
+    const payment_url = this.vnpay.buildPaymentUrl({
+      txnRef: gateway_txn_ref,
+      amount: transaction.amount,
+      // VNPay khuyến nghị nội dung không dấu, không ký tự đặc biệt.
+      orderInfo: `Thanh toan goi Premium 1 thang ${gateway_txn_ref}`,
+      ipAddr,
+      createdAt: transaction.created_at,
     });
-    return this.transactionRepo.save(transaction);
+    return {
+      payment_url,
+      gateway_txn_ref,
+      amount: transaction.amount,
+      expires_in_minutes: PAYMENT_LINK_TTL_MINUTES,
+    };
   }
 
   /**
-   * Xu ly IPN callback tu VNPay bao thanh toan thanh cong.
-   * TODO: verify chu ky (vnp_SecureHash) truoc khi tin raw_response - bat buoc
-   * voi payment that, chua lam o day vi chua co vnp_HashSecret that.
+   * Xử lý kết quả VNPay, dùng chung cho IPN (VNPay gọi server, nguồn sự thật) và trang return (dự phòng khi IPN
+   * chưa tới, ví dụ chạy localhost không có ngrok). Thứ tự kiểm tra theo tài liệu VNPay:
+   * chữ ký → giao dịch tồn tại → đúng số tiền → chưa xử lý → kết quả.
+   * Chỉ request đầu tiên đổi được trạng thái pending (UPDATE có điều kiện), nên IPN và return tới cùng lúc
+   * cũng không kích hoạt Premium hai lần.
    */
-  async confirmPaymentSuccess(
-    gateway_txn_ref: string,
-    gateway_transaction_no: string,
-    raw_response: string,
-  ): Promise<Subscription> {
-    const transaction = await this.transactionRepo.findOne({ where: { gateway_txn_ref } });
-    if (!transaction) throw new NotFoundException({ code: ErrorCode.SUBSCRIPTION_TRANSACTION_NOT_FOUND, message: 'Không tìm thấy giao dịch' });
-    if (transaction.status === PaymentTransactionStatus.SUCCESS) {
-      // Da xu ly roi (VNPay co the goi IPN lap) -> tra ve subscription cu, khong tao trung.
-      const existing = await this.subscriptionRepo.findOne({
-        where: { transaction_id: transaction.transaction_id },
-      });
-      if (existing) return existing;
+  async processVnpayResult(query: Record<string, unknown>): Promise<PaymentResult> {
+    if (!this.vnpay.verify(query)) {
+      return { ipn: IPN.INVALID_SIGNATURE, status: 'invalid', message: 'Chữ ký không hợp lệ, không xác nhận được giao dịch' };
+    }
+    const txn_ref = String(query.vnp_TxnRef ?? '');
+    const transaction = await this.transactionRepo.findOne({ where: { gateway_txn_ref: txn_ref } });
+    if (!transaction) {
+      return { ipn: IPN.ORDER_NOT_FOUND, status: 'invalid', txn_ref, message: 'Không tìm thấy giao dịch' };
+    }
+    if (Number(query.vnp_Amount) !== Math.round(transaction.amount * 100)) {
+      return { ipn: IPN.INVALID_AMOUNT, status: 'invalid', txn_ref, message: 'Số tiền không khớp với giao dịch' };
+    }
+    if (transaction.status !== PaymentTransactionStatus.PENDING) {
+      return this.alreadyProcessed(transaction);
     }
 
-    transaction.status = PaymentTransactionStatus.SUCCESS;
-    transaction.gateway_transaction_no = gateway_transaction_no;
-    transaction.raw_response = raw_response;
-    transaction.paid_at = new Date();
-    await this.transactionRepo.save(transaction);
-
-    const start_date = new Date();
-    const end_date = new Date(start_date);
-    end_date.setDate(end_date.getDate() + PLAN_DURATION_DAYS);
-
-    const subscription = this.subscriptionRepo.create({
-      user_id: transaction.user_id,
-      transaction_id: transaction.transaction_id,
-      plan_type: 'monthly',
-      amount: transaction.amount,
-      start_date,
-      end_date,
-      status: SubscriptionStatus.ACTIVE,
-    });
-    const saved = await this.subscriptionRepo.save(subscription);
-
-    await this.userRepo.update({ user_id: transaction.user_id }, { premium_until: end_date });
-
-    await this.notificationService.create({
-      user_id: transaction.user_id,
-      type: NotificationType.SUBSCRIPTION_SUCCESS,
-      title: 'Dang ky goi thang thanh cong',
-      message: `Ban da kich hoat goi premium den het ngay ${end_date.toLocaleDateString('vi-VN')}.`,
-      ref_type: 'subscription',
-      ref_id: saved.subscription_id,
-    });
-
-    return saved;
-  }
-
-  async confirmPaymentFailed(gateway_txn_ref: string, raw_response: string): Promise<void> {
-    await this.transactionRepo.update(
-      { gateway_txn_ref },
-      { status: PaymentTransactionStatus.FAILED, raw_response },
+    const paid = query.vnp_ResponseCode === '00' && query.vnp_TransactionStatus === '00';
+    const raw_response = JSON.stringify(query);
+    const claimed = await this.transactionRepo.update(
+      { transaction_id: transaction.transaction_id, status: PaymentTransactionStatus.PENDING },
+      paid
+        ? {
+            status: PaymentTransactionStatus.SUCCESS,
+            gateway_transaction_no: String(query.vnp_TransactionNo ?? ''),
+            raw_response,
+            paid_at: new Date(),
+          }
+        : { status: PaymentTransactionStatus.FAILED, raw_response },
     );
+    if (!claimed.affected) {
+      const latest = await this.transactionRepo.findOneOrFail({ where: { transaction_id: transaction.transaction_id } });
+      return this.alreadyProcessed(latest);
+    }
+
+    if (!paid) {
+      return {
+        ipn: IPN.OK,
+        status: 'failed',
+        txn_ref,
+        message: `Thanh toán không thành công (mã VNPay ${String(query.vnp_ResponseCode ?? '')})`,
+      };
+    }
+    const premium_until = await this.activatePremium(transaction);
+    return { ipn: IPN.OK, status: 'success', txn_ref, premium_until, message: 'Thanh toán thành công, đã kích hoạt Premium' };
   }
 
   /**
-   * Huy goi - KHONG hoan tien tu dong (ngoai scope do an), chi danh dau cancelled.
-   * User van dung premium den het end_date da tra tien (vi la goi 1 lan, khong auto-renew).
+   * Tạo subscription và gia hạn premium_until. Còn hạn thì cộng dồn từ ngày hết hạn hiện tại,
+   * hết hạn rồi thì tính từ hôm nay.
+   */
+  private async activatePremium(transaction: PaymentTransaction): Promise<Date> {
+    const { saved, end } = await this.userRepo.manager.transaction(async (m) => {
+      const user = await m.findOneOrFail(User, { where: { user_id: transaction.user_id }, lock: { mode: 'pessimistic_write' } });
+      const now = new Date();
+      const start = user.premium_until && user.premium_until > now ? user.premium_until : now;
+      const end = new Date(start.getTime() + PLAN_DURATION_DAYS * 86_400_000);
+      const saved = await m.save(
+        m.create(Subscription, {
+          user_id: transaction.user_id,
+          transaction_id: transaction.transaction_id,
+          plan_type: PLAN_TYPE,
+          amount: transaction.amount,
+          start_date: start,
+          end_date: end,
+          status: SubscriptionStatus.ACTIVE,
+        }),
+      );
+      await m.update(User, { user_id: transaction.user_id }, { premium_until: end });
+      return { saved, end };
+    });
+
+    await this.notificationService
+      .create({
+        user_id: transaction.user_id,
+        type: NotificationType.SUBSCRIPTION_SUCCESS,
+        title: 'Đăng ký gói Premium thành công',
+        message: `Gói Premium của bạn có hiệu lực đến hết ngày ${end.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}.`,
+        ref_type: 'subscription',
+        ref_id: saved.subscription_id,
+      })
+      .catch((err) => this.logger.error(`Không tạo được thông báo thanh toán: ${err?.message ?? err}`));
+    return end;
+  }
+
+  private async alreadyProcessed(transaction: PaymentTransaction): Promise<PaymentResult> {
+    const user = await this.userRepo.findOne({ where: { user_id: transaction.user_id } });
+    const success = transaction.status === PaymentTransactionStatus.SUCCESS;
+    return {
+      ipn: IPN.ALREADY_CONFIRMED,
+      status: success ? 'success' : 'failed',
+      txn_ref: transaction.gateway_txn_ref,
+      premium_until: user?.premium_until ?? null,
+      message: success ? 'Giao dịch đã được xác nhận trước đó' : 'Giao dịch không thành công',
+    };
+  }
+
+  /**
+   * Huỷ gói: KHÔNG hoàn tiền tự động (ngoài phạm vi đồ án), chỉ đánh dấu cancelled.
+   * User vẫn dùng Premium đến hết hạn đã trả tiền (gói mua một lần, không tự gia hạn).
    */
   async cancel(user_id: number, subscription_id: number): Promise<Subscription> {
-    const subscription = await this.subscriptionRepo.findOne({
-      where: { subscription_id, user_id },
-    });
-    if (!subscription) throw new NotFoundException({ code: ErrorCode.SUBSCRIPTION_NOT_FOUND, message: 'Không tìm thấy gói đăng ký' });
+    const subscription = await this.subscriptionRepo.findOne({ where: { subscription_id, user_id } });
+    if (!subscription) {
+      throw new NotFoundException({ code: ErrorCode.SUBSCRIPTION_NOT_FOUND, message: 'Không tìm thấy gói đăng ký' });
+    }
     if (subscription.status !== SubscriptionStatus.ACTIVE) {
       throw new BadRequestException({ code: ErrorCode.SUBSCRIPTION_NOT_ACTIVE, message: 'Chỉ huỷ được gói đang hoạt động' });
     }
@@ -133,18 +232,16 @@ export class SubscriptionService {
     await this.notificationService.create({
       user_id,
       type: NotificationType.SUBSCRIPTION_CANCELLED,
-      title: 'Da huy goi thang',
-      message: 'Ban van dung duoc premium den het han da tra tien.',
+      title: 'Đã huỷ gói Premium',
+      message: 'Bạn vẫn dùng được Premium đến hết hạn đã thanh toán.',
       ref_type: 'subscription',
       ref_id: subscription.subscription_id,
     });
-
     return saved;
   }
 
   /**
-   * Chay dinh ky (cron - TODO wiring @nestjs/schedule o main.ts):
-   * bao truoc EXPIRING_SOON_DAYS ngay, khong lap lai neu da bao roi.
+   * Chạy định kỳ (cron, TODO gắn @nestjs/schedule): báo trước EXPIRING_SOON_DAYS ngày, không báo lặp lại.
    */
   async notifyExpiringSoon(): Promise<void> {
     const threshold = new Date();
@@ -167,21 +264,20 @@ export class SubscriptionService {
       await this.notificationService.create({
         user_id: sub.user_id,
         type: NotificationType.SUBSCRIPTION_EXPIRING,
-        title: 'Goi premium sap het han',
-        message: `Goi cua ban het han ngay ${sub.end_date.toLocaleDateString('vi-VN')}. He thong KHONG tu dong gia han.`,
+        title: 'Gói Premium sắp hết hạn',
+        message: `Gói của bạn hết hạn ngày ${new Date(sub.end_date).toLocaleDateString('vi-VN')}. Hệ thống KHÔNG tự động gia hạn.`,
         ref_type: 'subscription',
         ref_id: sub.subscription_id,
       });
     }
   }
 
-  /** Chay dinh ky: chuyen subscription qua han thanh 'expired' + bao cho user. */
+  /** Chạy định kỳ: chuyển subscription quá hạn thành 'expired' và báo cho user. */
   async expireOverdueSubscriptions(): Promise<void> {
-    const now = new Date();
     const overdue = await this.subscriptionRepo
       .createQueryBuilder('s')
       .where('s.status = :status', { status: SubscriptionStatus.ACTIVE })
-      .andWhere('s.end_date < :now', { now })
+      .andWhere('s.end_date < :now', { now: new Date() })
       .getMany();
 
     for (const sub of overdue) {
@@ -191,8 +287,8 @@ export class SubscriptionService {
       await this.notificationService.create({
         user_id: sub.user_id,
         type: NotificationType.SUBSCRIPTION_EXPIRED,
-        title: 'Goi premium da het han',
-        message: 'Ban van xem duoc du lieu cu, nhung khong tao moi duoc nua. Gia han de tiep tuc dung premium.',
+        title: 'Gói Premium đã hết hạn',
+        message: 'Bạn vẫn xem được dữ liệu cũ nhưng không tạo mới được nữa. Gia hạn để tiếp tục dùng Premium.',
         ref_type: 'subscription',
         ref_id: sub.subscription_id,
       });
