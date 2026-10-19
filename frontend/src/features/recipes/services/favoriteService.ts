@@ -80,6 +80,22 @@ export const favoriteService = {
       STORAGE_KEYS.FAVORITES,
       {}
     );
+    const existing = all[data.userId];
+    if (existing) {
+      const sameRecipes =
+        Array.isArray(existing.recipes) &&
+        Array.isArray(data.recipes) &&
+        existing.recipes.length === data.recipes.length &&
+        existing.recipes.every((r, idx) => r === data.recipes[idx]);
+      const sameMealPlans =
+        Array.isArray(existing.mealPlans) &&
+        Array.isArray(data.mealPlans) &&
+        existing.mealPlans.length === data.mealPlans.length &&
+        existing.mealPlans.every((m, idx) => m.id === data.mealPlans[idx]?.id);
+      if (sameRecipes && sameMealPlans) {
+        return;
+      }
+    }
     all[data.userId] = data;
     storage.setItem(STORAGE_KEYS.FAVORITES, all);
   },

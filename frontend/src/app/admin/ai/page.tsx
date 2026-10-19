@@ -205,7 +205,7 @@ function AIContent() {
                     : "bg-red-50 text-red-700"
                 }`}
               >
-                {log.level === "info" ? "INFO" : log.level === "warn" ? "WARN" : "ERROR"}
+                {log.level === "info" ? "THÔNG TIN" : log.level === "warn" ? "CẢNH BÁO" : "LỖI"}
               </span>
             ),
             model: (
