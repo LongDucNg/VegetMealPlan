@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, Max, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, Max, Min, ValidateIf } from 'class-validator';
 import { ActivityLevel, DietType } from '../entities/user.entity';
+import { BODY_LIMITS } from '../body-limits';
 
 export class UpdateProfileDto {
   @ApiPropertyOptional({ example: 'Nguyễn Văn A' })
@@ -11,8 +12,8 @@ export class UpdateProfileDto {
   @ApiPropertyOptional({ example: 30 })
   @IsOptional()
   @IsInt()
-  @Min(5)
-  @Max(120)
+  @Min(BODY_LIMITS.age.min, { message: `age phải từ ${BODY_LIMITS.age.min} trở lên` })
+  @Max(BODY_LIMITS.age.max, { message: `age không được quá ${BODY_LIMITS.age.max}` })
   age?: number;
 
   @ApiPropertyOptional({ enum: ['male', 'female', 'other'] })
@@ -20,16 +21,18 @@ export class UpdateProfileDto {
   @IsIn(['male', 'female', 'other'])
   gender?: string;
 
-  @ApiPropertyOptional({ example: 175 })
+  @ApiPropertyOptional({ example: 175, minimum: BODY_LIMITS.height_cm.min, maximum: BODY_LIMITS.height_cm.max })
   @IsOptional()
   @IsNumber()
-  @IsPositive({ message: 'height_cm phải lớn hơn 0' })
+  @Min(BODY_LIMITS.height_cm.min, { message: `height_cm phải từ ${BODY_LIMITS.height_cm.min} cm trở lên` })
+  @Max(BODY_LIMITS.height_cm.max, { message: `height_cm không được quá ${BODY_LIMITS.height_cm.max} cm` })
   height_cm?: number;
 
-  @ApiPropertyOptional({ example: 70 })
+  @ApiPropertyOptional({ example: 70, minimum: BODY_LIMITS.weight_kg.min, maximum: BODY_LIMITS.weight_kg.max })
   @IsOptional()
   @IsNumber()
-  @IsPositive({ message: 'weight_kg phải lớn hơn 0' })
+  @Min(BODY_LIMITS.weight_kg.min, { message: `weight_kg phải từ ${BODY_LIMITS.weight_kg.min} kg trở lên` })
+  @Max(BODY_LIMITS.weight_kg.max, { message: `weight_kg không được quá ${BODY_LIMITS.weight_kg.max} kg` })
   weight_kg?: number;
 
   @ApiPropertyOptional({ enum: ActivityLevel })
@@ -46,4 +49,19 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsInt()
   current_goal_id?: number;
+
+  // ---- Mục tiêu cụ thể (tuỳ chọn). Gửi null để xoá. ----
+  @ApiPropertyOptional({ example: 65, nullable: true, description: 'Cân nặng muốn đạt (kg)' })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsNumber()
+  @Min(BODY_LIMITS.weight_kg.min, { message: `target_weight_kg phải từ ${BODY_LIMITS.weight_kg.min} kg trở lên` })
+  @Max(BODY_LIMITS.weight_kg.max, { message: `target_weight_kg không được quá ${BODY_LIMITS.weight_kg.max} kg` })
+  target_weight_kg?: number | null;
+
+  @ApiPropertyOptional({ example: '2027-01-31', nullable: true, description: 'Ngày muốn đạt mục tiêu (YYYY-MM-DD), phải sau hôm nay' })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsDateString({ strict: true }, { message: 'target_date phải có dạng YYYY-MM-DD' })
+  target_date?: string | null;
 }
