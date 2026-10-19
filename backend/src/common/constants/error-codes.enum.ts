@@ -75,6 +75,8 @@ export enum ErrorCode {
   SUBSCRIPTION_NOT_FOUND = 'SUBSCRIPTION_NOT_FOUND',
   /** 400: chỉ huỷ được gói đang active. */
   SUBSCRIPTION_NOT_ACTIVE = 'SUBSCRIPTION_NOT_ACTIVE',
+  /** 503: server chưa cấu hình VNPAY_TMN_CODE / VNPAY_HASH_SECRET. */
+  SUBSCRIPTION_PAYMENT_NOT_CONFIGURED = 'SUBSCRIPTION_PAYMENT_NOT_CONFIGURED',
 
   // ---- Danh mục ----
   /** 404 */
