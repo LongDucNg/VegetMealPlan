@@ -54,15 +54,15 @@ export function AdminIngredientDetailModal({
             )}
             <div className="flex items-center gap-2 mt-2">
               {ingredient.vegan_flag ? (
-                <Badge variant="success">Thuần chay (Vegan)</Badge>
+                <Badge variant="success">Thuần chay</Badge>
               ) : (
                 <Badge variant="info">Chay có sữa/trứng</Badge>
               )}
               {ingredient.status === "active" ? (
-                <Badge variant="success">Active</Badge>
+                <Badge variant="success">Hoạt động</Badge>
               ) : (
                 <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-stone-200 text-stone-700">
-                  Inactive
+                  Tạm ngưng
                 </span>
               )}
             </div>
@@ -73,7 +73,7 @@ export function AdminIngredientDetailModal({
               Giá chuẩn
             </span>
             <span className="text-base font-bold text-emerald-800">
-              {(ingredient.avg_price_per_unit || 0).toLocaleString("vi-VN")} đ
+              {(ingredient.avg_price_per_unit || 0).toLocaleString("vi-VN")} VNĐ
             </span>
             <span className="text-xs text-stone-500 block">/ {ingredient.unit}</span>
           </div>
@@ -88,7 +88,7 @@ export function AdminIngredientDetailModal({
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
             <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-200/60 text-center">
-              <span className="text-[10px] uppercase font-semibold text-amber-700 block">Calories</span>
+              <span className="text-[10px] uppercase font-semibold text-amber-700 block">Calo</span>
               <span className="text-sm font-bold text-amber-900">
                 {ingredient.calories_per_100g ?? 0}
               </span>
@@ -96,21 +96,21 @@ export function AdminIngredientDetailModal({
             </div>
 
             <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200/60 text-center">
-              <span className="text-[10px] uppercase font-semibold text-emerald-700 block">Protein</span>
+              <span className="text-[10px] uppercase font-semibold text-emerald-700 block">Chất đạm</span>
               <span className="text-sm font-bold text-emerald-900">
                 {ingredient.protein_per_100g ?? 0}g
               </span>
             </div>
 
             <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-200/60 text-center">
-              <span className="text-[10px] uppercase font-semibold text-blue-700 block">Carbs</span>
+              <span className="text-[10px] uppercase font-semibold text-blue-700 block">Tinh bột</span>
               <span className="text-sm font-bold text-blue-900">
                 {ingredient.carb_per_100g ?? 0}g
               </span>
             </div>
 
             <div className="p-3 rounded-xl bg-purple-50/60 border border-purple-200/60 text-center">
-              <span className="text-[10px] uppercase font-semibold text-purple-700 block">Fat</span>
+              <span className="text-[10px] uppercase font-semibold text-purple-700 block">Chất béo</span>
               <span className="text-sm font-bold text-purple-900">
                 {ingredient.fat_per_100g ?? 0}g
               </span>

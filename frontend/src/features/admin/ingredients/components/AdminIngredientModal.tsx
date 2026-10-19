@@ -184,7 +184,7 @@ export function AdminIngredientModal({
                 onChange={(e) => handleChange("vegan_flag", e.target.checked)}
                 className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
               />
-              <span>Thuần chay (Vegan)</span>
+              <span>Thuần chay</span>
             </label>
 
             <label className="flex items-center gap-2 cursor-pointer font-medium text-stone-700">
@@ -204,8 +204,8 @@ export function AdminIngredientModal({
                 onChange={(e) => handleChange("status", e.target.value as any)}
                 className="h-8 px-2.5 rounded-lg border border-stone-200 text-xs bg-white focus:border-emerald-600 outline-none"
               >
-                <option value="active">Active (Hoạt động)</option>
-                <option value="inactive">Inactive (Tạm ngưng)</option>
+                <option value="active">Hoạt động</option>
+                <option value="inactive">Tạm ngưng</option>
               </select>
             </div>
           </div>
@@ -215,12 +215,12 @@ export function AdminIngredientModal({
         <div className="space-y-3 pt-3 border-t border-stone-100">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-800">
             <DollarSign className="w-3.5 h-3.5" />
-            <span>2. Giá chuẩn thị trường (VND)</span>
+            <span>2. Giá chuẩn thị trường (VNĐ)</span>
           </div>
 
           <div className="max-w-xs">
             <label className="block text-xs font-semibold text-stone-700 mb-1">
-              Giá trung bình / 1 {form.unit || "đơn vị"} (VND)
+              Giá trung bình / 1 {form.unit || "đơn vị"} (VNĐ)
             </label>
             <div className="relative">
               <input
@@ -231,7 +231,7 @@ export function AdminIngredientModal({
                 onChange={(e) => handleChange("avg_price_per_unit", Number(e.target.value))}
                 className="w-full h-10 pl-3.5 pr-14 rounded-xl border border-stone-200 text-sm focus:border-emerald-600 outline-none"
               />
-              <span className="absolute right-3 top-2.5 text-xs font-bold text-stone-400">VND</span>
+              <span className="absolute right-3 top-2.5 text-xs font-bold text-stone-400">VNĐ</span>
             </div>
             <p className="text-[11px] text-stone-400 mt-1">
               Dùng để tự động tính giá thành công thức món cho thành viên.
@@ -249,7 +249,7 @@ export function AdminIngredientModal({
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <div>
               <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                Calories (kcal)
+                Calo (kcal)
               </label>
               <input
                 type="number"
@@ -263,7 +263,7 @@ export function AdminIngredientModal({
 
             <div>
               <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                Protein (g)
+                Chất đạm (g)
               </label>
               <input
                 type="number"
@@ -277,7 +277,7 @@ export function AdminIngredientModal({
 
             <div>
               <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                Carbs (g)
+                Tinh bột (g)
               </label>
               <input
                 type="number"
@@ -291,7 +291,7 @@ export function AdminIngredientModal({
 
             <div>
               <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                Fat (g)
+                Chất béo (g)
               </label>
               <input
                 type="number"
@@ -305,7 +305,7 @@ export function AdminIngredientModal({
 
             <div>
               <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                Chất xơ / Fiber (g)
+                Chất xơ (g)
               </label>
               <input
                 type="number"

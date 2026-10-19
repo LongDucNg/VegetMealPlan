@@ -27,7 +27,9 @@ import { recipeService } from "@/features/recipes/services/recipeService";
 import { priceService } from "@/features/recipes/services/priceService";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
 import { useProfile } from "@/features/profile/hooks/useProfile";
+import { formatVegetarianType } from "@/features/profile/types";
 import { favoriteService } from "@/features/recipes/services/favoriteService";
+import { formatMealType } from "@/features/recipes";
 import { tokenStorage } from "@/lib/tokenStorage";
 import { mapBackendToFrontendRecipe } from "@/features/recipes/utils/recipeMapper";
 import { Recipe } from "@/features/recipes/types";
@@ -254,10 +256,10 @@ export function RecipeDetailClient({
             <div className="absolute bottom-5 left-6 right-6 text-white space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-emerald-600 text-white shadow-xs">
-                  {recipe.mealType}
+                  {formatMealType(recipe.mealType)}
                 </span>
                 <span className="text-[11px] font-semibold px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/30">
-                  {recipe.vegetarianType.replace("_", " ")}
+                  {formatVegetarianType(recipe.vegetarianType)}
                 </span>
                 <span className="text-[11px] font-medium text-stone-200">
                   Danh mục: {recipe.category}
@@ -459,10 +461,10 @@ export function RecipeDetailClient({
                         </span>
                         <div className="text-right shrink-0">
                           <span className="font-semibold text-stone-900">
-                            {Number(cIng.cost || 0).toLocaleString("vi-VN")} đ
+                            {Number(cIng.cost || 0).toLocaleString("vi-VN")} VNĐ
                           </span>
                           <span className="text-[10px] text-stone-400 block">
-                            ({Number(cIng.unit_price || 0).toLocaleString("vi-VN")} đ/{cIng.price_unit || cIng.unit})
+                            ({Number(cIng.unit_price || 0).toLocaleString("vi-VN")} VNĐ/{cIng.price_unit || cIng.unit})
                           </span>
                         </div>
                       </div>
@@ -470,7 +472,7 @@ export function RecipeDetailClient({
                   </div>
                   <div className="flex items-center justify-between pt-2 text-xs font-bold text-emerald-900">
                     <span>Tổng chi phí:</span>
-                    <span>{Number(costData.total_cost || 0).toLocaleString("vi-VN")} đ</span>
+                    <span>{Number(costData.total_cost || 0).toLocaleString("vi-VN")} VNĐ</span>
                   </div>
                 </div>
               )}

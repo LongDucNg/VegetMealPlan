@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import Image from "next/image";
 import { X, RefreshCw, Flame, Check, Sparkles, AlertCircle } from "lucide-react";
 import { Recipe } from "@/features/recipes/types";
-import { UserProfile } from "@/features/profile/types";
+import { UserProfile, formatVegetarianType } from "@/features/profile/types";
 import { recipeService } from "@/features/recipes/services/recipeService";
 import { priceService } from "@/features/recipes/services/priceService";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
@@ -49,7 +49,7 @@ export function MealReplacementModal({
                 Đổi món {mealType.toLowerCase() === 'breakfast' ? 'bữa sáng' : mealType.toLowerCase() === 'lunch' ? 'bữa trưa' : mealType.toLowerCase() === 'dinner' ? 'bữa tối' : 'bữa phụ'}
               </h3>
               <p className="text-xs text-stone-500">
-                Gợi ý phù hợp chế độ chay ({profile.vegetarianType.replace("_", " ")}), dị ứng & mức calo mục tiêu
+                Gợi ý phù hợp chế độ chay ({formatVegetarianType(profile.vegetarianType)}), dị ứng & mức calo mục tiêu
               </p>
             </div>
           </div>
@@ -131,7 +131,7 @@ export function MealReplacementModal({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <span className="text-[10px] font-bold uppercase px-2 py-0.2 rounded-full bg-stone-100 text-stone-700">
-                        {recipe.vegetarianType.replace("_", " ")}
+                        {formatVegetarianType(recipe.vegetarianType)}
                       </span>
                       <span
                         className={`text-[10px] font-semibold px-2 py-0.2 rounded-full border ${diffColor}`}

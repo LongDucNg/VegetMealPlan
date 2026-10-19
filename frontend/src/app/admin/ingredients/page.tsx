@@ -14,8 +14,8 @@ export default function AdminIngredientsPage() {
     <AppShell showRightRail={false}>
       <div className="max-w-[1240px] mx-auto w-full">
         <PageHeader
-          eyebrow="Administration"
-          title="Ingredient Management"
+          eyebrow="Quản trị hệ thống"
+          title="Quản lý Nguyên liệu"
           subtitle="Thêm mới, quản lý 190+ nguyên liệu thực phẩm, cập nhật giá thị trường tham khảo và chỉ số dinh dưỡng chuẩn."
         />
         {!ready ? (

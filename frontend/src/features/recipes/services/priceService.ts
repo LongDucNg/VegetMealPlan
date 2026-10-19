@@ -173,14 +173,14 @@ export const priceService = {
    * Formats estimated price with leading "~" (Requirement 5)
    */
   formatEstimatedPrice(amount: number): string {
-    return `~${Math.round(amount).toLocaleString("vi-VN")} VND`;
+    return `~${Math.round(amount).toLocaleString("vi-VN")} VNĐ`;
   },
 
   /**
    * Formats actual price (exact or customized by user)
    */
   formatActualPrice(amount: number): string {
-    return `${Math.round(amount).toLocaleString("vi-VN")} VND`;
+    return `${Math.round(amount).toLocaleString("vi-VN")} VNĐ`;
   },
 
   /**

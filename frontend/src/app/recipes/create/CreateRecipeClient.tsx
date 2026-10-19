@@ -584,6 +584,7 @@ export function CreateRecipeClient() {
                     <option value="lunch">Bữa trưa (Lunch)</option>
                     <option value="dinner">Bữa tối (Dinner)</option>
                     <option value="snack">Bữa phụ / Ăn vặt (Snack)</option>
+                    <option value="any">Bữa trưa & Tối (Món chính linh hoạt)</option>
                   </select>
                 </div>
 
@@ -773,7 +774,7 @@ export function CreateRecipeClient() {
                                   <span className="font-semibold">{sug.ingredient_name}</span>
                                   <span className="text-[10px] text-stone-400 font-mono">
                                     {sug.unit} •{" "}
-                                    {Number(sug.avg_price_per_unit || 0).toLocaleString("vi-VN")} đ/
+                                    {Number(sug.avg_price_per_unit || 0).toLocaleString("vi-VN")} VNĐ/
                                     {sug.unit}
                                   </span>
                                 </div>

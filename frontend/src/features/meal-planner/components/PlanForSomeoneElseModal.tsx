@@ -191,9 +191,9 @@ export function PlanForSomeoneElseModal({
                 className="w-full h-10 px-3.5 rounded-xl border border-stone-200 bg-stone-50 text-sm focus:bg-white focus:border-emerald-600 outline-none"
               >
                 <option value="vegan">Thuần chay (Vegan)</option>
-                <option value="lacto_vegetarian">Chay có sữa (Lacto-Vegetarian)</option>
-                <option value="ovo_vegetarian">Chay có trứng (Ovo-Vegetarian)</option>
-                <option value="lacto_ovo_vegetarian">Chay có trứng & sữa (Lacto-Ovo)</option>
+                <option value="lacto_vegetarian">Chay có sữa (Lacto)</option>
+                <option value="ovo_vegetarian">Chay có trứng (Ovo)</option>
+                <option value="lacto_ovo_vegetarian">Chay có trứng & sữa (Ovo-Lacto)</option>
               </select>
             </div>
           </div>
@@ -306,7 +306,9 @@ export function PlanForSomeoneElseModal({
               <div>
                 <p className="text-[11px] text-stone-500">BMI</p>
                 <p className="font-bold text-stone-900 text-sm">{bmiInfo?.formattedBMI}</p>
-                <p className="text-[10px] text-stone-400">({bmiInfo?.category})</p>
+                <p className="text-[10px] text-stone-400">
+                  ({bmiInfo?.category === "Underweight" ? "Thiếu cân" : bmiInfo?.category === "Balanced" ? "Cân đối" : "Thừa cân"})
+                </p>
               </div>
               <div>
                 <p className="text-[11px] text-stone-500">BMR</p>
