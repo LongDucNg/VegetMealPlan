@@ -27,6 +27,11 @@ export interface AuthUser {
   weight_kg?: number;
   allergies?: string[];
   avatar_url?: string;
+  target_weight_kg?: number | null;
+  target_date?: string | null;
+  profile_complete?: boolean;
+  missing_profile_fields?: string[];
+  allergies_declared?: boolean;
 }
 
 export interface AuthResponse {

@@ -3,6 +3,19 @@ export interface AuthStoredUser {
   full_name: string;
   email: string;
   role: string;
+  age?: number | null;
+  gender?: string | null;
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  activity_level?: string | null;
+  diet_type?: string | null;
+  allergies?: string[];
+  is_premium?: boolean;
+  target_weight_kg?: number | null;
+  target_date?: string | null;
+  profile_complete?: boolean;
+  missing_profile_fields?: string[];
+  allergies_declared?: boolean;
 }
 
 const TOKEN_KEY = "vh_access_token";
