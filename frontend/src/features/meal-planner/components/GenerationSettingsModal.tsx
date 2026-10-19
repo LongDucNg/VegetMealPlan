@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { X, Sparkles, DollarSign, Calendar, UserCheck, AlertCircle, Heart } from "lucide-react";
 import { MealPlanType, GenerationPlanOptions } from "../types";
-import { UserProfile } from "@/features/profile/types";
+import { UserProfile, formatVegetarianType } from "@/features/profile/types";
 import { favoriteService } from "@/features/recipes/services/favoriteService";
 
 interface GenerationSettingsModalProps {
@@ -206,7 +206,7 @@ export function GenerationSettingsModal({
                   {isPlanForSomeoneElse ? `Người khác: ${activeProfile.name}` : `Bản thân (${activeProfile.name})`}
                 </span>
                 <span className="text-[11px] text-stone-500">
-                  · {activeProfile.vegetarianType.replace("_", " ")}
+                  · {formatVegetarianType(activeProfile.vegetarianType)}
                 </span>
               </div>
 
@@ -262,7 +262,7 @@ export function GenerationSettingsModal({
                       className="w-full h-10 px-3.5 pr-28 rounded-xl border border-stone-200 bg-stone-50 text-xs font-bold text-stone-900 focus:bg-white focus:border-emerald-600 outline-none"
                     />
                     <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-500">
-                      VND / {planType === "weekly" ? "tuần" : "tháng"}
+                      VNĐ / {planType === "weekly" ? "tuần" : "tháng"}
                     </span>
                   </div>
                   <p className="text-[11px] text-stone-500 mt-1">
