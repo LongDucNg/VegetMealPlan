@@ -1,4 +1,5 @@
 import { profileService } from "@/features/profile/services/profileService";
+import { formatVegetarianType } from "@/features/profile/types";
 import { nutritionService } from "@/features/nutrition/services/nutritionService";
 import { recipeService } from "@/features/recipes/services/recipeService";
 import { ChatbotMessage } from "../types";
@@ -18,7 +19,7 @@ export const chatbotService = {
         return {
           id: `ai-${Date.now()}`,
           sender: "ai",
-          timestamp: "Just now",
+          timestamp: "Vừa xong",
           text: aiText,
         };
       }
@@ -38,6 +39,7 @@ export const chatbotService = {
       normalized.includes("dinner") ||
       normalized.includes("eat for dinner") ||
       normalized.includes("tối nay ăn gì") ||
+      normalized.includes("ăn gì") ||
       normalized.includes("lunch") ||
       normalized.includes("breakfast")
     ) {
@@ -46,6 +48,8 @@ export const chatbotService = {
         : normalized.includes("lunch")
         ? "lunch"
         : "dinner";
+
+      const mealLabel = mealType === "breakfast" ? "bữa sáng" : mealType === "lunch" ? "bữa trưa" : "bữa tối";
 
       const recommendations = recipeService.getRecommendations(
         profile,
@@ -56,15 +60,15 @@ export const chatbotService = {
       const topPick = recommendations[0];
       const allergyNote =
         profile.allergies.length > 0
-          ? `Filtered to avoid your allergens (${profile.allergies.join(", ")}).`
-          : "Matches your diet preferences.";
+          ? `Đã lọc để tránh các thành phần dị ứng của bạn (${profile.allergies.join(", ")}).`
+          : "Phù hợp với chế độ ăn chay của bạn.";
 
       if (topPick) {
         return {
           id: `ai-${Math.random().toString(36).substring(2, 9)}`,
           sender: "ai",
-          timestamp: "Just now",
-          text: `Based on your profile (${profile.vegetarianType.replace("_", " ")}, target ~${nutrition.mealTargets[mealType]} kcal for ${mealType}):\n\n🍽️ **Recommended Dish: ${topPick.title}**\n• Calories: **${topPick.calories} kcal**\n• Protein: **${topPick.protein}g** | Carbs: **${topPick.carbs}g** | Fat: **${topPick.fat}g**\n• Prep/Cook Time: **${topPick.prepTime + topPick.cookTime} minutes**\n\n${topPick.description}\n\n✅ *${allergyNote}*`,
+          timestamp: "Vừa xong",
+          text: `Dựa trên hồ sơ của bạn (${formatVegetarianType(profile.vegetarianType)}, mục tiêu ~${nutrition.mealTargets[mealType]} kcal cho ${mealLabel}):\n\n🍽️ **Món ăn gợi ý: ${topPick.title}**\n• Năng lượng: **${topPick.calories} kcal**\n• Chất đạm: **${topPick.protein}g** | Tinh bột: **${topPick.carbs}g** | Chất béo: **${topPick.fat}g**\n• Thời gian chuẩn bị/nấu: **${topPick.prepTime + topPick.cookTime} phút**\n\n${topPick.description}\n\n✅ *${allergyNote}*`,
           suggestedRecipeId: topPick.id,
         };
       }
@@ -82,15 +86,15 @@ export const chatbotService = {
         return {
           id: `ai-${Math.random().toString(36).substring(2, 9)}`,
           sender: "ai",
-          timestamp: "Just now",
-          text: `Please complete your height and weight in your profile to calculate your Body Mass Index (BMI) and healthy weight range.`,
+          timestamp: "Vừa xong",
+          text: `Vui lòng cập nhật chiều cao và cân nặng trong hồ sơ để tính chỉ số BMI và khoảng cân nặng lý tưởng.`,
         };
       }
       return {
         id: `ai-${Math.random().toString(36).substring(2, 9)}`,
         sender: "ai",
-        timestamp: "Just now",
-        text: `Here is the personalized analysis of your BMI based on your profile:\n\n• **Height:** ${profile.height} cm | **Weight:** ${profile.weight} kg\n• **Calculated BMI:** **${bmiInfo.formattedBMI}** (${bmiInfo.category})\n• **Healthy Weight Range:** **${bmiInfo.healthyWeightRange.min} kg – ${bmiInfo.healthyWeightRange.max} kg**\n\n💡 *${bmiInfo.description}*`,
+        timestamp: "Vừa xong",
+        text: `Phân tích chỉ số BMI cá nhân hóa từ hồ sơ của bạn:\n\n• **Chiều cao:** ${profile.height} cm | **Cân nặng:** ${profile.weight} kg\n• **Chỉ số BMI:** **${bmiInfo.formattedBMI}** (${bmiInfo.category})\n• **Cân nặng lý tưởng:** **${bmiInfo.healthyWeightRange.min} kg – ${bmiInfo.healthyWeightRange.max} kg**\n\n💡 *${bmiInfo.description}*`,
       };
     }
 
@@ -106,8 +110,8 @@ export const chatbotService = {
       return {
         id: `ai-${Math.random().toString(36).substring(2, 9)}`,
         sender: "ai",
-        timestamp: "Just now",
-        text: `Here are your calculated daily metabolic numbers (Mifflin-St Jeor formula):\n\n• **Basal Metabolic Rate (BMR):** **${nutrition.bmr} kcal/day**\n• **Total Daily Energy Expenditure (TDEE):** **${nutrition.tdee} kcal/day** (Activity: ${profile.activityLevel})\n• **Target Intake (${nutrition.goalTitle}):** **~${nutrition.dailyCalorieTarget.toLocaleString()} kcal/day**\n\n🎯 **Recommended Daily Macros:**\n• Protein: **${nutrition.macros.proteinGrams}g** (~${nutrition.macros.proteinPct}%)\n• Carbs: **${nutrition.macros.carbsGrams}g** (~${nutrition.macros.carbsPct}%)\n• Fat: **${nutrition.macros.fatGrams}g** (~${nutrition.macros.fatPct}%)`,
+        timestamp: "Vừa xong",
+        text: `Các chỉ số chuyển hóa năng lượng hàng ngày của bạn (theo công thức Mifflin-St Jeor):\n\n• **Chuyển hóa cơ bản (BMR):** **${nutrition.bmr} kcal/ngày**\n• **Tổng tiêu hao năng lượng (TDEE):** **${nutrition.tdee} kcal/ngày** (Mức độ vận động: ${profile.activityLevel})\n• **Mục tiêu calo (${nutrition.goalTitle}):** **~${nutrition.dailyCalorieTarget.toLocaleString()} kcal/ngày**\n\n🎯 **Khuyến nghị dinh dưỡng hàng ngày:**\n• Chất đạm: **${nutrition.macros.proteinGrams}g** (~${nutrition.macros.proteinPct}%)\n• Tinh bột: **${nutrition.macros.carbsGrams}g** (~${nutrition.macros.carbsPct}%)\n• Chất béo: **${nutrition.macros.fatGrams}g** (~${nutrition.macros.fatPct}%)`,
       };
     }
 
@@ -124,15 +128,15 @@ export const chatbotService = {
         return {
           id: `ai-${Math.random().toString(36).substring(2, 9)}`,
           sender: "ai",
-          timestamp: "Just now",
-          text: `Your profile currently flags allergies to: **${userAllergies.join(", ")}**.\n\nAll recipes recommended in your Meal Planner are automatically filtered to exclude these ingredients. Whenever you browse videos or recipes, any recipe containing ${userAllergies.join(" or ")} will display a conspicuous ⚠ **Allergy Warning** badge to protect you.`,
+          timestamp: "Vừa xong",
+          text: `Hồ sơ của bạn hiện ghi nhận dị ứng với: **${userAllergies.join(", ")}**.\n\nTất cả công thức được gợi ý trong Kế hoạch Thực đơn sẽ tự động loại trừ các nguyên liệu này. Khi bạn xem video hoặc công thức, bất kỳ món nào chứa ${userAllergies.join(" hoặc ")} sẽ hiển thị huy hiệu cảnh báo ⚠ **Dị ứng thực phẩm** để bảo vệ an toàn cho bạn.`,
         };
       } else {
         return {
           id: `ai-${Math.random().toString(36).substring(2, 9)}`,
           sender: "ai",
-          timestamp: "Just now",
-          text: `You currently have no allergies saved in your profile. You can update your allergens anytime in **Preferences / Settings** or on your Profile page.`,
+          timestamp: "Vừa xong",
+          text: `Hiện bạn chưa lưu thông tin dị ứng thực phẩm nào trong hồ sơ. Bạn có thể cập nhật dị ứng bất cứ lúc nào trong trang **Hồ sơ cá nhân** hoặc cài đặt.`,
         };
       }
     }
@@ -143,7 +147,7 @@ export const chatbotService = {
         return {
           id: `ai-${Math.random().toString(36).substring(2, 9)}`,
           sender: "ai",
-          timestamp: "Just now",
+          timestamp: "Vừa xong",
           text: value.text,
           substitution: value.substitution,
         };
@@ -154,8 +158,8 @@ export const chatbotService = {
     return {
       id: `ai-${Math.random().toString(36).substring(2, 9)}`,
       sender: "ai",
-      timestamp: "Just now",
-      text: `Thanks for asking! As your AI Plant Nutritionist, I keep your personal profile in mind:\n• Diet: **${profile.vegetarianType.replace("_", " ")}**\n• Health Goal: **${nutrition.goalTitle}** (~${nutrition.dailyCalorieTarget} kcal/day)\n• Allergies: **${profile.allergies.length ? profile.allergies.join(", ") : "None"}**\n\nFeel free to ask me:\n1. *"What should I eat for dinner?"*\n2. *"Explain my BMI and body metrics"*\n3. *"How many calories should I eat daily?"*\n4. *"Egg substitute for baking"* or *"How to get enough B12 in Vietnam"*.`,
+      timestamp: "Vừa xong",
+      text: `Chào bạn! Với vai trò là Chuyên gia Dinh dưỡng Chay AI, tôi luôn ghi nhớ hồ sơ của bạn:\n• Chế độ ăn: **${formatVegetarianType(profile.vegetarianType)}**\n• Mục tiêu sức khỏe: **${nutrition.goalTitle}** (~${nutrition.dailyCalorieTarget} kcal/ngày)\n• Dị ứng thực phẩm: **${profile.allergies.length ? profile.allergies.join(", ") : "Không có"}**\n\nBạn có thể hỏi tôi:\n1. *"Tối nay ăn gì?"*\n2. *"Giải thích chỉ số BMI và thể trạng của tôi"*\n3. *"Tôi nên nạp bao nhiêu calo mỗi ngày?"*\n4. *"Nguyên liệu thay thế trứng khi làm bánh"* hoặc *"Cách bổ sung B12 cho người ăn chay tại Việt Nam"*.`,
     };
   },
 };

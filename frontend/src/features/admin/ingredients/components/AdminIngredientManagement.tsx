@@ -184,7 +184,7 @@ export function AdminIngredientManagement() {
             Kho Nguyên liệu & Bảng giá chuẩn
           </h2>
           <p className="text-xs text-stone-500 mt-1">
-            Quản lý toàn bộ danh mục nguyên liệu thực phẩm, giá thị trường tham khảo và chỉ số dinh dưỡng (API #9, #10, #11, #12).
+            Quản lý toàn bộ danh mục nguyên liệu thực phẩm, giá thị trường tham khảo và chỉ số dinh dưỡng.
           </p>
         </div>
 
@@ -291,8 +291,8 @@ export function AdminIngredientManagement() {
           </span>
           {[
             { id: "all", label: "Tất cả" },
-            { id: "active", label: "Hoạt động (Active)" },
-            { id: "inactive", label: "Tạm ngưng (Inactive)" },
+            { id: "active", label: "Hoạt động" },
+            { id: "inactive", label: "Tạm ngưng" },
           ].map((st) => (
             <button
               key={st.id}
@@ -311,7 +311,7 @@ export function AdminIngredientManagement() {
           {[
             { id: "all", label: "Tất cả" },
             { id: "vegan", label: "Thuần chay" },
-            { id: "non_vegan", label: "Khác" },
+            { id: "non_vegan", label: "Chay khác" },
           ].map((d) => (
             <button
               key={d.id}
@@ -379,7 +379,7 @@ export function AdminIngredientManagement() {
               ),
               price: (
                 <div className="font-mono font-bold text-xs text-emerald-800">
-                  {(ing.avg_price_per_unit || 0).toLocaleString("vi-VN")} đ
+                  {(ing.avg_price_per_unit || 0).toLocaleString("vi-VN")} VNĐ
                   <span className="text-[10px] text-stone-400 font-normal block">
                     / {ing.unit}
                   </span>
@@ -392,21 +392,21 @@ export function AdminIngredientManagement() {
                     <span>{ing.calories_per_100g ?? 0} kcal</span>
                   </div>
                   <div className="text-[10px] text-stone-500">
-                    P: {ing.protein_per_100g ?? 0}g · C: {ing.carb_per_100g ?? 0}g · F: {ing.fat_per_100g ?? 0}g
+                    Đạm: {ing.protein_per_100g ?? 0}g · Tinh bột: {ing.carb_per_100g ?? 0}g · Béo: {ing.fat_per_100g ?? 0}g
                   </div>
                 </div>
               ),
               vegan: ing.vegan_flag ? (
-                <Badge variant="success">Vegan</Badge>
+                <Badge variant="success">Thuần chay</Badge>
               ) : (
-                <Badge variant="info">Ovo/Lacto</Badge>
+                <Badge variant="info">Chay trứng sữa</Badge>
               ),
               status:
                 ing.status === "active" ? (
-                  <Badge variant="success">Active</Badge>
+                  <Badge variant="success">Hoạt động</Badge>
                 ) : (
                   <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-stone-200 text-stone-700">
-                    Inactive
+                    Tạm ngưng
                   </span>
                 ),
               actions: (
