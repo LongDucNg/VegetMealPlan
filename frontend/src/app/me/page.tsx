@@ -515,12 +515,12 @@ function ProfileContent() {
               Hủy gói hội viên
             </button>
           ) : (
-            <button
-              onClick={() => purchase("premium")}
-              className="text-xs bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold rounded-xl px-4 py-2 transition-colors cursor-pointer shadow-xs"
+            <Link
+              href="/me/settings?tab=subscription"
+              className="text-xs bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold rounded-xl px-4 py-2 transition-colors cursor-pointer shadow-xs inline-flex items-center"
             >
               Nâng cấp Premium
-            </button>
+            </Link>
           )}
         </div>
       </div>
