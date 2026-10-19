@@ -25,6 +25,11 @@ const REASON_COLORS: Record<string, string> = {
   Spam: "bg-amber-100 text-amber-700 border-amber-200",
   Offensive: "bg-purple-100 text-purple-700 border-purple-200",
   Inappropriate: "bg-pink-100 text-pink-700 border-pink-200",
+  "Tuyên bố nguy hại": "bg-red-100 text-red-700 border-red-200",
+  "Thông tin sai lệch": "bg-orange-100 text-orange-700 border-orange-200",
+  "Spam quảng cáo": "bg-amber-100 text-amber-700 border-amber-200",
+  "Xúc phạm / Công kích": "bg-purple-100 text-purple-700 border-purple-200",
+  "Không phù hợp": "bg-pink-100 text-pink-700 border-pink-200",
 };
 
 const REASON_LABELS: Record<string, string> = {
@@ -33,6 +38,11 @@ const REASON_LABELS: Record<string, string> = {
   Spam: "Spam quảng cáo",
   Offensive: "Xúc phạm / Công kích",
   Inappropriate: "Không phù hợp",
+  "Tuyên bố nguy hại": "Tuyên bố nguy hại",
+  "Thông tin sai lệch": "Thông tin sai lệch",
+  "Spam quảng cáo": "Spam quảng cáo",
+  "Xúc phạm / Công kích": "Xúc phạm / Công kích",
+  "Không phù hợp": "Không phù hợp",
 };
 
 function ConfidenceMeter({ value }: { value: number }) {

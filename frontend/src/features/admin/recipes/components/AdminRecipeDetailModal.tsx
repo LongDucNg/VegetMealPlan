@@ -4,7 +4,8 @@ import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { X, ExternalLink, Tag, AlertCircle, Info } from "lucide-react";
-import { Recipe } from "@/features/recipes/types";
+import { Recipe, formatMealType } from "@/features/recipes";
+import { formatVegetarianType } from "@/features/profile/types";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
 import { priceService, PRICE_WARNING_TEXT } from "@/features/recipes/services/priceService";
 
@@ -37,7 +38,7 @@ export function AdminRecipeDetailModal({
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-stone-400">
-              No Image
+              Không có ảnh
             </div>
           )}
           <button
@@ -52,10 +53,10 @@ export function AdminRecipeDetailModal({
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-200">
-                {recipe.mealType}
+                {formatMealType(recipe.mealType)}
               </span>
               <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-700 border border-stone-200">
-                {recipe.vegetarianType.replace("_", " ")}
+                {formatVegetarianType(recipe.vegetarianType)}
               </span>
               <span
                 className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
@@ -66,10 +67,10 @@ export function AdminRecipeDetailModal({
                     : "bg-stone-100 text-stone-700"
                 }`}
               >
-                Status: {recipe.status || "APPROVED"}
+                Trạng thái: {recipe.status === "APPROVED" ? "Đã duyệt" : recipe.status === "PENDING_REVIEW" ? "Chờ duyệt" : recipe.status === "REJECTED" ? "Từ chối" : "Bản nháp"}
               </span>
               <span className="text-[11px] font-medium text-stone-500">
-                Category: {recipe.category}
+                Danh mục: {recipe.category}
               </span>
             </div>
 
@@ -87,19 +88,19 @@ export function AdminRecipeDetailModal({
           {/* Quick Metrics */}
           <div className="grid grid-cols-4 gap-2 py-3 border-y border-stone-100 text-center">
             <div>
-              <p className="text-xs text-stone-400">Calories</p>
+              <p className="text-xs text-stone-400">Calo</p>
               <p className="font-serif font-bold text-lg text-amber-700">{recipe.calories} kcal</p>
             </div>
             <div>
-              <p className="text-xs text-stone-400">Protein</p>
+              <p className="text-xs text-stone-400">Chất đạm</p>
               <p className="font-serif font-bold text-lg text-emerald-800">{recipe.protein}g</p>
             </div>
             <div>
-              <p className="text-xs text-stone-400">Carbs</p>
+              <p className="text-xs text-stone-400">Tinh bột</p>
               <p className="font-serif font-bold text-lg text-amber-600">{recipe.carbs}g</p>
             </div>
             <div>
-              <p className="text-xs text-stone-400">Fat</p>
+              <p className="text-xs text-stone-400">Chất béo</p>
               <p className="font-serif font-bold text-lg text-violet-700">{recipe.fat}g</p>
             </div>
           </div>
@@ -108,7 +109,7 @@ export function AdminRecipeDetailModal({
           <div className="p-4 bg-stone-50 border border-stone-200 rounded-2xl space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">
-                Recipe Estimated Cost:
+                Chi phí ước tính công thức:
               </span>
               <span className="font-serif font-bold text-lg text-emerald-800">
                 {priceService.formatEstimatedPrice(estimatedCost)}
@@ -123,11 +124,11 @@ export function AdminRecipeDetailModal({
           {/* Recipe Source / Citation (Requirement 16) */}
           <div className="p-3.5 bg-stone-50/70 border border-stone-200 rounded-2xl text-xs space-y-1">
             <span className="font-semibold text-stone-500 uppercase tracking-wider block text-[10px]">
-              Recipe Source & Citation:
+              Nguồn công thức & Trích dẫn:
             </span>
             <div className="flex items-center justify-between">
               <span className="font-medium text-stone-800">
-                {recipe.source?.name || "Admin Created"}
+                {recipe.source?.name || "Hệ thống tạo"}
               </span>
               {recipe.source?.url ? (
                 <a
@@ -136,11 +137,11 @@ export function AdminRecipeDetailModal({
                   rel="noreferrer"
                   className="font-bold text-emerald-700 hover:text-emerald-900 underline flex items-center gap-1"
                 >
-                  <span>View Original Source</span>
+                  <span>Xem nguồn gốc</span>
                   <ExternalLink className="w-3 h-3" />
                 </a>
               ) : (
-                <span className="text-stone-400 italic">No external URL (Admin native)</span>
+                <span className="text-stone-400 italic">Không có liên kết ngoài (Hệ thống tạo)</span>
               )}
             </div>
           </div>
@@ -148,7 +149,7 @@ export function AdminRecipeDetailModal({
           {/* Ingredients with Unit Costs */}
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-3">
-              Ingredients ({recipe.ingredients.length})
+              Nguyên liệu ({recipe.ingredients.length})
             </h3>
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-stone-700">
               {recipe.ingredients.map((ing, i) => {
@@ -161,7 +162,7 @@ export function AdminRecipeDetailModal({
                     <div>
                       <span className="font-medium text-stone-800">{ing.name}</span>
                       <span className="text-stone-400 block text-[10px]">
-                        ~{cost.toLocaleString("vi-VN")} đ
+                        ~{cost.toLocaleString("vi-VN")} VNĐ
                       </span>
                     </div>
                     <span className="font-semibold text-stone-900">
@@ -176,7 +177,7 @@ export function AdminRecipeDetailModal({
           {/* Instructions */}
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-3">
-              Instructions
+              Các bước chế biến
             </h3>
             <ol className="space-y-2.5 text-xs text-stone-700">
               {recipe.instructions.map((step, idx) => (
@@ -207,7 +208,7 @@ export function AdminRecipeDetailModal({
               }}
               className="h-10 px-5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
             >
-              Edit Recipe
+              Chỉnh sửa công thức
             </button>
           </div>
         </div>

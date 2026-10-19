@@ -19,6 +19,8 @@ import {
   Clock,
   CheckCircle2,
   ShieldCheck,
+  UtensilsCrossed,
+  Carrot,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -148,8 +150,10 @@ function AdminContent() {
       {/* Quick links */}
       <div>
         <h3 className="font-semibold text-stone-800 mb-4">Thao tác nhanh</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
           {[
+            { label: "Công thức", href: "/admin/recipes", icon: <UtensilsCrossed className="w-5 h-5" /> },
+            { label: "Nguyên liệu", href: "/admin/ingredients", icon: <Carrot className="w-5 h-5" /> },
             { label: "Thành viên", href: "/admin/members", icon: <Users className="w-5 h-5" /> },
             { label: "Nội dung", href: "/admin/content", icon: <Video className="w-5 h-5" /> },
             { label: "Danh mục", href: "/admin/categories", icon: <ShieldCheck className="w-5 h-5" /> },
