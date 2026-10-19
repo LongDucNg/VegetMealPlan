@@ -259,7 +259,7 @@ export const excelImportService = {
       } else {
         issues.push({
           type: "MISSING_DATA",
-          message: `Invalid or missing meal type: "${rawMealType}". Defaulted to "lunch".`,
+          message: `Loại bữa ăn không hợp lệ hoặc để trống: "${rawMealType}". Mặc định chuyển thành Bữa trưa.`,
         });
       }
 
@@ -282,7 +282,7 @@ export const excelImportService = {
         if (!ingName) {
           issues.push({
             type: "INVALID_INGREDIENT",
-            message: `Row ${i + 1} has an empty ingredient name.`,
+            message: `Dòng ${i + 1} để trống tên nguyên liệu.`,
           });
           continue;
         }
@@ -291,7 +291,7 @@ export const excelImportService = {
         if (ingredientNamesSeen.has(normIng)) {
           issues.push({
             type: "DUPLICATE_INGREDIENT",
-            message: `Duplicate ingredient in same recipe: "${ingName}".`,
+            message: `Trùng lặp nguyên liệu trong cùng một công thức: "${ingName}".`,
           });
         }
         ingredientNamesSeen.add(normIng);
@@ -300,7 +300,7 @@ export const excelImportService = {
         if (isNaN(qty) || qty <= 0) {
           issues.push({
             type: "INVALID_INGREDIENT",
-            message: `Invalid quantity for ingredient "${ingName}": "${qtyRaw}".`,
+            message: `Số lượng nguyên liệu không hợp lệ cho "${ingName}": "${qtyRaw}".`,
           });
         }
 
@@ -316,14 +316,14 @@ export const excelImportService = {
       if (!rawTitle || rawTitle === "Untitled Recipe") {
         issues.push({
           type: "MISSING_DATA",
-          message: "Recipe Name is required.",
+          message: "Tên công thức là bắt buộc.",
         });
       }
 
       if (ingredients.length === 0) {
         issues.push({
           type: "MISSING_DATA",
-          message: "Recipe must contain at least one valid ingredient.",
+          message: "Công thức phải có ít nhất một nguyên liệu hợp lệ.",
         });
       }
 
@@ -331,7 +331,7 @@ export const excelImportService = {
       if (isNaN(calories) || calories <= 0) {
         issues.push({
           type: "INVALID_NUTRITION",
-          message: `Invalid or missing calories: ${calories}. Must be positive.`,
+          message: `Năng lượng (calo) không hợp lệ hoặc để trống: ${calories}. Phải là số dương lớn hơn 0.`,
         });
       }
 
@@ -342,7 +342,7 @@ export const excelImportService = {
       if (existingMatch) {
         issues.push({
           type: "DUPLICATE",
-          message: `Matches existing recipe "${existingMatch.title}".`,
+          message: `Trùng với công thức đã có trên hệ thống: "${existingMatch.title}".`,
           duplicateOfRecipeId: existingMatch.id,
         });
       }
@@ -354,7 +354,7 @@ export const excelImportService = {
       if (batchDuplicate) {
         issues.push({
           type: "DUPLICATE",
-          message: `Duplicate of another recipe inside the same import file.`,
+          message: `Trùng với một công thức khác trong cùng tệp tải lên.`,
         });
       }
 
@@ -363,7 +363,7 @@ export const excelImportService = {
       for (const conf of conflicts) {
         issues.push({
           type: "INGREDIENT_CONFLICT",
-          message: `Conflict between "${conf.foundA}" and "${conf.foundB}": ${conf.rule.reason}`,
+          message: `Xung đột tương kỵ giữa "${conf.foundA}" và "${conf.foundB}": ${conf.rule.reason}`,
         });
       }
 
@@ -382,7 +382,7 @@ export const excelImportService = {
       if (sourceUrl && !sourceUrl.startsWith("http://") && !sourceUrl.startsWith("https://")) {
         issues.push({
           type: "INVALID_SOURCE",
-          message: `Source URL is not a valid web URL: "${sourceUrl}".`,
+          message: `Đường dẫn nguồn không phải liên kết web hợp lệ: "${sourceUrl}".`,
         });
       }
 
@@ -400,7 +400,7 @@ export const excelImportService = {
         description,
         image:
           "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
-        category: "Imported Recipes",
+        category: "Món ăn nhập từ file",
         mealType,
         vegetarianType,
         prepTime: 15,
@@ -413,8 +413,8 @@ export const excelImportService = {
         ingredients: ingredientsWithCost,
         allergens,
         instructions: [
-          "Prepare fresh ingredients according to standard hygiene guidelines.",
-          "Cook ingredients as desired and serve warm.",
+          "Sơ chế nguyên liệu tươi sạch theo quy chuẩn vệ sinh an toàn thực phẩm.",
+          "Chế biến và nêm nếm gia vị vừa ăn, thưởng thức khi còn ấm nóng.",
         ],
         estimatedCost,
         source: {

@@ -34,7 +34,7 @@ export const FORUM_POSTS: ForumPost[] = [
 - **Lunch**: Grilled lemongrass tempeh with red rice, morning glory, and edamame (45g protein).
 - **Dinner**: Tofu & mushroom hotpot with fresh greens, konjac, and peanut dipping sauce (45g protein).
 
-Total protein: **120g**. Feeling energized, recovered from workouts, and spending less than 150,000 VND per day!`,
+Total protein: **120g**. Feeling energized, recovered from workouts, and spending less than 150,000 VNĐ per day!`,
     author: "Minh Duc",
     authorHandle: "@duc.plants",
     authorInitials: "MD",
@@ -95,7 +95,7 @@ Total protein: **120g**. Feeling energized, recovered from workouts, and spendin
   {
     id: "f3",
     title: "Hidden gems: 5 non-touristy vegetarian noodle houses in Bình Thạnh",
-    excerpt: "From 30k VND hủ tiếu chay to herb-loaded bún riêu chay that rival traditional broths. Tested and reviewed with map coordinates.",
+    excerpt: "From 30k VNĐ hủ tiếu chay to herb-loaded bún riêu chay that rival traditional broths. Tested and reviewed with map coordinates.",
     content: `Bình Thạnh has quietly developed one of the most vibrant local vegetarian scenes in Ho Chi Minh City. Here are 5 spots frequented by locals:
 
 1. **Quán Chay Pháp Hoa** (Nguyễn Văn Đậu): Famous for mushroom-stuffed crispy wontons and slow-simmered herbal noodle soup.

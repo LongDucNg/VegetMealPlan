@@ -192,7 +192,7 @@ function CategoriesContent() {
       {/* Header action */}
       <div className="flex justify-between items-center">
         <p className="text-sm text-stone-500">
-          Quản lý toàn bộ danh mục loại thực phẩm và phân loại công thức món ăn (Endpoints 22–25).
+          Quản lý toàn bộ danh mục loại thực phẩm và phân loại công thức món ăn.
         </p>
         <button
           onClick={openAdd}
@@ -213,7 +213,7 @@ function CategoriesContent() {
           {/* Food Types */}
           <div className="space-y-3">
             <h3 className="font-semibold text-stone-800 flex items-center gap-2">
-              Trường phái ẩm thực (Food Types)
+              Trường phái ẩm thực
               <span className="text-xs font-normal text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
                 {foodTypes.length}
               </span>
@@ -224,7 +224,7 @@ function CategoriesContent() {
           {/* Recipe Categories */}
           <div className="space-y-3">
             <h3 className="font-semibold text-stone-800 flex items-center gap-2">
-              Danh mục món ăn (Recipe Categories)
+              Danh mục món ăn
               <span className="text-xs font-normal text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
                 {recipeCategories.length}
               </span>
@@ -283,8 +283,8 @@ function CategoriesContent() {
               onChange={(e) => setFormType(e.target.value as CategoryItem["type"])}
               className="w-full h-10 px-3.5 rounded-xl border border-stone-200 text-sm focus:border-emerald-600 outline-none bg-white"
             >
-              <option value="Recipe Category">Danh mục món ăn (Recipe Category)</option>
-              <option value="Food Type">Trường phái ẩm thực (Food Type)</option>
+              <option value="Recipe Category">Danh mục món ăn</option>
+              <option value="Food Type">Trường phái ẩm thực</option>
             </select>
           </div>
 

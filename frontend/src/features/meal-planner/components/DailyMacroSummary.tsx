@@ -42,7 +42,7 @@ export function DailyMacroSummary({ day }: DailyMacroSummaryProps) {
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="px-3.5 py-1.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-950 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
             <Tag className="w-3.5 h-3.5 text-emerald-700" />
-            <span>Chi phí ước tính: ~{day.estimatedCost.toLocaleString("vi-VN")} đ/ngày</span>
+            <span>Chi phí ước tính: ~{day.estimatedCost.toLocaleString("vi-VN")} VNĐ/ngày</span>
           </div>
 
           <div
@@ -100,7 +100,7 @@ export function DailyMacroSummary({ day }: DailyMacroSummaryProps) {
         <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-3 text-center">
           <p className="text-[11px] font-semibold text-stone-500 uppercase">Chi phí ngày</p>
           <p className="font-serif font-bold text-xl text-emerald-900 mt-0.5">
-            ~{day.estimatedCost.toLocaleString("vi-VN")} đ
+            ~{day.estimatedCost.toLocaleString("vi-VN")} VNĐ
           </p>
           <p className="text-[10px] text-stone-400">4 bữa đã lên lịch</p>
         </div>

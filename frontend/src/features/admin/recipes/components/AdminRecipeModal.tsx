@@ -14,16 +14,16 @@ interface AdminRecipeModalProps {
 }
 
 const CATEGORY_PRESETS = [
-  "Breakfast & Porridge",
-  "Smoothies & Bowls",
-  "Stir-Fried & Crispy",
-  "Noodles & Pho",
-  "Soups & Broths",
-  "Rolls & Salads",
-  "Curries & Stews",
-  "Mixed Vegan Platters",
-  "Snacks & Pastries",
-  "Desserts & Drinks",
+  "Bữa sáng & Cháo",
+  "Sinh tố & Cơm tô",
+  "Món xào & Giòn rụm",
+  "Bún, Mì & Phở",
+  "Canh, Súp & Lẩu",
+  "Gỏi cuốn & Salad",
+  "Cà ri & Món kho",
+  "Mâm cơm chay thập cẩm",
+  "Ăn vặt & Bánh ngọt",
+  "Tráng miệng & Thức uống",
 ];
 
 const SAMPLE_IMAGES = [
@@ -52,7 +52,7 @@ function AdminRecipeForm({
     initialRecipe?.vegetarianType || "vegan"
   );
   const [status, setStatus] = useState<RecipeStatus>(initialRecipe?.status || "APPROVED");
-  const [sourceName, setSourceName] = useState(initialRecipe?.source?.name || "Admin Created");
+  const [sourceName, setSourceName] = useState(initialRecipe?.source?.name || "Hệ thống tạo");
   const [sourceUrl, setSourceUrl] = useState(initialRecipe?.source?.url || "");
 
   const [prepTime, setPrepTime] = useState<number>(initialRecipe?.prepTime ?? 15);
@@ -62,7 +62,7 @@ function AdminRecipeForm({
   const [protein, setProtein] = useState<number>(initialRecipe?.protein ?? 30);
   const [carbs, setCarbs] = useState<number>(initialRecipe?.carbs ?? 60);
   const [fat, setFat] = useState<number>(initialRecipe?.fat ?? 15);
-  const [cuisine, setCuisine] = useState(initialRecipe?.cuisine || "Vietnamese");
+  const [cuisine, setCuisine] = useState(initialRecipe?.cuisine || "Món Việt");
   const [difficulty, setDifficulty] = useState<"Easy" | "Medium" | "Advanced">(
     initialRecipe?.difficulty || "Easy"
   );
@@ -71,9 +71,9 @@ function AdminRecipeForm({
     initialRecipe?.ingredients?.length
       ? initialRecipe.ingredients
       : [
-          { id: 1, name: "Firm Tofu", quantity: 200, unit: "g", unitPrice: 45000 },
-          { id: 2, name: "Carrot", quantity: 100, unit: "g", unitPrice: 25000 },
-          { id: 3, name: "Rice", quantity: 150, unit: "g", unitPrice: 30000 },
+          { id: 1, name: "Đậu hũ non", quantity: 200, unit: "g", unitPrice: 45000 },
+          { id: 2, name: "Cà rốt tươi", quantity: 100, unit: "g", unitPrice: 25000 },
+          { id: 3, name: "Gạo lứt", quantity: 150, unit: "g", unitPrice: 30000 },
         ]
   );
 
@@ -81,9 +81,9 @@ function AdminRecipeForm({
     initialRecipe?.instructions?.length
       ? initialRecipe.instructions
       : [
-          "Cut ingredients into bite-sized pieces.",
-          "Pan-fry until golden and fragrant.",
-          "Serve hot with your favorite whole grains.",
+          "Sơ chế và cắt các nguyên liệu thành miếng vừa ăn.",
+          "Áp chảo hoặc xào chín tới thơm vàng cùng gia vị.",
+          "Bày ra đĩa và thưởng thức khi còn ấm nóng cùng cơm ngũ cốc.",
         ]
   );
 
@@ -134,7 +134,7 @@ function AdminRecipeForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      alert("Please provide a recipe name.");
+      alert("Vui lòng nhập tên công thức.");
       return;
     }
 
@@ -153,13 +153,13 @@ function AdminRecipeForm({
       status,
       source: {
         type: sourceUrl ? "web" : "admin",
-        name: sourceName.trim() || "Admin Created",
+        name: sourceName.trim() || "Hệ thống tạo",
         url: sourceUrl.trim() || undefined,
       },
       estimatedCost,
       prepTime: Number(prepTime),
       cookTime: Number(cookTime),
-      duration: `${Number(prepTime) + Number(cookTime)} min`,
+      duration: `${Number(prepTime) + Number(cookTime)} phút`,
       serving: Number(serving),
       calories: Number(calories),
       protein: Number(protein),
@@ -181,10 +181,10 @@ function AdminRecipeForm({
       <div className="bg-stone-900 text-white p-6 flex items-center justify-between">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
-            Admin Recipe Management
+            Quản trị công thức hệ thống
           </span>
           <h2 className="font-serif font-bold text-2xl mt-0.5">
-            {initialRecipe ? "Edit Recipe" : "Add New Recipe"}
+            {initialRecipe ? "Chỉnh sửa công thức" : "Thêm công thức mới"}
           </h2>
         </div>
         <button
@@ -203,18 +203,18 @@ function AdminRecipeForm({
         {/* Basic Info */}
         <div className="space-y-4">
           <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 border-b pb-2">
-            1. Basic Information & Status
+            1. Thông tin cơ bản & Trạng thái
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Recipe Name *
+                Tên công thức *
               </label>
               <input
                 type="text"
                 required
-                placeholder="e.g. Crispy Lemongrass Tofu Rice Bowl"
+                placeholder="Ví dụ: Đậu hũ sốt sả ớt giòn rụm"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50 px-3.5 text-sm focus:border-emerald-600 focus:bg-white outline-none"
@@ -223,11 +223,11 @@ function AdminRecipeForm({
 
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Description
+                Mô tả công thức
               </label>
               <textarea
                 rows={2}
-                placeholder="Short description highlighting flavors and key health benefits..."
+                placeholder="Mô tả ngắn gọn hương vị và lợi ích dinh dưỡng chính của công thức..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm focus:border-emerald-600 focus:bg-white outline-none"
@@ -236,24 +236,24 @@ function AdminRecipeForm({
 
             <div>
               <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Status * (Requirement 26)
+                Trạng thái *
               </label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as RecipeStatus)}
                 className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm font-semibold text-emerald-800 focus:border-emerald-600 focus:bg-white outline-none"
               >
-                <option value="APPROVED">APPROVED (Active in Meal Planner)</option>
-                <option value="PENDING_REVIEW">PENDING_REVIEW</option>
-                <option value="DRAFT">DRAFT</option>
-                <option value="REJECTED">REJECTED</option>
-                <option value="ARCHIVED">ARCHIVED</option>
+                <option value="APPROVED">ĐÃ DUYỆT (Hiển thị trong Thực đơn)</option>
+                <option value="PENDING_REVIEW">CHỜ DUYỆT (Đang xét duyệt)</option>
+                <option value="DRAFT">BẢN NHÁP (Chưa công khai)</option>
+                <option value="REJECTED">TỪ CHỐI</option>
+                <option value="ARCHIVED">LƯU TRỮ</option>
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Category
+                Danh mục món ăn
               </label>
               <select
                 value={category}
@@ -270,33 +270,34 @@ function AdminRecipeForm({
 
             <div>
               <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Meal Type *
+                Loại bữa ăn *
               </label>
               <select
                 value={mealType}
                 onChange={(e) => setMealType(e.target.value as MealType)}
                 className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm focus:border-emerald-600 focus:bg-white outline-none"
               >
-                <option value="breakfast">Breakfast</option>
-                <option value="lunch">Lunch</option>
-                <option value="dinner">Dinner</option>
-                <option value="snack">Snack</option>
+                <option value="breakfast">Bữa sáng (Breakfast)</option>
+                <option value="lunch">Bữa trưa (Lunch)</option>
+                <option value="dinner">Bữa tối (Dinner)</option>
+                <option value="snack">Bữa phụ (Snack)</option>
+                <option value="any">Bữa trưa / Tối (Linh hoạt)</option>
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Vegetarian Type *
+                Chế độ ăn chay *
               </label>
               <select
                 value={vegetarianType}
                 onChange={(e) => setVegetarianType(e.target.value as VegetarianType)}
                 className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm focus:border-emerald-600 focus:bg-white outline-none"
               >
-                <option value="vegan">Vegan (100% Plant)</option>
-                <option value="lacto_vegetarian">Lacto Vegetarian (Allows Dairy)</option>
-                <option value="ovo_vegetarian">Ovo Vegetarian (Allows Eggs)</option>
-                <option value="lacto_ovo_vegetarian">Lacto-Ovo Vegetarian (Dairy & Eggs)</option>
+                <option value="vegan">Thuần chay (Vegan - 100% Thực vật)</option>
+                <option value="lacto_vegetarian">Chay có sữa (Lacto Vegetarian)</option>
+                <option value="ovo_vegetarian">Chay có trứng (Ovo Vegetarian)</option>
+                <option value="lacto_ovo_vegetarian">Chay có trứng & sữa (Lacto-Ovo)</option>
               </select>
             </div>
           </div>
@@ -305,17 +306,17 @@ function AdminRecipeForm({
         {/* Recipe Source & Citation (Requirement 16) */}
         <div className="space-y-4">
           <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 border-b pb-2">
-            2. Recipe Source & Citation
+            2. Nguồn công thức & Trích dẫn
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Source Name / Author:
+                Tên nguồn / Tác giả:
               </label>
               <input
                 type="text"
-                placeholder="e.g. Minimalist Baker, Admin Created"
+                placeholder="Ví dụ: Bếp chay An Lạc, Hệ thống tạo"
                 value={sourceName}
                 onChange={(e) => setSourceName(e.target.value)}
                 className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50 px-3.5 text-sm focus:border-emerald-600 focus:bg-white outline-none"
@@ -323,7 +324,7 @@ function AdminRecipeForm({
             </div>
             <div>
               <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Source URL (if from web):
+                Đường dẫn nguồn (nếu có):
               </label>
               <input
                 type="url"
@@ -339,7 +340,7 @@ function AdminRecipeForm({
         {/* Image Selection / URL */}
         <div className="space-y-2">
           <label className="block text-xs font-semibold text-stone-700">
-            Recipe Image URL
+            Đường dẫn ảnh công thức
           </label>
           <input
             type="url"
@@ -349,7 +350,7 @@ function AdminRecipeForm({
             className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50 px-3.5 text-sm focus:border-emerald-600 focus:bg-white outline-none"
           />
           <div className="flex items-center gap-2 pt-1">
-            <span className="text-xs text-stone-500">Or pick preset:</span>
+            <span className="text-xs text-stone-500">Hoặc chọn ảnh mẫu:</span>
             {SAMPLE_IMAGES.map((url, idx) => (
               <button
                 key={idx}
@@ -361,7 +362,7 @@ function AdminRecipeForm({
                     : "border-stone-200 text-stone-600 hover:bg-stone-50"
                 }`}
               >
-                Sample #{idx + 1}
+                Ảnh mẫu #{idx + 1}
               </button>
             ))}
           </div>
@@ -370,11 +371,11 @@ function AdminRecipeForm({
         {/* Cooking Metrics & Macros */}
         <div className="space-y-4">
           <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 border-b pb-2">
-            3. Timings & Nutritional Values
+            3. Thời gian & Chỉ số dinh dưỡng
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
-              <label className="block text-xs text-stone-600 mb-1">Prep Time (min)</label>
+              <label className="block text-xs text-stone-600 mb-1">Chuẩn bị (phút)</label>
               <input
                 type="number"
                 min="0"
@@ -384,7 +385,7 @@ function AdminRecipeForm({
               />
             </div>
             <div>
-              <label className="block text-xs text-stone-600 mb-1">Cook Time (min)</label>
+              <label className="block text-xs text-stone-600 mb-1">Nấu (phút)</label>
               <input
                 type="number"
                 min="0"
@@ -394,7 +395,7 @@ function AdminRecipeForm({
               />
             </div>
             <div>
-              <label className="block text-xs text-stone-600 mb-1">Servings</label>
+              <label className="block text-xs text-stone-600 mb-1">Khẩu phần</label>
               <input
                 type="number"
                 min="1"
@@ -405,7 +406,7 @@ function AdminRecipeForm({
             </div>
             <div>
               <label className="block text-xs text-stone-600 mb-1 font-bold text-amber-700">
-                Calories (kcal) *
+                Năng lượng / Calo (kcal) *
               </label>
               <input
                 type="number"
@@ -416,7 +417,7 @@ function AdminRecipeForm({
               />
             </div>
             <div>
-              <label className="block text-xs text-stone-600 mb-1">Protein (g)</label>
+              <label className="block text-xs text-stone-600 mb-1">Chất đạm (g)</label>
               <input
                 type="number"
                 min="0"
@@ -426,7 +427,7 @@ function AdminRecipeForm({
               />
             </div>
             <div>
-              <label className="block text-xs text-stone-600 mb-1">Carbs (g)</label>
+              <label className="block text-xs text-stone-600 mb-1">Tinh bột (g)</label>
               <input
                 type="number"
                 min="0"
@@ -436,7 +437,7 @@ function AdminRecipeForm({
               />
             </div>
             <div>
-              <label className="block text-xs text-stone-600 mb-1">Fat (g)</label>
+              <label className="block text-xs text-stone-600 mb-1">Chất béo (g)</label>
               <input
                 type="number"
                 min="0"
@@ -446,7 +447,7 @@ function AdminRecipeForm({
               />
             </div>
             <div>
-              <label className="block text-xs text-stone-600 mb-1">Cuisine</label>
+              <label className="block text-xs text-stone-600 mb-1">Phong cách ẩm thực</label>
               <input
                 type="text"
                 value={cuisine}
@@ -462,10 +463,10 @@ function AdminRecipeForm({
           <div className="flex items-center justify-between border-b pb-2">
             <div className="flex items-center gap-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-                4. Ingredients & Pricing
+                4. Nguyên liệu & Chi phí ước tính
               </h3>
               <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                Estimated: {priceService.formatEstimatedPrice(estimatedCost)}
+                Ước tính: {priceService.formatEstimatedPrice(estimatedCost)}
               </span>
             </div>
             <button
@@ -474,7 +475,7 @@ function AdminRecipeForm({
               className="text-xs text-emerald-700 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              Add Ingredient
+              Thêm nguyên liệu
             </button>
           </div>
 
@@ -483,32 +484,32 @@ function AdminRecipeForm({
               <div key={ing.id || idx} className="flex items-center gap-2">
                 <input
                   type="text"
-                  placeholder="Ingredient Name"
+                  placeholder="Tên nguyên liệu"
                   value={ing.name}
                   onChange={(e) => handleUpdateIngredient(idx, "name", e.target.value)}
                   className="flex-2 h-9 rounded-lg border border-stone-200 bg-stone-50 px-3 text-sm"
                 />
                 <input
                   type="text"
-                  placeholder="Qty"
+                  placeholder="Số lượng"
                   value={ing.quantity}
                   onChange={(e) => handleUpdateIngredient(idx, "quantity", e.target.value)}
                   className="w-20 h-9 rounded-lg border border-stone-200 bg-stone-50 px-2 text-sm text-center"
                 />
                 <input
                   type="text"
-                  placeholder="Unit (g, ml)"
+                  placeholder="Đơn vị (g, ml)"
                   value={ing.unit}
                   onChange={(e) => handleUpdateIngredient(idx, "unit", e.target.value)}
                   className="w-20 h-9 rounded-lg border border-stone-200 bg-stone-50 px-2 text-sm text-center"
                 />
                 <input
                   type="number"
-                  placeholder="Unit price (VND/kg)"
+                  placeholder="Đơn giá (VNĐ/kg)"
                   value={ing.unitPrice || ""}
                   onChange={(e) => handleUpdateIngredient(idx, "unitPrice", Number(e.target.value))}
                   className="w-32 h-9 rounded-lg border border-stone-200 bg-stone-50 px-2 text-xs text-right"
-                  title="Unit price (VND) per kg/liter/pc"
+                  title="Đơn giá (VNĐ) theo kg/lít/cái"
                 />
                 <button
                   type="button"
@@ -522,7 +523,7 @@ function AdminRecipeForm({
           </div>
 
           <p className="text-[11px] text-stone-400">
-            Total cost = sum(quantity used × price per unit). Displays as estimated cost on recipe cards.
+            Tổng chi phí = tổng(số lượng × đơn giá). Hiển thị dưới dạng chi phí ước tính trên thẻ công thức.
           </p>
         </div>
 
@@ -530,7 +531,7 @@ function AdminRecipeForm({
         <div className="space-y-3">
           <div className="flex items-center justify-between border-b pb-2">
             <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-              5. Cooking Steps
+              5. Các bước chế biến
             </h3>
             <button
               type="button"
@@ -538,7 +539,7 @@ function AdminRecipeForm({
               className="text-xs text-emerald-700 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              Add Step
+              Thêm bước
             </button>
           </div>
 
@@ -550,7 +551,7 @@ function AdminRecipeForm({
                 </span>
                 <input
                   type="text"
-                  placeholder={`Step ${idx + 1} instruction...`}
+                  placeholder={`Hướng dẫn bước ${idx + 1}...`}
                   value={step}
                   onChange={(e) => handleUpdateInstruction(idx, e.target.value)}
                   className="flex-1 h-9 rounded-lg border border-stone-200 bg-stone-50 px-3 text-sm"
@@ -574,14 +575,14 @@ function AdminRecipeForm({
             onClick={onClose}
             className="px-5 py-2.5 rounded-xl border border-stone-200 text-stone-700 text-sm font-semibold hover:bg-stone-50 cursor-pointer"
           >
-            Cancel
+            Hủy
           </button>
           <button
             type="submit"
             className="px-7 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold shadow-xs transition-colors cursor-pointer flex items-center gap-2"
           >
             <Check className="w-4 h-4" />
-            {initialRecipe ? "Save Changes" : "Create Recipe"}
+            {initialRecipe ? "Lưu thay đổi" : "Tạo công thức"}
           </button>
         </div>
       </form>
