@@ -125,6 +125,13 @@ export const adminService = {
     }
   },
 
+  /**
+   * Xóa vĩnh viễn thành viên khỏi Database (Endpoint: DELETE /admin/members/:id)
+   */
+  async deleteMember(id: string): Promise<void> {
+    await apiClient.delete(`/admin/members/${id}`);
+  },
+
 
   getContentItems(): AdminContentItem[] {
     return ADMIN_CONTENT_ITEMS;
