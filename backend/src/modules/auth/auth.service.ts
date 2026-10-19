@@ -19,6 +19,9 @@ import { IpRateLimiter } from './ip-rate-limiter';
 import { MailService } from '../mail/mail.service';
 import { ChangePasswordDto, ResetPasswordDto } from './dto/password.dto';
 
+// Hash giả để email không tồn tại cũng tốn thời gian bcrypt như email có thật (chống dò email qua thời gian phản hồi).
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('vegetmealplan-timing-equaliser', 10);
+
 const FORGOT_PER_IP_LIMIT = 10;
 const FORGOT_PER_IP_WINDOW_MS = 15 * 60 * 1000;
 
@@ -78,10 +81,11 @@ export class AuthService {
     const invalid = { code: ErrorCode.AUTH_INVALID_CREDENTIALS, message: 'Sai email hoặc mật khẩu' };
     // Tài khoản chỉ đăng nhập bằng Google (chưa có mật khẩu) cũng trả "sai thông tin",
     // để không lộ ra rằng email này đang dùng Google.
-    if (!user || !user.password_hash) throw new UnauthorizedException(invalid);
+    // Luôn chạy bcrypt (với hash giả nếu không có user) để thời gian phản hồi như nhau.
+    const isMatch = await bcrypt.compare(dto.password, user?.password_hash ?? DUMMY_PASSWORD_HASH);
+    if (!user || !user.password_hash || !isMatch) throw new UnauthorizedException(invalid);
 
-    const isMatch = await bcrypt.compare(dto.password, user.password_hash);
-    if (!isMatch) throw new UnauthorizedException(invalid);
+    // Kiểm tra khoá SAU khi đúng mật khẩu: người không biết mật khẩu không dò được tài khoản nào đang bị khoá.
 
     if (user.status === UserStatus.LOCKED) {
       throw new UnauthorizedException({ code: ErrorCode.AUTH_ACCOUNT_LOCKED, message: 'Tài khoản đã bị khóa' });

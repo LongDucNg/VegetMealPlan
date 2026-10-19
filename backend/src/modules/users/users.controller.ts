@@ -31,13 +31,18 @@ export class UsersController {
   }
 
   @Put('allergies')
-  @ApiOperation({ summary: 'Đặt lại toàn bộ danh sách dị ứng (ghi đè danh sách cũ)' })
+  @ApiOperation({ summary: 'Đặt lại toàn bộ danh sách dị ứng (ghi đè danh sách cũ)', description: 'Gửi mảng rỗng nghĩa là "không dị ứng gì"; hồ sơ sẽ có allergies_declared = true.' })
   setAllergies(@CurrentUser('user_id') userId: number, @Body() dto: UpdateAllergiesDto) {
     return this.usersService.setAllergies(userId, dto);
   }
 
   @Get('nutrition-summary')
-  @ApiOperation({ summary: 'Tóm tắt dinh dưỡng: BMR, TDEE, calo mục tiêu, macro, calo từng bữa' })
+  @ApiOperation({
+    summary: 'Tóm tắt dinh dưỡng: BMR, TDEE, calo mục tiêu, macro, calo từng bữa',
+    description:
+      'Kèm `explanation` (từng bước tính) và `warnings` (khuyến cáo khi BMI không hợp với mục tiêu, ' +
+      'tốc độ giảm/tăng cân quá nhanh, chạm mức calo sàn...). Cảnh báo không chặn việc soạn thực đơn.',
+  })
   nutritionSummary(@CurrentUser('user_id') userId: number) {
     return this.usersService.getNutritionSummary(userId);
   }

@@ -65,7 +65,7 @@ Mở `.env` và sửa tối thiểu các biến sau:
 | `JWT_EXPIRES_IN` | hạn access token (mặc định `1d`) |
 | `JWT_REFRESH_EXPIRES_DAYS` | hạn refresh token tính theo ngày (mặc định `30`) |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` | đăng nhập Google; để trống thì API Google trả 503, các chức năng khác vẫn chạy |
-| `FRONTEND_URL` | nơi backend redirect về sau khi đăng nhập Google (`http://localhost:3001`) |
+| `FRONTEND_URL` | địa chỉ FE: nơi backend redirect về sau khi đăng nhập Google, và là domain duy nhất được gọi API từ trình duyệt (CORS). Nhiều domain thì ngăn cách bằng dấu phẩy |
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASS`, `MAIL_FROM` | SMTP gửi mã OTP quên mật khẩu; để trống `MAIL_HOST` thì nội dung mail (kèm mã) được in ra console |
 | `GUEST_CHATBOT_LIMIT`, `FREE_CHATBOT_LIMIT` | số lượt hỏi chatbot của khách / tài khoản free |
 | `MONTHLY_PLAN_PRICE` | giá gói Premium theo tháng (VND) |

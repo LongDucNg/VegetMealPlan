@@ -10,6 +10,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateAllergiesDto } from './dto/update-allergies.dto';
 import { ALLERGEN_GROUPS } from './allergen-groups';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
+import { bmiGoalWarnings, ExplanationStep, fmt, goalLabel, goalProgress, NutritionWarning } from './nutrition-advice';
 
 const ACTIVITY_FACTOR: Record<ActivityLevel, number> = {
   [ActivityLevel.SEDENTARY]: 1.2,
@@ -18,8 +19,22 @@ const ACTIVITY_FACTOR: Record<ActivityLevel, number> = {
   [ActivityLevel.ACTIVE]: 1.725,
 };
 
+const ACTIVITY_LABEL: Record<ActivityLevel, string> = {
+  [ActivityLevel.SEDENTARY]: 'ít vận động',
+  [ActivityLevel.LIGHT]: 'vận động nhẹ',
+  [ActivityLevel.MODERATE]: 'vận động vừa',
+  [ActivityLevel.ACTIVE]: 'vận động nhiều',
+};
+
 // Tỉ lệ calo theo bữa (tổng = 1)
 const MEAL_SPLIT = { breakfast: 0.25, lunch: 0.35, dinner: 0.3, snack: 0.1 };
+
+const CALORIE_FLOOR = 1200;
+
+/** Các trường hồ sơ bắt buộc để tính dinh dưỡng; thiếu thì FE nhắc "hãy cập nhật hồ sơ". */
+const REQUIRED_PROFILE_FIELDS = ['age', 'gender', 'height_cm', 'weight_kg', 'activity_level'] as const;
+
+const missingProfileFields = (u: User) => REQUIRED_PROFILE_FIELDS.filter((k) => !u[k]);
 
 @Injectable()
 export class UsersService {
@@ -31,10 +46,6 @@ export class UsersService {
     @InjectRepository(UserSession) private readonly sessionRepo: Repository<UserSession>,
   ) {}
 
-  findAll(): Promise<User[]> {
-    return this.userRepo.find();
-  }
-
   async findOne(user_id: number): Promise<User> {
     const user = await this.userRepo.findOne({ where: { user_id }, relations: ['current_goal'] });
     if (!user) throw new NotFoundException({ code: ErrorCode.USER_NOT_FOUND, message: `Không tìm thấy người dùng #${user_id}` });
@@ -45,9 +56,14 @@ export class UsersService {
   async getProfile(user_id: number) {
     const user = await this.findOne(user_id);
     const { password_hash, ...safe } = user;
+    const missing = missingProfileFields(user);
     return {
       ...safe,
       is_premium: !!user.premium_until && user.premium_until > new Date(),
+      // FE dùng 2 trường này để nhắc "hãy cập nhật hồ sơ" sau khi đăng ký (đăng ký không bắt nhập chỉ số cơ thể).
+      profile_complete: missing.length === 0,
+      missing_profile_fields: missing,
+      allergies_declared: !!user.allergies_declared_at,
       allergies: await this.getAllergies(user_id),
     };
   }
@@ -70,6 +86,16 @@ export class UsersService {
     if (dto.gender !== undefined) user.gender = dto.gender;
     if (dto.activity_level !== undefined) user.activity_level = dto.activity_level;
     if (dto.diet_type !== undefined) user.diet_type = dto.diet_type;
+    if (dto.target_weight_kg !== undefined) user.target_weight_kg = dto.target_weight_kg;
+    if (dto.target_date !== undefined) {
+      if (dto.target_date !== null && dto.target_date <= todayIso()) {
+        throw new BadRequestException({
+          code: ErrorCode.USER_TARGET_DATE_INVALID,
+          message: 'Ngày mục tiêu phải sau hôm nay',
+        });
+      }
+      user.target_date = dto.target_date;
+    }
 
     if (dto.height_cm !== undefined || dto.weight_kg !== undefined) {
       const height = dto.height_cm ?? user.height_cm;
@@ -122,17 +148,20 @@ export class UsersService {
     await this.allergyRepo.manager.transaction(async (m) => {
       await m.delete(UserAllergy, { user_id });
       if (ids.size) await m.insert(UserAllergy, [...ids].map((ingredient_id) => ({ user_id, ingredient_id })));
+      // Đánh dấu đã khai báo, kể cả khi danh sách rỗng ("tôi không dị ứng gì").
+      await m.update(User, { user_id }, { allergies_declared_at: new Date() });
     });
     return this.getAllergies(user_id);
   }
 
   /**
    * BMI, BMR (Mifflin-St Jeor), TDEE, calo mục tiêu theo mục tiêu sức khoẻ, macro và calo từng bữa.
+   * Kèm `explanation` (từng bước tính ra con số) và `warnings` (khuyến cáo, KHÔNG chặn việc soạn thực đơn).
    * Đây là ƯỚC TÍNH tham khảo, không phải tư vấn y tế.
    */
   async getNutritionSummary(user_id: number) {
     const u = await this.findOne(user_id);
-    const missing = ['age', 'gender', 'height_cm', 'weight_kg', 'activity_level'].filter((k) => !(u as any)[k]);
+    const missing = missingProfileFields(u);
     if (missing.length) {
       throw new BadRequestException({
         code: ErrorCode.USER_PROFILE_INCOMPLETE,
@@ -142,16 +171,87 @@ export class UsersService {
 
     const sexOffset = u.gender === 'male' ? 5 : u.gender === 'female' ? -161 : -78; // 'other': trung bình
     const bmr = 10 * u.weight_kg + 6.25 * u.height_cm - 5 * u.age + sexOffset;
-    const tdee = bmr * ACTIVITY_FACTOR[u.activity_level];
+    const activityFactor = ACTIVITY_FACTOR[u.activity_level];
+    const tdee = bmr * activityFactor;
 
     const goalName = u.current_goal?.name ?? 'maintain';
     const factor = goalName === 'lose_weight' ? 0.85 : goalName === 'gain_muscle' ? 1.1 : 1;
     const proteinPerKg = goalName === 'lose_weight' ? 1.6 : goalName === 'gain_muscle' ? 1.8 : 1.2;
-    const target = Math.max(Math.round(tdee * factor), 1200); // sàn an toàn
+    const rawTarget = Math.round(tdee * factor);
+    const target = Math.max(rawTarget, CALORIE_FLOOR); // sàn an toàn
+    const floorApplied = rawTarget < CALORIE_FLOOR;
 
     const protein_g = Math.round(proteinPerKg * u.weight_kg);
     const fat_g = Math.round((target * 0.25) / 9);
     const carbs_g = Math.max(Math.round((target - protein_g * 4 - fat_g * 9) / 4), 0);
+
+    const meal_calories = {
+      breakfast: Math.round(target * MEAL_SPLIT.breakfast),
+      lunch: Math.round(target * MEAL_SPLIT.lunch),
+      dinner: Math.round(target * MEAL_SPLIT.dinner),
+      snack: Math.round(target * MEAL_SPLIT.snack),
+    };
+
+    const explanation: ExplanationStep[] = [
+      {
+        step: 'BMR – năng lượng cơ thể tiêu hao khi nghỉ hoàn toàn (Mifflin-St Jeor)',
+        formula: `10 × ${fmt(u.weight_kg, 1)} kg + 6,25 × ${fmt(u.height_cm, 1)} cm − 5 × ${u.age} tuổi ${sexOffset >= 0 ? '+' : '−'} ${Math.abs(sexOffset)} (${u.gender === 'male' ? 'nam' : u.gender === 'female' ? 'nữ' : 'giới tính khác, lấy trung bình'})`,
+        result: Math.round(bmr),
+        unit: 'kcal/ngày',
+      },
+      {
+        step: 'TDEE – tổng năng lượng tiêu hao mỗi ngày',
+        formula: `BMR × ${fmt(activityFactor, 3)} (${ACTIVITY_LABEL[u.activity_level]})`,
+        result: Math.round(tdee),
+        unit: 'kcal/ngày',
+      },
+      {
+        step: 'Calo mục tiêu',
+        formula:
+          factor === 1
+            ? `TDEE × 1 (duy trì: ăn bằng mức tiêu hao)`
+            : `TDEE × ${fmt(factor, 2)} (${goalLabel(goalName)}: ${factor < 1 ? `ăn ít hơn ${Math.round((1 - factor) * 100)}%` : `ăn dư ${Math.round((factor - 1) * 100)}%`} so với mức tiêu hao)`,
+        result: target,
+        unit: 'kcal/ngày',
+        note: floorApplied
+          ? `Kết quả tính ra ${fmt(rawTarget)} kcal, thấp hơn mức sàn an toàn ${fmt(CALORIE_FLOOR)} kcal nên được nâng lên ${fmt(CALORIE_FLOOR)} kcal.`
+          : undefined,
+      },
+      {
+        step: 'Đạm (protein)',
+        formula: `${fmt(proteinPerKg, 1)} g × ${fmt(u.weight_kg, 1)} kg cân nặng`,
+        result: protein_g,
+        unit: `g (≈ ${fmt(protein_g * 4)} kcal, 1 g đạm = 4 kcal)`,
+      },
+      {
+        step: 'Chất béo (fat)',
+        formula: `25% calo mục tiêu ÷ 9 (1 g béo = 9 kcal)`,
+        result: fat_g,
+        unit: `g (≈ ${fmt(fat_g * 9)} kcal)`,
+      },
+      {
+        step: 'Tinh bột (carbs)',
+        formula: `(calo mục tiêu − calo từ đạm − calo từ béo) ÷ 4 (1 g tinh bột = 4 kcal)`,
+        result: carbs_g,
+        unit: `g (≈ ${fmt(carbs_g * 4)} kcal)`,
+      },
+      {
+        step: 'Chia calo theo bữa',
+        formula: 'Sáng 25% · Trưa 35% · Tối 30% · Phụ 10%',
+        result: target,
+        unit: 'kcal/ngày',
+      },
+    ];
+
+    const warnings: NutritionWarning[] = [...bmiGoalWarnings(u.bmi, u.bmi_category, goalName)];
+    if (floorApplied) {
+      warnings.push({
+        code: 'CALORIE_FLOOR_APPLIED',
+        message: `Calo mục tiêu đã được nâng lên mức tối thiểu ${fmt(CALORIE_FLOOR)} kcal/ngày. Ăn ít hơn mức này dễ thiếu chất.`,
+      });
+    }
+    const target_goal = goalProgress(u.weight_kg, u.height_cm, goalName, u.target_weight_kg, u.target_date);
+    warnings.push(...target_goal.warnings);
 
     return {
       bmi: u.bmi,
@@ -161,13 +261,11 @@ export class UsersService {
       goal: goalName,
       target_calories: target,
       macros: { protein_g, carbs_g, fat_g },
-      meal_calories: {
-        breakfast: Math.round(target * MEAL_SPLIT.breakfast),
-        lunch: Math.round(target * MEAL_SPLIT.lunch),
-        dinner: Math.round(target * MEAL_SPLIT.dinner),
-        snack: Math.round(target * MEAL_SPLIT.snack),
-      },
-      note: 'Ước tính theo công thức Mifflin-St Jeor, chỉ mang tính tham khảo.',
+      meal_calories,
+      target_goal: target_goal.progress,
+      warnings,
+      explanation,
+      note: 'Ước tính theo công thức Mifflin-St Jeor, chỉ mang tính tham khảo, không thay cho tư vấn y tế.',
     };
   }
 
@@ -240,4 +338,9 @@ export class UsersService {
 function toMember(user: User) {
   const { user_id, full_name, email, role, status, created_at } = user;
   return { user_id, full_name, email, role, status, created_at };
+}
+
+/** Ngày hôm nay theo giờ Việt Nam, dạng YYYY-MM-DD (để so với cột date). */
+function todayIso() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 }

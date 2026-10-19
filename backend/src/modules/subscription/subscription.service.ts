@@ -10,6 +10,7 @@ import {
 import { User } from '../users/entities/user.entity';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/entities/notification.entity';
+import { ErrorCode } from '../../common/constants/error-codes.enum';
 
 const MONTHLY_PLAN_PRICE = Number(process.env.MONTHLY_PLAN_PRICE) || 99000;
 const PLAN_DURATION_DAYS = 30;
@@ -62,7 +63,7 @@ export class SubscriptionService {
     raw_response: string,
   ): Promise<Subscription> {
     const transaction = await this.transactionRepo.findOne({ where: { gateway_txn_ref } });
-    if (!transaction) throw new NotFoundException('Khong tim thay giao dich');
+    if (!transaction) throw new NotFoundException({ code: ErrorCode.SUBSCRIPTION_TRANSACTION_NOT_FOUND, message: 'Không tìm thấy giao dịch' });
     if (transaction.status === PaymentTransactionStatus.SUCCESS) {
       // Da xu ly roi (VNPay co the goi IPN lap) -> tra ve subscription cu, khong tao trung.
       const existing = await this.subscriptionRepo.findOne({
@@ -121,9 +122,9 @@ export class SubscriptionService {
     const subscription = await this.subscriptionRepo.findOne({
       where: { subscription_id, user_id },
     });
-    if (!subscription) throw new NotFoundException('Khong tim thay goi dang ky');
+    if (!subscription) throw new NotFoundException({ code: ErrorCode.SUBSCRIPTION_NOT_FOUND, message: 'Không tìm thấy gói đăng ký' });
     if (subscription.status !== SubscriptionStatus.ACTIVE) {
-      throw new BadRequestException('Goi nay khong o trang thai active');
+      throw new BadRequestException({ code: ErrorCode.SUBSCRIPTION_NOT_ACTIVE, message: 'Chỉ huỷ được gói đang hoạt động' });
     }
     subscription.status = SubscriptionStatus.CANCELLED;
     subscription.cancelled_at = new Date();
