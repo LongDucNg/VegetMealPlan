@@ -63,8 +63,18 @@ export enum ErrorCode {
   USER_PROFILE_INCOMPLETE = 'USER_PROFILE_INCOMPLETE',
   /** 400: ingredient_id trong danh sách dị ứng không tồn tại. */
   USER_ALLERGY_INGREDIENT_NOT_FOUND = 'USER_ALLERGY_INGREDIENT_NOT_FOUND',
+  /** 400: target_date không sau hôm nay. */
+  USER_TARGET_DATE_INVALID = 'USER_TARGET_DATE_INVALID',
   /** 400: admin tự khóa hoặc tự đổi vai trò của chính mình. */
   USER_CANNOT_MODIFY_SELF = 'USER_CANNOT_MODIFY_SELF',
+
+  // ---- Gói Premium ----
+  /** 404 */
+  SUBSCRIPTION_TRANSACTION_NOT_FOUND = 'SUBSCRIPTION_TRANSACTION_NOT_FOUND',
+  /** 404 */
+  SUBSCRIPTION_NOT_FOUND = 'SUBSCRIPTION_NOT_FOUND',
+  /** 400: chỉ huỷ được gói đang active. */
+  SUBSCRIPTION_NOT_ACTIVE = 'SUBSCRIPTION_NOT_ACTIVE',
 
   // ---- Danh mục ----
   /** 404 */
