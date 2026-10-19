@@ -1,4 +1,4 @@
-import { apiClient } from "@/lib/apiClient";
+import { apiClient, API_BASE_URL } from "@/lib/apiClient";
 import { tokenStorage } from "@/lib/tokenStorage";
 import { DIET_OPTIONS } from "../data/mockAuth";
 import {
@@ -168,8 +168,7 @@ export const authService = {
    * Đường dẫn khởi động luồng đăng nhập Google qua OAuth2 Backend
    */
   getGoogleLoginUrl(): string {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
-    return `${apiUrl.replace(/\/$/, "")}/auth/google`;
+    return `${API_BASE_URL}/auth/google`;
   },
 
   /**

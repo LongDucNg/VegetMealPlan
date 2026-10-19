@@ -5,6 +5,7 @@ import { X, Sparkles, DollarSign, Calendar, UserCheck, AlertCircle, Heart } from
 import { MealPlanType, GenerationPlanOptions } from "../types";
 import { UserProfile, formatVegetarianType } from "@/features/profile/types";
 import { favoriteService } from "@/features/recipes/services/favoriteService";
+import { nutritionService, NutritionWarning, NutritionWarnings } from "@/features/nutrition";
 
 interface GenerationSettingsModalProps {
   isOpen: boolean;
@@ -48,6 +49,7 @@ export function GenerationSettingsModal({
   const [budgetValue, setBudgetValue] = useState<number>(currentBudget ?? 500000);
   const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+  const [warnings, setWarnings] = useState<NutritionWarning[]>([]);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -58,6 +60,16 @@ export function GenerationSettingsModal({
       } else {
         setHasBudgetLimit(false);
       }
+
+      // Fetch nutrition warnings from server
+      nutritionService
+        .getServerNutritionSummary()
+        .then((data) => {
+          if (data?.warnings) {
+            setWarnings(data.warnings);
+          }
+        })
+        .catch(() => {});
     }
   }, [isOpen, initialPlanType, currentBudget]);
 
@@ -319,6 +331,11 @@ export function GenerationSettingsModal({
               />
             </label>
           </div>
+
+          {/* 5. Cảnh báo dinh dưỡng từ Backend nếu có */}
+          {warnings.length > 0 && (
+            <NutritionWarnings warnings={warnings} title="Lưu ý dinh dưỡng trước khi tạo thực đơn" />
+          )}
 
           {/* Action Footer */}
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-100">

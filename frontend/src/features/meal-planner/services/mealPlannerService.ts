@@ -421,7 +421,7 @@ export const mealPlannerService = {
 
     // Check diet compatibility
     for (const r of allSelected) {
-      if (!recipeService.isDietCompatible(r.vegetarianType, profile.vegetarianType)) {
+      if (profile.vegetarianType && !recipeService.isDietCompatible(r.vegetarianType, profile.vegetarianType)) {
         warnings.push(`"${r.title}" is ${r.vegetarianType} which is not compatible with your ${profile.vegetarianType} diet.`);
       }
     }
