@@ -28,8 +28,8 @@ export function useSubscription() {
     return updated;
   }, []);
 
-  const cancel = useCallback(() => {
-    const updated = subscriptionService.cancelSubscription();
+  const cancel = useCallback(async (id?: number) => {
+    const updated = await subscriptionService.cancelSubscription(id);
     setSubscription(updated);
     return updated;
   }, []);
@@ -40,11 +40,23 @@ export function useSubscription() {
     return updated;
   }, []);
 
+  const checkout = useCallback(async () => {
+    return subscriptionService.createCheckout();
+  }, []);
+
+  const refreshStatus = useCallback(async () => {
+    const updated = await subscriptionService.fetchServerStatus();
+    setSubscription(updated);
+    return updated;
+  }, []);
+
   return {
     subscription,
     isPremium: subscription.status === "active",
     purchase,
     cancel,
     toggle,
+    checkout,
+    refreshStatus,
   };
 }

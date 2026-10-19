@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -43,5 +43,17 @@ export class AdminUsersController {
     @Body() dto: UpdateMemberRoleDto,
   ) {
     return this.usersService.updateMemberRole(adminId, id, dto.role);
+  }
+
+  @Delete(':id')
+  @ApiOperation({
+    summary: 'Admin: xóa vĩnh viễn tài khoản khỏi database',
+    description: 'Xóa user và mọi dữ liệu liên quan trong database. Không được tự xóa tài khoản của chính mình.',
+  })
+  async deleteMember(
+    @CurrentUser('user_id') adminId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.usersService.deleteMember(adminId, id);
   }
 }

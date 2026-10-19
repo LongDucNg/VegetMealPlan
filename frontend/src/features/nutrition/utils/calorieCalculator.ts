@@ -91,7 +91,7 @@ export function calculateBMR(
 /**
  * Maps activity level to multiplier
  */
-export function getActivityMultiplier(activityLevel?: ActivityLevel): number {
+export function getActivityMultiplier(activityLevel?: ActivityLevel | ""): number {
   switch (activityLevel) {
     case "sedentary":
       return 1.2;
@@ -113,7 +113,7 @@ export function getActivityMultiplier(activityLevel?: ActivityLevel): number {
  */
 export function calculateTDEE(
   profileOrBmr: Partial<UserProfile> | number,
-  explicitActivityLevel?: ActivityLevel
+  explicitActivityLevel?: ActivityLevel | ""
 ): number {
   if (typeof profileOrBmr === "object" && profileOrBmr !== null) {
     const bmr = calculateBMR(profileOrBmr);

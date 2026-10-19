@@ -157,7 +157,8 @@ export const recipeService = {
    * - ovo_vegetarian: vegan or ovo_vegetarian
    * - lacto_ovo_vegetarian: vegan, lacto, ovo, or lacto_ovo
    */
-  isDietCompatible(recipeType: VegetarianType, userType: VegetarianType): boolean {
+  isDietCompatible(recipeType: VegetarianType, userType?: VegetarianType | ""): boolean {
+    if (!userType) return true;
     if (userType === "vegan") return recipeType === "vegan";
     if (userType === "lacto_vegetarian") {
       return recipeType === "vegan" || recipeType === "lacto_vegetarian";

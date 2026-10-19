@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -24,7 +24,7 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const REGION_OPTIONS = [
   "Thành phố Hồ Chí Minh",
@@ -40,8 +40,16 @@ type SettingsTab = "profile" | "subscription" | "notifications" | "security";
 
 function SettingsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab") as SettingsTab | null;
   const { logout, logoutAll } = useRole();
-  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+  const [activeTab, setActiveTab] = useState<SettingsTab>(tabParam || "profile");
+
+  useEffect(() => {
+    if (tabParam && ["profile", "subscription", "notifications", "security"].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
   const [region, setRegion] = useState("Thành phố Hồ Chí Minh");
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [weeklyDigest, setWeeklyDigest] = useState(true);
@@ -406,7 +414,9 @@ export default function MeSettingsPage() {
         ) : isGuest ? (
           <LockedState reason="guest" />
         ) : (
-          <SettingsContent />
+          <Suspense fallback={<GatedSkeleton />}>
+            <SettingsContent />
+          </Suspense>
         )}
       </div>
     </AppShell>

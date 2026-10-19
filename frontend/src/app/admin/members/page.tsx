@@ -9,12 +9,14 @@ import { Avatar } from "@/components/ui/Avatar";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
 import { ADMIN_MEMBERS, AdminMember, adminService } from "@/features/admin";
+import { Modal } from "@/components/ui/Modal";
 import {
   Search,
   UserCheck,
   UserX,
   ShieldCheck,
-  MoreHorizontal,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 
 function StatusBadge({ status }: { status: AdminMember["status"] }) {
@@ -34,6 +36,9 @@ function MembersContent() {
   const [statusFilter, setStatusFilter] = useState<"all" | AdminMember["status"]>("all");
   const [members, setMembers] = useState<AdminMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [memberToDelete, setMemberToDelete] = useState<AdminMember | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -80,6 +85,26 @@ function MembersContent() {
     );
 
     await adminService.updateMemberRole(id, nextRole.toLowerCase());
+  };
+
+  const openDeleteModal = (member: AdminMember) => {
+    setMemberToDelete(member);
+    setDeleteError(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!memberToDelete) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await adminService.deleteMember(memberToDelete.id);
+      setMembers((prev) => prev.filter((m) => m.id !== memberToDelete.id));
+      setMemberToDelete(null);
+    } catch (err: any) {
+      setDeleteError(err?.message || "Không thể xóa tài khoản. Vui lòng kiểm tra lại quyền hạn.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const filtered = members.filter((m) => {
@@ -178,15 +203,68 @@ function MembersContent() {
                 <ShieldCheck className="w-3.5 h-3.5" />
               </button>
               <button
-                title="Tùy chọn khác"
-                className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-400 hover:text-stone-600 transition-colors cursor-pointer"
+                onClick={() => openDeleteModal(m)}
+                title="Xóa tài khoản khỏi database"
+                className="p-1.5 rounded-lg hover:bg-red-50 text-stone-400 hover:text-red-600 transition-colors cursor-pointer"
               >
-                <MoreHorizontal className="w-3.5 h-3.5" />
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
           ),
         }))}
       />
+
+      {/* Modal xác nhận xóa tài khoản */}
+      <Modal
+        isOpen={!!memberToDelete}
+        onClose={() => !isDeleting && setMemberToDelete(null)}
+        title="Xóa tài khoản thành viên"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-900 text-sm">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-red-950">
+                Xác nhận xóa tài khoản vĩnh viễn trên Database
+              </p>
+              <p className="mt-1 text-xs text-red-800 leading-relaxed">
+                Bạn có chắc chắn muốn xóa tài khoản của{" "}
+                <strong className="text-red-950 font-bold">{memberToDelete?.name}</strong>{" "}
+                ({memberToDelete?.email})?
+              </p>
+              <p className="mt-1 text-xs text-red-700">
+                ⚠️ Hành động này sẽ <strong>xóa hoàn toàn</strong> người dùng và toàn bộ dữ liệu liên quan khỏi cơ sở dữ liệu. Không thể khôi phục sau khi xóa.
+              </p>
+            </div>
+          </div>
+
+          {deleteError && (
+            <div className="p-3 rounded-lg bg-red-100 text-red-700 text-xs font-semibold">
+              {deleteError}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={() => setMemberToDelete(null)}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-stone-600 hover:bg-stone-100 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              Hủy bỏ
+            </button>
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={handleConfirmDelete}
+              className="px-4 py-2 rounded-xl text-xs font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {isDeleting ? "Đang xóa..." : "Xác nhận xóa"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
