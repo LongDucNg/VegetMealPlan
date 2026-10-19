@@ -34,21 +34,26 @@ export function formatVegetarianType(type?: string): string {
 export interface UserProfile {
   id: number | string;
   name: string;
-  age: number;
-  gender: Gender;
-  height: number; // in cm
-  weight: number; // in kg
-  activityLevel: ActivityLevel;
-  healthGoal: HealthGoal;
-  vegetarianType: VegetarianType;
+  age: number | null;
+  gender: Gender | "";
+  height: number | null; // in cm
+  weight: number | null; // in kg
+  activityLevel: ActivityLevel | "";
+  healthGoal: HealthGoal | "";
+  vegetarianType: VegetarianType | "";
   allergies: string[]; // e.g. ["peanut", "soy"]
   email?: string;
   handle?: string;
   bio?: string;
-  bmi?: number;
+  bmi?: number | null;
   bmiCategory?: string;
   isPremium?: boolean;
   allergenGroups?: string[];
+  target_weight_kg?: number | null;
+  target_date?: string | null;
+  profile_complete?: boolean;
+  missing_profile_fields?: string[];
+  allergies_declared?: boolean;
 }
 
 export interface BackendProfile {
@@ -77,6 +82,11 @@ export interface BackendProfile {
     ingredients: { ingredient_id: number; ingredient_name: string }[];
   };
   is_premium?: boolean;
+  target_weight_kg?: number | null;
+  target_date?: string | null;
+  profile_complete?: boolean;
+  missing_profile_fields?: string[];
+  allergies_declared?: boolean;
 }
 
 export interface AllergiesData {
@@ -93,6 +103,8 @@ export interface UpdateProfilePayload {
   activity_level?: string;
   diet_type?: string;
   current_goal_id?: number;
+  target_weight_kg?: number | null;
+  target_date?: string | null;
 }
 
 export interface UpdateAllergiesPayload {

@@ -5,6 +5,7 @@ import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { RightRail } from "./RightRail";
 import { Menu, X } from "lucide-react";
+import { ProfileIncompleteBanner } from "@/components/ui/ProfileIncompleteBanner";
 
 export interface AppShellProps {
   children: React.ReactNode;
@@ -70,6 +71,7 @@ export function AppShell({
               showRightRail ? "flex-1 max-w-[1150px]" : "max-w-[1240px]"
             }`}
           >
+            <ProfileIncompleteBanner />
             {children}
           </div>
 

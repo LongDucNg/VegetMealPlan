@@ -35,8 +35,8 @@ export function getBMIStatus(bmi: number): BMIStatus {
  * Height is in cm.
  */
 export function calculateBMI(
-  profileOrWeight: Partial<UserProfile> | number,
-  explicitHeightCm?: number
+  profileOrWeight?: Partial<UserProfile> | number | null,
+  explicitHeightCm?: number | null
 ): BMIResult | null {
   let weightKg = 0;
   let heightCm = 0;
