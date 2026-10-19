@@ -71,20 +71,20 @@ function AdminRecipeForm({
     initialRecipe?.ingredients?.length
       ? initialRecipe.ingredients
       : [
-          { id: 1, name: "Đậu hũ non", quantity: 200, unit: "g", unitPrice: 45000 },
-          { id: 2, name: "Cà rốt tươi", quantity: 100, unit: "g", unitPrice: 25000 },
-          { id: 3, name: "Gạo lứt", quantity: 150, unit: "g", unitPrice: 30000 },
-        ]
+        { id: 1, name: "Đậu hũ non", quantity: 200, unit: "g", unitPrice: 45000 },
+        { id: 2, name: "Cà rốt tươi", quantity: 100, unit: "g", unitPrice: 25000 },
+        { id: 3, name: "Gạo lứt", quantity: 150, unit: "g", unitPrice: 30000 },
+      ]
   );
 
   const [instructions, setInstructions] = useState<string[]>(
     initialRecipe?.instructions?.length
       ? initialRecipe.instructions
       : [
-          "Sơ chế và cắt các nguyên liệu thành miếng vừa ăn.",
-          "Áp chảo hoặc xào chín tới thơm vàng cùng gia vị.",
-          "Bày ra đĩa và thưởng thức khi còn ấm nóng cùng cơm ngũ cốc.",
-        ]
+        "Sơ chế và cắt các nguyên liệu thành miếng vừa ăn.",
+        "Áp chảo hoặc xào chín tới thơm vàng cùng gia vị.",
+        "Bày ra đĩa và thưởng thức khi còn ấm nóng cùng cơm ngũ cốc.",
+      ]
   );
 
   // Live estimated cost calculation (Requirement 4)
@@ -356,11 +356,10 @@ function AdminRecipeForm({
                 key={idx}
                 type="button"
                 onClick={() => setImage(url)}
-                className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                  image === url
+                className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${image === url
                     ? "border-emerald-600 bg-emerald-50 text-emerald-800 font-bold"
                     : "border-stone-200 text-stone-600 hover:bg-stone-50"
-                }`}
+                  }`}
               >
                 Ảnh mẫu #{idx + 1}
               </button>
