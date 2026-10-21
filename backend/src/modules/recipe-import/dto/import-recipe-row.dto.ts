@@ -18,5 +18,6 @@ export interface ImportRecipeRow {
   difficulty?: string;
   meal_type?: string;
   diet_type?: string;
+  category_ids?: number[];
   ingredients: ImportIngredientRow[];
 }
