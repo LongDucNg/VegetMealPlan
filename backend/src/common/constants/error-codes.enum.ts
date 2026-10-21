@@ -93,6 +93,8 @@ export enum ErrorCode {
   INGREDIENT_NOT_FOUND = 'INGREDIENT_NOT_FOUND',
   /** 409: tên nguyên liệu đã tồn tại trong hệ thống. */
   INGREDIENT_NAME_CONFLICT = 'INGREDIENT_NAME_CONFLICT',
+  /** 400: tên nguyên liệu không được để trống. */
+  INGREDIENT_NAME_EMPTY = 'INGREDIENT_NAME_EMPTY',
   /** 404 */
   MEAL_PLAN_NOT_FOUND = 'MEAL_PLAN_NOT_FOUND',
 }

@@ -1,27 +1,26 @@
 import {
+  IsNotEmpty,
   IsNumber,
-  Min,
-  ValidateIf,
+  IsPositive,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Type } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class SetRecipePriceDto {
-  @ValidateIf((o) => o.actual_price !== null && o.actual_price !== undefined)
-  @Transform(({ value }) => {
-    if (value === null || value === undefined || value === '') {
-      return null;
-    }
-    const num = Number(value);
-    if (isNaN(num) || !isFinite(num)) {
-      return null;
-    }
-    return num;
+  @ApiProperty({
+    example: 45000,
+    description: 'Giá tiền thực tế người dùng đã chi trả để chuẩn bị/nấu món ăn này',
   })
-  @IsNumber({ allowNaN: false, allowInfinity: false }, {
-    message: 'Giá thực tế phải là số hợp lệ.',
+  @IsNotEmpty({
+    message: 'Giá thực tế không được để trống.',
   })
-  @Min(0, {
-    message: 'Giá thực tế không được âm.',
+  @Type(() => Number)
+  @IsNumber(
+    { allowNaN: false, allowInfinity: false },
+    { message: 'Giá thực tế phải là số hợp lệ.' },
+  )
+  @IsPositive({
+    message: 'Giá thực tế của món ăn phải lớn hơn 0.',
   })
   actual_price: number;
 }
