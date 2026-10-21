@@ -52,131 +52,81 @@ function normalizeText(str: string): string {
 
 export const excelImportService = {
   /**
-   * Generates and downloads a clean sample Excel template for Admins (Requirement 9)
+   * Tải tệp mẫu Excel chuẩn tiếng Việt cho Admin (Hỗ trợ nhập trực tiếp vào hệ thống)
    */
   downloadTemplate(): void {
     if (typeof window === "undefined") return;
 
     const headers = [
-      "Recipe Name",
-      "Description",
-      "Meal Type",
-      "Vegetarian Type",
-      "Ingredient",
-      "Quantity",
-      "Unit",
-      "Calories",
-      "Protein",
-      "Carbs",
-      "Fat",
-      "Allergens",
-      "Source URL",
-      "Source Name",
+      "Tên món",
+      "Mô tả",
+      "Hướng dẫn",
+      "Bữa ăn",
+      "Chế độ ăn chay",
+      "Thời gian chuẩn bị (phút)",
+      "Thời gian nấu (phút)",
+      "Khẩu phần",
+      "Độ khó",
+      "Nguyên liệu",
     ];
 
     const sampleRows = [
       [
-        "Tofu Rice Bowl",
-        "Savory pan-seared tofu over steamed jasmine rice with sweet carrots and sesame glaze.",
-        "lunch",
-        "vegan",
-        "Firm Tofu",
-        200,
-        "g",
-        550,
-        32,
-        65,
-        14,
-        "soy",
-        "https://example.com/tofu-bowl",
-        "Minimalist Baker",
+        "Đậu phụ sốt cà chua",
+        "Đậu phụ chiên giòn sốt cùng cà chua tươi, hành hoa đậm đà thanh ngọt.",
+        "1. Cắt đậu phụ miếng vừa ăn, chiên vàng đều hai mặt.\n2. Phi thơm hành, xào nhuyễn cà chua với chút muối và hạt nêm chay.\n3. Cho đậu phụ vào đảo nhỏ lửa 5 phút cho ngấm sốt, rắc hành lá rồi tắt bếp.",
+        "Trưa/Tối",
+        "Thuần chay",
+        10,
+        15,
+        2,
+        "Dễ",
+        "Đậu phụ (200g), Cà chua (150g), Hành lá (20g)",
       ],
       [
-        "Tofu Rice Bowl",
-        "Savory pan-seared tofu over steamed jasmine rice with sweet carrots and sesame glaze.",
-        "lunch",
-        "vegan",
-        "Rice",
-        150,
-        "g",
-        550,
-        32,
-        65,
-        14,
-        "soy",
-        "https://example.com/tofu-bowl",
-        "Minimalist Baker",
+        "Canh chua chay Nam Bộ",
+        "Canh chua thanh mát với dứa, cà chua, đậu bắp, giá đỗ và ngò gai thơm lành.",
+        "1. Sơ chế các loại rau củ sạch sẽ, cắt khúc vừa ăn.\n2. Nấu sôi nước me, cho dứa, cà chua và đậu phụ vào đun sôi.\n3. Cho tiếp đậu bắp, giá đỗ, nêm đường muối chay vừa ăn rồi tắt bếp, rắc ngò gai.",
+        "Trưa/Tối",
+        "Thuần chay",
+        15,
+        15,
+        4,
+        "Trung bình",
+        "Đậu phụ (150g), Cà chua (100g), Dứa (100g), Đậu bắp (50g), Giá đỗ (50g)",
       ],
       [
-        "Tofu Rice Bowl",
-        "Savory pan-seared tofu over steamed jasmine rice with sweet carrots and sesame glaze.",
-        "lunch",
-        "vegan",
-        "Carrot",
-        100,
-        "g",
-        550,
-        32,
-        65,
-        14,
-        "soy",
-        "https://example.com/tofu-bowl",
-        "Minimalist Baker",
-      ],
-      [
-        "Lentil Quinoa Energy Bowl",
-        "Hearty simmered brown lentils with fluffy Peruvian quinoa and broccoli florets.",
-        "dinner",
-        "vegan",
-        "Lentils",
-        120,
-        "g",
-        540,
-        28,
-        74,
-        12,
-        "",
-        "https://example.com/lentil-bowl",
-        "Delicious Plants",
-      ],
-      [
-        "Lentil Quinoa Energy Bowl",
-        "Hearty simmered brown lentils with fluffy Peruvian quinoa and broccoli florets.",
-        "dinner",
-        "vegan",
-        "Quinoa",
-        80,
-        "g",
-        540,
-        28,
-        74,
-        12,
-        "",
-        "https://example.com/lentil-bowl",
-        "Delicious Plants",
-      ],
-      [
-        "Lentil Quinoa Energy Bowl",
-        "Hearty simmered brown lentils with fluffy Peruvian quinoa and broccoli florets.",
-        "dinner",
-        "vegan",
-        "Broccoli",
-        100,
-        "g",
-        540,
-        28,
-        74,
-        12,
-        "",
-        "https://example.com/lentil-bowl",
-        "Delicious Plants",
+        "Bún xào rau nấm chay",
+        "Bún gạo xào giòn ngọt cùng nấm rơm, cà rốt và cải ngọt giàu năng lượng bữa sáng.",
+        "1. Trụng bún qua nước sôi, để ráo dầu mè.\n2. Phi thơm hành baro, xào nấm rơm và rau củ vừa chín tới.\n3. Cho bún vào đảo đều với nước tương chay, rắc tiêu thơm và dùng nóng.",
+        "Sáng",
+        "Thuần chay",
+        10,
+        10,
+        2,
+        "Dễ",
+        "Bún tươi (250g), Nấm rơm (100g), Cà rốt (60g), Cải ngọt (100g)",
       ],
     ];
 
     const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
+    // Đặt độ rộng các cột cho dễ nhìn
+    ws["!cols"] = [
+      { wch: 25 }, // Tên món
+      { wch: 35 }, // Mô tả
+      { wch: 45 }, // Hướng dẫn
+      { wch: 12 }, // Bữa ăn
+      { wch: 18 }, // Chế độ ăn chay
+      { wch: 22 }, // Thời gian chuẩn bị
+      { wch: 20 }, // Thời gian nấu
+      { wch: 12 }, // Khẩu phần
+      { wch: 12 }, // Độ khó
+      { wch: 45 }, // Nguyên liệu
+    ];
+
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Recipe_Template");
-    XLSX.writeFile(wb, "VeggieHub_Recipe_Import_Template.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "CongThucChay");
+    XLSX.writeFile(wb, "Mau_Nhap_Cong_Thuc_Chay.xlsx");
   },
 
   /**

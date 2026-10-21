@@ -27,7 +27,7 @@ function mapBackendCategoryToItem(cat: BackendCategory): CategoryItem {
     name: cat.category_name,
     slug: cat.description || cat.category_name.toLowerCase().replace(/\s+/g, "-"),
     type: cat.category_type === "food_type" ? "Food Type" : "Recipe Category",
-    recipeCount: 0,
+    recipeCount: Number(cat.recipe_count ?? 0),
     status: cat.status === "active" ? "Active" : "Archived",
     description: cat.description,
   };
