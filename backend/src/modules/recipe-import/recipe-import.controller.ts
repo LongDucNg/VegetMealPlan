@@ -3,14 +3,13 @@ import {
   Controller,
   Get,
   Param,
-  ParseIntPipe,
   Post,
   Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, MulterModuleOptions } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -24,10 +23,13 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { RecipeImportService } from './recipe-import.service';
+import { PositiveIntPipe } from './dto/validators/positive-int.pipe';
 import {
   ImportRecipeRow,
   ImportIngredientRow,
 } from './dto/import-recipe-row.dto';
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 @ApiTags('recipe-import')
 @ApiBearerAuth()
@@ -40,7 +42,13 @@ export class RecipeImportController {
   ) { }
 
   @Post()
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: MAX_FILE_SIZE,
+      },
+    } as MulterModuleOptions),
+  )
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -59,6 +67,7 @@ export class RecipeImportController {
     @UploadedFile() file: {
       originalname: string;
       buffer: Buffer;
+      size?: number;
     },
   ) {
     if (!file) {
@@ -191,7 +200,7 @@ export class RecipeImportController {
   }
 
   @Get(':id/items')
-  getItems(@Param('id', ParseIntPipe) id: number) {
+  getItems(@Param('id', PositiveIntPipe) id: number) {
     return this.recipeImportService.getBatchItems(id);
   }
 }

@@ -7,11 +7,12 @@ import {
   Put,
   Req,
   UseGuards,
+  UsePipes,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { IngredientService } from './ingredient.service';
-import { SetPriceDto } from './dto/set-price.dto';
+import { SetPriceDto, ValidatePricePipe } from './dto/set-price.dto';
 import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('ingredients')
@@ -45,6 +46,7 @@ export class IngredientController {
 
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
+  @UsePipes(new ValidatePricePipe())
   @Put(':id/my-price')
   setMyPrice(
     @Req() req: any,

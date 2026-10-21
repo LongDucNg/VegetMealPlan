@@ -2,6 +2,7 @@ import { ErrorCode } from '../../common/constants/error-codes.enum';
 import { isRecipeDietCompatible } from '../../common/utils/diet.util';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -70,6 +71,12 @@ export class RecipeService {
 
     @InjectRepository(NutritionInfo)
     private readonly nutritionRepo: Repository<NutritionInfo>,
+
+    @InjectRepository(RecipeCategory)
+    private readonly recipeCategoryRepo: Repository<RecipeCategory>,
+
+    @InjectRepository(Category)
+    private readonly categoryRepo: Repository<Category>,
   ) {}
 
   // =========================
@@ -181,7 +188,7 @@ export class RecipeService {
 
       if (!validDietTypes.includes(dietType)) {
         throw new BadRequestException(
-          'diet_type must be vegan, lacto, ovo or ovo_lacto',
+          'Chế độ ăn chay không hợp lệ. Chỉ chấp nhận: vegan, lacto, ovo hoặc ovo_lacto.',
         );
       }
 
@@ -200,6 +207,11 @@ export class RecipeService {
 
     // Lọc calories
     if (maxCalories !== undefined) {
+      const n = Number(maxCalories);
+      if (!Number.isFinite(n) || n < 0) {
+        throw new BadRequestException('Lượng calo tối đa không hợp lệ.');
+      }
+
       const nutritionSubQuery = this.nutritionRepo
         .createQueryBuilder('nutrition')
         .select('nutrition.recipe_id')
@@ -209,7 +221,7 @@ export class RecipeService {
         `recipe.recipe_id IN (${nutritionSubQuery.getQuery()})`,
       ).setParameters({
         ...nutritionSubQuery.getParameters(),
-        maxCalories,
+        maxCalories: n,
       });
     }
 
@@ -277,6 +289,7 @@ export class RecipeService {
         total,
         totalPages: Math.ceil(total / safeLimit),
       },
+      message: 'Lấy danh sách công thức thành công.',
     };
   }
 
@@ -405,6 +418,30 @@ export class RecipeService {
       }),
     );
 
+    // Chỉ tạo category links khi request có gửi category_ids hợp lệ.
+    if (
+      dto.category_ids !== undefined &&
+      Array.isArray(dto.category_ids) &&
+      dto.category_ids.length > 0
+    ) {
+      const uniqueIds = [...new Set(dto.category_ids.filter((id) => Number.isInteger(id) && id > 0))];
+      if (uniqueIds.length > 0) {
+        const found = await this.categoryRepo.count({
+          where: { category_id: In(uniqueIds) },
+        });
+        if (found === uniqueIds.length) {
+          await this.recipeCategoryRepo.save(
+            uniqueIds.map((category_id) =>
+              this.recipeCategoryRepo.create({
+                recipe_id: savedRecipe.recipe_id,
+                category_id,
+              }),
+            ),
+          );
+        }
+      }
+    }
+
     return {
       ...savedRecipe,
       ingredients,
@@ -472,7 +509,7 @@ export class RecipeService {
     });
 
     if (existing) {
-      return existing;
+      throw new ConflictException('Công thức đã có trong danh sách yêu thích');
     }
 
     const favorite = this.favoriteRepo.create({
@@ -487,10 +524,10 @@ export class RecipeService {
     user_id: number,
     recipe_id: number,
   ): Promise<void> {
-    await this.favoriteRepo.delete({
-      user_id,
-      recipe_id,
-    });
+    const result = await this.favoriteRepo.delete({ user_id, recipe_id });
+    if (result.affected === 0) {
+      throw new NotFoundException('Công thức không có trong danh sách yêu thích');
+    }
   }
 
   async listFavorites(user_id: number): Promise<any[]> {
@@ -499,26 +536,38 @@ export class RecipeService {
       relations: ['recipe'],
     });
 
-    const recipes = favorites.map((favorite) => favorite.recipe).filter(Boolean);
+    const validRecipes = favorites
+      .map((f) => f.recipe)
+      .filter((r) => r && r.status === RecipeStatus.APPROVED);
 
-    return Promise.all(
-      recipes.map(async (recipe) => {
-        const ingredients = await this.recipeIngredientRepo.find({
-          where: { recipe_id: recipe.recipe_id },
-          relations: ['ingredient'],
-        });
+    if (validRecipes.length === 0) return [];
 
-        const nutrition = await this.nutritionRepo.findOne({
-          where: { recipe_id: recipe.recipe_id },
-        });
+    const recipeIds = validRecipes.map((r) => r.recipe_id);
 
-        return {
-          ...recipe,
-          ingredients,
-          nutrition,
-        };
-      }),
-    );
+    // Batch query: ingredients + nutrition thay vì N+1
+    const ingredients = await this.recipeIngredientRepo.find({
+      where: { recipe_id: In(recipeIds) },
+      relations: ['ingredient'],
+    });
+
+    const nutritions = await this.nutritionRepo.find({
+      where: { recipe_id: In(recipeIds) },
+    });
+
+    const ingredientMap = new Map<number, typeof ingredients>();
+    for (const ing of ingredients) {
+      if (!ingredientMap.has(ing.recipe_id)) {
+        ingredientMap.set(ing.recipe_id, []);
+      }
+      ingredientMap.get(ing.recipe_id)!.push(ing);
+    }
+    const nutritionMap = new Map(nutritions.map((n) => [n.recipe_id, n]));
+
+    return validRecipes.map((r: any) => ({
+      ...r,
+      ingredients: ingredientMap.get(r.recipe_id) || [],
+      nutrition: nutritionMap.get(r.recipe_id) || null,
+    }));
   }
 
   async findMyRecipes(user_id: number): Promise<any[]> {
@@ -721,7 +770,7 @@ export class RecipeService {
           Number(nutrition.calories) - query.targetCalories,
         );
 
-        if (difference > query.targetCalories * 0.5) {
+        if (difference > query.targetCalories * 0.1) {
           continue;
         }
       }
@@ -815,10 +864,17 @@ export class RecipeService {
       relations: ['ingredient'],
     });
 
+    let hasIncompletePrice = false;
+
     const ingredients = rows.map((row) => {
       const ingredient = row.ingredient;
       const price = Number(ingredient?.avg_price_per_unit ?? 0);
+      const hasPrice = ingredient?.avg_price_per_unit != null;
       const quantity = Number(row.quantity ?? 0);
+
+      if (!hasPrice) {
+        hasIncompletePrice = true;
+      }
 
       // Quy đổi đơn vị của công thức sang đơn vị tính giá của nguyên liệu.
       const { cost, converted } = calculateIngredientCost(
@@ -834,22 +890,34 @@ export class RecipeService {
         quantity,
         unit: row.unit,
         price_unit: ingredient?.unit ?? null,
-        unit_price: price,
-        cost: Math.round(cost),
+        unit_price: hasPrice ? price : null,
+        cost: hasPrice ? Math.round(cost) : null,
         // false: không quy đổi được đơn vị, chi phí chỉ là ước tính
-        unit_converted: converted,
+        unit_converted: hasPrice ? converted : false,
       };
     });
-
-    const total_cost = ingredients.reduce(
-      (sum, item) => sum + item.cost,
-      0,
-    );
 
     // total_cost là chi phí CẢ MÓN (nguyên liệu khai báo cho cả món);
     // cost_per_serving = cả món / số khẩu phần.
     const servings =
       recipe.servings && recipe.servings > 0 ? recipe.servings : 1;
+
+    if (hasIncompletePrice) {
+      return {
+        recipe_id: recipe.recipe_id,
+        recipe_title: recipe.title,
+        servings,
+        total_cost: null,
+        cost_per_serving: null,
+        cost_is_incomplete: true,
+        ingredients,
+      };
+    }
+
+    const total_cost = ingredients.reduce(
+      (sum, item) => sum + (item.cost ?? 0),
+      0,
+    );
 
     return {
       recipe_id: recipe.recipe_id,
@@ -857,7 +925,79 @@ export class RecipeService {
       servings,
       total_cost: Math.round(total_cost),
       cost_per_serving: Math.round(total_cost / servings),
+      cost_is_incomplete: false,
       ingredients,
+    };
+  }
+
+  // =========================
+  // COMMUNITY PRICES
+  // =========================
+
+  async getRecipeCommunityPrices(recipeId: number) {
+    const recipe = await this.recipeRepo.findOne({
+      where: {
+        recipe_id: recipeId,
+        status: RecipeStatus.APPROVED,
+      },
+    });
+
+    if (!recipe) {
+      throw new NotFoundException({
+        code: ErrorCode.RECIPE_NOT_FOUND,
+        message: 'Không tìm thấy công thức hoặc công thức chưa được phép sử dụng.',
+      });
+    }
+
+    const prices = await this.userRecipePriceRepo.find({
+      where: { recipe_id: recipeId },
+      order: { updated_at: 'DESC' },
+    });
+
+    const estimatedCost =
+      recipe.estimated_cost != null ? Number(recipe.estimated_cost) : null;
+
+    // Luôn trả estimated_cost
+    const base: Record<string, any> = {
+      recipe_id: recipeId,
+      recipe_title: recipe.title,
+      estimated_cost: estimatedCost,
+      has_contributions: prices.length > 0,
+    };
+
+    if (prices.length === 0) {
+      return {
+        ...base,
+        contributions: [],
+        message: 'Chưa có giá tham khảo từ người dùng.',
+        notice: 'Giá cộng đồng chỉ mang tính tham khảo và có thể thay đổi theo nơi mua.',
+      };
+    }
+
+    const latest = prices[0];
+    const actualPrices = prices.map((p) => Number(p.actual_price));
+    const avg = actualPrices.reduce((s, v) => s + v, 0) / actualPrices.length;
+    const min = Math.min(...actualPrices);
+    const max = Math.max(...actualPrices);
+
+    const latestPrice = Number(latest.actual_price);
+
+    return {
+      ...base,
+      latest_price: latestPrice,
+      latest_updated_at: latest.updated_at,
+      diff_from_estimated:
+        estimatedCost !== null
+          ? Math.round((latestPrice - estimatedCost) * 100) / 100
+          : null,
+      stats: {
+        average_price: Math.round(avg * 100) / 100,
+        min_price: min,
+        max_price: max,
+        total_contributions: prices.length,
+      },
+      message: 'Giá cộng đồng được lấy từ lần cập nhật gần nhất.',
+      notice: 'Giá cộng đồng chỉ mang tính tham khảo và có thể thay đổi theo nơi mua.',
     };
   }
 
@@ -943,7 +1083,7 @@ export class RecipeService {
       recipe.created_by !== userId
     ) {
       throw new ForbiddenException(
-        'You do not have permission to update this recipe',
+        'Bạn không có quyền cập nhật công thức này.',
       );
     }
 
@@ -1092,7 +1232,7 @@ export class RecipeService {
     await this.recipeRepo.save(recipe);
 
     return {
-      message: 'Recipe removed successfully',
+      message: 'Đã xóa công thức thành công.',
       recipe_id: recipeId,
     };
   }
@@ -1109,20 +1249,22 @@ export class RecipeService {
     });
 
     return prices.map((item) => {
-      const actualPrice = Number(item.actual_price);
+      const recipe = item.recipe;
+      const isApproved = recipe?.status === RecipeStatus.APPROVED;
       const estimatedCost =
-        item.recipe?.estimated_cost != null
-          ? Number(item.recipe.estimated_cost)
+        recipe?.estimated_cost != null
+          ? Number(recipe.estimated_cost)
           : null;
 
       return {
         recipe_id: item.recipe_id,
-        recipe: item.recipe,
-        actual_price: actualPrice,
+        // Chỉ trả recipe object khi công thức được duyệt, không lộ công thức ẩn
+        recipe: isApproved ? recipe : null,
+        actual_price: Number(item.actual_price),
         estimated_cost: estimatedCost,
         diff:
           estimatedCost !== null
-            ? actualPrice - estimatedCost
+            ? Number(item.actual_price) - estimatedCost
             : null,
         updated_at: item.updated_at,
       };
@@ -1140,6 +1282,10 @@ export class RecipeService {
 
     if (!recipe) {
       throw new NotFoundException({ code: ErrorCode.RECIPE_NOT_FOUND, message: `Không tìm thấy công thức #${recipeId}` });
+    }
+
+    if (recipe.status !== RecipeStatus.APPROVED) {
+      throw new NotFoundException({ code: ErrorCode.RECIPE_NOT_FOUND, message: 'Không tìm thấy công thức hoặc công thức chưa được phép sử dụng.' });
     }
 
     let price = await this.userRecipePriceRepo.findOne({
@@ -1190,13 +1336,13 @@ export class RecipeService {
     });
 
     if (!price) {
-      throw new NotFoundException({ code: ErrorCode.RECIPE_NOT_FOUND, message: `Bạn chưa có giá cho công thức #${recipeId}` });
+      throw new NotFoundException({ code: ErrorCode.RECIPE_NOT_FOUND, message: 'Không tìm thấy giá thực tế do bạn đóng góp cho công thức này.' });
     }
 
     await this.userRecipePriceRepo.remove(price);
 
     return {
-      message: 'Recipe price removed successfully',
+      message: 'Đã xóa giá thực tế do bạn đóng góp.',
       recipe_id: recipeId,
     };
   }
@@ -1205,30 +1351,88 @@ export class RecipeService {
   // ADMIN RECIPE REVIEW
   // =========================
 
-  async findAllForAdmin(status?: string) {
+  async findAllForAdmin(
+    status?: string,
+    categoryId?: number,
+    page?: number,
+    limit?: number,
+  ) {
     const value = status?.trim().toLowerCase();
     if (value && !Object.values(RecipeStatus).includes(value as RecipeStatus)) {
-      throw new BadRequestException(
-        `status phải là một trong: ${Object.values(RecipeStatus).join(', ')}`,
-      );
+      throw new BadRequestException('Trạng thái công thức không hợp lệ');
     }
+
+    // Validate categoryId nếu truyền
+    if (categoryId !== undefined && (isNaN(categoryId) || categoryId <= 0)) {
+      throw new BadRequestException('ID danh mục phải là số nguyên dương');
+    }
+
+    // Validate phân trang
+    if (page !== undefined && (isNaN(page) || page < 1)) {
+      throw new BadRequestException('Số trang phải là số nguyên dương');
+    }
+    if (limit !== undefined) {
+      if (isNaN(limit) || limit < 1) {
+        throw new BadRequestException('Số lượng công thức mỗi trang phải là số nguyên dương');
+      }
+      if (limit > 100) {
+        throw new BadRequestException('Số lượng công thức mỗi trang vượt quá giới hạn cho phép');
+      }
+    }
+
+    const where: any = {};
+    if (value) {
+      where.status = value as RecipeStatus;
+    }
+
+    const pageNum = page ?? 1;
+    const limitNum = limit ?? 20;
+    const skip = (pageNum - 1) * limitNum;
+
+    // Đếm tổng
+    const total = await this.recipeRepo.count({ where });
+
     const recipes = await this.recipeRepo.find({
-      where: value ? { status: value as RecipeStatus } : {},
+      where,
       order: { created_at: 'DESC' },
+      skip,
+      take: limitNum,
     });
 
-    if (recipes.length > 0) {
-      const ids = recipes.map((r) => r.recipe_id);
+    let filtered = recipes;
+    if (categoryId) {
+      const recipeIds = recipes.map((r) => r.recipe_id);
+      if (recipeIds.length === 0) {
+        filtered = [];
+      } else {
+        const rcRecords = await this.recipeCategoryRepo.find({
+          where: { category_id: categoryId, recipe_id: In(recipeIds) },
+        });
+        const allowedIds = new Set(rcRecords.map((rc) => rc.recipe_id));
+        filtered = recipes.filter((r) => allowedIds.has(r.recipe_id));
+      }
+    }
+
+    if (filtered.length > 0) {
+      const ids = filtered.map((r) => r.recipe_id);
       const nutritions = await this.nutritionRepo.find({
         where: { recipe_id: In(ids) },
       });
       const nutritionMap = new Map(nutritions.map((n) => [n.recipe_id, n]));
-      for (const recipe of recipes as any[]) {
+      for (const recipe of filtered as any[]) {
         recipe.nutrition = nutritionMap.get(recipe.recipe_id) || null;
       }
     }
 
-    return recipes;
+    return {
+      data: filtered,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+      },
+      message: 'Lấy danh sách công thức quản trị thành công.',
+    };
   }
 
   async updateRecipeStatus(
@@ -1251,7 +1455,7 @@ export class RecipeService {
       status !== RecipeReviewStatus.REJECTED
     ) {
       throw new BadRequestException(
-        'Status must be approved or rejected',
+        'Trạng thái công thức chỉ có thể là approved hoặc rejected',
       );
     }
 
@@ -1262,7 +1466,7 @@ export class RecipeService {
       !reason
     ) {
       throw new BadRequestException(
-        'Reason is required when rejecting a recipe',
+        'Vui lòng nhập lý do từ chối công thức',
       );
     }
 
