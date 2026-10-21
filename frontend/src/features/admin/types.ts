@@ -60,6 +60,7 @@ export interface BackendCategory {
   created_by?: number;
   created_at: string;
   updated_at: string;
+  recipe_count?: number;
 }
 
 export interface CreateCategoryPayload {
