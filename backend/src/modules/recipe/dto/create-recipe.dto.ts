@@ -1,6 +1,7 @@
 import {
   IsArray,
   IsBoolean,
+  IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
@@ -9,6 +10,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { DietType } from '../../users/entities/user.entity';
+import { Difficulty } from '../entities/recipe.entity';
 
 export class CreateRecipeIngredientDto {
   @IsInt()
@@ -62,16 +65,16 @@ export class CreateRecipeDto {
   servings?: number;
 
   @IsOptional()
-  @IsString()
-  difficulty?: string;
+  @IsEnum(Difficulty)
+  difficulty?: Difficulty;
 
   @IsOptional()
   @IsString()
   meal_type?: string;
 
   @IsOptional()
-  @IsString()
-  diet_type?: string;
+  @IsEnum(DietType)
+  diet_type?: DietType;
 
   @IsOptional()
   @IsString()

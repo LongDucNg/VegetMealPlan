@@ -1,16 +1,8 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseIntPipe,
-  Post,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RecipeService } from './recipe.service';
+import { PositiveIntPipe } from './dto/validators/positive-int.pipe';
 
 @ApiTags('user-favorite-recipes')
 @ApiBearerAuth()
@@ -31,7 +23,7 @@ export class UserFavoriteRecipeController {
   @Post(':recipeId')
   addFavorite(
     @Req() req: any,
-    @Param('recipeId', ParseIntPipe) recipeId: number,
+    @Param('recipeId', PositiveIntPipe) recipeId: number,
   ) {
     return this.recipeService.addFavorite(
       req.user.user_id,
@@ -42,7 +34,7 @@ export class UserFavoriteRecipeController {
   @Delete(':recipeId')
   removeFavorite(
     @Req() req: any,
-    @Param('recipeId', ParseIntPipe) recipeId: number,
+    @Param('recipeId', PositiveIntPipe) recipeId: number,
   ) {
     return this.recipeService.removeFavorite(
       req.user.user_id,
