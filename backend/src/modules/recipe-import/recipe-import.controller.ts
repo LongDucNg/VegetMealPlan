@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Controller,
   Get,
+  Logger,
   Param,
   Post,
   Req,
@@ -37,6 +38,8 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 @Roles(UserRole.ADMIN)
 @Controller('admin/recipe-imports')
 export class RecipeImportController {
+  private readonly logger = new Logger(RecipeImportController.name);
+
   constructor(
     private readonly recipeImportService: RecipeImportService,
   ) { }
@@ -81,6 +84,15 @@ export class RecipeImportController {
     try {
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(file.buffer as any);
+
+      const sheetNames = workbook.worksheets.map((s) => s.name);
+
+      // API hiện chỉ đọc sheet đầu tiên (1 sheet = 1 lần import).
+      // File nhiều sheet sẽ được báo rõ trong log để admin biết cần tách file.
+      this.logger.log(
+        `Đọc file Excel "${file.originalname}": ${sheetNames.length} sheet [${sheetNames.join(', ')}] - dùng sheet đầu tiên "${sheetNames[0] ?? ''}"`,
+      );
+
       const sheet = workbook.worksheets[0];
 
       if (!sheet) {
@@ -112,44 +124,98 @@ export class RecipeImportController {
       });
 
       if (data.length === 0) {
+        // Nếu file có nhiều sheet mà sheet đầu rỗng, báo rõ tên các sheet có dữ liệu
+        // (API chỉ đọc 1 sheet/lần import - admin cần tách file).
+        const otherSheetsWithData = workbook.worksheets
+          .slice(1)
+          .filter((other) => other.actualRowCount > 1)
+          .map((other) => other.name);
+
+        if (otherSheetsWithData.length > 0) {
+          throw new BadRequestException(
+            `Sheet đầu tiên "${sheet.name}" không có dữ liệu. File có các sheet khác chứa dữ liệu: ${otherSheetsWithData.join(', ')}. ` +
+              'API chỉ đọc sheet đầu tiên mỗi lần import - vui lòng tách file hoặc xóa các sheet không cần thiết.',
+          );
+        }
+
         throw new BadRequestException(
           'File Excel không chứa dữ liệu công thức nào.',
         );
       }
 
       rows = data.map((row, index) => {
-        const rowNumber = index + 2;
-        const rawTitle = String(row.title || '').trim();
-        if (!rawTitle) {
-          throw new BadRequestException(`Dòng ${rowNumber}: thiếu Tên món (tiêu đề bắt buộc)`);
+        const rowNumber = index + 2; // dòng 1 là header
+        let ingredients: ImportIngredientRow[];
+        let row_error: string | undefined;
+
+        try {
+          const rawIngredients = row.ingredients || row.ingredients_json;
+
+          // Ô bắt đầu bằng '[' được coi là JSON array: bỏ phần tử rỗng/null
+          // trước khi parse. JSON hỏng -> dòng này FAILED, các dòng khác vẫn import.
+          let ingredientsValue = rawIngredients;
+          if (typeof ingredientsValue === 'string') {
+            const trimmed = ingredientsValue.trim();
+            if (trimmed.startsWith('[')) {
+              const parsed = JSON.parse(trimmed);
+              if (!Array.isArray(parsed)) {
+                throw new Error('cot ingredients khong phai JSON array');
+              }
+              ingredientsValue = parsed.filter(
+                (item) =>
+                  item && typeof item === 'object' && !Array.isArray(item),
+              );
+            } else if (!/\d/.test(trimmed)) {
+              // Chuỗi tự nhiên không có số lượng nào (VD: "không phải JSON")
+              // -> không phải danh sách nguyên liệu hợp lệ. Đánh dấu FAILED
+              // cho dòng này thay vì báo lỗi chung làm hỏng cả lô import.
+              throw new Error('cot ingredients khong chua so luong hop le');
+            }
+          }
+
+          // Hỗ trợ cả JSON array lẫn văn bản tự nhiên (VD: "Đậu phụ (200g)").
+          ingredients = this.parseIngredientsCell(ingredientsValue, rowNumber);
+        } catch {
+          // Dòng lỗi không hủy cả file: đánh dấu để service báo FAILED cho dòng này.
+          ingredients = [];
+          row_error = `Dòng Excel ${rowNumber}: cột ingredients phải chứa JSON array hợp lệ`;
         }
 
-        const ingredients = this.parseIngredientsCell(
-          row.ingredients || row.ingredients_json,
-          rowNumber,
-        );
-
-        const prep = row.prep_time !== '' && row.prep_time != null ? Number(row.prep_time) : 0;
-        const cook = row.cook_time !== '' && row.cook_time != null ? Number(row.cook_time) : 0;
-        const servings = row.servings !== '' && row.servings != null ? Number(row.servings) : 1;
-
         return {
-          title: rawTitle,
-          description: row.description ? String(row.description).trim() : undefined,
-          instructions: String(row.instructions || 'Chế biến theo công thức chuẩn.').trim(),
-          prep_time: Number.isFinite(prep) && prep >= 0 ? prep : 0,
-          cook_time: Number.isFinite(cook) && cook >= 0 ? cook : 0,
-          servings: Number.isFinite(servings) && servings > 0 ? servings : 1,
+          title: String(row.title || '').trim(),
+          description: row.description
+            ? String(row.description).trim()
+            : undefined,
+          instructions: String(row.instructions || '').trim(),
+          prep_time: this.toNumberOrUndefined(row.prep_time),
+          cook_time: this.toNumberOrUndefined(row.cook_time),
+          servings: this.toNumberOrUndefined(row.servings),
           difficulty: this.normalizeDifficulty(row.difficulty),
           meal_type: this.normalizeMealType(row.meal_type),
           diet_type: this.normalizeDietType(row.diet_type),
-          ingredients,
+          row_error,
+          ingredients: ingredients.map((ingredient) => ({
+            ingredient_name: String(
+              ingredient.ingredient_name || '',
+            ).trim(),
+            quantity: Number(ingredient.quantity),
+            unit: String(ingredient.unit || '').trim(),
+            is_optional: Boolean(ingredient.is_optional),
+          })),
         };
       });
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
       }
+
+      // Log nguyên nhân thật để debug được, nhưng không lộ nội dung file/dữ liệu.
+      this.logger.error(
+        `Không đọc được file Excel "${file.originalname}" (${file.size ?? 0} bytes): ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined,
+      );
 
       throw new BadRequestException(
         `Không đọc được file Excel: ${(error as Error)?.message || 'Vui lòng kiểm tra định dạng file.'}`,
@@ -277,6 +343,15 @@ export class RecipeImportController {
     }
 
     return result;
+  }
+
+  // Chuyển giá trị ô Excel (string/số) sang number hợp lệ; trả undefined khi rỗng/không parse được.
+  private toNumberOrUndefined(value: unknown): number | undefined {
+    if (value === '' || value === null || value === undefined) {
+      return undefined;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
   }
 
   private normalizeMealType(val?: string): string {
