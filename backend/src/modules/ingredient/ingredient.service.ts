@@ -1,5 +1,5 @@
 import { ErrorCode } from '../../common/constants/error-codes.enum';
-import { BadRequestException, Injectable, NotFoundException, } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, } from '@nestjs/common';
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
 import { UpdateIngredientDto } from './dto/update-ingredient.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -305,18 +305,18 @@ export class IngredientService {
   async createIngredient(
     dto: CreateIngredientDto,
   ): Promise<Ingredient> {
+    const trimmedName = dto.ingredient_name.trim();
+
     const existing = await this.findByName(
-      dto.ingredient_name,
+      trimmedName,
     );
 
     if (existing) {
-      throw new BadRequestException(
-        'Ingredient name already exists',
-      );
+      throw new ConflictException({ code: ErrorCode.INGREDIENT_NAME_CONFLICT, message: 'Nguyên liệu này đã tồn tại trong hệ thống.' });
     }
 
     const ingredient = this.ingredientRepo.create({
-      ingredient_name: dto.ingredient_name.trim(),
+      ingredient_name: trimmedName,
       unit: dto.unit,
       description: dto.description,
       vegan_flag: dto.vegan_flag ?? true,
@@ -356,31 +356,33 @@ export class IngredientService {
         where: { ingredient_id },
       });
 
-    if (!ingredient) {
-      throw new NotFoundException({ code: ErrorCode.INGREDIENT_NOT_FOUND, message: `Không tìm thấy nguyên liệu #${ingredient_id}` });
+      if (!ingredient) {
+      throw new NotFoundException({ code: ErrorCode.INGREDIENT_NOT_FOUND, message: 'Không tìm thấy nguyên liệu cần cập nhật.' });
     }
 
-    if (dto.ingredient_name) {
+    if (dto.ingredient_name !== undefined) {
+      const trimmedName = dto.ingredient_name.trim();
+
+      if (!trimmedName) {
+        throw new BadRequestException({ code: 'INGREDIENT_NAME_EMPTY', message: 'Tên nguyên liệu không được để trống.' });
+      }
+
       const existing =
         await this.findByName(
-          dto.ingredient_name,
+          trimmedName,
         );
 
       if (
         existing &&
         existing.ingredient_id !== ingredient_id
       ) {
-        throw new BadRequestException(
-          'Ingredient name already exists',
-        );
+        throw new ConflictException({ code: ErrorCode.INGREDIENT_NAME_CONFLICT, message: 'Nguyên liệu này đã tồn tại trong hệ thống.' });
       }
+
+      ingredient.ingredient_name = trimmedName;
     }
 
     Object.assign(ingredient, {
-      ingredient_name:
-        dto.ingredient_name ??
-        ingredient.ingredient_name,
-
       unit:
         dto.unit ??
         ingredient.unit,
@@ -394,8 +396,9 @@ export class IngredientService {
         ingredient.vegan_flag,
 
       avg_price_per_unit:
-        dto.avg_price_per_unit ??
-        ingredient.avg_price_per_unit,
+        dto.avg_price_per_unit != null && dto.avg_price_per_unit > 0
+          ? dto.avg_price_per_unit
+          : ingredient.avg_price_per_unit,
 
       calories_per_100g:
         dto.calories_per_100g ??
