@@ -22,8 +22,16 @@ export class AdminRecipeController {
   constructor(private readonly recipeService: RecipeService) {}
 
   @Get()
-  async findAll(@Query('status') status?: string) {
-    return this.recipeService.findAllForAdmin(status);
+  async findAll(
+    @Query('status') status?: string,
+    @Query('category_id') categoryId?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const catId = categoryId ? parseInt(categoryId, 10) : undefined;
+    const pageNum = page ? parseInt(page, 10) : undefined;
+    const limitNum = limit ? parseInt(limit, 10) : undefined;
+    return this.recipeService.findAllForAdmin(status, catId, pageNum, limitNum);
   }
 
   @Put(':id/status')

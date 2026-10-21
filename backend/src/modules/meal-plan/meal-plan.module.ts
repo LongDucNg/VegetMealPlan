@@ -16,6 +16,7 @@ import { User } from '../users/entities/user.entity';
 import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
 
 import { SubscriptionModule } from '../subscription/subscription.module';
+import { IngredientModule } from '../ingredient/ingredient.module';
 
 import { MealPlanController } from './meal-plan.controller';
 import { MealPlanService } from './meal-plan.service';
@@ -37,6 +38,7 @@ import { MealPlanService } from './meal-plan.service';
       NutritionInfo,
     ]),
     SubscriptionModule,
+    IngredientModule,
   ],
   controllers: [
     MealPlanController,

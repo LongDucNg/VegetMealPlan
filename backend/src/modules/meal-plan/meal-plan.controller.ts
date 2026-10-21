@@ -8,7 +8,6 @@ import {
   Body,
   Req,
   Param,
-  ParseIntPipe,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -23,6 +22,7 @@ import { ValidateMealPlanDto } from './dto/validate-meal-plan.dto';
 import { UpdateMealSlotDto } from './dto/update-meal-slot.dto';
 import { GenerateMealPlanDto } from './dto/generate-meal-plan.dto';
 import { SetProfileAllergiesDto } from './dto/set-profile-allergies.dto';
+import { PositiveIntPipe } from './dto/validators/positive-int.pipe';
 
 @ApiTags('meal-plans')
 @ApiBearerAuth()
@@ -83,7 +83,7 @@ export class MealPlanController {
   @Get('users/me/meal-plan-profiles/:profileId/allergies')
   getProfileAllergies(
     @Req() req: any,
-    @Param('profileId', ParseIntPipe) profileId: number,
+    @Param('profileId', PositiveIntPipe) profileId: number,
   ) {
     return this.mealPlanService.getProfileAllergies(
       req.user.user_id,
@@ -94,7 +94,7 @@ export class MealPlanController {
   @Put('users/me/meal-plan-profiles/:profileId/allergies')
   setProfileAllergies(
     @Req() req: any,
-    @Param('profileId', ParseIntPipe) profileId: number,
+    @Param('profileId', PositiveIntPipe) profileId: number,
     @Body() dto: SetProfileAllergiesDto,
   ) {
     return this.mealPlanService.setProfileAllergies(
@@ -116,9 +116,9 @@ export class MealPlanController {
   @Patch('users/me/meal-plans/:id/days/:dayId/slots/:slotId')
   updateMealSlot(
     @Req() req: any,
-    @Param('id', ParseIntPipe) id: number,
-    @Param('dayId', ParseIntPipe) dayId: number,
-    @Param('slotId', ParseIntPipe) slotId: number,
+    @Param('id', PositiveIntPipe) id: number,
+    @Param('dayId', PositiveIntPipe) dayId: number,
+    @Param('slotId', PositiveIntPipe) slotId: number,
     @Body() dto: UpdateMealSlotDto,
   ) {
     return this.mealPlanService.updateMealSlot(
@@ -137,7 +137,7 @@ export class MealPlanController {
   @Get('users/me/meal-plans/:id')
   findMyMealPlanDetail(
     @Req() req: any,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', PositiveIntPipe) id: number,
   ) {
     return this.mealPlanService.findMyMealPlanDetail(req.user.user_id, id);
   }
@@ -145,7 +145,7 @@ export class MealPlanController {
   @Patch('users/me/meal-plans/:id')
   updateMyMealPlan(
     @Req() req: any,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', PositiveIntPipe) id: number,
     @Body() dto: UpdateMyMealPlanDto,
   ) {
     return this.mealPlanService.updateMyMealPlan(req.user.user_id, id, dto);
@@ -154,7 +154,7 @@ export class MealPlanController {
   @Delete('users/me/meal-plans/:id')
   deleteMyMealPlan(
     @Req() req: any,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', PositiveIntPipe) id: number,
   ) {
     return this.mealPlanService.deleteMyMealPlan(req.user.user_id, id);
   }

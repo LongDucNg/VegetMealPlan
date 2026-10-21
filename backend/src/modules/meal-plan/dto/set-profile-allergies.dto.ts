@@ -7,9 +7,9 @@ export class SetProfileAllergiesDto {
     description:
       'Danh sách ingredient_id gây dị ứng; mảng rỗng = xoá hết dị ứng của hồ sơ',
   })
-  @IsArray()
-  @ArrayUnique()
-  @IsInt({ each: true })
-  @Min(1, { each: true })
+  @IsArray({ message: 'Danh sách dị ứng phải là một mảng.' })
+  @ArrayUnique({ message: 'Danh sách dị ứng không được chứa giá trị trùng lặp.' })
+  @IsInt({ each: true, message: 'Mỗi ID nguyên liệu phải là số nguyên.' })
+  @Min(1, { each: true, message: 'Mỗi ID nguyên liệu phải là số nguyên dương.' })
   ingredient_ids: number[];
 }

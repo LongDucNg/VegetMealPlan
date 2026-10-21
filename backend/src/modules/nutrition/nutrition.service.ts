@@ -19,19 +19,25 @@ export class NutritionService {
     private readonly recipeRepo: Repository<Recipe>,
   ) {}
 
-  async findAll() {
-    return this.nutritionRepo.find({
+  async findAll(): Promise<{ data: any[]; message: string }> {
+    const items = await this.nutritionRepo.find({
       order: { recipe_id: 'ASC' },
     });
+    return {
+      data: items,
+      message: items.length === 0
+        ? 'Chưa có dữ liệu dinh dưỡng.'
+        : 'Lấy danh sách dinh dưỡng thành công.',
+    };
   }
 
-  async getByRecipeId(recipeId: number) {
+  async getByRecipeId(recipeId: number): Promise<{ data: any; message: string }> {
     const recipe = await this.recipeRepo.findOne({
       where: { recipe_id: recipeId },
     });
 
     if (!recipe) {
-      throw new NotFoundException('Recipe not found');
+      throw new NotFoundException('Không tìm thấy công thức.');
     }
 
     const nutrition = await this.nutritionRepo.findOne({
@@ -39,11 +45,12 @@ export class NutritionService {
     });
 
     if (!nutrition) {
-      throw new NotFoundException(
-        'Nutrition information not found for this recipe',
-      );
+      throw new NotFoundException('Không tìm thấy thông tin dinh dưỡng của công thức này.');
     }
 
-    return nutrition;
+    return {
+      data: nutrition,
+      message: 'Lấy thông tin dinh dưỡng công thức thành công.',
+    };
   }
 }
