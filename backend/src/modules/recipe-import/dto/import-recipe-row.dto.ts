@@ -19,5 +19,8 @@ export interface ImportRecipeRow {
   meal_type?: string;
   diet_type?: string;
   category_ids?: number[];
+  // Lỗi đọc được khi controller parse dòng (VD: cột ingredients không phải JSON hợp lệ).
+  // Dòng này sẽ được đánh dấu FAILED thay vì hủy toàn bộ lô import.
+  row_error?: string;
   ingredients: ImportIngredientRow[];
 }
