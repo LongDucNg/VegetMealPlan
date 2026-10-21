@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Controller,
   Get,
+  Logger,
   Param,
   Post,
   Req,
@@ -37,6 +38,8 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 @Roles(UserRole.ADMIN)
 @Controller('admin/recipe-imports')
 export class RecipeImportController {
+  private readonly logger = new Logger(RecipeImportController.name);
+
   constructor(
     private readonly recipeImportService: RecipeImportService,
   ) { }
@@ -81,6 +84,15 @@ export class RecipeImportController {
     try {
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(file.buffer as any);
+
+      const sheetNames = workbook.worksheets.map((s) => s.name);
+
+      // API hiện chỉ đọc sheet đầu tiên (1 sheet = 1 lần import).
+      // File nhiều sheet sẽ được báo rõ trong log để admin biết cần tách file.
+      this.logger.log(
+        `Đọc file Excel "${file.originalname}": ${sheetNames.length} sheet [${sheetNames.join(', ')}] - dùng sheet đầu tiên "${sheetNames[0] ?? ''}"`,
+      );
+
       const sheet = workbook.worksheets[0];
 
       if (!sheet) {
@@ -103,13 +115,29 @@ export class RecipeImportController {
       });
 
       if (data.length === 0) {
+        // Nếu file có nhiều sheet mà sheet đầu rỗng, báo rõ tên các sheet có dữ liệu
+        // (API chỉ đọc 1 sheet/lần import - admin cần tách file).
+        const otherSheetsWithData = workbook.worksheets
+          .slice(1)
+          .filter((other) => other.actualRowCount > 1)
+          .map((other) => other.name);
+
+        if (otherSheetsWithData.length > 0) {
+          throw new BadRequestException(
+            `Sheet đầu tiên "${sheet.name}" không có dữ liệu. File có các sheet khác chứa dữ liệu: ${otherSheetsWithData.join(', ')}. ` +
+              'API chỉ đọc sheet đầu tiên mỗi lần import - vui lòng tách file hoặc xóa các sheet không cần thiết.',
+          );
+        }
+
         throw new BadRequestException(
           'Sheet Excel không có dữ liệu',
         );
       }
 
       rows = data.map((row, index) => {
+        const rowNumber = index + 2; // dòng 1 là header
         let ingredients: ImportIngredientRow[];
+        let row_error: string | undefined;
 
         try {
           const value = row.ingredients || row.ingredients_json;
@@ -122,10 +150,19 @@ export class RecipeImportController {
           if (!Array.isArray(ingredients)) {
             throw new Error();
           }
-        } catch {
-          throw new BadRequestException(
-            `Dòng Excel ${index + 2}: cột ingredients phải chứa JSON array hợp lệ`,
+
+          // Mỗi phần tử phải là object có ingredient_name; phần tử rỗng/null bị loại
+          // để dòng đó thành FAILED thay vì làm hỏng cả lô import.
+          ingredients = ingredients.filter(
+            (item) =>
+              item &&
+              typeof item === 'object' &&
+              !Array.isArray(item),
           );
+        } catch {
+          // Dòng lỗi không hủy cả file: đánh dấu để service báo FAILED cho dòng này.
+          ingredients = [];
+          row_error = `Dòng Excel ${rowNumber}: cột ingredients phải chứa JSON array hợp lệ`;
         }
 
         return {
@@ -152,6 +189,7 @@ export class RecipeImportController {
           diet_type: row.diet_type
             ? String(row.diet_type)
             : undefined,
+          row_error,
           ingredients: ingredients.map((ingredient) => ({
             ingredient_name: String(
               ingredient.ingredient_name || '',
@@ -166,6 +204,14 @@ export class RecipeImportController {
       if (error instanceof BadRequestException) {
         throw error;
       }
+
+      // Log nguyên nhân thật để debug được, nhưng không lộ nội dung file/dữ liệu.
+      this.logger.error(
+        `Không đọc được file Excel "${file.originalname}" (${file.size ?? 0} bytes): ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined,
+      );
 
       throw new BadRequestException(
         'Không đọc được file Excel. Vui lòng kiểm tra định dạng file và dữ liệu.',
