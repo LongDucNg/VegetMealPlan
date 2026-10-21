@@ -24,7 +24,7 @@ import {
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 import { IngredientReplacement } from '../ingredient/entities/ingredient-replacement.entity';
 import { IngredientService } from '../ingredient/ingredient.service';
-import { User } from '../users/entities/user.entity';
+import { User, DietType } from '../users/entities/user.entity';
 import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
 import { UserRecipePrice } from './entities/user-recipe-price.entity';
 import { RecipeCategory } from './entities/recipe-category.entity';
@@ -362,6 +362,42 @@ export class RecipeService {
       );
     }
 
+    // Kiểm tra quy tắc tương thích giữa chế độ ăn chay và nguyên liệu
+    if (dto.ingredients && dto.ingredients.length > 0 && dto.diet_type) {
+      const ingIds = dto.ingredients.map((i) => i.ingredient_id);
+      const dbIngredients = await Promise.all(
+        ingIds.map((id) => this.ingredientService.findOne(id).catch(() => null)),
+      );
+
+      for (const ing of dbIngredients) {
+        if (!ing) continue;
+        const name = (ing.ingredient_name || '').toLowerCase();
+        const isEgg = /trứng/i.test(name);
+        const isDairy =
+          /sữa tươi|sữa đặc|bơ lạt|phô mai|kem tươi|sữa chua|whey/i.test(name);
+
+        if (dto.diet_type === DietType.VEGAN) {
+          if (ing.vegan_flag === false || isEgg || isDairy) {
+            throw new BadRequestException(
+              `Món thuần chay (Vegan) không được chứa trứng, sữa hoặc nguyên liệu từ động vật: "${ing.ingredient_name}"`,
+            );
+          }
+        } else if (dto.diet_type === DietType.LACTO) {
+          if (isEgg) {
+            throw new BadRequestException(
+              `Chế độ ăn chay có sữa (Lacto) không được chứa trứng: "${ing.ingredient_name}"`,
+            );
+          }
+        } else if (dto.diet_type === DietType.OVO) {
+          if (isDairy) {
+            throw new BadRequestException(
+              `Chế độ ăn chay có trứng (Ovo) không được chứa sữa hoặc chế phẩm từ sữa: "${ing.ingredient_name}"`,
+            );
+          }
+        }
+      }
+    }
+
     const status =
       userRole === 'admin'
         ? RecipeStatus.APPROVED
@@ -418,27 +454,31 @@ export class RecipeService {
       }),
     );
 
-    // Chỉ tạo category links khi request có gửi category_ids hợp lệ.
+    // Validate và tạo category links khi request có gửi category_ids
     if (
       dto.category_ids !== undefined &&
       Array.isArray(dto.category_ids) &&
       dto.category_ids.length > 0
     ) {
       const uniqueIds = [...new Set(dto.category_ids.filter((id) => Number.isInteger(id) && id > 0))];
+      if (uniqueIds.length !== dto.category_ids.length) {
+        throw new BadRequestException('ID danh mục phải là số nguyên dương hợp lệ.');
+      }
       if (uniqueIds.length > 0) {
         const found = await this.categoryRepo.count({
           where: { category_id: In(uniqueIds) },
         });
-        if (found === uniqueIds.length) {
-          await this.recipeCategoryRepo.save(
-            uniqueIds.map((category_id) =>
-              this.recipeCategoryRepo.create({
-                recipe_id: savedRecipe.recipe_id,
-                category_id,
-              }),
-            ),
-          );
+        if (found !== uniqueIds.length) {
+          throw new BadRequestException('Một hoặc nhiều danh mục không tồn tại trong hệ thống.');
         }
+        await this.recipeCategoryRepo.save(
+          uniqueIds.map((category_id) =>
+            this.recipeCategoryRepo.create({
+              recipe_id: savedRecipe.recipe_id,
+              category_id,
+            }),
+          ),
+        );
       }
     }
 
@@ -968,6 +1008,10 @@ export class RecipeService {
     if (prices.length === 0) {
       return {
         ...base,
+        latest_price: null,
+        latest_updated_at: null,
+        diff_from_estimated: null,
+        stats: null,
         contributions: [],
         message: 'Chưa có giá tham khảo từ người dùng.',
         notice: 'Giá cộng đồng chỉ mang tính tham khảo và có thể thay đổi theo nơi mua.',
@@ -981,6 +1025,18 @@ export class RecipeService {
     const max = Math.max(...actualPrices);
 
     const latestPrice = Number(latest.actual_price);
+
+    const contributions = prices.map((p) => {
+      const actual = Number(p.actual_price);
+      return {
+        actual_price: actual,
+        diff:
+          estimatedCost !== null
+            ? Math.round((actual - estimatedCost) * 100) / 100
+            : null,
+        updated_at: p.updated_at,
+      };
+    });
 
     return {
       ...base,
@@ -996,6 +1052,7 @@ export class RecipeService {
         max_price: max,
         total_contributions: prices.length,
       },
+      contributions,
       message: 'Giá cộng đồng được lấy từ lần cập nhật gần nhất.',
       notice: 'Giá cộng đồng chỉ mang tính tham khảo và có thể thay đổi theo nơi mua.',
     };
@@ -1312,14 +1369,24 @@ export class RecipeService {
         ? Number(recipe.estimated_cost)
         : null;
 
+    const actual = Number(saved.actual_price);
+    const diff =
+      estimatedCost !== null
+        ? Math.round((actual - estimatedCost) * 100) / 100
+        : null;
+    const diffPercentage =
+      estimatedCost !== null && estimatedCost > 0
+        ? Math.round(((actual - estimatedCost) / estimatedCost) * 10000) / 100
+        : null;
+
     return {
+      message: 'Cập nhật giá thực tế của bạn cho món ăn thành công.',
       recipe_id: recipeId,
-      actual_price: Number(saved.actual_price),
+      recipe_title: recipe.title,
+      actual_price: actual,
       estimated_cost: estimatedCost,
-      diff:
-        estimatedCost !== null
-          ? Number(saved.actual_price) - estimatedCost
-          : null,
+      diff,
+      diff_percentage: diffPercentage,
       updated_at: saved.updated_at,
     };
   }
@@ -1354,85 +1421,45 @@ export class RecipeService {
   async findAllForAdmin(
     status?: string,
     categoryId?: number,
-    page?: number,
-    limit?: number,
   ) {
     const value = status?.trim().toLowerCase();
     if (value && !Object.values(RecipeStatus).includes(value as RecipeStatus)) {
       throw new BadRequestException('Trạng thái công thức không hợp lệ');
     }
 
-    // Validate categoryId nếu truyền
     if (categoryId !== undefined && (isNaN(categoryId) || categoryId <= 0)) {
       throw new BadRequestException('ID danh mục phải là số nguyên dương');
     }
 
-    // Validate phân trang
-    if (page !== undefined && (isNaN(page) || page < 1)) {
-      throw new BadRequestException('Số trang phải là số nguyên dương');
-    }
-    if (limit !== undefined) {
-      if (isNaN(limit) || limit < 1) {
-        throw new BadRequestException('Số lượng công thức mỗi trang phải là số nguyên dương');
-      }
-      if (limit > 100) {
-        throw new BadRequestException('Số lượng công thức mỗi trang vượt quá giới hạn cho phép');
-      }
-    }
+    const qb = this.recipeRepo.createQueryBuilder('recipe');
 
-    const where: any = {};
     if (value) {
-      where.status = value as RecipeStatus;
+      qb.andWhere('recipe.status = :status', { status: value });
     }
 
-    const pageNum = page ?? 1;
-    const limitNum = limit ?? 20;
-    const skip = (pageNum - 1) * limitNum;
-
-    // Đếm tổng
-    const total = await this.recipeRepo.count({ where });
-
-    const recipes = await this.recipeRepo.find({
-      where,
-      order: { created_at: 'DESC' },
-      skip,
-      take: limitNum,
-    });
-
-    let filtered = recipes;
     if (categoryId) {
-      const recipeIds = recipes.map((r) => r.recipe_id);
-      if (recipeIds.length === 0) {
-        filtered = [];
-      } else {
-        const rcRecords = await this.recipeCategoryRepo.find({
-          where: { category_id: categoryId, recipe_id: In(recipeIds) },
-        });
-        const allowedIds = new Set(rcRecords.map((rc) => rc.recipe_id));
-        filtered = recipes.filter((r) => allowedIds.has(r.recipe_id));
-      }
+      qb.innerJoin(
+        RecipeCategory,
+        'rc',
+        'rc.recipe_id = recipe.recipe_id AND rc.category_id = :categoryId',
+        { categoryId },
+      );
     }
 
-    if (filtered.length > 0) {
-      const ids = filtered.map((r) => r.recipe_id);
+    const recipes = await qb.orderBy('recipe.created_at', 'DESC').getMany();
+
+    if (recipes.length > 0) {
+      const ids = recipes.map((r) => r.recipe_id);
       const nutritions = await this.nutritionRepo.find({
         where: { recipe_id: In(ids) },
       });
       const nutritionMap = new Map(nutritions.map((n) => [n.recipe_id, n]));
-      for (const recipe of filtered as any[]) {
+      for (const recipe of recipes as any[]) {
         recipe.nutrition = nutritionMap.get(recipe.recipe_id) || null;
       }
     }
 
-    return {
-      data: filtered,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-      },
-      message: 'Lấy danh sách công thức quản trị thành công.',
-    };
+    return recipes;
   }
 
   async updateRecipeStatus(

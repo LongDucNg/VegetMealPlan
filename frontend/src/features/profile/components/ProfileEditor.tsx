@@ -28,6 +28,7 @@ import {
   Scale,
   ShieldCheck,
   AlertCircle,
+  AlertTriangle,
 } from "lucide-react";
 
 export function ProfileEditor() {
@@ -482,6 +483,57 @@ export function ProfileEditor() {
                 ))}
               </div>
             </div>
+
+            {/* Cảnh báo mâu thuẫn trực tiếp giữa BMI và mục tiêu sức khỏe (Phần 1) */}
+            {bmiInfo && (() => {
+              const isUnderweight = bmiInfo.category === "Underweight";
+              const isOverweight = bmiInfo.category === "Overweight";
+              const hasConflict =
+                (isUnderweight && healthGoal === "lose_weight") ||
+                (isOverweight && healthGoal === "gain_weight");
+
+              const targetWeight = targetWeightKg ? Number(targetWeightKg) : null;
+              const currentWeight = weight ? Number(weight) : null;
+              const targetWeightConflict =
+                targetWeight && currentWeight
+                  ? (isUnderweight && targetWeight < currentWeight) || (isOverweight && targetWeight > currentWeight)
+                  : false;
+
+              if (!hasConflict && !targetWeightConflict) return null;
+
+              return (
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-1.5 animate-in fade-in">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span className="text-xs font-bold text-amber-900">
+                      Cảnh báo mâu thuẫn giữa chỉ số BMI và mục tiêu sức khỏe
+                    </span>
+                  </div>
+                  <div className="text-[11px] leading-relaxed text-amber-800 pl-6 space-y-1">
+                    {isUnderweight && healthGoal === "lose_weight" && (
+                      <p>
+                        Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Thiếu cân). Việc tiếp tục chọn mục tiêu <strong>Giảm cân</strong> có thể gây suy nhược cơ thể và thiếu hụt dinh dưỡng nghiêm trọng. Khuyến nghị bạn nên chuyển sang mục tiêu <strong>Duy trì</strong> hoặc <strong>Tăng cân</strong> để đạt thể trạng cân đối.
+                      </p>
+                    )}
+                    {isOverweight && healthGoal === "gain_weight" && (
+                      <p>
+                        Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Thừa cân/Béo phì). Việc nạp calo thặng dư để <strong>Tăng cân</strong> có thể gia tăng áp lực lên tim mạch và chuyển hoá. Khuyến nghị bạn nên ưu tiên mục tiêu <strong>Giảm cân</strong> hoặc <strong>Duy trì</strong> trước.
+                      </p>
+                    )}
+                    {targetWeightConflict && (
+                      <p className="font-semibold text-amber-900 border-t border-amber-200/80 pt-1 mt-1">
+                        {isUnderweight && targetWeight! < currentWeight! && (
+                          <>Lưu ý: Bạn đang thiếu cân nhưng cân nặng mục tiêu ({targetWeight} kg) lại thấp hơn cân nặng hiện tại ({currentWeight} kg).</>
+                        )}
+                        {isOverweight && targetWeight! > currentWeight! && (
+                          <>Lưu ý: Bạn đang thừa cân nhưng cân nặng mục tiêu ({targetWeight} kg) lại cao hơn cân nặng hiện tại ({currentWeight} kg).</>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Target Weight & Target Date Inputs (Cô #6, #14) */}
             <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 space-y-3">
