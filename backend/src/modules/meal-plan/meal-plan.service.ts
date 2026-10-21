@@ -418,13 +418,13 @@ export class MealPlanService {
         }
 
         // Đánh giá điểm độ phù hợp của món ăn:
-        // 1. So khớp calo sau khi tính tỷ lệ khẩu phần khả dĩ (0.6x - 1.8x).
-        // 2. Phạt mạnh các món đã dùng trước đó (timesUsed * 5000) để ưu tiên tuyệt đối món chưa dùng, chống lặp món.
-        // 3. Phạt món vừa ăn gần đây (cùng ngày hoặc 1-2 ngày trước) để tránh ăn liên tiếp.
-        // 4. Jitter nhẹ để phân tán đa dạng giữa các món có điểm số tương đương.
+        // 1. So khớp calo sau khi tính tỷ lệ khẩu phần khả dĩ (0.6x - 3.0x tuỳ calo gốc).
+        // 2. Phạt nhẹ các món đã dùng trước đó và món vừa ăn gần đây để luân phiên món.
+        // 3. Ưu tiên cao việc khớp calo để tổng ngày không bị hụt mục tiêu dinh dưỡng.
         const score = (recipe: Recipe) => {
           const recipeCalories = Number(nutritionMap.get(recipe.recipe_id)?.calories ?? 0);
-          let testPortion = recipeCalories > 0 ? Math.min(1.8, Math.max(0.6, calories / recipeCalories)) : 1;
+          const maxPortion = recipeCalories < 200 ? 3.0 : recipeCalories < 350 ? 2.5 : 1.8;
+          let testPortion = recipeCalories > 0 ? Math.min(maxPortion, Math.max(0.6, calories / recipeCalories)) : 1;
           testPortion = Math.round(testPortion * 10) / 10;
           const effectiveCalories = recipeCalories * testPortion;
           const calDiff = Math.abs(effectiveCalories - calories);
@@ -434,14 +434,15 @@ export class MealPlanService {
           const daysSinceLastUsed = lastUsedDay !== undefined ? (globalDay - lastUsedDay) : 999;
 
           const recencyPenalty =
-            daysSinceLastUsed === 0 ? 50000 :
-            daysSinceLastUsed === 1 ? 25000 :
-            daysSinceLastUsed === 2 ? 8000 : 0;
+            daysSinceLastUsed === 0 ? 8000 :
+            daysSinceLastUsed === 1 ? 3000 :
+            daysSinceLastUsed === 2 ? 1000 : 0;
 
-          const frequencyPenalty = timesUsed * 5000;
+          const frequencyPenalty = timesUsed * 800;
           const jitter = ((recipe.recipe_id * 17 + globalDay * 31) % 100) * 0.1;
 
-          return calDiff + frequencyPenalty + recencyPenalty + jitter;
+          // Nhân calDiff với 12 để thuật toán ưu tiên món nạp đủ calo sát mục tiêu bữa ăn
+          return (calDiff * 12) + frequencyPenalty + recencyPenalty + jitter;
         };
 
         const pool = [...candidates].sort((x, y) => score(x) - score(y));
@@ -450,11 +451,12 @@ export class MealPlanService {
         usedCounts.set(selected.recipe_id, (usedCounts.get(selected.recipe_id) ?? 0) + 1);
         recentDays.set(selected.recipe_id, globalDay);
 
-        // Chỉnh khẩu phần (0,6x–1,8x) để calo bữa bám mục tiêu khi món không đủ/quá calo.
+        // Chỉnh khẩu phần (0.6x–3.0x) để calo bữa bám sát mục tiêu khi món calo thấp.
         const recipeCalories = Number(nutritionMap.get(selected.recipe_id)?.calories ?? 0);
+        const maxPortion = recipeCalories < 200 ? 3.0 : recipeCalories < 350 ? 2.5 : 1.8;
         let portion =
           recipeCalories > 0
-            ? Math.min(1.8, Math.max(0.6, calories / recipeCalories))
+            ? Math.min(maxPortion, Math.max(0.6, calories / recipeCalories))
             : 1;
         const unitCost = costMap.get(selected.recipe_id) ?? 0;
 
@@ -464,7 +466,7 @@ export class MealPlanService {
           if (unitCost > 0) portion = Math.min(portion, maxCost / unitCost);
         }
         portion = Math.round(portion * 10) / 10;
-        if (portion <= 0) portion = 0.1;
+        if (portion <= 0) portion = 0.5;
 
         dayCalories += recipeCalories * portion;
 

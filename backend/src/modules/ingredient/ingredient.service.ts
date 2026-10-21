@@ -64,18 +64,79 @@ export class IngredientService {
   // FIND INGREDIENT BY NAME
   // =========================
 
-  findByName(
+  async findByName(
     ingredient_name: string,
   ): Promise<Ingredient | null> {
+    const trimmed = ingredient_name.trim();
+    if (!trimmed) return null;
+
+    const exact = await this.ingredientRepo
+      .createQueryBuilder('i')
+      .where('LOWER(i.ingredient_name) = LOWER(:name)', { name: trimmed })
+      .getOne();
+
+    if (exact) return exact;
+
     return this.ingredientRepo
       .createQueryBuilder('i')
-      .where(
-        'LOWER(i.ingredient_name) = LOWER(:name)',
-        {
-          name: ingredient_name.trim(),
-        },
-      )
+      .where('LOWER(i.ingredient_name) ILIKE :like OR :trimmed ILIKE (\'%\' || LOWER(i.ingredient_name) || \'%\')', {
+        like: `%${trimmed.toLowerCase()}%`,
+        trimmed: trimmed.toLowerCase(),
+      })
       .getOne();
+  }
+
+  // =========================
+  // ADMIN CONFLICT MANAGEMENT
+  // =========================
+
+  async findAllConflicts(): Promise<IngredientConflict[]> {
+    return this.conflictRepo.find({
+      relations: ['ingredient_1', 'ingredient_2'],
+      order: { ingredient_id_1: 'ASC', ingredient_id_2: 'ASC' },
+    });
+  }
+
+  async createConflict(id1: number, id2: number, reason?: string): Promise<IngredientConflict> {
+    if (id1 === id2) {
+      throw new BadRequestException('Hai nguyên liệu xung khắc phải khác nhau');
+    }
+    const ingredient_id_1 = Math.min(id1, id2);
+    const ingredient_id_2 = Math.max(id1, id2);
+
+    await this.findOne(ingredient_id_1);
+    await this.findOne(ingredient_id_2);
+
+    const existing = await this.conflictRepo.findOne({
+      where: { ingredient_id_1, ingredient_id_2 },
+    });
+
+    if (existing) {
+      if (reason) existing.reason = reason;
+      return this.conflictRepo.save(existing);
+    }
+
+    const conflict = new IngredientConflict();
+    conflict.ingredient_id_1 = ingredient_id_1;
+    conflict.ingredient_id_2 = ingredient_id_2;
+    conflict.reason = reason || '';
+    return this.conflictRepo.save(conflict);
+  }
+
+  async deleteConflict(id1: number, id2: number): Promise<{ success: true; message: string }> {
+    const ingredient_id_1 = Math.min(id1, id2);
+    const ingredient_id_2 = Math.max(id1, id2);
+
+    const conflict = await this.conflictRepo.findOne({
+      where: { ingredient_id_1, ingredient_id_2 },
+    });
+
+    if (!conflict) {
+      throw new NotFoundException('Không tìm thấy cặp nguyên liệu kỵ nhau này');
+    }
+
+    await this.conflictRepo.remove(conflict);
+    return { success: true, message: 'Đã xoá cặp nguyên liệu kỵ nhau thành công' };
   }
 
   // =========================
@@ -364,7 +425,7 @@ export class IngredientService {
       const trimmedName = dto.ingredient_name.trim();
 
       if (!trimmedName) {
-        throw new BadRequestException({ code: 'INGREDIENT_NAME_EMPTY', message: 'Tên nguyên liệu không được để trống.' });
+        throw new BadRequestException({ code: ErrorCode.INGREDIENT_NAME_EMPTY, message: 'Tên nguyên liệu không được để trống.' });
       }
 
       const existing =
