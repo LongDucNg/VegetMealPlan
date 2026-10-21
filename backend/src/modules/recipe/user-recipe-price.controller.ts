@@ -14,7 +14,7 @@ import { AuthGuard } from '@nestjs/passport';
 
 import { RecipeService } from './recipe.service';
 import { SetRecipePriceDto } from './dto/set-recipe-price.dto';
-import { PositiveIntPipe } from './dto/validators/positive-int.pipe';
+import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
 
 @ApiTags('recipe-prices')
 @ApiBearerAuth()
