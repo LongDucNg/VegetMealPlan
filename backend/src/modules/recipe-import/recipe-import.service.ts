@@ -81,33 +81,35 @@ export class RecipeImportService {
       throw new BadRequestException('Danh sách import không được rỗng');
     }
 
-    // Kiem tra trung ten trong file
+    // Kiem tra trung ten trong file (case-insensitive)
     const titlesInFile = rows
       .map((r, idx) => ({ title: r.title?.trim?.() ?? '', index: idx + 1 }))
       .filter((r) => r.title);
 
-    const seenInFile = new Map<string, number>();
+    const seenInFile = new Map<string, { original: string; index: number }>();
     for (const { title, index } of titlesInFile) {
-      if (seenInFile.has(title)) {
+      const lower = title.toLowerCase();
+      if (seenInFile.has(lower)) {
+        const prev = seenInFile.get(lower)!;
         throw new BadRequestException(
-          `Dòng ${index} và dòng ${seenInFile.get(title)}: trùng tiêu đề "${title}" trong file`,
+          `Dòng ${index} và dòng ${prev.index}: trùng tiêu đề "${title}" trong file`,
         );
       }
-      seenInFile.set(title, index);
+      seenInFile.set(lower, { original: title, index });
     }
 
-    // Kiem tra trung voi DB
-    const uniqueTitles = [...new Set(titlesInFile.map((r) => r.title))];
-    if (uniqueTitles.length > 0) {
+    // Kiem tra trung voi DB (case-insensitive)
+    const lowerTitles = [...new Set(titlesInFile.map((r) => r.title.toLowerCase()))];
+    if (lowerTitles.length > 0) {
       const existing = await this.recipeRepo
         .createQueryBuilder('recipe')
-        .where('recipe.title IN (:...titles)', { titles: uniqueTitles })
+        .where('LOWER(recipe.title) IN (:...titles)', { titles: lowerTitles })
         .getMany();
 
       if (existing.length > 0) {
-        const existingTitles = new Set(existing.map((r) => r.title));
+        const existingLower = new Set(existing.map((r) => r.title.toLowerCase()));
         const conflictRow = titlesInFile.find((r) =>
-          existingTitles.has(r.title),
+          existingLower.has(r.title.toLowerCase()),
         );
         if (conflictRow) {
           throw new BadRequestException(
@@ -337,6 +339,40 @@ export class RecipeImportService {
         ImportFailReason.MISSING_REQUIRED_FIELD,
         `Chế độ ăn chay "${row.diet_type}" không hợp lệ. Chỉ chấp nhận: ${validDietTypes.join(', ')}`,
       );
+    }
+
+    // 5c. Validate category_ids
+    if (row.category_ids !== undefined && row.category_ids !== null) {
+      if (!Array.isArray(row.category_ids)) {
+        return this.createFailedItem(
+          row_number,
+          recipe_title,
+          ImportFailReason.MISSING_REQUIRED_FIELD,
+          'Danh mục (category_ids) phải là một danh sách ID',
+        );
+      }
+      if (row.category_ids.length > 0) {
+        const uniqueIds = [...new Set(row.category_ids.filter((id) => Number.isInteger(id) && id > 0))];
+        if (uniqueIds.length !== row.category_ids.length) {
+          return this.createFailedItem(
+            row_number,
+            recipe_title,
+            ImportFailReason.MISSING_REQUIRED_FIELD,
+            'Danh mục chứa ID không hợp lệ (phải là số nguyên dương)',
+          );
+        }
+        const foundCategoryCount = await this.dataSource.getRepository(Category).count({
+          where: { category_id: In(uniqueIds) },
+        });
+        if (foundCategoryCount !== uniqueIds.length) {
+          return this.createFailedItem(
+            row_number,
+            recipe_title,
+            ImportFailReason.MISSING_REQUIRED_FIELD,
+            'Một hoặc nhiều ID danh mục không tồn tại trong hệ thống',
+          );
+        }
+      }
     }
 
     // 6. Tao Recipe, RecipeIngredient va NutritionInfo.
