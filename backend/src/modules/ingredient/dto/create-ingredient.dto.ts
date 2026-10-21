@@ -1,9 +1,12 @@
 import {
   IsBoolean,
   IsEnum,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -11,9 +14,13 @@ import { IngredientStatus } from '../entities/ingredient.entity';
 
 export class CreateIngredientDto {
   @IsString()
+  @IsNotEmpty({ message: 'Tên nguyên liệu không được để trống.' })
+  @MaxLength(255, { message: 'Tên nguyên liệu không được vượt quá 255 ký tự.' })
   ingredient_name: string;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
   unit: string;
 
   @IsOptional()
@@ -24,10 +31,8 @@ export class CreateIngredientDto {
   @IsBoolean()
   vegan_flag?: boolean;
 
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  avg_price_per_unit?: number;
+  @IsPositive()
+  avg_price_per_unit: number;
 
   @IsOptional()
   @IsNumber()

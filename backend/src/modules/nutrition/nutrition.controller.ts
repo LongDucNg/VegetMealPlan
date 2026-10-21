@@ -3,7 +3,6 @@ import {
   Controller,
   Get,
   Param,
-  ParseIntPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -13,6 +12,7 @@ import {
 } from '@nestjs/swagger';
 
 import { NutritionService } from './nutrition.service';
+import { PositiveIntPipe } from '../recipe/dto/validators/positive-int.pipe';
 
 @ApiTags('nutrition')
 @ApiBearerAuth()
@@ -32,7 +32,7 @@ export class NutritionController {
   @ApiOperation({ summary: 'Lấy thông tin dinh dưỡng của công thức' })
   @ApiParam({ name: 'recipeId', type: Number })
   getByRecipeId(
-    @Param('recipeId', ParseIntPipe) recipeId: number,
+    @Param('recipeId', PositiveIntPipe) recipeId: number,
   ) {
     return this.nutritionService.getByRecipeId(recipeId);
   }

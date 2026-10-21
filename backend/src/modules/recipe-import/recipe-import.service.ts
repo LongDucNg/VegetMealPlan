@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 
 import { RecipeImportBatch } from './entities/recipe-import-batch.entity';
 import {
@@ -18,7 +18,10 @@ import {
   Recipe,
   RecipeStatus,
 } from '../recipe/entities/recipe.entity';
+import { DietType } from '../users/entities/user.entity';
 import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
+import { RecipeCategory } from '../recipe/entities/recipe-category.entity';
+import { Category } from '../category/entities/category.entity';
 
 import { IngredientService } from '../ingredient/ingredient.service';
 import { Ingredient } from '../ingredient/entities/ingredient.entity';
@@ -55,23 +58,63 @@ export class RecipeImportService {
     file_name: string,
     rows: ImportRecipeRow[],
   ): Promise<{
-    batch: RecipeImportBatch;
-    items: RecipeImportItem[];
+    success: true;
+    data: {
+      batch: RecipeImportBatch;
+      items: RecipeImportItem[];
+    };
+    message: string;
   }> {
     if (!Number.isInteger(admin_user_id) || admin_user_id <= 0) {
-      throw new BadRequestException('admin_user_id khong hop le');
+      throw new BadRequestException('admin_user_id không hợp lệ');
     }
 
     if (typeof file_name !== 'string' || !file_name.trim()) {
-      throw new BadRequestException('file_name khong duoc de trong');
+      throw new BadRequestException('file_name không được để trống');
     }
 
     if (!Array.isArray(rows)) {
-      throw new BadRequestException('rows phai la mot mang');
+      throw new BadRequestException('rows phải là một mảng');
     }
 
     if (rows.length === 0) {
-      throw new BadRequestException('Danh sach import khong duoc rong');
+      throw new BadRequestException('Danh sách import không được rỗng');
+    }
+
+    // Kiem tra trung ten trong file
+    const titlesInFile = rows
+      .map((r, idx) => ({ title: r.title?.trim?.() ?? '', index: idx + 1 }))
+      .filter((r) => r.title);
+
+    const seenInFile = new Map<string, number>();
+    for (const { title, index } of titlesInFile) {
+      if (seenInFile.has(title)) {
+        throw new BadRequestException(
+          `Dòng ${index} và dòng ${seenInFile.get(title)}: trùng tiêu đề "${title}" trong file`,
+        );
+      }
+      seenInFile.set(title, index);
+    }
+
+    // Kiem tra trung voi DB
+    const uniqueTitles = [...new Set(titlesInFile.map((r) => r.title))];
+    if (uniqueTitles.length > 0) {
+      const existing = await this.recipeRepo
+        .createQueryBuilder('recipe')
+        .where('recipe.title IN (:...titles)', { titles: uniqueTitles })
+        .getMany();
+
+      if (existing.length > 0) {
+        const existingTitles = new Set(existing.map((r) => r.title));
+        const conflictRow = titlesInFile.find((r) =>
+          existingTitles.has(r.title),
+        );
+        if (conflictRow) {
+          throw new BadRequestException(
+            `Dòng ${conflictRow.index}: tiêu đề "${conflictRow.title}" đã tồn tại trong hệ thống`,
+          );
+        }
+      }
     }
 
     const items: RecipeImportItem[] = [];
@@ -96,11 +139,11 @@ export class RecipeImportService {
         items.push(
           this.createFailedItem(
             row_number,
-            `Dong ${row_number}`,
+            `Dòng ${row_number}`,
             ImportFailReason.MISSING_REQUIRED_FIELD,
             error instanceof Error
               ? error.message
-              : 'Loi khong xac dinh khi import cong thuc',
+              : 'Lỗi không xác định khi import công thức',
           ),
         );
       }
@@ -136,8 +179,12 @@ export class RecipeImportService {
       const savedItems = await itemRepository.save(itemsWithBatch);
 
       return {
-        batch,
-        items: savedItems,
+        success: true,
+        data: {
+          batch,
+          items: savedItems,
+        },
+        message: 'Nhập công thức hoàn tất.',
       };
     });
   }
@@ -154,16 +201,16 @@ export class RecipeImportService {
     if (!row || typeof row !== 'object' || Array.isArray(row)) {
       return this.createFailedItem(
         row_number,
-        `Dong ${row_number}`,
+        `Dòng ${row_number}`,
         ImportFailReason.MISSING_REQUIRED_FIELD,
-        'Du lieu dong import khong hop le',
+        'Dữ liệu dòng import không hợp lệ',
       );
     }
 
     const recipe_title =
       typeof row.title === 'string' && row.title.trim()
         ? row.title.trim()
-        : `(khong co tieu de - dong ${row_number})`;
+        : `(không có tiêu đề - dòng ${row_number})`;
 
     // 2. Kiem tra cac field bat buoc.
     const missingFields: string[] = [];
@@ -188,7 +235,7 @@ export class RecipeImportService {
         row_number,
         recipe_title,
         ImportFailReason.MISSING_REQUIRED_FIELD,
-        `Thieu field bat buoc: ${missingFields.join(', ')}`,
+        `Thiếu field bắt buộc: ${missingFields.join(', ')}`,
       );
     }
 
@@ -215,7 +262,7 @@ export class RecipeImportService {
           row_number,
           recipe_title,
           ImportFailReason.MISSING_REQUIRED_FIELD,
-          'Nguyen lieu co ten, don vi hoac so luong khong hop le',
+          'Nguyên liệu có tên, đơn vị hoặc số lượng không hợp lệ',
         );
       }
 
@@ -238,7 +285,7 @@ export class RecipeImportService {
         row_number,
         recipe_title,
         ImportFailReason.UNKNOWN_INGREDIENT,
-        `Nguyen lieu khong co trong he thong: ${unknownNames.join(', ')}`,
+        `Nguyên liệu không có trong hệ thống: ${unknownNames.join(', ')}`,
       );
     }
 
@@ -251,7 +298,7 @@ export class RecipeImportService {
         row_number,
         recipe_title,
         ImportFailReason.INGREDIENT_CONFLICT,
-        'Cong thuc co nguyen lieu bi lap lai',
+        'Công thức có nguyên liệu bị lặp lại',
       );
     }
 
@@ -272,7 +319,23 @@ export class RecipeImportService {
         row_number,
         recipe_title,
         ImportFailReason.INGREDIENT_CONFLICT,
-        `Cac cap nguyen lieu xung khac: ${detail}`,
+        `Các cặp nguyên liệu xung khắc: ${detail}`,
+      );
+    }
+
+    // 5b. Validate diet_type theo enum
+    const validDietTypes = Object.values(DietType) as string[];
+    if (
+      row.diet_type !== undefined &&
+      row.diet_type !== null &&
+      row.diet_type !== '' &&
+      !validDietTypes.includes(String(row.diet_type))
+    ) {
+      return this.createFailedItem(
+        row_number,
+        recipe_title,
+        ImportFailReason.MISSING_REQUIRED_FIELD,
+        `Chế độ ăn chay "${row.diet_type}" không hợp lệ. Chỉ chấp nhận: ${validDietTypes.join(', ')}`,
       );
     }
 
@@ -326,7 +389,7 @@ export class RecipeImportService {
 
         if (item.row.unit.trim().toLowerCase() !== 'g') {
           throw new BadRequestException(
-            `Nguyen lieu "${item.row.ingredient_name}" phai co don vi g de tinh dinh duong`,
+            `Nguyên liệu "${item.row.ingredient_name}" phải có đơn vị g để tính dinh dưỡng`,
           );
         }
 
@@ -336,7 +399,7 @@ export class RecipeImportService {
 
         if (!ingredient) {
           throw new BadRequestException(
-            `Khong tim thay nguyen lieu #${item.ingredient_id}`,
+            `Không tìm thấy nguyên liệu #${item.ingredient_id}`,
           );
         }
 
@@ -359,6 +422,30 @@ export class RecipeImportService {
           fiber,
         }),
       );
+
+      // Tạo category links nếu import row có category_ids hợp lệ.
+      if (
+        Array.isArray(row.category_ids) &&
+        row.category_ids.length > 0
+      ) {
+        const uniqueIds = [...new Set(
+          row.category_ids.filter((id) => Number.isInteger(id) && id > 0),
+        )];
+        if (uniqueIds.length > 0) {
+          const found = await manager.count(Category, {
+            where: { category_id: In(uniqueIds) },
+          });
+          if (found === uniqueIds.length) {
+            await manager.insert(
+              RecipeCategory,
+              uniqueIds.map((category_id) => ({
+                recipe_id: recipe.recipe_id,
+                category_id,
+              })),
+            );
+          }
+        }
+      }
 
       return recipe.recipe_id;
     });
@@ -392,29 +479,53 @@ export class RecipeImportService {
   /**
    * Lay danh sach cac dot import.
    */
-  async listBatches(): Promise<RecipeImportBatch[]> {
-    return this.batchRepo.find({
+  async listBatches(): Promise<{
+    success: true;
+    data: RecipeImportBatch[];
+    message: string;
+  }> {
+    const batches = await this.batchRepo.find({
       order: { created_at: 'DESC' },
     });
+
+    return {
+      success: true,
+      data: batches,
+      message: batches.length === 0
+        ? 'Chưa có lịch sử nhập công thức.'
+        : 'Lấy lịch sử nhập công thức thành công.',
+    };
   }
 
   /**
    * Lay ket qua cac dong cua mot dot import.
    */
-  async getBatchItems(batch_id: number): Promise<RecipeImportItem[]> {
+  async getBatchItems(batch_id: number): Promise<{
+    success: true;
+    data: RecipeImportItem[];
+    message: string;
+  }> {
     const batch = await this.batchRepo.findOne({
       where: { batch_id },
     });
 
     if (!batch) {
       throw new NotFoundException(
-        `Khong tim thay dot import #${batch_id}`,
+        `Không tìm thấy lô nhập công thức #${batch_id}.`,
       );
     }
 
-    return this.itemRepo.find({
+    const items = await this.itemRepo.find({
       where: { batch_id },
       order: { row_number: 'ASC' },
     });
+
+    return {
+      success: true,
+      data: items,
+      message: items.length === 0
+        ? 'Lô nhập công thức này chưa có dữ liệu chi tiết.'
+        : 'Lấy chi tiết lô nhập công thức thành công.',
+    };
   }
 }

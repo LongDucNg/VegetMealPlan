@@ -1,10 +1,9 @@
-import {Body,Controller,Param,ParseIntPipe,Post,Put,} from '@nestjs/common';
-
+import { Body, Controller, Param, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-
 import { IngredientService } from './ingredient.service';
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
 import { UpdateIngredientDto } from './dto/update-ingredient.dto';
+import { PositiveIntPipe } from './dto/validators/positive-int.pipe';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
@@ -26,7 +25,7 @@ export class AdminIngredientController {
 
   @Put(':id')
   update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', PositiveIntPipe) id: number,
     @Body() dto: UpdateIngredientDto,
   ) {
     return this.ingredientService.updateIngredient(
