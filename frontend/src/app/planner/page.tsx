@@ -23,6 +23,7 @@ import { GenerationPlanOptions } from "@/features/meal-planner/types";
 import { useSubscription } from "@/features/subscription/hooks/useSubscription";
 import { PremiumUpgradeModal } from "@/features/subscription/components/PremiumUpgradeModal";
 import { ProfileEditor } from "@/features/profile/components/ProfileEditor";
+import { formatVegetarianType } from "@/features/profile/types";
 import { Recipe } from "@/features/recipes/types";
 import {
   RefreshCw,
@@ -148,18 +149,18 @@ function PlannerContent() {
   return (
     <div className="space-y-6">
       {/* ========================================================
-          SUBSCRIPTION STATUS BAR (FREE vs PREMIUM 99,000 VND / month)
+          SUBSCRIPTION STATUS BAR (FREE vs PREMIUM 99,000 VNĐ / month)
           ======================================================== */}
       {isPremium ? (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-emerald-50 border border-emerald-200/90 rounded-2xl px-4 py-2.5 text-xs text-emerald-950 shadow-2xs">
           <div className="flex items-center gap-2">
-            <span className="text-base leading-none">👑</span>
+            <span className="text-base leading-none"></span>
             <span className="font-bold text-emerald-900 flex items-center gap-1.5">
-              Premium Active
+              Gói Premium đang hoạt động
             </span>
-            <span className="text-emerald-700 font-medium">· 99,000 VND / month</span>
+            <span className="text-emerald-700 font-medium">· 99.000 VNĐ / tháng</span>
             <span className="hidden sm:inline text-emerald-600/80">
-              (All AI personalization, monthly planning & meal replacement features unlocked)
+              (Đã mở khóa toàn bộ tính năng cá nhân hóa thực đơn, kế hoạch tháng và đổi món)
             </span>
           </div>
 
@@ -167,20 +168,20 @@ function PlannerContent() {
             <button
               onClick={() => toggle()}
               className="text-[11px] font-medium text-emerald-800 hover:text-red-700 underline underline-offset-2 transition-colors cursor-pointer"
-              title="Click to toggle back to Free tier for testing"
+              title="Nhấn để chuyển sang gói Miễn phí (kiểm thử)"
             >
-              [Dev: Switch to Free]
+              [Thử nghiệm: Về gói Thường]
             </button>
           </div>
         </div>
       ) : (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-stone-50 border border-stone-200/90 rounded-2xl px-4 py-2.5 text-xs text-stone-700 shadow-2xs">
           <div className="flex items-center gap-2">
-            <span className="text-base leading-none">🆓</span>
-            <span className="font-bold text-stone-900">Free Plan</span>
-            <span className="text-stone-500">· Basic access</span>
+            <span className="text-base leading-none"></span>
+            <span className="font-bold text-stone-900">Gói Miễn phí</span>
+            <span className="text-stone-500">· Tính năng cơ bản</span>
             <span className="hidden sm:inline text-stone-400">
-              (Personalized Weekly & Monthly meal generation requires Premium)
+              (Tạo thực đơn cá nhân hóa Tuần & Tháng yêu cầu gói Premium)
             </span>
           </div>
 
@@ -190,14 +191,14 @@ function PlannerContent() {
               className="px-3 py-1 rounded-xl bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5 text-xs"
             >
               <Sparkles className="w-3.5 h-3.5 fill-amber-950" />
-              Upgrade to Premium (99,000 VND / month)
+              Nâng cấp Premium (99.000 VNĐ / tháng)
             </button>
             <button
               onClick={() => toggle()}
               className="text-[11px] text-stone-400 hover:text-stone-700 underline cursor-pointer"
-              title="Click to unlock Premium immediately for testing"
+              title="Nhấn để mở khóa Premium ngay lập tức (kiểm thử)"
             >
-              [Dev: Unlock]
+              [Thử nghiệm: Mở Premium]
             </button>
           </div>
         </div>
@@ -211,7 +212,7 @@ function PlannerContent() {
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-violet-700" />
             <span>
-              Planning for: <strong>{someoneElseProfile.name}</strong> ({someoneElseProfile.age}y, {someoneElseProfile.weight}kg, {someoneElseProfile.height}cm · {someoneElseProfile.vegetarianType.replace("_", " ")})
+              Đang lên kế hoạch cho: <strong>{someoneElseProfile.name}</strong> ({someoneElseProfile.age} tuổi, {someoneElseProfile.weight}kg, {someoneElseProfile.height}cm · {formatVegetarianType(someoneElseProfile.vegetarianType)})
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -219,13 +220,13 @@ function PlannerContent() {
               onClick={() => setShowSomeoneElseModal(true)}
               className="font-bold text-violet-800 underline hover:text-violet-950 cursor-pointer"
             >
-              Edit Person
+              Chỉnh sửa
             </button>
             <button
               onClick={() => setIsPlanForSomeoneElse(false)}
               className="text-stone-500 hover:text-stone-800 underline cursor-pointer"
             >
-              Reset to Myself
+              Đặt lại về bản thân
             </button>
           </div>
         </div>
@@ -255,9 +256,9 @@ function PlannerContent() {
           <div className="flex items-center gap-2.5">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             <div>
-              <p className="font-bold">Your nutrition profile has changed.</p>
+              <p className="font-bold">Hồ sơ dinh dưỡng của bạn đã thay đổi.</p>
               <p className="text-amber-800">
-                Regenerate your meal plan to apply the new calorie target, vegetarian diet, or allergy updates.
+                Hãy tạo lại thực đơn để áp dụng mức calo mới, chế độ ăn chay hoặc cập nhật dị ứng.
               </p>
             </div>
           </div>
@@ -266,7 +267,7 @@ function PlannerContent() {
             onClick={() => (planType === "monthly" ? handleGenerateMonthly() : handleGenerateWeekly())}
             className="bg-amber-600 hover:bg-amber-700 text-white font-bold h-9 px-4 rounded-xl cursor-pointer self-end sm:self-auto shrink-0 shadow-2xs"
           >
-            Regenerate Plan
+            Tạo lại thực đơn
           </Button>
         </div>
       )}
@@ -280,7 +281,7 @@ function PlannerContent() {
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-emerald-700" />
             <h3 className="font-serif font-bold text-lg text-stone-900">
-              Personalized Plant-Based Meal Planner
+              Kế hoạch Thực đơn chay Cá nhân hóa
             </h3>
             {!isPremium && (
               <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
@@ -289,11 +290,11 @@ function PlannerContent() {
             )}
           </div>
           <p className="text-xs text-stone-500 mt-1 max-w-xl leading-relaxed">
-            Generate balanced plant-based meals calibrated to{" "}
+            Tạo thực đơn chay cân bằng dinh dưỡng phù hợp với{" "}
             <strong className="text-stone-700">
-              {activeProfile.name}&apos;s {nutritionSummary.dailyCalorieTarget.toLocaleString()} kcal target
+              mục tiêu {nutritionSummary.dailyCalorieTarget.toLocaleString()} kcal của {activeProfile.name}
             </strong>
-            , vegetarian tier, and allergies.
+            , trường phái ăn chay và dị ứng thực phẩm.
           </p>
           {generationFeedback && (
             <p className="text-xs font-semibold text-emerald-700 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
@@ -307,10 +308,10 @@ function PlannerContent() {
         <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-center shrink-0">
           {/* Quick Budget Limit Control */}
           <div className="flex items-center gap-2 bg-stone-50 hover:bg-stone-100/90 border border-stone-200/90 rounded-2xl px-3 py-1.5 shadow-2xs transition-colors">
-            <span className="text-sm">💰</span>
+            <span className="text-sm"></span>
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">
-                Ngân sách (Budget):
+                Ngân sách:
               </span>
               <div className="flex items-center gap-1.5">
                 <input
@@ -347,7 +348,7 @@ function PlannerContent() {
             className="h-10 px-3.5 rounded-xl border-stone-200 text-stone-700 hover:border-rose-300 hover:text-rose-700 flex items-center gap-1.5 text-xs cursor-pointer"
           >
             <Heart className="w-3.5 h-3.5 text-rose-500" />
-            <span>Favorites</span>
+            <span>Món yêu thích</span>
           </Button>
 
           <Button
@@ -358,7 +359,7 @@ function PlannerContent() {
             title="Tuỳ chỉnh chi tiết thực đơn & ngân sách"
           >
             <SlidersHorizontal className="w-3.5 h-3.5 text-stone-500" />
-            <span>Settings</span>
+            <span>Cài đặt</span>
           </Button>
 
           {/* Weekly Button */}
@@ -366,18 +367,17 @@ function PlannerContent() {
             size="md"
             onClick={() => handleGenerateWeekly()}
             disabled={isGenerating}
-            className={`h-11 px-5 rounded-2xl font-bold text-xs shadow-xs flex items-center gap-2 transition-all cursor-pointer ${
-              hasGenerated && planType === "weekly"
+            className={`h-11 px-5 rounded-2xl font-bold text-xs shadow-xs flex items-center gap-2 transition-all cursor-pointer ${hasGenerated && planType === "weekly"
                 ? "bg-emerald-800 text-white"
                 : "bg-emerald-700 hover:bg-emerald-800 text-white"
-            }`}
+              }`}
           >
             {isGenerating && planType === "weekly" ? (
               <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
               <CalendarDays className="w-3.5 h-3.5" />
             )}
-            <span>Generate Weekly Plan</span>
+            <span>Tạo Kế Hoạch Tuần</span>
           </Button>
 
           {/* Monthly Button (Requirement 18, 20) */}
@@ -385,18 +385,17 @@ function PlannerContent() {
             size="md"
             onClick={() => handleGenerateMonthly()}
             disabled={isGenerating}
-            className={`h-11 px-5 rounded-2xl font-bold text-xs shadow-xs flex items-center gap-2 transition-all cursor-pointer ${
-              hasGenerated && planType === "monthly"
+            className={`h-11 px-5 rounded-2xl font-bold text-xs shadow-xs flex items-center gap-2 transition-all cursor-pointer ${hasGenerated && planType === "monthly"
                 ? "bg-stone-900 text-white"
                 : "bg-stone-800 hover:bg-stone-900 text-white"
-            }`}
+              }`}
           >
             {isGenerating && planType === "monthly" ? (
               <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
               <Calendar className="w-3.5 h-3.5 text-amber-300" />
             )}
-            <span>Generate Monthly Plan</span>
+            <span>Tạo Kế Hoạch Tháng</span>
           </Button>
         </div>
       </div>
@@ -411,10 +410,10 @@ function PlannerContent() {
           </div>
           <div className="max-w-md mx-auto space-y-1.5">
             <h3 className="font-serif font-bold text-xl text-stone-900">
-              Your meal plan hasn&apos;t been generated yet.
+              Thực đơn của bạn chưa được tạo.
             </h3>
             <p className="text-xs text-stone-500 leading-relaxed">
-              Create a personalized meal plan based on your nutrition profile, BMI calorie targets, vegetarian preferences, and allergy exclusions.
+              Tạo thực đơn cá nhân hóa dựa trên hồ sơ dinh dưỡng, mục tiêu calo theo BMI, sở thích ăn chay và loại trừ dị ứng thực phẩm của bạn.
             </p>
           </div>
 
@@ -424,7 +423,7 @@ function PlannerContent() {
               className="h-11 px-6 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-sm flex items-center gap-2 cursor-pointer"
             >
               <CalendarDays className="w-4 h-4 text-emerald-200" />
-              <span>Generate Weekly Plan (7 Days)</span>
+              <span>Tạo Kế Hoạch Tuần (7 Ngày)</span>
             </Button>
 
             <Button
@@ -432,7 +431,7 @@ function PlannerContent() {
               className="h-11 px-6 rounded-2xl bg-stone-800 hover:bg-stone-900 text-white font-bold text-xs shadow-sm flex items-center gap-2 cursor-pointer"
             >
               <Calendar className="w-4 h-4 text-amber-300" />
-              <span>Generate Monthly Plan (Calendar)</span>
+              <span>Tạo Kế Hoạch Tháng (Lịch)</span>
             </Button>
 
             <Button
@@ -441,7 +440,7 @@ function PlannerContent() {
               className="h-11 px-5 rounded-2xl border-stone-200 text-stone-700 hover:border-emerald-300 font-bold text-xs cursor-pointer flex items-center gap-2"
             >
               <Heart className="w-3.5 h-3.5 text-rose-500" />
-              <span>Create from Favorites</span>
+              <span>Tạo Từ Món Yêu Thích</span>
             </Button>
           </div>
         </Card>
@@ -451,7 +450,7 @@ function PlannerContent() {
           {(budgetLimit || (planType === "weekly" ? weeklyPlan?.budgetLimit : monthlyPlan?.budgetLimit)) && (
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-emerald-50/70 border border-emerald-200/90 rounded-2xl text-xs text-emerald-950 animate-in fade-in shadow-2xs">
               <div className="flex items-center gap-2">
-                <span className="text-base">💰</span>
+                <span className="text-base"></span>
                 <span>
                   <strong>Ngân sách kế hoạch ({planType === "weekly" ? "Tuần" : "Tháng"}):</strong>{" "}
                   {((planType === "weekly" ? weeklyPlan?.budgetLimit : monthlyPlan?.budgetLimit) ?? budgetLimit)?.toLocaleString("vi-VN")} VNĐ
@@ -490,17 +489,15 @@ function PlannerContent() {
                   <button
                     key={d.dayName}
                     onClick={() => setActiveDayIndex(index)}
-                    className={`shrink-0 px-4 py-2.5 rounded-2xl text-xs font-semibold transition-all cursor-pointer ${
-                      activeDayIndex === index
+                    className={`shrink-0 px-4 py-2.5 rounded-2xl text-xs font-semibold transition-all cursor-pointer ${activeDayIndex === index
                         ? "bg-emerald-700 text-white shadow-xs"
                         : "bg-white border border-stone-200 text-stone-600 hover:border-emerald-300 hover:text-stone-900"
-                    }`}
+                      }`}
                   >
                     <div className="font-bold">{d.shortDay}</div>
                     <div
-                      className={`text-[10px] ${
-                        activeDayIndex === index ? "text-emerald-200" : "text-stone-400"
-                      }`}
+                      className={`text-[10px] ${activeDayIndex === index ? "text-emerald-200" : "text-stone-400"
+                        }`}
                     >
                       {d.dateText}
                     </div>
@@ -510,10 +507,10 @@ function PlannerContent() {
             ) : (
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-stone-800">
-                  Monthly Calendar ({monthlyPlan?.monthName})
+                  Lịch tháng ({monthlyPlan?.monthName})
                 </span>
                 <span className="text-[11px] text-stone-400">
-                  · Click dates on the calendar to change meals
+                  · Bấm vào các ngày trên lịch để đổi món
                 </span>
               </div>
             )}
@@ -526,7 +523,7 @@ function PlannerContent() {
                 title="Lưu thực đơn vào mục Yêu thích"
               >
                 <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
-                <span>Favorite Plan</span>
+                <span>Lưu thực đơn</span>
               </button>
 
               <button
@@ -534,7 +531,7 @@ function PlannerContent() {
                 className="h-10 px-3.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>{showProfileDrawer ? "Hide Profile" : "Profile"}</span>
+                <span>{showProfileDrawer ? "Ẩn hồ sơ" : "Hồ sơ"}</span>
               </button>
 
               <Button
@@ -544,7 +541,7 @@ function PlannerContent() {
                 className="flex items-center gap-1.5 text-xs h-10 px-4 rounded-xl cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                Regenerate {activeDay?.shortDay || "Day"}
+                Tạo lại {activeDay?.shortDay || "ngày"}
               </Button>
             </div>
           </div>
@@ -555,17 +552,17 @@ function PlannerContent() {
               <div className="flex items-center justify-between mb-4 border-b pb-3">
                 <div>
                   <h3 className="font-serif font-bold text-lg text-stone-900">
-                    Update Profile & Recalculate Planner
+                    Cập nhật hồ sơ & tính lại thực đơn
                   </h3>
                   <p className="text-xs text-stone-500">
-                    Changes will prompt you to regenerate your plan to stay synchronized with your metrics.
+                    Thay đổi sẽ giúp tạo lại thực đơn đồng bộ với chỉ số của bạn.
                   </p>
                 </div>
                 <button
                   onClick={() => setShowProfileDrawer(false)}
                   className="text-xs font-semibold text-stone-500 hover:text-stone-900 underline cursor-pointer"
                 >
-                  Close
+                  Đóng
                 </button>
               </div>
               <ProfileEditor />
@@ -596,15 +593,15 @@ function PlannerContent() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-serif font-bold text-xl text-stone-900 flex items-center gap-2">
                   <UtensilsCrossed className="w-5 h-5 text-emerald-700" />
-                  Planned Meals for {activeDay.dayName} ({activeDay.dateText})
+                  Các bữa ăn trong {activeDay.dayName} ({activeDay.dateText})
                 </h3>
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-medium text-stone-500">
-                    {activeDay.totalCalories} kcal total · 4 meals
+                    Tổng {activeDay.totalCalories} kcal · 4 bữa
                   </span>
                   {!isPremium && (
                     <span className="text-[11px] font-semibold text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
-                      Sample preview
+                      Bản xem trước
                     </span>
                   )}
                 </div>
@@ -655,10 +652,10 @@ function PlannerContent() {
               <div className="flex items-center justify-between gap-2 mb-4">
                 <div className="flex items-center gap-2">
                   <CalendarDays className="w-4 h-4 text-emerald-700" />
-                  <h4 className="font-semibold text-stone-800 text-sm">7-Day Weekly Summary</h4>
+                  <h4 className="font-semibold text-stone-800 text-sm">Tổng quan thực đơn 7 ngày</h4>
                 </div>
                 <span className="text-xs text-stone-500 font-medium">
-                  Estimated Total: <strong className="text-emerald-800 font-bold">~{weeklyPlan.totalEstimatedCost.toLocaleString("vi-VN")} VND</strong>
+                  Tổng ước tính: <strong className="text-emerald-800 font-bold">~{weeklyPlan.totalEstimatedCost.toLocaleString("vi-VN")} VNĐ</strong>
                 </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
@@ -666,23 +663,23 @@ function PlannerContent() {
                   <p className="font-serif font-bold text-2xl text-stone-900">
                     {weeklyPlan.averageDailyCalories}
                   </p>
-                  <p className="text-xs text-stone-500 mt-0.5">Avg kcal/day</p>
+                  <p className="text-xs text-stone-500 mt-0.5">Calo TB/ngày</p>
                 </div>
                 <div>
                   <p className="font-serif font-bold text-2xl text-emerald-800">
                     {weeklyPlan.averageProtein}g
                   </p>
-                  <p className="text-xs text-stone-500 mt-0.5">Avg protein/day</p>
+                  <p className="text-xs text-stone-500 mt-0.5">Đạm TB/ngày</p>
                 </div>
                 <div>
                   <p className="font-serif font-bold text-2xl text-emerald-900">
-                    ~{weeklyPlan.averageDailyCost.toLocaleString("vi-VN")} đ
+                    ~{weeklyPlan.averageDailyCost.toLocaleString("vi-VN")} VNĐ
                   </p>
-                  <p className="text-xs text-stone-500 mt-0.5">Avg cost/day</p>
+                  <p className="text-xs text-stone-500 mt-0.5">Chi phí TB/ngày</p>
                 </div>
                 <div>
                   <p className="font-serif font-bold text-2xl text-violet-700">7 / 7</p>
-                  <p className="text-xs text-stone-500 mt-0.5">Days planned</p>
+                  <p className="text-xs text-stone-500 mt-0.5">Ngày đã lên kế hoạch</p>
                 </div>
               </div>
             </Card>
@@ -764,7 +761,7 @@ function PlannerContent() {
         }
         onSave={(name) => {
           saveCurrentMealPlan(name);
-          alert(`Saved "${name}" to your Favorite Meal Plans!`);
+          alert(`Đã lưu "${name}" vào danh sách Thực đơn yêu thích!`);
         }}
       />
 
@@ -809,12 +806,12 @@ export default function PlannerPage() {
     <AppShell showRightRail={false}>
       <div className="max-w-[1240px] mx-auto w-full">
         <PageHeader
-          eyebrow="AI-Powered"
-          title="My Meal Planner"
-          subtitle="Dynamic weekly and monthly plant-based meal planning tailored to your BMI, Mifflin-St Jeor calorie targets, vegetarian diet, and allergies."
+          eyebrow="AI Hỗ trợ"
+          title="Kế hoạch Thực đơn của tôi"
+          subtitle="Lập kế hoạch thực đơn chay theo tuần và tháng dựa trên chỉ số BMI, mục tiêu calo, trường phái ăn chay và loại trừ dị ứng thực phẩm của bạn."
           action={
             <Badge variant="beta" className="text-sm px-3 py-1">
-              Personalised
+              Cá nhân hóa
             </Badge>
           }
         />

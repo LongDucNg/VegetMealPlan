@@ -27,17 +27,40 @@ export interface AuthUser {
   weight_kg?: number;
   allergies?: string[];
   avatar_url?: string;
+  target_weight_kg?: number | null;
+  target_date?: string | null;
+  profile_complete?: boolean;
+  missing_profile_fields?: string[];
+  allergies_declared?: boolean;
 }
 
 export interface AuthResponse {
   access_token: string;
+  refresh_token?: string;
+  token_type?: string;
+  expires_in?: number;
   user: {
     user_id: number;
     full_name: string;
     email: string;
     role: string;
   };
+  is_new_user?: boolean;
 }
+
+export interface RefreshTokenPayload {
+  refresh_token: string;
+}
+
+export interface LogoutResponse {
+  message: string;
+}
+
+export interface LogoutAllResponse {
+  message: string;
+  revoked_sessions: number;
+}
+
 
 export interface RegisterPayload {
   full_name: string;
@@ -57,4 +80,34 @@ export interface RegisterPayload {
 export interface LoginPayload {
   email: string;
   password: string;
+}
+
+export interface ForgotPasswordPayload {
+  email: string;
+}
+
+export interface ForgotPasswordResponse {
+  message: string;
+  expires_in_seconds?: number;
+  resend_after_seconds?: number;
+}
+
+export interface ResetPasswordPayload {
+  email: string;
+  code: string;
+  new_password: string;
+}
+
+export interface ResetPasswordResponse {
+  message: string;
+}
+
+export interface ChangePasswordPayload {
+  current_password: string;
+  new_password: string;
+}
+
+export interface ChangePasswordResponse {
+  message: string;
+  revoked_sessions?: number;
 }

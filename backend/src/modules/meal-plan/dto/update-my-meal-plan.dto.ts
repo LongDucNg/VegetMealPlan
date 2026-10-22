@@ -1,4 +1,3 @@
-
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
@@ -17,8 +16,8 @@ export class UpdateMyMealPlanDto {
     description: 'Tên thực đơn',
   })
   @IsOptional()
-  @IsString()
-  @MaxLength(100)
+  @IsString({ message: 'Tên thực đơn phải là chuỗi ký tự.' })
+  @MaxLength(100, { message: 'Tên thực đơn không được quá 100 ký tự.' })
   name?: string;
 
   @ApiPropertyOptional({
@@ -26,8 +25,8 @@ export class UpdateMyMealPlanDto {
     description: 'Lượng calories mục tiêu mỗi ngày',
   })
   @IsOptional()
-  @IsInt()
-  @Min(1)
+  @IsInt({ message: 'Lượng calo mục tiêu phải là số nguyên.' })
+  @Min(1, { message: 'Lượng calo mục tiêu phải lớn hơn 0.' })
   target_calories_per_day?: number;
 
   @ApiPropertyOptional({
@@ -43,6 +42,6 @@ export class UpdateMyMealPlanDto {
     description: 'Trạng thái meal plan',
   })
   @IsOptional()
-  @IsEnum(MealPlanStatus)
+  @IsEnum(MealPlanStatus, { message: 'Trạng thái thực đơn không hợp lệ.' })
   status?: MealPlanStatus;
 }

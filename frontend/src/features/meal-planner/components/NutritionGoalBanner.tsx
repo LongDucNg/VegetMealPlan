@@ -3,7 +3,7 @@
 import React from "react";
 import { Target, Flame, Activity, Sparkles, AlertCircle, ArrowRight } from "lucide-react";
 import { CalorieCalculationResult } from "@/features/nutrition/utils/calorieCalculator";
-import { UserProfile } from "@/features/profile/types";
+import { UserProfile, formatVegetarianType } from "@/features/profile/types";
 
 interface NutritionGoalBannerProps {
   nutrition: CalorieCalculationResult;
@@ -38,13 +38,13 @@ export function NutritionGoalBanner({
             </div>
             <div>
               <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-200 block mb-1">
-                Your Nutrition Goal
+                Mục tiêu dinh dưỡng của bạn
               </span>
               <h3 className="font-serif font-bold text-xl text-white">
-                Complete your profile to generate a personalized meal plan.
+                Hoàn thiện hồ sơ để cá nhân hóa thực đơn ăn chay chính xác.
               </h3>
               <p className="text-xs text-emerald-200 mt-1 leading-relaxed">
-                We need your height, weight, and age to accurately calculate your Body Mass Index (BMI), Mifflin-St Jeor metabolic rate (BMR), and personalized daily calorie target.
+                Hệ thống cần chiều cao, cân nặng và độ tuổi của bạn để tính chính xác chỉ số BMI, tỷ lệ trao đổi chất BMR và lượng calo mục tiêu mỗi ngày.
               </p>
             </div>
           </div>
@@ -54,7 +54,7 @@ export function NutritionGoalBanner({
             onClick={onCompleteProfile}
             className="h-11 px-6 rounded-2xl bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold text-xs shadow-sm transition-all flex items-center gap-2 cursor-pointer shrink-0"
           >
-            <span>Complete Profile</span>
+            <span>Cập nhật hồ sơ</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -76,21 +76,21 @@ export function NutritionGoalBanner({
               <Target className="w-4 h-4" />
             </span>
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-200">
-              Your Nutrition Goal
+              Mục tiêu dinh dưỡng của bạn
             </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-emerald-200">Profile:</span>
+            <span className="text-emerald-200">Hồ sơ:</span>
             <span className="font-semibold text-white">
-              {profile.weight} kg · {profile.height} cm · {profile.age} yrs
+              {profile.weight} kg · {profile.height} cm · {profile.age} tuổi
             </span>
             <span className="text-emerald-300 font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-800/80 border border-emerald-600/60 text-[10px]">
-              {profile.vegetarianType ? profile.vegetarianType.replace("_", " ") : "Vegan"}
+              {formatVegetarianType(profile.vegetarianType)}
             </span>
             {profile.allergies && profile.allergies.length > 0 && (
               <span className="text-amber-200 font-medium px-2 py-0.5 rounded-full bg-amber-950/60 border border-amber-600/40 text-[10px]">
-                Allergies: {profile.allergies.join(", ")}
+                Dị ứng: {profile.allergies.join(", ")}
               </span>
             )}
           </div>
@@ -103,7 +103,7 @@ export function NutritionGoalBanner({
             <div>
               <p className="text-xs text-emerald-300 mb-1.5 flex items-center gap-1.5 font-medium">
                 <Activity className="w-3.5 h-3.5 text-emerald-400" />
-                Body Mass Index (BMI)
+                Chỉ số khối cơ thể (BMI)
               </p>
               <div className="flex items-baseline gap-2.5">
                 <span className="font-serif font-bold text-3xl text-white">
@@ -118,12 +118,12 @@ export function NutritionGoalBanner({
                       : "bg-orange-500/20 text-orange-200 border-orange-400/40"
                   }`}
                 >
-                  {bmiStatus}
+                  {bmiStatus === "Underweight" ? "Thiếu cân" : bmiStatus === "Balanced" ? "Cân đối" : "Thừa cân"}
                 </span>
               </div>
             </div>
             <p className="text-[11px] text-emerald-200/80 mt-2 leading-snug">
-              Healthy weight range: {bmiInfo.healthyWeightRange.min} - {bmiInfo.healthyWeightRange.max} kg
+              Cân nặng lý tưởng: {bmiInfo.healthyWeightRange.min} - {bmiInfo.healthyWeightRange.max} kg
             </p>
           </div>
 
@@ -132,13 +132,13 @@ export function NutritionGoalBanner({
             <div>
               <p className="text-xs text-emerald-300 mb-1.5 flex items-center gap-1.5 font-medium">
                 <Flame className="w-3.5 h-3.5 text-amber-400" />
-                Daily Calorie Target
+                Mục tiêu calo mỗi ngày
               </p>
               <div className="flex items-baseline gap-2">
                 <span className="font-serif font-bold text-3xl text-amber-300">
                   ~{dailyCalorieTarget.toLocaleString()}
                 </span>
-                <span className="text-xs text-emerald-200">kcal/day</span>
+                <span className="text-xs text-emerald-200">kcal/ngày</span>
               </div>
             </div>
             <p className="text-[11px] text-emerald-200/80 mt-2 leading-snug">
@@ -151,7 +151,7 @@ export function NutritionGoalBanner({
             <div>
               <p className="text-xs text-emerald-300 mb-1.5 flex items-center gap-1.5 font-medium">
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                Recommended Goal
+                Mục tiêu khuyến nghị
               </p>
               <p className="font-serif font-bold text-lg text-white leading-snug">
                 {goalTitle}
@@ -170,7 +170,7 @@ export function NutritionGoalBanner({
 
         {/* Dynamic Approach info footnote (Requirement 2 & 11) */}
         <div className="pt-2 border-t border-emerald-800/80 flex flex-wrap items-center gap-2 text-xs text-emerald-100">
-          <span className="font-bold text-amber-300">Approach:</span>
+          <span className="font-bold text-amber-300">Định hướng:</span>
           <span>{recommendedApproach}</span>
         </div>
       </div>
