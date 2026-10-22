@@ -1,12 +1,13 @@
 import {
   IsNumber,
   Min,
-  ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class SetRecipePriceDto {
-  @ValidateIf((o) => o.actual_price !== null && o.actual_price !== undefined)
+  // Không dùng @ValidateIf ở đây: ValidateIf cho phép body rỗng/null đi qua
+  // validation, rồi actual_price = undefined đẩy xuống cột NOT NULL -> lỗi 500.
+  // Bắt buộc phải là số >= 0.
   @Transform(({ value }) => {
     if (value === null || value === undefined || value === '') {
       return null;
@@ -17,9 +18,10 @@ export class SetRecipePriceDto {
     }
     return num;
   })
-  @IsNumber({ allowNaN: false, allowInfinity: false }, {
-    message: 'Giá thực tế phải là số hợp lệ.',
-  })
+  @IsNumber(
+    { allowNaN: false, allowInfinity: false },
+    { message: 'Giá thực tế phải là số hợp lệ.' },
+  )
   @Min(0, {
     message: 'Giá thực tế không được âm.',
   })

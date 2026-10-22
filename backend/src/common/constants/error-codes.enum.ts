@@ -73,7 +73,7 @@ export enum ErrorCode {
   SUBSCRIPTION_TRANSACTION_NOT_FOUND = 'SUBSCRIPTION_TRANSACTION_NOT_FOUND',
   /** 404 */
   SUBSCRIPTION_NOT_FOUND = 'SUBSCRIPTION_NOT_FOUND',
-  /** 400: chỉ huỷ được gói đang active. */
+  /** 400: chế độ cũ đã được gia hạn đang active. */
   SUBSCRIPTION_NOT_ACTIVE = 'SUBSCRIPTION_NOT_ACTIVE',
   /** 503: server chưa cấu hình VNPAY_TMN_CODE / VNPAY_HASH_SECRET. */
   SUBSCRIPTION_PAYMENT_NOT_CONFIGURED = 'SUBSCRIPTION_PAYMENT_NOT_CONFIGURED',
@@ -81,7 +81,15 @@ export enum ErrorCode {
   // ---- Danh mục ----
   /** 404 */
   CATEGORY_NOT_FOUND = 'CATEGORY_NOT_FOUND',
- // ---- Diễn đàn ----
+  /** 400: category_id không tồn tại trong bảng categories. */
+  CATEGORY_ID_NOT_FOUND = 'CATEGORY_ID_NOT_FOUND',
+  /** 400: category_id không thuộc loại hợp lệ để gắn vào công thức. */
+  CATEGORY_TYPE_INVALID = 'CATEGORY_TYPE_INVALID',
+  /** 409: trùng tên danh mục trong cùng một category_type. */
+  CATEGORY_NAME_DUPLICATE = 'CATEGORY_NAME_DUPLICATE',
+  /** 409: danh mục đang được công thức/nội dung khác sử dụng nên không xoá/đổi loại được. */
+  CATEGORY_IN_USE = 'CATEGORY_IN_USE',
+  // ---- Diễn đàn ----
   /** 404 */
   FORUM_POST_NOT_FOUND = 'FORUM_POST_NOT_FOUND',
   /** 400: category_id không tồn tại, đã tắt, hoặc không thuộc diễn đàn. */
@@ -91,7 +99,7 @@ export enum ErrorCode {
   RECIPE_NOT_FOUND = 'RECIPE_NOT_FOUND',
   /** 404 */
   INGREDIENT_NOT_FOUND = 'INGREDIENT_NOT_FOUND',
-  /** 409: tên nguyên liệu đã tồn tại trong hệ thống. */
+  /** 409: tên nguyên liệu đã tồn tại. */
   INGREDIENT_NAME_CONFLICT = 'INGREDIENT_NAME_CONFLICT',
   /** 404 */
   MEAL_PLAN_NOT_FOUND = 'MEAL_PLAN_NOT_FOUND',

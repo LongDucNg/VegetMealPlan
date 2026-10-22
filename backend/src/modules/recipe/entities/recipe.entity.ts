@@ -53,7 +53,12 @@ export class Recipe {
   difficulty: Difficulty;
 
   @Column({ nullable: true })
-  meal_type: string; // breakfast / lunch / dinner / any
+  meal_type: string; // breakfast / lunch / snack / any - phân loại bữa chính
+
+  // Danh sách bữa ăn phù hợp, cách nhau dấu phẩy (vd. "lunch,dinner").
+  // Không có giá trị thì lọc/generate thực đơn dùng meal_type.
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  suitable_meals: string;
 
   @Column({ type: 'enum', enum: DietType, nullable: true })
   diet_type: DietType;

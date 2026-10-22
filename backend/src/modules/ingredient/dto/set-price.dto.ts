@@ -1,4 +1,6 @@
 import { createParamDecorator, ExecutionContext, PipeTransform, Injectable, ArgumentMetadata, BadRequestException } from '@nestjs/common';
+import { Transform } from 'class-transformer';
+import { IsNumber, Min } from 'class-validator';
 
 @Injectable()
 export class ValidatePricePipe implements PipeTransform {
@@ -80,5 +82,23 @@ export const SafePrice = createParamDecorator(
 );
 
 export class SetPriceDto {
+  // Phải có decorator: ValidationPipe global chạy với
+  // whitelist + forbidNonWhitelisted, nên DTO không decorator sẽ bị loại field
+  // (hoặc văng 400) -> mọi request PUT /ingredients/:id/my-price đều hỏng.
+  @Transform(({ value }) => {
+    if (value === null || value === undefined || value === '') {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed === '' ? value : Number(trimmed);
+    }
+    return value;
+  })
+  @IsNumber(
+    { allowNaN: false, allowInfinity: false },
+    { message: 'price_per_unit phải là số lớn hơn 0.' },
+  )
+  @Min(0.01, { message: 'price_per_unit phải lớn hơn 0.' })
   price_per_unit: number;
 }

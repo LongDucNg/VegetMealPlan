@@ -16,17 +16,24 @@ import {
 import {
   Recipe,
   RecipeStatus,
+  Difficulty,
 } from '../recipe/entities/recipe.entity';
 import { DietType } from '../users/entities/user.entity';
 import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
 import { RecipeCategory } from '../recipe/entities/recipe-category.entity';
 import { Category } from '../category/entities/category.entity';
+import { assertValidRecipeCategoryIds } from '../category/category-validation.util';
 
 import { IngredientService } from '../ingredient/ingredient.service';
 import { isBlockingConflict } from '../ingredient/ingredient-conflict.util';
 import { Ingredient } from '../ingredient/entities/ingredient.entity';
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 import { calculateIngredientCost } from '../recipe/recipe-cost.util';
+import {
+  deriveSuitableMeals,
+  parseSuitableMeals,
+  IMPORT_MEAL_TYPES,
+} from '../recipe/recipe-meals.util';
 
 import { ImportRecipeRow } from './dto/import-recipe-row.dto';
 
@@ -45,6 +52,12 @@ export interface ImportRowDetail {
 function normalizeTitle(title: string | null | undefined): string {
   return (title ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
+
+/**
+ * Loại bữa ăn được phép import, theo dữ liệu gốc (cột meal_type của file seed).
+ * Không có 'dinner'/'any': món ăn trưa dùng suitable_meals = "lunch,dinner".
+ */
+const VALID_MEAL_TYPES = IMPORT_MEAL_TYPES;
 
 @Injectable()
 export class RecipeImportService {
@@ -256,11 +269,14 @@ export class RecipeImportService {
     // Dùng getRawMany() thay vì getMany(): khi select chỉ 1 cột (alias 'title')
     // thì getMany() KHÔNG map được entity -> trả về mảng rỗng, khiến cơ chế
     // skip trùng tên không bao giờ chạy (mọi lần import lại đều tạo bản sao).
+    // BTRIM là BẮT BUỘC: normalizeTitle() ở JS có trim() nên nếu SQL không trim
+    // thì tiêu đề trong DB có khoảng trắng đầu/cuối ("  Món X  ") sẽ không bao
+    // giờ khớp -> tạo bản sao công thức.
     const existing = await this.recipeRepo
       .createQueryBuilder('recipe')
       .select('recipe.title', 'title')
       .where(
-        "LOWER(REGEXP_REPLACE(recipe.title, '\\s+', ' ', 'g')) IN (:...keys)",
+        "LOWER(BTRIM(REGEXP_REPLACE(recipe.title, '\\s+', ' ', 'g'))) IN (:...keys)",
         { keys },
       )
       .getRawMany<{ title: string }>();
@@ -320,6 +336,20 @@ export class RecipeImportService {
       missingFields.push('instructions');
     }
 
+    if (
+      typeof row.meal_type !== 'string' ||
+      !row.meal_type.trim()
+    ) {
+      missingFields.push('meal_type');
+    }
+
+    if (
+      typeof row.diet_type !== 'string' ||
+      !row.diet_type.trim()
+    ) {
+      missingFields.push('diet_type');
+    }
+
     if (!Array.isArray(row.ingredients) || row.ingredients.length === 0) {
       missingFields.push('ingredients');
     }
@@ -330,6 +360,121 @@ export class RecipeImportService {
         ImportFailReason.MISSING_REQUIRED_FIELD,
         `Thiếu field bắt buộc: ${missingFields.join(', ')}`,
       );
+    }
+
+    // 2b. Kiem tra meal_type theo du lieu goc: chi breakfast, lunch, snack.
+    const mealTypeValue = row.meal_type.trim().toLowerCase();
+
+    if (!VALID_MEAL_TYPES.includes(mealTypeValue)) {
+      return this.createFailedItem(
+        row_number,
+        recipe_title,
+        ImportFailReason.MISSING_REQUIRED_FIELD,
+        `Loại bữa ăn "${row.meal_type}" không hợp lệ. Chỉ chấp nhận: ${VALID_MEAL_TYPES.join(', ')}`,
+      );
+    }
+
+    // 2c. Kiem tra diet_type theo enum DietType.
+    const dietTypeValue = row.diet_type.trim().toLowerCase();
+    const validDietTypes = Object.values(DietType) as string[];
+
+    if (!validDietTypes.includes(dietTypeValue)) {
+      return this.createFailedItem(
+        row_number,
+        recipe_title,
+        ImportFailReason.MISSING_REQUIRED_FIELD,
+        `Chế độ ăn chay "${row.diet_type}" không hợp lệ. Chỉ chấp nhận: ${validDietTypes.join(', ')}`,
+      );
+    }
+
+    // 2d. Kiem tra difficulty (optional) theo enum Difficulty.
+    // Khong validate o day se lam DB nem loi enum -> 500 khi import.
+    let difficultyValue: Difficulty | undefined;
+
+    if (row.difficulty !== undefined && row.difficulty !== null) {
+      const rawDifficulty = String(row.difficulty).trim();
+
+      if (rawDifficulty) {
+        const normalizedDifficulty = rawDifficulty.toLowerCase();
+        const validDifficulties = Object.values(Difficulty) as string[];
+
+        if (!validDifficulties.includes(normalizedDifficulty)) {
+          return this.createFailedItem(
+            row_number,
+            recipe_title,
+            ImportFailReason.MISSING_REQUIRED_FIELD,
+            `Độ khó "${row.difficulty}" không hợp lệ. Chỉ chấp nhận: ${validDifficulties.join(', ')}`,
+          );
+        }
+
+        difficultyValue = normalizedDifficulty as Difficulty;
+      }
+    }
+
+    // 2e. Kiem tra cac truong so (optional) phai la so nguyen duong.
+    // Number('abc') = NaN -> lưu xuống DB se nem loi numeric -> 500.
+    const numericFields: { key: string; value: unknown }[] = [
+      { key: 'prep_time', value: row.prep_time },
+      { key: 'cook_time', value: row.cook_time },
+      { key: 'servings', value: row.servings },
+    ];
+
+    for (const field of numericFields) {
+      if (field.value === undefined || field.value === null) {
+        continue;
+      }
+
+      const num = Number(field.value);
+
+      if (!Number.isFinite(num) || num <= 0) {
+        return this.createFailedItem(
+          row_number,
+          recipe_title,
+          ImportFailReason.MISSING_REQUIRED_FIELD,
+          `Trường ${field.key} không hợp lệ (phải là số lớn hơn 0)`,
+        );
+      }
+    }
+
+    // 2f. Kiem tra suitable_meals (optional) co dung mapping chuan khong.
+    // Mapping goc: breakfast -> "breakfast", lunch -> "lunch,dinner", snack -> "snack".
+    // File import duoc phep bo trong suitable_meals (suy ra tu meal_type),
+    // nhung neu co ghi thi phai dung mapping de khong sinh du lieu sai.
+    let suitableMealsValue: string | undefined;
+
+    if (row.suitable_meals !== undefined && row.suitable_meals !== null) {
+      const raw = String(row.suitable_meals).trim();
+
+      if (raw) {
+        const parsed = parseSuitableMeals(raw);
+
+        if (parsed.length === 0) {
+          return this.createFailedItem(
+            row_number,
+            recipe_title,
+            ImportFailReason.MISSING_REQUIRED_FIELD,
+            `suitable_meals "${row.suitable_meals}" không hợp lệ`,
+          );
+        }
+
+        const expected = deriveSuitableMeals(mealTypeValue);
+        const expectedList = parseSuitableMeals(expected ?? '');
+        const sameSet =
+          parsed.length === expectedList.length &&
+          parsed.every((meal) => expectedList.includes(meal));
+
+        if (!sameSet) {
+          return this.createFailedItem(
+            row_number,
+            recipe_title,
+            ImportFailReason.MISSING_REQUIRED_FIELD,
+            `suitable_meals "${raw}" không khớp meal_type "${mealTypeValue}" ` +
+              `(đúng phải là "${expected}").`,
+          );
+        }
+
+        suitableMealsValue = expected ?? undefined;
+      }
     }
 
     // 3. Kiem tra trung tieu de.
@@ -445,22 +590,6 @@ export class RecipeImportService {
       );
     }
 
-    // 6b. Validate diet_type theo enum
-    const validDietTypes = Object.values(DietType) as string[];
-    if (
-      row.diet_type !== undefined &&
-      row.diet_type !== null &&
-      row.diet_type !== '' &&
-      !validDietTypes.includes(String(row.diet_type))
-    ) {
-      return this.createFailedItem(
-        row_number,
-        recipe_title,
-        ImportFailReason.MISSING_REQUIRED_FIELD,
-        `Chế độ ăn chay "${row.diet_type}" không hợp lệ. Chỉ chấp nhận: ${validDietTypes.join(', ')}`,
-      );
-    }
-
     // 7. Tao Recipe, RecipeIngredient va NutritionInfo.
     // Transaction rieng cho tung dong: mot dong loi khong lam anh huong dong khac.
     const recipeId = await this.dataSource.transaction(async (manager) => {
@@ -470,7 +599,7 @@ export class RecipeImportService {
       const ingredientRepository = manager.getRepository(Ingredient);
       const nutritionRepository = manager.getRepository(NutritionInfo);
 
-      // Tinh dinh duong + chi phi tu nguyen lieu bat buoc.
+      // Tinh dinh duong + chi phi tu nguyen lieu.
       let calories = 0;
       let protein = 0;
       let carbs = 0;
@@ -480,14 +609,17 @@ export class RecipeImportService {
       let hasCompletePrice = true;
 
       for (const item of resolved) {
-        if (item.row.is_optional ?? false) {
-          continue;
-        }
+        // Nguyên liệu OPTIONAL vẫn được tính vào chi phí (giống
+        // RecipeService.getRecipeCost và script fix-recipe-cost-nutrition),
+        // nhưng KHÔNG tính vào dinh dưỡng (món không bắt buộc phải dùng).
+        const isOptional = item.row.is_optional ?? false;
 
-        if (item.row.unit.trim().toLowerCase() !== 'g') {
-          throw new BadRequestException(
-            `Nguyên liệu "${item.row.ingredient_name}" phải có đơn vị g để tính dinh dưỡng`,
-          );
+        if (!isOptional) {
+          if (item.row.unit.trim().toLowerCase() !== 'g') {
+            throw new BadRequestException(
+              `Nguyên liệu "${item.row.ingredient_name}" phải có đơn vị g để tính dinh dưỡng`,
+            );
+          }
         }
 
         const ingredient = await ingredientRepository.findOne({
@@ -500,13 +632,15 @@ export class RecipeImportService {
           );
         }
 
-        const factor = item.row.quantity / 100;
+        if (!isOptional) {
+          const factor = item.row.quantity / 100;
 
-        calories += (ingredient.calories_per_100g ?? 0) * factor;
-        protein += (ingredient.protein_per_100g ?? 0) * factor;
-        carbs += (ingredient.carb_per_100g ?? 0) * factor;
-        fat += (ingredient.fat_per_100g ?? 0) * factor;
-        fiber += (ingredient.fiber_per_100g ?? 0) * factor;
+          calories += (ingredient.calories_per_100g ?? 0) * factor;
+          protein += (ingredient.protein_per_100g ?? 0) * factor;
+          carbs += (ingredient.carb_per_100g ?? 0) * factor;
+          fat += (ingredient.fat_per_100g ?? 0) * factor;
+          fiber += (ingredient.fiber_per_100g ?? 0) * factor;
+        }
 
         // Chi phi: quy doi sang don vi tinh gia cua nguyen lieu.
         if (ingredient.avg_price_per_unit == null) {
@@ -523,6 +657,11 @@ export class RecipeImportService {
         }
       }
 
+      // nutrition_infos lưu dinh dưỡng THEO 1 KHẨU PHẦN (khớp với
+      // seed-vegetarian-data.ts, fix-recipe-cost-nutrition.ts và
+      // RecipeService.getRecipeCost). Tổng món chia cho số khẩu phần.
+      const servings = row.servings && row.servings > 0 ? row.servings : 1;
+
       const recipe = await recipeRepository.save(
         recipeRepository.create({
           title: row.title.trim(),
@@ -531,9 +670,15 @@ export class RecipeImportService {
           prep_time: row.prep_time,
           cook_time: row.cook_time,
           servings: row.servings,
-          difficulty: row.difficulty as Recipe['difficulty'],
-          meal_type: row.meal_type,
-          diet_type: row.diet_type as Recipe['diet_type'],
+          difficulty: difficultyValue,
+          meal_type: mealTypeValue,
+          // suitable_meals: ưu tiên giá trị trong file Excel, không thì suy ra
+          // từ meal_type theo mapping chuẩn (vd. lunch -> "lunch,dinner").
+          suitable_meals:
+            suitableMealsValue ??
+            deriveSuitableMeals(mealTypeValue) ??
+            undefined,
+          diet_type: dietTypeValue as Recipe['diet_type'],
           estimated_cost: hasCompletePrice
             ? Math.round(estimatedCost)
             : undefined,
@@ -557,36 +702,48 @@ export class RecipeImportService {
       await nutritionRepository.save(
         nutritionRepository.create({
           recipe_id: recipe.recipe_id,
-          calories,
-          protein,
-          carbs,
-          fat,
-          fiber,
+          // Dinh duong theo 1 khau phan (khớp seed + getRecipeCost).
+          calories: Math.round((calories / servings) * 100) / 100,
+          protein: Math.round((protein / servings) * 100) / 100,
+          carbs: Math.round((carbs / servings) * 100) / 100,
+          fat: Math.round((fat / servings) * 100) / 100,
+          fiber: Math.round((fiber / servings) * 100) / 100,
         }),
       );
 
-      // Tạo category links nếu import row có category_ids hợp lệ.
+      // Tạo category links nếu import row có category_ids.
+      // Trước đây: nếu 1 category_id không tồn tại thì `found !== uniqueIds.length`
+      // khiến TOÀN BỘ danh mục bị bỏ qua mà không báo lỗi cho dòng import.
+      // Nay: validate trước, sai thì ném BadRequestException để dòng đó thành FAILED
+      // (giống cách xử lý nguyên liệu sai) thay vì tạo công thức không có danh mục.
       if (
         Array.isArray(row.category_ids) &&
         row.category_ids.length > 0
       ) {
-        const uniqueIds = [...new Set(
-          row.category_ids.filter((id) => Number.isInteger(id) && id > 0),
-        )];
-        if (uniqueIds.length > 0) {
-          const found = await manager.count(Category, {
-            where: { category_id: In(uniqueIds) },
-          });
-          if (found === uniqueIds.length) {
-            await manager.insert(
-              RecipeCategory,
-              uniqueIds.map((category_id) => ({
-                recipe_id: recipe.recipe_id,
-                category_id,
-              })),
-            );
-          }
+        const uniqueIds = [...new Set(row.category_ids)];
+
+        const invalidIds = uniqueIds.filter(
+          (id) => !Number.isInteger(id) || id <= 0,
+        );
+        if (invalidIds.length > 0) {
+          throw new BadRequestException(
+            `category_ids phải là số nguyên dương: ${invalidIds.join(', ')}`,
+          );
         }
+
+        const foundCategories = await manager
+          .getRepository(Category)
+          .find({ where: { category_id: In(uniqueIds) } });
+
+        assertValidRecipeCategoryIds(uniqueIds, foundCategories);
+
+        await manager.insert(
+          RecipeCategory,
+          uniqueIds.map((category_id) => ({
+            recipe_id: recipe.recipe_id,
+            category_id,
+          })),
+        );
       }
 
       return recipe.recipe_id;

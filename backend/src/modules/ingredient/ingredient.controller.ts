@@ -7,7 +7,6 @@ import {
   Put,
   Req,
   UseGuards,
-  UsePipes,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
@@ -46,12 +45,14 @@ export class IngredientController {
 
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
-  @UsePipes(new ValidatePricePipe())
   @Put(':id/my-price')
   setMyPrice(
     @Req() req: any,
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: SetPriceDto,
+    // ValidatePricePipe phải gắn ở @Body(), KHÔNG dùng @UsePipes() cấp route:
+    // @UsePipes() áp cho MỌI param của route (kể cả :id) nên pipe sẽ đọc
+    // body của path param -> luôn ném "price_per_unit phải lớn hơn 0" -> API 400.
+    @Body(new ValidatePricePipe()) dto: SetPriceDto,
   ) {
     return this.ingredientService.setUserPrice(
       req.user.user_id,

@@ -79,6 +79,20 @@ export class RecipeImportController {
       );
     }
 
+    // Chỉ chấp nhận định dạng Excel mà ExcelJS đọc được. Nếu thiếu check này,
+    // file .csv/.txt/.pdf sẽ lọt qua và rơi vào nhánh catch chung -> trả thông
+    // báo "Không đọc được file Excel" chung chung, khó debug cho admin.
+    const extension = file.originalname
+      .toLowerCase()
+      .split('.')
+      .pop();
+
+    if (!extension || !['xlsx', 'xlsm'].includes(extension)) {
+      throw new BadRequestException(
+        `Định dạng file không hỗ trợ "${file.originalname}". Chỉ chấp nhận file .xlsx hoặc .xlsm.`,
+      );
+    }
+
     let rows: ImportRecipeRow[];
 
     try {
@@ -165,36 +179,44 @@ export class RecipeImportController {
           row_error = `Dòng Excel ${rowNumber}: cột ingredients phải chứa JSON array hợp lệ`;
         }
 
+        // Cột category_ids (tuỳ chọn). Giá trị sai -> đánh dấu dòng FAILED
+        // thay vì âm thầm bỏ qua (tạo công thức không có danh mục).
+        const categoryIds = this.toCategoryIds(row.category_ids);
+
+        if (categoryIds.error) {
+          row_error = row_error
+            ? `${row_error}; ${categoryIds.error}`
+            : `Dòng Excel ${rowNumber}: ${categoryIds.error}`;
+        }
+
         return {
           title: String(row.title || '').trim(),
           description: row.description
             ? String(row.description)
             : undefined,
           instructions: String(row.instructions || '').trim(),
-          prep_time: row.prep_time === ''
-            ? undefined
-            : Number(row.prep_time),
-          cook_time: row.cook_time === ''
-            ? undefined
-            : Number(row.cook_time),
-          servings: row.servings === ''
-            ? undefined
-            : Number(row.servings),
+          prep_time: this.toPositiveNumber(row.prep_time),
+          cook_time: this.toPositiveNumber(row.cook_time),
+          servings: this.toPositiveNumber(row.servings),
           difficulty: row.difficulty
-            ? String(row.difficulty)
+            ? String(row.difficulty).trim()
             : undefined,
-          meal_type: row.meal_type
-            ? String(row.meal_type)
+          // meal_type và diet_type là bắt buộc: giữ chuỗi rỗng khi thiếu để
+          // service báo rõ "Thiếu field bắt buộc" thay vì tự gán mặc định.
+          meal_type: String(row.meal_type ?? '').trim(),
+          suitable_meals: row.suitable_meals
+            ? String(row.suitable_meals)
             : undefined,
-          diet_type: row.diet_type
-            ? String(row.diet_type)
-            : undefined,
+          diet_type: String(row.diet_type ?? '').trim(),
+          category_ids: categoryIds.ids,
           row_error,
           ingredients: ingredients.map((ingredient) => ({
             ingredient_name: String(
               ingredient.ingredient_name || '',
             ).trim(),
-            quantity: Number(ingredient.quantity),
+            // Quantity phải là số > 0. Number('abc')=NaN -> để undefined
+            // và để service báo FAILED cho dòng (thay vì lưu NaN xuống DB).
+            quantity: this.toPositiveNumber(ingredient.quantity) ?? NaN,
             unit: String(ingredient.unit || '').trim(),
             is_optional: Boolean(ingredient.is_optional),
           })),
@@ -223,6 +245,90 @@ export class RecipeImportController {
       file.originalname,
       rows,
     );
+  }
+
+  // Chuyển giá trị ô Excel thành số nguyên dương hợp lệ.
+  // Number('')=0, Number('abc')=NaN, Number('12 phút')=NaN -> nếu đẩy thẳng
+  // NaN xuống service/DB sẽ sinh lỗi 500 (invalid input for numeric column).
+  private toPositiveNumber(value: any): number | undefined {
+    if (value === null || value === undefined || value === '') {
+      return undefined;
+    }
+
+    const num = Number(value);
+
+    if (!Number.isFinite(num) || num <= 0) {
+      return undefined;
+    }
+
+    return Math.round(num);
+  }
+
+  // Đọc cột category_ids (tuỳ chọn) của file Excel.
+  // Chấp nhận 2 dạng: JSON array (vd. "[3,12]") hoặc chuỗi số phân tách
+  // bằng dấu phẩy (vd. "3,12"). Ô rỗng -> undefined (dòng không gắn danh mục).
+  // Trả về { error } nếu có giá trị nhưng parse hỏng -> controller đánh dấu
+  // dòng FAILED, không tạo công thức sai danh mục.
+  private toCategoryIds(value: any): {
+    ids?: number[];
+    error?: string;
+  } {
+    if (value === null || value === undefined || value === '') {
+      return {};
+    }
+
+    let raw: unknown[];
+
+    if (Array.isArray(value)) {
+      raw = value;
+    } else if (typeof value === 'string') {
+      const trimmed = value.trim();
+
+      if (!trimmed) {
+        return {};
+      }
+
+      if (trimmed.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+
+          if (!Array.isArray(parsed)) {
+            return {
+              error:
+                'cột category_ids phải chứa JSON array hợp lệ',
+            };
+          }
+
+          raw = parsed;
+        } catch {
+          return {
+            error:
+              'cột category_ids phải chứa JSON array hợp lệ',
+          };
+        }
+      } else {
+        raw = trimmed.split(',');
+      }
+    } else {
+      raw = [value];
+    }
+
+    const ids: number[] = [];
+
+    for (const item of raw) {
+      const num = Number(String(item).trim());
+
+      if (!Number.isFinite(num) || num <= 0) {
+        return {
+          error:
+            'cột category_ids chỉ được chứa số nguyên dương',
+        };
+      }
+
+      ids.push(Math.round(num));
+    }
+
+    return ids.length > 0 ? { ids } : {};
   }
 
   // ExcelJS trả ô công thức/rich text/hyperlink dạng object; đưa về giá trị đơn giản như xlsx cũ.
