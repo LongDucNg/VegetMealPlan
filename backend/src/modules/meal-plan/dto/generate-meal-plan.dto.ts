@@ -13,7 +13,7 @@ export class GenerateMealPlanDto {
       'Tổng ngân sách cho toàn bộ thực đơn tuần hoặc tháng',
   })
   @IsOptional()
-  @IsNumber()
-  @Min(1)
+  @IsNumber({}, { message: 'Tổng ngân sách phải là số hợp lệ.' })
+  @Min(1, { message: 'Tổng ngân sách phải lớn hơn 0.' })
   total_budget?: number;
 }

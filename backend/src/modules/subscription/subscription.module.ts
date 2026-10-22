@@ -5,6 +5,7 @@ import { PaymentTransaction } from './entities/payment-transaction.entity';
 import { User } from '../users/entities/user.entity';
 import { SubscriptionService } from './subscription.service';
 import { SubscriptionController } from './subscription.controller';
+import { VnpayService } from './vnpay.service';
 import { NotificationModule } from '../notification/notification.module';
 
 @Module({
@@ -13,7 +14,7 @@ import { NotificationModule } from '../notification/notification.module';
     NotificationModule,
   ],
   controllers: [SubscriptionController],
-  providers: [SubscriptionService],
+  providers: [SubscriptionService, VnpayService],
   exports: [SubscriptionService],
 })
 export class SubscriptionModule {}

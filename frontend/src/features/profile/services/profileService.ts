@@ -49,7 +49,7 @@ function mapBackendDietToFrontend(diet?: string): VegetarianType {
   return "vegan";
 }
 
-function mapFrontendDietToBackend(diet?: VegetarianType): string {
+function mapFrontendDietToBackend(diet?: VegetarianType | ""): string {
   if (!diet) return "vegan";
   if (diet === "lacto_vegetarian") return "lacto";
   if (diet === "ovo_vegetarian") return "ovo";
@@ -65,7 +65,7 @@ function mapBackendGoalToFrontend(goal?: string): HealthGoal {
   return "maintain_weight";
 }
 
-function mapFrontendGoalToId(goal?: HealthGoal): number {
+function mapFrontendGoalToId(goal?: HealthGoal | ""): number {
   if (goal === "lose_weight") return 1;
   if (goal === "gain_weight") return 2;
   return 3; // maintain
@@ -80,22 +80,28 @@ function mapBackendProfileToUserProfile(backend: BackendProfile): UserProfile {
   return {
     id: backend.user_id,
     name: backend.full_name,
-    age: backend.age ?? 25,
-    gender: (backend.gender as Gender) || "other",
-    height: backend.height_cm ?? 170,
-    weight: backend.weight_kg ?? 65,
-    activityLevel:
-      (backend.activity_level as ActivityLevel) || "moderate",
-    healthGoal: mapBackendGoalToFrontend(backend.current_goal?.name),
-    vegetarianType: mapBackendDietToFrontend(backend.diet_type),
+    age: backend.age ?? null,
+    gender: (backend.gender as Gender) || "",
+    height: backend.height_cm ?? null,
+    weight: backend.weight_kg ?? null,
+    activityLevel: (backend.activity_level as ActivityLevel) || "",
+    healthGoal: backend.current_goal?.name ? mapBackendGoalToFrontend(backend.current_goal?.name) : "",
+    vegetarianType: backend.diet_type ? mapBackendDietToFrontend(backend.diet_type) : "",
     allergies: mappedAllergies,
     email: backend.email,
-    bmi: backend.bmi,
+    bmi: backend.bmi ?? null,
     bmiCategory: backend.bmi_category,
     isPremium: backend.is_premium,
     allergenGroups: allergenGroups,
+    target_weight_kg: backend.target_weight_kg ?? null,
+    target_date: backend.target_date ?? null,
+    profile_complete: backend.profile_complete,
+    missing_profile_fields: backend.missing_profile_fields || [],
+    allergies_declared: backend.allergies_declared,
   };
 }
+
+let inFlightProfilePromise: Promise<UserProfile> | null = null;
 
 export const profileService = {
   /**
@@ -109,22 +115,44 @@ export const profileService = {
     if (raw && (raw.name === "Demo User" || raw.email === "demo@veggiehub.vn" || raw.handle === "demouser")) {
       storage.removeItem(STORAGE_KEYS.USER_PROFILE);
     } else if (raw) {
-      if (authUser && (raw.id === "guest" || raw.id === 1)) {
+      if (authUser && (raw.id === "guest" || raw.id === 1 || raw.id === authUser.user_id)) {
         raw.id = authUser.user_id;
         raw.name = authUser.full_name || raw.name;
         raw.email = authUser.email || raw.email;
         raw.handle = authUser.email ? authUser.email.split("@")[0] : raw.handle;
+
+        // Xóa giá trị mặc định giả mạo nếu tài khoản chưa hoàn thiện hồ sơ
+        if (raw.profile_complete === false || (!raw.profile_complete && (!authUser.height_cm || !authUser.weight_kg))) {
+          if (!authUser.height_cm) raw.height = null;
+          if (!authUser.weight_kg) raw.weight = null;
+          if (!authUser.age) raw.age = null;
+          if (!authUser.gender) raw.gender = "";
+          if (!authUser.activity_level) raw.activityLevel = "";
+        }
       }
       return raw;
     }
 
     if (authUser) {
       const userProfile: UserProfile = {
-        ...DEFAULT_MOCK_PROFILE,
         id: authUser.user_id,
         name: authUser.full_name || "Thành viên VeggieHub",
         email: authUser.email,
         handle: authUser.email ? authUser.email.split("@")[0] : "member",
+        age: authUser.age ?? null,
+        gender: (authUser.gender as Gender) || "",
+        height: authUser.height_cm ?? null,
+        weight: authUser.weight_kg ?? null,
+        activityLevel: (authUser.activity_level as ActivityLevel) || "",
+        healthGoal: "",
+        vegetarianType: authUser.diet_type ? mapBackendDietToFrontend(authUser.diet_type) : "",
+        allergies: authUser.allergies || [],
+        isPremium: authUser.is_premium,
+        target_weight_kg: authUser.target_weight_kg ?? null,
+        target_date: authUser.target_date ?? null,
+        profile_complete: authUser.profile_complete ?? false,
+        missing_profile_fields: authUser.missing_profile_fields || [],
+        allergies_declared: authUser.allergies_declared ?? false,
       };
       storage.setItem(STORAGE_KEYS.USER_PROFILE, userProfile);
       return userProfile;
@@ -149,15 +177,28 @@ export const profileService = {
       return this.getProfile();
     }
 
-    try {
-      const data = await apiClient.get<BackendProfile>("/users/me/profile");
-      const mapped = mapBackendProfileToUserProfile(data);
-      storage.setItem(STORAGE_KEYS.USER_PROFILE, mapped);
-      return mapped;
-    } catch (err) {
-      console.warn("[profileService] Failed to fetch server profile, using cache:", err);
-      return this.getProfile();
+    if (inFlightProfilePromise) {
+      return inFlightProfilePromise;
     }
+
+    inFlightProfilePromise = (async () => {
+      try {
+        const data = await apiClient.get<BackendProfile>("/users/me/profile");
+        const mapped = mapBackendProfileToUserProfile(data);
+        storage.setItem(STORAGE_KEYS.USER_PROFILE, mapped);
+        return mapped;
+      } catch (err: any) {
+        // 401 UNAUTHORIZED là trạng thái bình thường khi phiên hết hạn hoặc chưa đăng nhập
+        if (err?.status !== 401 && err?.code !== "AUTH_UNAUTHORIZED") {
+          console.warn("[profileService] Failed to fetch server profile, using cache:", err);
+        }
+        return this.getProfile();
+      } finally {
+        inFlightProfilePromise = null;
+      }
+    })();
+
+    return inFlightProfilePromise;
   },
 
   /**
@@ -199,6 +240,16 @@ export const profileService = {
     if (updates.healthGoal !== undefined) {
       payload.current_goal_id = mapFrontendGoalToId(updates.healthGoal);
     }
+    if (updates.target_weight_kg !== undefined) {
+      const val = updates.target_weight_kg as unknown;
+      payload.target_weight_kg =
+        val === null || val === undefined || val === "" || Number.isNaN(Number(val))
+          ? null
+          : Number(val);
+    }
+    if (updates.target_date !== undefined) {
+      payload.target_date = updates.target_date ? String(updates.target_date).trim() : null;
+    }
 
     try {
       // 1. Cập nhật metrics & thông tin hồ sơ
@@ -210,6 +261,7 @@ export const profileService = {
           .map((a) => ALLERGEN_MAP_TO_BACKEND[a] || a.toUpperCase())
           .filter(Boolean);
 
+        // BE: User không dị ứng gì thì vẫn gọi PUT /users/me/allergies với {} để đánh dấu đã khai báo
         await apiClient.put<AllergiesData>("/users/me/allergies", {
           allergen_groups: allergenGroups,
           ingredient_ids: [],
@@ -217,16 +269,32 @@ export const profileService = {
         if (serverProfile.allergies) {
           serverProfile.allergies.allergen_groups = allergenGroups;
         }
+        serverProfile.allergies_declared = true;
       }
 
       const mapped = mapBackendProfileToUserProfile(serverProfile);
       storage.setItem(STORAGE_KEYS.USER_PROFILE, mapped);
       return mapped;
     } catch (err) {
-      console.warn("[profileService] Server update failed, saving locally:", err);
-      storage.setItem(STORAGE_KEYS.USER_PROFILE, updatedLocal);
-      return updatedLocal;
+      console.warn("[profileService] Server update failed:", err);
+      throw err;
     }
+  },
+
+  /**
+   * Đánh dấu người dùng không có dị ứng thực phẩm:
+   * PUT /users/me/allergies với {}
+   */
+  async declareNoAllergies(): Promise<void> {
+    await apiClient.put("/users/me/allergies", {});
+    const current = this.getProfile();
+    const updated: UserProfile = {
+      ...current,
+      allergies: [],
+      allergenGroups: [],
+      allergies_declared: true,
+    };
+    storage.setItem(STORAGE_KEYS.USER_PROFILE, updated);
   },
 
   /**

@@ -4,6 +4,7 @@ import { Recipe } from '../../recipe/entities/recipe.entity';
 
 export enum ImportItemStatus {
   SUCCESS = 'success',
+  SKIPPED = 'skipped',
   FAILED = 'failed',
 }
 
@@ -11,6 +12,7 @@ export enum ImportFailReason {
   MISSING_REQUIRED_FIELD = 'MISSING_REQUIRED_FIELD',
   UNKNOWN_INGREDIENT = 'UNKNOWN_INGREDIENT',
   INGREDIENT_CONFLICT = 'INGREDIENT_CONFLICT',
+  DUPLICATE_TITLE = 'DUPLICATE_TITLE',
 }
 
 @Entity('recipe_import_items')

@@ -99,6 +99,18 @@ export class User {
   @JoinColumn({ name: 'current_goal_id' })
   current_goal: HealthGoal;
 
+  // Mục tiêu cụ thể (tuỳ chọn): muốn đạt bao nhiêu kg, trước ngày nào.
+  @Column('float', { nullable: true })
+  target_weight_kg: number | null;
+
+  @Column({ type: 'date', nullable: true })
+  target_date: string | null;
+
+  // Lần cuối user tự khai báo dị ứng (kể cả khai "không dị ứng gì" = danh sách rỗng).
+  // null = chưa khai báo lần nào, khác với đã khai là không dị ứng.
+  @Column({ type: 'timestamp', nullable: true })
+  allergies_declared_at: Date | null;
+
   // CACHED — null hoac da qua = free tier. Cap nhat khi co SUBSCRIPTION moi completed.
   @Column({ type: 'timestamp', nullable: true })
   premium_until: Date;

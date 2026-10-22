@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   ArrowLeft,
   ChefHat,
@@ -19,16 +19,19 @@ import {
   DollarSign,
   UtensilsCrossed,
   Search,
-  ExternalLink,
   ShieldCheck,
   Send,
+  RotateCcw,
+  ChevronDown,
+  X,
+  Check,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { recipeApiService, RecipePayload } from "@/features/recipes/services/recipeApiService";
 import { ingredientApiService } from "@/features/recipes/services/ingredientApiService";
 
-interface IngredientRow {
+export interface IngredientRow {
   keyId: string;
   ingredient_id: number;
   name: string;
@@ -37,6 +40,11 @@ interface IngredientRow {
   note: string;
   is_optional: boolean;
   avg_price_per_unit: number;
+  calories_per_100g: number;
+  protein_per_100g: number;
+  carb_per_100g: number;
+  fat_per_100g: number;
+  fiber_per_100g: number;
 }
 
 const SAMPLE_PRESET_IMAGES = [
@@ -62,47 +70,104 @@ const SAMPLE_PRESET_IMAGES = [
   },
 ];
 
-export function CreateRecipeClient() {
+function normalizeText(text: string): string {
+  return (text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .trim();
+}
+
+/**
+ * Kiểm tra nguyên liệu có phù hợp với chế độ ăn chay đang chọn không:
+ * - vegan: không trứng, không sữa bò / bơ / phô mai / kem tươi / sữa đặc / sữa chua.
+ * - lacto: cho phép sữa, không trứng.
+ * - ovo: cho phép trứng, không sữa.
+ * - ovo_lacto: cho phép cả hai.
+ */
+function isIngredientAllowedForDiet(ing: any, diet: string): boolean {
+  const name = (ing.ingredient_name || "").toLowerCase();
+  const isEgg = /trứng/i.test(name);
+  const isDairy =
+    /sữa tươi|sữa đặc|bơ lạt|phô mai|kem tươi|sữa chua|whey/i.test(name) ||
+    (Array.isArray(ing.allergens) && ing.allergens.includes("DAIRY"));
+
+  if (diet === "vegan") {
+    if (ing.vegan_flag === false) return false;
+    if (isEgg || isDairy) return false;
+    return true;
+  }
+
+  if (diet === "lacto") {
+    if (isEgg) return false;
+    return true;
+  }
+
+  if (diet === "ovo") {
+    if (isDairy) return false;
+    return true;
+  }
+
+  return true;
+}
+
+interface CreateRecipeClientProps {
+  isAdminMode?: boolean;
+}
+
+export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeClientProps = {}) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isAuthenticated, isAdmin, ready } = useAuth();
 
-  // Master Data
+  const isActuallyAdmin = propAdminMode ?? (pathname.startsWith("/admin") || isAdmin);
+
+  // Master Data from DB
   const [availableIngredients, setAvailableIngredients] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
-  // Form Fields
+  // Form Fields - Unfilled numeric parts start at 0
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState(SAMPLE_PRESET_IMAGES[0].url);
-  const [mealType, setMealType] = useState<string>("lunch");
+
+  // Gộp trưa/tối thành 1 lựa chọn "any" (Trưa & Tối)
+  const [mealType, setMealType] = useState<string>("any");
   const [dietType, setDietType] = useState<string>("vegan");
   const [difficulty, setDifficulty] = useState<string>("easy");
-  const [prepTime, setPrepTime] = useState<number | "">(15);
-  const [cookTime, setCookTime] = useState<number | "">(20);
-  const [servings, setServings] = useState<number | "">(2);
+  const [prepTime, setPrepTime] = useState<number | "">(0);
+  const [cookTime, setCookTime] = useState<number | "">(0);
+  const [servings, setServings] = useState<number | "">(0);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
 
-  // Ingredients Form
+  // Category Dropdown State (thay vì show ra 1 đống)
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [categorySearchQuery, setCategorySearchQuery] = useState("");
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Ingredients Form - Starts with 1 empty row, quantity = 0
   const [ingredients, setIngredients] = useState<IngredientRow[]>([
     {
       keyId: "init-1",
       ingredient_id: 0,
       name: "",
-      quantity: 200,
+      quantity: 0,
       unit: "g",
       note: "",
       is_optional: false,
       avg_price_per_unit: 0,
+      calories_per_100g: 0,
+      protein_per_100g: 0,
+      carb_per_100g: 0,
+      fat_per_100g: 0,
+      fiber_per_100g: 0,
     },
   ]);
 
-  // Instructions Form
-  const [steps, setSteps] = useState<string[]>([
-    "Sơ chế và rửa sạch các nguyên liệu tươi.",
-    "Bắc chảo/nồi lên bếp, cho một chút dầu và xào thơm.",
-    "Nêm nếm gia vị vừa miệng và thưởng thức khi còn nóng.",
-  ]);
+  // Instructions Form - Steps start empty
+  const [steps, setSteps] = useState<string[]>([""]);
 
   // UI States
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -112,9 +177,9 @@ export function CreateRecipeClient() {
   // Active searching ingredient dropdown
   const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const ingredientDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Load backend master data (ingredients & categories)
+  // Load backend master data (ingredients & categories) from Database
   useEffect(() => {
     let isMounted = true;
     async function loadMasterData() {
@@ -150,43 +215,98 @@ export function CreateRecipeClient() {
     };
   }, []);
 
-  // Close dropdown when clicked outside
+  // Close dropdowns when clicked outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (
+        ingredientDropdownRef.current &&
+        !ingredientDropdownRef.current.contains(e.target as Node)
+      ) {
         setActiveSearchIndex(null);
+      }
+      if (
+        categoryDropdownRef.current &&
+        !categoryDropdownRef.current.contains(e.target as Node)
+      ) {
+        setCategoryDropdownOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Filtered ingredients for autocomplete
+  // Filtered ingredients for autocomplete (chỉ gợi ý các nguyên liệu phù hợp với dietType đã chọn)
   const filteredSuggestions = useMemo(() => {
-    if (!searchQuery.trim()) return availableIngredients.slice(0, 10);
-    const q = searchQuery.toLowerCase();
-    return availableIngredients
-      .filter((item) => (item.ingredient_name || "").toLowerCase().includes(q))
-      .slice(0, 15);
-  }, [availableIngredients, searchQuery]);
+    // Lọc theo chế độ ăn chay trước: thuần chay thì không hiện trứng, sữa
+    const allowed = availableIngredients.filter((item) =>
+      isIngredientAllowedForDiet(item, dietType)
+    );
 
-  // Calculate live cost
+    if (!searchQuery.trim()) {
+      return allowed.slice(0, 15);
+    }
+    const q = normalizeText(searchQuery);
+    return allowed
+      .filter((item) => normalizeText(item.ingredient_name || "").includes(q))
+      .slice(0, 20);
+  }, [availableIngredients, searchQuery, dietType]);
+
+  // Categories filtered for category dropdown search
+  const filteredCategories = useMemo(() => {
+    if (!categorySearchQuery.trim()) return categories;
+    const q = normalizeText(categorySearchQuery);
+    return categories.filter((c) =>
+      normalizeText(c.category_name || "").includes(q)
+    );
+  }, [categories, categorySearchQuery]);
+
+  // Live estimated cost
   const estimatedCost = useMemo(() => {
     return ingredients.reduce((sum, item) => {
       if (!item.ingredient_id || !item.quantity) return sum;
       const price = Number(item.avg_price_per_unit || 0);
       const qty = Number(item.quantity || 0);
-      let cost = 0;
-      if (item.unit === "g") {
-        cost = (price / 1000) * qty;
-      } else {
-        cost = price * qty;
-      }
+      const cost = (price / 1000) * qty;
       return sum + Math.round(cost);
     }, 0);
   }, [ingredients]);
 
-  // Handle Ingredient Selection
+  // Dynamic Kcal and nutrition calculated based on input ingredients and grams
+  const nutrition = useMemo(() => {
+    let calories = 0;
+    let protein = 0;
+    let carbs = 0;
+    let fat = 0;
+    let fiber = 0;
+
+    for (const item of ingredients) {
+      if (!item.ingredient_id || !item.quantity || item.is_optional) continue;
+      const qty = Number(item.quantity) || 0;
+      const ratio = qty / 100;
+
+      calories += ratio * (Number(item.calories_per_100g) || 0);
+      protein += ratio * (Number(item.protein_per_100g) || 0);
+      carbs += ratio * (Number(item.carb_per_100g) || 0);
+      fat += ratio * (Number(item.fat_per_100g) || 0);
+      fiber += ratio * (Number(item.fiber_per_100g) || 0);
+    }
+
+    const numServings = Number(servings) > 0 ? Number(servings) : 1;
+    return {
+      totalCalories: Math.round(calories),
+      caloriesPerServing: Math.round(calories / numServings),
+      totalProtein: Math.round(protein * 10) / 10,
+      proteinPerServing: Math.round((protein / numServings) * 10) / 10,
+      totalCarbs: Math.round(carbs * 10) / 10,
+      carbsPerServing: Math.round((carbs / numServings) * 10) / 10,
+      totalFat: Math.round(fat * 10) / 10,
+      fatPerServing: Math.round((fat / numServings) * 10) / 10,
+      totalFiber: Math.round(fiber * 10) / 10,
+      fiberPerServing: Math.round((fiber / numServings) * 10) / 10,
+    };
+  }, [ingredients, servings]);
+
+  // Handle Ingredient Selection from DB suggestions
   const handleSelectIngredient = (index: number, selected: any) => {
     setIngredients((prev) => {
       const updated = [...prev];
@@ -194,8 +314,13 @@ export function CreateRecipeClient() {
         ...updated[index],
         ingredient_id: selected.ingredient_id,
         name: selected.ingredient_name,
-        unit: selected.unit || "g",
+        unit: "g",
         avg_price_per_unit: Number(selected.avg_price_per_unit || 0),
+        calories_per_100g: Number(selected.calories_per_100g || 0),
+        protein_per_100g: Number(selected.protein_per_100g || 0),
+        carb_per_100g: Number(selected.carb_per_100g || 0),
+        fat_per_100g: Number(selected.fat_per_100g || 0),
+        fiber_per_100g: Number(selected.fiber_per_100g || 0),
       };
       return updated;
     });
@@ -207,20 +332,48 @@ export function CreateRecipeClient() {
     setIngredients((prev) => [
       ...prev,
       {
-        keyId: `row-${Date.now()}`,
+        keyId: `row-${Date.now()}-${Math.random()}`,
         ingredient_id: 0,
         name: "",
-        quantity: 100,
+        quantity: 0,
         unit: "g",
         note: "",
         is_optional: false,
         avg_price_per_unit: 0,
+        calories_per_100g: 0,
+        protein_per_100g: 0,
+        carb_per_100g: 0,
+        fat_per_100g: 0,
+        fiber_per_100g: 0,
       },
     ]);
   };
 
   const handleRemoveIngredientRow = (index: number) => {
-    if (ingredients.length <= 1) return;
+    if (activeSearchIndex === index) {
+      setActiveSearchIndex(null);
+      setSearchQuery("");
+    }
+    if (ingredients.length <= 1) {
+      setIngredients([
+        {
+          keyId: `init-${Date.now()}`,
+          ingredient_id: 0,
+          name: "",
+          quantity: 0,
+          unit: "g",
+          note: "",
+          is_optional: false,
+          avg_price_per_unit: 0,
+          calories_per_100g: 0,
+          protein_per_100g: 0,
+          carb_per_100g: 0,
+          fat_per_100g: 0,
+          fiber_per_100g: 0,
+        },
+      ]);
+      return;
+    }
     setIngredients((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -230,7 +383,10 @@ export function CreateRecipeClient() {
   };
 
   const handleRemoveStep = (index: number) => {
-    if (steps.length <= 1) return;
+    if (steps.length <= 1) {
+      setSteps([""]);
+      return;
+    }
     setSteps((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -249,6 +405,37 @@ export function CreateRecipeClient() {
     );
   };
 
+  // Handle Reset Form to 0 / Empty
+  const handleResetForm = () => {
+    if (!window.confirm("Bạn có chắc muốn đặt lại toàn bộ form về ban đầu?")) return;
+    setTitle("");
+    setDescription("");
+    setImageUrl(SAMPLE_PRESET_IMAGES[0].url);
+    setPrepTime(0);
+    setCookTime(0);
+    setServings(0);
+    setSelectedCategoryIds([]);
+    setIngredients([
+      {
+        keyId: `init-${Date.now()}`,
+        ingredient_id: 0,
+        name: "",
+        quantity: 0,
+        unit: "g",
+        note: "",
+        is_optional: false,
+        avg_price_per_unit: 0,
+        calories_per_100g: 0,
+        protein_per_100g: 0,
+        carb_per_100g: 0,
+        fat_per_100g: 0,
+        fiber_per_100g: 0,
+      },
+    ]);
+    setSteps([""]);
+    setErrorMsg(null);
+  };
+
   // Handle Submit Form
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -265,8 +452,18 @@ export function CreateRecipeClient() {
     );
 
     if (validIngredients.length === 0) {
-      setErrorMsg("Vui lòng thêm ít nhất một nguyên liệu hợp lệ từ danh sách hệ thống.");
+      setErrorMsg("Vui lòng chọn ít nhất một nguyên liệu từ kho hệ thống và nhập số lượng (g) lớn hơn 0.");
       return;
+    }
+
+    // Kiểm tra tính tương thích giữa nguyên liệu đã chọn và chế độ ăn chay
+    for (const ing of validIngredients) {
+      if (!isIngredientAllowedForDiet(ing, dietType)) {
+        setErrorMsg(
+          `Nguyên liệu "${ing.name}" không phù hợp với chế độ ăn "${dietType}". Vui lòng đổi chế độ ăn hoặc bỏ nguyên liệu này.`
+        );
+        return;
+      }
     }
 
     const validSteps = steps.map((s) => s.trim()).filter((s) => s.length > 0);
@@ -284,9 +481,9 @@ export function CreateRecipeClient() {
       description: description.trim() || undefined,
       instructions: instructionsText,
       image_url: imageUrl.trim() || undefined,
-      prep_time: typeof prepTime === "number" ? prepTime : 15,
-      cook_time: typeof cookTime === "number" ? cookTime : 20,
-      servings: typeof servings === "number" ? servings : 2,
+      prep_time: Math.max(0, Number(prepTime) || 0),
+      cook_time: Math.max(0, Number(cookTime) || 0),
+      servings: Math.max(1, Number(servings) || 1),
       difficulty,
       meal_type: mealType,
       diet_type: dietType,
@@ -294,7 +491,7 @@ export function CreateRecipeClient() {
       ingredients: validIngredients.map((ing) => ({
         ingredient_id: ing.ingredient_id,
         quantity: Number(ing.quantity),
-        unit: ing.unit,
+        unit: ing.unit || "g",
         note: ing.note.trim() || undefined,
         is_optional: ing.is_optional,
       })),
@@ -317,9 +514,16 @@ export function CreateRecipeClient() {
     }
   };
 
-  // SUCCESS STATE MODAL
+  // Helper label for meal type
+  const mealTypeDisplay = useMemo(() => {
+    if (mealType === "breakfast") return "Bữa sáng";
+    if (mealType === "snack") return "Bữa phụ";
+    return "Trưa / Tối";
+  }, [mealType]);
+
+  // SUCCESS STATE VIEW
   if (successData) {
-    const isApproved = successData.status === "approved";
+    const isApproved = successData.status === "approved" || isActuallyAdmin;
     return (
       <AppShell showRightRail={false}>
         <div className="max-w-2xl mx-auto py-16 px-4">
@@ -330,19 +534,19 @@ export function CreateRecipeClient() {
 
             <div className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                {isApproved ? "Đã duyệt công khai" : "Đang chờ kiểm duyệt (Pending Review)"}
+                {isApproved ? "Đã duyệt công khai (APPROVED)" : "Đang chờ kiểm duyệt (Pending Review)"}
               </span>
               <h2 className="font-serif font-bold text-2xl sm:text-3xl text-stone-900">
-                🎉 Công thức &ldquo;{successData.title || title}&rdquo; đã được tạo thành công!
+                Công thức &ldquo;{successData.title || title}&rdquo; đã được tạo thành công!
               </h2>
               <p className="text-sm text-stone-600 max-w-lg mx-auto leading-relaxed">
                 {isApproved
-                  ? "Bạn đã tạo công thức thành công với quyền Quản trị viên. Công thức đã xuất hiện công khai trên thư viện!"
+                  ? "Bạn đã tạo công thức thành công với quyền Quản trị viên. Món ăn đã được tự động duyệt và đồng bộ ngay trên Thư viện công thức & Kế hoạch thực đơn!"
                   : "Cảm ơn bạn đã đóng góp công thức món chay cho VeggieHub! Công thức đang được chuyển tới Ban quản trị để kiểm duyệt trước khi đưa lên Thư viện công thức."}
               </p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-stone-50 border border-stone-100 text-xs text-stone-600 space-y-1.5 text-left max-w-md mx-auto">
+            <div className="p-4 rounded-2xl bg-stone-50 border border-stone-100 text-xs text-stone-600 space-y-2 text-left max-w-md mx-auto">
               <div className="flex justify-between">
                 <span className="text-stone-400">Mã công thức:</span>
                 <span className="font-mono font-bold text-stone-800">
@@ -356,7 +560,13 @@ export function CreateRecipeClient() {
                     isApproved ? "text-emerald-700" : "text-amber-700"
                   }`}
                 >
-                  {successData.status || "pending_review"}
+                  {successData.status || (isApproved ? "APPROVED" : "pending_review")}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-stone-400">Năng lượng ước tính:</span>
+                <span className="font-bold text-amber-700">
+                  {nutrition.totalCalories} kcal ({nutrition.caloriesPerServing} kcal/phần)
                 </span>
               </div>
               <div className="flex justify-between">
@@ -376,32 +586,29 @@ export function CreateRecipeClient() {
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              {isActuallyAdmin ? (
+                <Link
+                  href="/admin/recipes"
+                  className="px-6 py-2.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-sm"
+                >
+                  ← Về Quản trị công thức
+                </Link>
+              ) : null}
+
               <Link
                 href="/recipes"
-                className="px-6 py-2.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-sm"
+                className="px-6 py-2.5 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold transition-all"
               >
-                Về thư viện công thức
+                Xem trên Thư viện công thức
               </Link>
+
               <button
+                type="button"
                 onClick={() => {
                   setSuccessData(null);
-                  setTitle("");
-                  setDescription("");
-                  setSteps(["", "", ""]);
-                  setIngredients([
-                    {
-                      keyId: `new-${Date.now()}`,
-                      ingredient_id: 0,
-                      name: "",
-                      quantity: 100,
-                      unit: "g",
-                      note: "",
-                      is_optional: false,
-                      avg_price_per_unit: 0,
-                    },
-                  ]);
+                  handleResetForm();
                 }}
-                className="px-6 py-2.5 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition-all"
+                className="px-6 py-2.5 rounded-full border border-stone-200 text-stone-700 hover:bg-stone-50 text-xs font-bold transition-all cursor-pointer"
               >
                 Tạo thêm công thức khác
               </button>
@@ -413,28 +620,30 @@ export function CreateRecipeClient() {
   }
 
   return (
-    <AppShell showRightRail={false}>
-      <div className="max-w-6xl mx-auto py-6 sm:py-8 px-4 sm:px-6 space-y-8">
+    <AppShell showRightRail={false} fullWidth={true}>
+      <div className="max-w-[1440px] w-full mx-auto py-6 sm:py-8 px-2 sm:px-4 space-y-8">
         {/* Navigation Breadcrumb */}
         <div className="flex items-center justify-between">
           <Link
-            href="/recipes"
+            href={isActuallyAdmin ? "/admin/recipes" : "/recipes"}
             className="inline-flex items-center gap-2 text-xs font-semibold text-stone-600 hover:text-emerald-700 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Quay lại Thư viện công thức</span>
+            <span>
+              {isActuallyAdmin ? "Quay lại Quản trị công thức" : "Quay lại Thư viện công thức"}
+            </span>
           </Link>
 
-          {/* User Status Badge */}
+          {/* User / Admin Status Badge */}
           {isAuthenticated ? (
             <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-medium">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>
                 Đang đăng với tư cách:{" "}
                 <strong className="font-bold text-emerald-950">
-                  {user?.full_name || user?.email || "Member"}
+                  {user?.full_name || user?.email || "Quản trị viên VeggieHub"}
                 </strong>{" "}
-                ({isAdmin ? "Quản trị viên" : "Thành viên"})
+                ({isActuallyAdmin ? "Quản trị viên" : "Thành viên"})
               </span>
             </div>
           ) : (
@@ -443,7 +652,7 @@ export function CreateRecipeClient() {
               <span>
                 Bạn chưa đăng nhập.{" "}
                 <Link
-                  href="/login?redirect=/recipes/create"
+                  href="/login?redirect=/admin/recipes/create"
                   className="font-bold underline text-amber-950 hover:text-emerald-700"
                 >
                   Đăng nhập ngay
@@ -456,14 +665,15 @@ export function CreateRecipeClient() {
         {/* Page Title & Intro */}
         <div className="space-y-1">
           <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
-            ĐÓNG GÓP CỘNG ĐỒNG
+            {isActuallyAdmin ? "QUẢN TRỊ CÔNG THỨC HỆ THỐNG" : "ĐÓNG GÓP CỘNG ĐỒNG"}
           </span>
           <h1 className="font-serif font-bold text-2xl sm:text-3xl text-stone-900">
             Đăng công thức món chay mới
           </h1>
           <p className="text-xs sm:text-sm text-stone-500 max-w-2xl">
-            Chia sẻ những món chay thơm ngon, tốt cho sức khoẻ và môi trường. Công thức sẽ được
-            kiểm duyệt trước khi xuất hiện trên hệ thống VeggieHub.
+            {isActuallyAdmin
+              ? "Thêm công thức chuẩn vào hệ thống VeggieHub. Công thức tạo bởi Quản trị viên sẽ được tự động kích hoạt trạng thái ĐÃ DUYỆT (APPROVED) và hiển thị trực tiếp trên Thư viện công thức và Kế hoạch thực đơn."
+              : "Chia sẻ những món chay thơm ngon, tốt cho sức khoẻ và môi trường. Công thức sẽ được kiểm duyệt trước khi xuất hiện trên hệ thống VeggieHub."}
           </p>
         </div>
 
@@ -473,16 +683,16 @@ export function CreateRecipeClient() {
           <div className="space-y-0.5 leading-relaxed">
             <span className="font-bold text-emerald-900">Quy trình kiểm duyệt công thức:</span>
             <p className="text-stone-600">
-              {isAdmin
-                ? "👑 Tài khoản Admin: Công thức tạo bởi quản trị viên sẽ được tự động kích hoạt trạng thái APPROVED."
-                : "💡 Công thức của bạn sẽ được lưu ở trạng thái PENDING_REVIEW để ban quản trị kiểm tra tính an toàn dinh dưỡng và tiêu chuẩn chay. Sau khi được duyệt, món ăn sẽ hiển thị công khai trên toàn hệ thống."}
+              {isActuallyAdmin
+                ? "Tài khoản Quản trị viên: Công thức tạo bởi quản trị viên sẽ được tự động kích hoạt trạng thái APPROVED."
+                : "Công thức của bạn sẽ được lưu ở trạng thái PENDING_REVIEW để ban quản trị kiểm tra tính an toàn dinh dưỡng và tiêu chuẩn chay. Sau khi được duyệt, món ăn sẽ hiển thị công khai trên toàn hệ thống."}
             </p>
           </div>
         </div>
 
         {/* Error Alert if any */}
         {errorMsg && (
-          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2.5 animate-shake">
+          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2.5">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
             <span className="font-medium">{errorMsg}</span>
           </div>
@@ -490,15 +700,26 @@ export function CreateRecipeClient() {
 
         {/* 2-Column Form Layout: Inputs on Left, Live Preview on Right */}
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* LEFT COLUMN: Main Form Inputs (7 cols) */}
-          <div className="lg:col-span-7 space-y-6">
+          {/* LEFT COLUMN: Main Form Inputs (8 cols) */}
+          <div className="lg:col-span-8 space-y-6">
             {/* SECTION 1: Basic Information */}
             <div className="p-6 rounded-3xl bg-white border border-stone-200/80 shadow-xs space-y-5">
-              <div className="flex items-center gap-2 pb-3 border-b border-stone-100">
-                <ChefHat className="w-5 h-5 text-emerald-700" />
-                <h3 className="font-serif font-bold text-base text-stone-900">
-                  1. Thông tin chung món ăn
-                </h3>
+              <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+                <div className="flex items-center gap-2">
+                  <ChefHat className="w-5 h-5 text-emerald-700" />
+                  <h3 className="font-serif font-bold text-base text-stone-900">
+                    1. Thông tin chung món ăn
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleResetForm}
+                  className="text-stone-400 hover:text-stone-700 text-xs flex items-center gap-1 font-medium cursor-pointer"
+                  title="Đặt lại form"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Làm mới</span>
+                </button>
               </div>
 
               {/* Title */}
@@ -571,38 +792,46 @@ export function CreateRecipeClient() {
                 </div>
               </div>
 
-              {/* Meal Type & Diet Type */}
+              {/* Meal Type (Trưa / Tối gộp thành 1) & Diet Type (Lọc nguyên liệu tương ứng) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                {/* Gộp Trưa/Tối thành 1 buổi */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-stone-700">Bữa ăn phù hợp</label>
+                  <label className="text-xs font-bold text-stone-700">
+                    Bữa ăn phù hợp
+                  </label>
                   <select
                     value={mealType}
                     onChange={(e) => setMealType(e.target.value)}
                     className="w-full px-3.5 py-2.5 text-xs rounded-2xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:outline-hidden focus:border-emerald-600 font-medium text-stone-800"
                   >
                     <option value="breakfast">Bữa sáng (Breakfast)</option>
-                    <option value="lunch">Bữa trưa (Lunch)</option>
-                    <option value="dinner">Bữa tối (Dinner)</option>
+                    <option value="any">Bữa trưa / tối (Trưa & Tối)</option>
                     <option value="snack">Bữa phụ / Ăn vặt (Snack)</option>
                   </select>
                 </div>
 
+                {/* Chế độ ăn chay (Rule: Lọc bỏ trứng & sữa nếu thuần chay) */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-stone-700">Chế độ ăn chay</label>
+                  <label className="text-xs font-bold text-stone-700 flex items-center justify-between">
+                    <span>Chế độ ăn chay</span>
+                    <span className="text-[10px] text-emerald-700 font-semibold">
+                      {dietType === "vegan" ? "Không trứng & sữa" : dietType === "lacto" ? "Có sữa" : dietType === "ovo" ? "Có trứng" : "Trứng & sữa"}
+                    </span>
+                  </label>
                   <select
                     value={dietType}
                     onChange={(e) => setDietType(e.target.value)}
                     className="w-full px-3.5 py-2.5 text-xs rounded-2xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:outline-hidden focus:border-emerald-600 font-medium text-stone-800"
                   >
-                    <option value="vegan">Thuần chay (Vegan)</option>
-                    <option value="lacto">Chay có sữa (Lacto)</option>
-                    <option value="ovo">Chay có trứng (Ovo)</option>
-                    <option value="ovo_lacto">Chay có trứng & sữa (Lacto-Ovo)</option>
+                    <option value="vegan">Thuần chay (Vegan — Không trứng & sữa)</option>
+                    <option value="lacto">Chay có sữa (Lacto — Dùng sữa, không trứng)</option>
+                    <option value="ovo">Chay có trứng (Ovo — Dùng trứng, không sữa)</option>
+                    <option value="ovo_lacto">Chay trứng & sữa (Lacto-Ovo)</option>
                   </select>
                 </div>
               </div>
 
-              {/* Time, Servings & Difficulty */}
+              {/* Time, Servings & Difficulty - Unfilled numeric values default to 0 */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-stone-500 uppercase">
@@ -611,8 +840,15 @@ export function CreateRecipeClient() {
                   <input
                     type="number"
                     min="0"
-                    value={prepTime}
-                    onChange={(e) => setPrepTime(e.target.value ? Number(e.target.value) : "")}
+                    value={prepTime === "" ? "" : prepTime}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setPrepTime(v === "" ? "" : Math.max(0, Number(v)));
+                    }}
+                    onBlur={() => {
+                      if (prepTime === "") setPrepTime(0);
+                    }}
+                    placeholder="0"
                     className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:border-emerald-600 font-bold text-stone-800 text-center"
                   />
                 </div>
@@ -624,8 +860,15 @@ export function CreateRecipeClient() {
                   <input
                     type="number"
                     min="0"
-                    value={cookTime}
-                    onChange={(e) => setCookTime(e.target.value ? Number(e.target.value) : "")}
+                    value={cookTime === "" ? "" : cookTime}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setCookTime(v === "" ? "" : Math.max(0, Number(v)));
+                    }}
+                    onBlur={() => {
+                      if (cookTime === "") setCookTime(0);
+                    }}
+                    placeholder="0"
                     className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:border-emerald-600 font-bold text-stone-800 text-center"
                   />
                 </div>
@@ -636,9 +879,16 @@ export function CreateRecipeClient() {
                   </label>
                   <input
                     type="number"
-                    min="1"
-                    value={servings}
-                    onChange={(e) => setServings(e.target.value ? Number(e.target.value) : "")}
+                    min="0"
+                    value={servings === "" ? "" : servings}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setServings(v === "" ? "" : Math.max(0, Number(v)));
+                    }}
+                    onBlur={() => {
+                      if (servings === "") setServings(0);
+                    }}
+                    placeholder="0"
                     className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:border-emerald-600 font-bold text-stone-800 text-center"
                   />
                 </div>
@@ -659,195 +909,327 @@ export function CreateRecipeClient() {
                 </div>
               </div>
 
-              {/* Categories */}
+              {/* Danh mục món ăn - Dạng Dropdown gọn gàng thay vì show ra 1 đống */}
               {categories.length > 0 && (
-                <div className="space-y-2 pt-2 border-t border-stone-100">
-                  <label className="text-xs font-bold text-stone-700 block">
-                    Danh mục món ăn
+                <div className="space-y-2 pt-2 border-t border-stone-100 relative" ref={categoryDropdownRef}>
+                  <label className="text-xs font-bold text-stone-700 flex items-center justify-between">
+                    <span>Danh mục món ăn</span>
+                    <span className="text-[11px] font-medium text-stone-500">
+                      {selectedCategoryIds.length > 0
+                        ? `Đã chọn: ${selectedCategoryIds.length} danh mục`
+                        : "Chưa chọn danh mục"}
+                    </span>
                   </label>
-                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
-                    {categories.map((cat) => {
-                      const isSelected = selectedCategoryIds.includes(cat.category_id);
-                      return (
+
+                  {/* Dropdown trigger button */}
+                  <div
+                    onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
+                    className="w-full px-3.5 py-2.5 text-xs rounded-2xl border border-stone-200 bg-stone-50/50 hover:bg-stone-50 focus:border-emerald-600 flex items-center justify-between cursor-pointer transition-colors"
+                  >
+                    <div className="flex-1 truncate pr-2 text-stone-700 font-medium">
+                      {selectedCategoryIds.length === 0 ? (
+                        <span className="text-stone-400">Nhấn để chọn danh mục món ăn...</span>
+                      ) : (
+                        <span>
+                          {selectedCategoryIds
+                            .map((id) => categories.find((c) => c.category_id === id)?.category_name)
+                            .filter(Boolean)
+                            .join(", ")}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown
+                      className={`w-4 h-4 text-stone-400 transition-transform ${
+                        categoryDropdownOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </div>
+
+                  {/* Dropdown list panel */}
+                  {categoryDropdownOpen && (
+                    <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-stone-200 rounded-2xl shadow-xl p-3 space-y-2 animate-in fade-in-50">
+                      {/* Search box inside dropdown */}
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={categorySearchQuery}
+                          onChange={(e) => setCategorySearchQuery(e.target.value)}
+                          placeholder="Tìm danh mục món..."
+                          className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-stone-200 bg-stone-50/60 focus:bg-white focus:border-emerald-600 outline-none"
+                        />
+                        <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+
+                      {/* Categories checkable items list */}
+                      <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
+                        {filteredCategories.length > 0 ? (
+                          filteredCategories.map((cat) => {
+                            const isSelected = selectedCategoryIds.includes(cat.category_id);
+                            const count = Number(cat.recipe_count ?? 0);
+                            return (
+                              <div
+                                key={cat.category_id}
+                                onClick={() => handleToggleCategory(cat.category_id)}
+                                className={`px-3 py-2 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-between transition-colors ${
+                                  isSelected
+                                    ? "bg-emerald-50 text-emerald-950 font-semibold"
+                                    : "hover:bg-stone-50 text-stone-700"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <div
+                                    className={`w-4 h-4 rounded-md border flex items-center justify-center transition-colors ${
+                                      isSelected
+                                        ? "bg-emerald-700 border-emerald-700 text-white"
+                                        : "border-stone-300 bg-white"
+                                    }`}
+                                  >
+                                    {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                  </div>
+                                  <span>{cat.category_name}</span>
+                                </div>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 font-mono">
+                                  {count} món
+                                </span>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="p-3 text-center text-xs text-stone-400">
+                            Không tìm thấy danh mục phù hợp
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Quick actions at bottom of dropdown */}
+                      <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-[11px]">
                         <button
                           type="button"
-                          key={cat.category_id}
-                          onClick={() => handleToggleCategory(cat.category_id)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer border ${
-                            isSelected
-                              ? "bg-emerald-700 text-white border-emerald-700 font-semibold"
-                              : "bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100"
-                          }`}
+                          onClick={() => setSelectedCategoryIds([])}
+                          className="text-stone-400 hover:text-stone-700 font-medium cursor-pointer"
                         >
-                          {cat.category_name}
+                          Bỏ chọn tất cả
                         </button>
-                      );
-                    })}
-                  </div>
+                        <button
+                          type="button"
+                          onClick={() => setCategoryDropdownOpen(false)}
+                          className="px-3 py-1 bg-emerald-700 text-white font-semibold rounded-lg hover:bg-emerald-800 cursor-pointer"
+                        >
+                          Xong
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Selected Category Tags below dropdown */}
+                  {selectedCategoryIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {selectedCategoryIds.map((id) => {
+                        const cat = categories.find((c) => c.category_id === id);
+                        if (!cat) return null;
+                        return (
+                          <span
+                            key={id}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100/70 text-emerald-900 text-[11px] font-semibold border border-emerald-200"
+                          >
+                            <span>{cat.category_name}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleCategory(id)}
+                              className="text-emerald-700 hover:text-rose-600 cursor-pointer"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* SECTION 2: Ingredients */}
+            {/* SECTION 2: Ingredients & Live Kcal Nutrition (THU GỌN 1 DÒNG) */}
             <div className="p-6 rounded-3xl bg-white border border-stone-200/80 shadow-xs space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-stone-100">
                 <div className="flex items-center gap-2">
                   <UtensilsCrossed className="w-5 h-5 text-emerald-700" />
                   <h3 className="font-serif font-bold text-base text-stone-900">
-                    2. Thành phần nguyên liệu
+                    2. Thành phần nguyên liệu & Dinh dưỡng
                   </h3>
                 </div>
-                <span className="text-xs text-stone-500 font-medium">
-                  {ingredients.filter((i) => i.ingredient_id > 0).length} nguyên liệu đã chọn
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-amber-700 flex items-center gap-1 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                    <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                    <span>{nutrition.totalCalories} kcal</span>
+                  </span>
+                  <span className="text-xs text-stone-500 font-medium">
+                    {ingredients.filter((i) => i.ingredient_id > 0).length} nguyên liệu
+                  </span>
+                </div>
               </div>
 
-              <p className="text-xs text-stone-500">
-                Gõ tên để tìm và chọn nguyên liệu chuẩn từ kho nguyên liệu VeggieHub. Hệ thống sẽ tự
-                động liên kết giá thị trường để tính chi phí ước tính.
-              </p>
+              <div className="flex items-center justify-between text-xs text-stone-500">
+                <p>
+                  Nguyên liệu hiển thị được tự động lọc theo chế độ ăn <strong>{dietType}</strong> (thuần chay sẽ không có trứng & sữa).
+                </p>
+              </div>
 
-              {/* Ingredients List */}
-              <div className="space-y-3">
-                {ingredients.map((item, idx) => (
-                  <div
-                    key={item.keyId}
-                    className="p-3.5 rounded-2xl bg-stone-50/70 border border-stone-200/80 space-y-2 relative"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">
-                        Nguyên liệu #{idx + 1}
-                      </span>
-                      {ingredients.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveIngredientRow(idx)}
-                          className="text-stone-400 hover:text-rose-600 transition-colors p-1"
-                          title="Xóa nguyên liệu"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
+              {/* Table Header Row (Desktop) */}
+              <div className="hidden sm:grid grid-cols-[32px_1fr_96px_48px_96px_80px_36px] gap-2.5 px-3 py-2 text-[11px] font-bold text-stone-400 uppercase tracking-wider border-b border-stone-100 items-center">
+                <div className="text-center">STT</div>
+                <div>Tên nguyên liệu (Gợi ý DB)</div>
+                <div className="text-center">Số lượng</div>
+                <div className="text-center">Đơn vị</div>
+                <div className="text-center">Năng lượng</div>
+                <div className="text-center">Tùy chọn</div>
+                <div className="text-center">Xóa</div>
+              </div>
 
-                    <div className="grid grid-cols-12 gap-2.5 items-start">
-                      {/* Ingredient search / name (6 cols) */}
-                      <div className="col-span-12 sm:col-span-6 relative">
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={item.name}
-                            onFocus={() => {
-                              setActiveSearchIndex(idx);
-                              setSearchQuery(item.name);
-                            }}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setIngredients((prev) => {
-                                const updated = [...prev];
-                                updated[idx] = { ...updated[idx], name: val };
-                                return updated;
-                              });
-                              setActiveSearchIndex(idx);
-                              setSearchQuery(val);
-                            }}
-                            placeholder="Gõ để tìm (ví dụ: Đậu hũ, Bún tươi, Cà rốt)..."
-                            className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 font-medium text-stone-800"
-                          />
-                          <Search className="w-3.5 h-3.5 text-stone-400 absolute right-3 top-2.5 pointer-events-none" />
-                        </div>
+              {/* Ingredients List - Gọn gàng trên 1 dòng duy nhất, căn chỉnh đều 100% */}
+              <div className="space-y-2" ref={ingredientDropdownRef}>
+                {ingredients.map((item, idx) => {
+                  const rowKcal = Math.round(
+                    ((Number(item.quantity) || 0) / 100) * (Number(item.calories_per_100g) || 0)
+                  );
+                  const rowCost = Math.round(
+                    ((Number(item.quantity) || 0) / 1000) * (Number(item.avg_price_per_unit) || 0)
+                  );
 
-                        {/* Dropdown Suggestions */}
+                  return (
+                    <div
+                      key={item.keyId}
+                      className="grid grid-cols-[32px_1fr_96px_48px_96px_80px_36px] gap-2.5 p-2 rounded-2xl bg-stone-50/70 border border-stone-200/80 hover:border-emerald-300 transition-colors items-center"
+                    >
+                      {/* 1. STT */}
+                      <div className="w-7 h-7 rounded-lg bg-stone-200/80 text-stone-600 font-bold text-[11px] flex items-center justify-center shrink-0 mx-auto">
+                        {idx + 1}
+                      </div>
+
+                      {/* 2. Tên nguyên liệu (Autocomplete from DB) */}
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={item.name}
+                          onFocus={() => {
+                            setActiveSearchIndex(idx);
+                            setSearchQuery(item.name);
+                          }}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setIngredients((prev) => {
+                              const updated = [...prev];
+                              updated[idx] = {
+                                ...updated[idx],
+                                name: val,
+                                ...(val.trim() === ""
+                                  ? {
+                                      ingredient_id: 0,
+                                      avg_price_per_unit: 0,
+                                      calories_per_100g: 0,
+                                      protein_per_100g: 0,
+                                      carb_per_100g: 0,
+                                      fat_per_100g: 0,
+                                      fiber_per_100g: 0,
+                                    }
+                                  : {}),
+                              };
+                              return updated;
+                            });
+                            setActiveSearchIndex(idx);
+                            setSearchQuery(val);
+                          }}
+                          placeholder="Gõ để tìm nguyên liệu..."
+                          className="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 font-medium text-stone-800"
+                        />
+                        <Search className="w-3.5 h-3.5 text-stone-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+
+                        {/* Dropdown Suggestions from DB */}
                         {activeSearchIndex === idx && (
-                          <div
-                            ref={dropdownRef}
-                            className="absolute z-20 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-stone-200 rounded-2xl shadow-lg p-1.5 space-y-1"
-                          >
+                          <div className="absolute z-20 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-stone-200 rounded-2xl shadow-xl p-1.5 space-y-1">
                             {filteredSuggestions.length > 0 ? (
                               filteredSuggestions.map((sug) => (
                                 <div
                                   key={sug.ingredient_id}
                                   onClick={() => handleSelectIngredient(idx, sug)}
-                                  className="px-3 py-1.5 text-xs rounded-xl hover:bg-emerald-50 hover:text-emerald-900 cursor-pointer flex items-center justify-between transition-colors"
+                                  className="px-3 py-1.5 text-xs rounded-xl hover:bg-emerald-50 hover:text-emerald-950 cursor-pointer flex items-center justify-between transition-colors border-b border-stone-50 last:border-0"
                                 >
-                                  <span className="font-semibold">{sug.ingredient_name}</span>
-                                  <span className="text-[10px] text-stone-400 font-mono">
-                                    {sug.unit} •{" "}
-                                    {Number(sug.avg_price_per_unit || 0).toLocaleString("vi-VN")} đ/
-                                    {sug.unit}
-                                  </span>
+                                  <div>
+                                    <span className="font-semibold block text-stone-900">
+                                      {sug.ingredient_name}
+                                    </span>
+                                    <span className="text-[10px] text-amber-700 font-medium">
+                                      {sug.calories_per_100g || 0} kcal/100g
+                                    </span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="text-[11px] font-bold text-emerald-800 block">
+                                      {Number(sug.avg_price_per_unit || 0).toLocaleString("vi-VN")} đ/kg
+                                    </span>
+                                    <span className="text-[10px] text-stone-400">Đơn vị: g</span>
+                                  </div>
                                 </div>
                               ))
                             ) : (
                               <div className="p-3 text-center text-xs text-stone-400">
-                                Không tìm thấy nguyên liệu phù hợp
+                                Không tìm thấy nguyên liệu (hoặc không phù hợp với chế độ {dietType})
                               </div>
                             )}
                           </div>
                         )}
                       </div>
 
-                      {/* Quantity (3 cols) */}
-                      <div className="col-span-6 sm:col-span-3">
+                      {/* 3. Khối lượng */}
+                      <div>
                         <input
                           type="number"
-                          min="0.1"
+                          min="0"
                           step="any"
-                          value={item.quantity}
+                          value={item.quantity === "" ? "" : item.quantity}
                           onChange={(e) => {
-                            const val = e.target.value ? Number(e.target.value) : "";
+                            const val = e.target.value === "" ? "" : Math.max(0, Number(e.target.value));
                             setIngredients((prev) => {
                               const updated = [...prev];
                               updated[idx] = { ...updated[idx], quantity: val };
                               return updated;
                             });
                           }}
-                          placeholder="Số lượng"
-                          className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 font-semibold text-stone-800 text-center"
-                        />
-                      </div>
-
-                      {/* Unit (3 cols) */}
-                      <div className="col-span-6 sm:col-span-3">
-                        <input
-                          type="text"
-                          value={item.unit}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setIngredients((prev) => {
-                              const updated = [...prev];
-                              updated[idx] = { ...updated[idx], unit: val };
-                              return updated;
-                            });
+                          onBlur={() => {
+                            if (item.quantity === "") {
+                              setIngredients((prev) => {
+                                const updated = [...prev];
+                                updated[idx] = { ...updated[idx], quantity: 0 };
+                                return updated;
+                              });
+                            }
                           }}
-                          placeholder="Đơn vị (g, kg, quả...)"
-                          className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 font-medium text-stone-800 text-center"
+                          placeholder="0"
+                          className="w-full px-2 py-1.5 text-xs rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 font-bold text-stone-800 text-center"
                         />
                       </div>
 
-                      {/* Note / preparation (9 cols) */}
-                      <div className="col-span-9 sm:col-span-9">
-                        <input
-                          type="text"
-                          value={item.note}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setIngredients((prev) => {
-                              const updated = [...prev];
-                              updated[idx] = { ...updated[idx], note: val };
-                              return updated;
-                            });
-                          }}
-                          placeholder="Ghi chú (tùy chọn: thái lát, băm nhỏ, chiên vàng...)"
-                          className="w-full px-3 py-1.5 text-[11px] rounded-xl border border-stone-200/80 bg-white/70 focus:outline-hidden focus:border-emerald-600 text-stone-600"
-                        />
+                      {/* 4. Đơn vị */}
+                      <div className="text-center text-xs font-semibold text-stone-500 bg-stone-100/80 py-1.5 rounded-xl border border-stone-200 select-none">
+                        g
                       </div>
 
-                      {/* Is Optional checkbox (3 cols) */}
-                      <div className="col-span-3 sm:col-span-3 flex items-center justify-end gap-1.5 pt-1">
-                        <label className="text-[11px] text-stone-500 cursor-pointer select-none">
-                          Tùy chọn
-                        </label>
+                      {/* 5. Năng lượng */}
+                      <div className="text-center">
+                        {item.ingredient_id > 0 ? (
+                          <span
+                            className="text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-1 rounded-lg inline-flex items-center gap-0.5 whitespace-nowrap"
+                            title={`Chi phí ước tính: ~${rowCost.toLocaleString("vi-VN")} đ`}
+                          >
+                            <Flame className="w-2.5 h-2.5 text-amber-600" />
+                            {rowKcal} kcal
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-stone-400 font-mono">0 kcal</span>
+                        )}
+                      </div>
+
+                      {/* 6. Tùy chọn */}
+                      <div className="flex items-center justify-center gap-1">
                         <input
                           type="checkbox"
                           checked={item.is_optional}
@@ -859,12 +1241,30 @@ export function CreateRecipeClient() {
                               return updated;
                             });
                           }}
-                          className="rounded text-emerald-600 focus:ring-emerald-500"
+                          className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                          title="Đánh dấu nguyên liệu tùy chọn"
                         />
+                        <span className="text-[10px] text-stone-400 select-none hidden sm:inline">Tùy chọn</span>
+                      </div>
+
+                      {/* 7. Nút Xóa */}
+                      <div className="flex items-center justify-center">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveIngredientRow(idx)}
+                          className="text-stone-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                          title={
+                            ingredients.length > 1
+                              ? "Xóa dòng nguyên liệu này"
+                              : "Xóa / Làm sạch nguyên liệu đã chọn"
+                          }
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Add ingredient button */}
@@ -876,9 +1276,58 @@ export function CreateRecipeClient() {
                 <Plus className="w-4 h-4" />
                 <span>Thêm dòng nguyên liệu</span>
               </button>
+
+              {/* Dynamic Kcal & Nutrition Breakdown Card */}
+              <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Flame className="w-4 h-4 text-amber-600 fill-amber-600" />
+                    <span className="text-xs font-bold text-amber-950 uppercase tracking-wider">
+                      Dinh dưỡng & Năng lượng tính tự động
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-black text-amber-800 bg-amber-100/90 px-2.5 py-0.5 rounded-full">
+                    {nutrition.totalCalories} kcal tổng món
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
+                  <div className="p-2.5 rounded-xl bg-white border border-amber-100 shadow-2xs">
+                    <span className="text-[10px] text-stone-500 font-medium block">Năng lượng / phần</span>
+                    <span className="text-sm font-black text-amber-600">
+                      {nutrition.caloriesPerServing} <span className="text-[10px] font-normal text-stone-500">kcal</span>
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white border border-amber-100 shadow-2xs">
+                    <span className="text-[10px] text-stone-500 font-medium block">Chất đạm (Protein)</span>
+                    <span className="text-sm font-black text-emerald-700">
+                      {nutrition.totalProtein} <span className="text-[10px] font-normal text-stone-500">g</span>
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white border border-amber-100 shadow-2xs">
+                    <span className="text-[10px] text-stone-500 font-medium block">Tinh bột (Carbs)</span>
+                    <span className="text-sm font-black text-blue-700">
+                      {nutrition.totalCarbs} <span className="text-[10px] font-normal text-stone-500">g</span>
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white border border-amber-100 shadow-2xs">
+                    <span className="text-[10px] text-stone-500 font-medium block">Chất béo (Fat)</span>
+                    <span className="text-sm font-black text-rose-700">
+                      {nutrition.totalFat} <span className="text-[10px] font-normal text-stone-500">g</span>
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-stone-500 italic">
+                  * Lượng calo (kcal) và các chỉ số dinh dưỡng được tự động tính toán dựa trên khối lượng (g) nguyên liệu bạn chọn từ cơ sở dữ liệu VeggieHub.
+                </p>
+              </div>
             </div>
 
-            {/* SECTION 3: Instructions */}
+            {/* SECTION 3: Instructions - Starts with empty steps */}
             <div className="p-6 rounded-3xl bg-white border border-stone-200/80 shadow-xs space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-stone-100">
                 <div className="flex items-center gap-2">
@@ -888,7 +1337,7 @@ export function CreateRecipeClient() {
                   </h3>
                 </div>
                 <span className="text-xs text-stone-500 font-medium">
-                  {steps.filter((s) => s.trim().length > 0).length} bước
+                  {steps.filter((s) => s.trim().length > 0).length} bước đã nhập
                 </span>
               </div>
 
@@ -903,20 +1352,18 @@ export function CreateRecipeClient() {
                         rows={2}
                         value={step}
                         onChange={(e) => handleStepChange(idx, e.target.value)}
-                        placeholder={`Mô tả bước ${idx + 1}...`}
+                        placeholder={`Mô tả bước ${idx + 1} (để trống nếu chưa nhập)...`}
                         className="w-full px-3.5 py-2 text-xs rounded-2xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:outline-hidden focus:border-emerald-600 transition-all font-medium text-stone-800 resize-none"
                       />
                     </div>
-                    {steps.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveStep(idx)}
-                        className="text-stone-400 hover:text-rose-600 p-2 transition-colors mt-0.5"
-                        title="Xóa bước này"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveStep(idx)}
+                      className="text-stone-400 hover:text-rose-600 p-2 transition-colors mt-0.5 cursor-pointer"
+                      title={steps.length > 1 ? "Xóa bước này" : "Xóa / Làm trống bước này"}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -932,16 +1379,16 @@ export function CreateRecipeClient() {
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Live Preview Card & Action Bar (5 cols) */}
-          <div className="lg:col-span-5 space-y-6 sticky top-6">
+          {/* RIGHT COLUMN: Live Preview Card & Action Bar (4 cols) */}
+          <div className="lg:col-span-4 space-y-6 sticky top-6">
             {/* Live Recipe Card Preview */}
             <div className="p-6 rounded-3xl bg-white border border-stone-200/80 shadow-sm space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-stone-100">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Xem trước hiển thị (Live Preview)
                 </span>
-                <span className="text-[10px] px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 font-bold border border-amber-200">
-                  {isAdmin ? "Sẽ duyệt (APPROVED)" : "Chờ duyệt (PENDING)"}
+                <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 font-bold border border-emerald-200">
+                  {isActuallyAdmin ? "Sẽ duyệt (APPROVED)" : "Chờ duyệt (PENDING)"}
                 </span>
               </div>
 
@@ -961,8 +1408,8 @@ export function CreateRecipeClient() {
                     </div>
                   )}
                   <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-700 text-white shadow-xs">
-                      {mealType}
+                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-700 text-white shadow-xs uppercase">
+                      {mealTypeDisplay}
                     </span>
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/90 backdrop-blur-md text-stone-800 border border-white/50">
                       {dietType}
@@ -986,11 +1433,16 @@ export function CreateRecipeClient() {
 
                     <div className="flex items-center gap-1 text-stone-500">
                       <Users className="w-3.5 h-3.5 text-violet-600" />
-                      <span>{servings || 1} người</span>
+                      <span>{Number(servings) || 0} người</span>
+                    </div>
+
+                    <div className="flex items-center gap-1 font-bold text-amber-700">
+                      <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                      <span>{nutrition.caloriesPerServing || 0} kcal</span>
                     </div>
 
                     <div className="font-bold text-emerald-800">
-                      {estimatedCost > 0 ? `${estimatedCost.toLocaleString("vi-VN")} đ` : "Ước tính giá"}
+                      {estimatedCost > 0 ? `${estimatedCost.toLocaleString("vi-VN")} đ` : "0 đ"}
                     </div>
                   </div>
                 </div>
@@ -1010,13 +1462,24 @@ export function CreateRecipeClient() {
                     {steps.filter((s) => s.trim().length > 0).length} bước
                   </span>
                 </div>
+                <div className="flex items-center justify-between text-stone-700">
+                  <span>Tổng năng lượng món ăn:</span>
+                  <span className="font-bold text-amber-800">
+                    {nutrition.totalCalories} kcal ({nutrition.caloriesPerServing} kcal/phần)
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-stone-700">
+                  <span>Chỉ số dinh dưỡng:</span>
+                  <span className="font-medium text-stone-800">
+                    {nutrition.totalProtein}g đạm • {nutrition.totalCarbs}g carbs • {nutrition.totalFat}g béo
+                  </span>
+                </div>
                 <div className="flex items-center justify-between text-emerald-950 font-bold pt-1 border-t border-emerald-200/60 text-sm">
                   <span>Chi phí nguyên liệu ước tính:</span>
                   <span>{estimatedCost.toLocaleString("vi-VN")} đ</span>
                 </div>
                 <p className="text-[10px] text-stone-400 italic">
-                  * Hệ thống sẽ tự động tính toán dinh dưỡng chi tiết (Calories, Protein, Carbs, Fat,
-                  Fiber) ngay khi lưu công thức vào máy chủ.
+                  * Năng lượng (kcal) và chi phí được tính toán tự động dựa trên nguyên liệu và khối lượng bạn chọn từ hệ thống.
                 </p>
               </div>
 
@@ -1032,13 +1495,15 @@ export function CreateRecipeClient() {
                   ) : (
                     <>
                       <Send className="w-4 h-4" />
-                      <span>{isAdmin ? "Tạo & Duyệt công thức (Admin)" : "Gửi duyệt công thức (Member)"}</span>
+                      <span>{isActuallyAdmin ? "Tạo & Phê duyệt công thức ngay (Admin)" : "Gửi duyệt công thức (Member)"}</span>
                     </>
                   )}
                 </button>
 
                 <p className="text-center text-[11px] text-stone-400">
-                  Nhấn gửi đồng nghĩa bạn đồng ý với tiêu chuẩn cộng đồng VeggieHub.
+                  {isActuallyAdmin
+                    ? "Công thức tạo bởi Quản trị viên sẽ được tự động kích hoạt trạng thái APPROVED."
+                    : "Nhấn gửi đồng nghĩa bạn đồng ý với tiêu chuẩn cộng đồng VeggieHub."}
                 </p>
               </div>
             </div>

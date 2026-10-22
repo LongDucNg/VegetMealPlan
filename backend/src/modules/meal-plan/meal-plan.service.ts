@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, Repository, DataSource } from 'typeorm';
 
 import { MealPlanProfile } from './entities/meal-plan-profile.entity';
 import { GenerateForSomeoneDto } from './dto/generate-for-someone.dto';
@@ -42,6 +42,7 @@ import { UpdateMyMealPlanDto } from './dto/update-my-meal-plan.dto';
 import { ValidateMealPlanDto } from './dto/validate-meal-plan.dto';
 import { UpdateMealSlotDto } from './dto/update-meal-slot.dto';
 import { GenerateMealPlanDto } from './dto/generate-meal-plan.dto';
+import { IngredientService } from '../ingredient/ingredient.service';
 
 interface BudgetTracker {
   remaining: number;
@@ -96,6 +97,8 @@ export class MealPlanService {
     private readonly profileAllergyRepo: Repository<ProfileAllergy>,
 
     private readonly subscriptionService: SubscriptionService,
+    private readonly ingredientService: IngredientService,
+    private readonly dataSource: DataSource,
   ) { }
 
   // =========================================================
@@ -415,13 +418,13 @@ export class MealPlanService {
         }
 
         // Đánh giá điểm độ phù hợp của món ăn:
-        // 1. So khớp calo sau khi tính tỷ lệ khẩu phần khả dĩ (0.6x - 1.8x).
-        // 2. Phạt mạnh các món đã dùng trước đó (timesUsed * 5000) để ưu tiên tuyệt đối món chưa dùng, chống lặp món.
-        // 3. Phạt món vừa ăn gần đây (cùng ngày hoặc 1-2 ngày trước) để tránh ăn liên tiếp.
-        // 4. Jitter nhẹ để phân tán đa dạng giữa các món có điểm số tương đương.
+        // 1. So khớp calo sau khi tính tỷ lệ khẩu phần khả dĩ (0.6x - 3.0x tuỳ calo gốc).
+        // 2. Phạt nhẹ các món đã dùng trước đó và món vừa ăn gần đây để luân phiên món.
+        // 3. Ưu tiên cao việc khớp calo để tổng ngày không bị hụt mục tiêu dinh dưỡng.
         const score = (recipe: Recipe) => {
           const recipeCalories = Number(nutritionMap.get(recipe.recipe_id)?.calories ?? 0);
-          let testPortion = recipeCalories > 0 ? Math.min(1.8, Math.max(0.6, calories / recipeCalories)) : 1;
+          const maxPortion = recipeCalories < 200 ? 3.0 : recipeCalories < 350 ? 2.5 : 1.8;
+          let testPortion = recipeCalories > 0 ? Math.min(maxPortion, Math.max(0.6, calories / recipeCalories)) : 1;
           testPortion = Math.round(testPortion * 10) / 10;
           const effectiveCalories = recipeCalories * testPortion;
           const calDiff = Math.abs(effectiveCalories - calories);
@@ -431,14 +434,15 @@ export class MealPlanService {
           const daysSinceLastUsed = lastUsedDay !== undefined ? (globalDay - lastUsedDay) : 999;
 
           const recencyPenalty =
-            daysSinceLastUsed === 0 ? 50000 :
-            daysSinceLastUsed === 1 ? 25000 :
-            daysSinceLastUsed === 2 ? 8000 : 0;
+            daysSinceLastUsed === 0 ? 8000 :
+            daysSinceLastUsed === 1 ? 3000 :
+            daysSinceLastUsed === 2 ? 1000 : 0;
 
-          const frequencyPenalty = timesUsed * 5000;
+          const frequencyPenalty = timesUsed * 800;
           const jitter = ((recipe.recipe_id * 17 + globalDay * 31) % 100) * 0.1;
 
-          return calDiff + frequencyPenalty + recencyPenalty + jitter;
+          // Nhân calDiff với 12 để thuật toán ưu tiên món nạp đủ calo sát mục tiêu bữa ăn
+          return (calDiff * 12) + frequencyPenalty + recencyPenalty + jitter;
         };
 
         const pool = [...candidates].sort((x, y) => score(x) - score(y));
@@ -447,11 +451,12 @@ export class MealPlanService {
         usedCounts.set(selected.recipe_id, (usedCounts.get(selected.recipe_id) ?? 0) + 1);
         recentDays.set(selected.recipe_id, globalDay);
 
-        // Chỉnh khẩu phần (0,6x–1,8x) để calo bữa bám mục tiêu khi món không đủ/quá calo.
+        // Chỉnh khẩu phần (0.6x–3.0x) để calo bữa bám sát mục tiêu khi món calo thấp.
         const recipeCalories = Number(nutritionMap.get(selected.recipe_id)?.calories ?? 0);
+        const maxPortion = recipeCalories < 200 ? 3.0 : recipeCalories < 350 ? 2.5 : 1.8;
         let portion =
           recipeCalories > 0
-            ? Math.min(1.8, Math.max(0.6, calories / recipeCalories))
+            ? Math.min(maxPortion, Math.max(0.6, calories / recipeCalories))
             : 1;
         const unitCost = costMap.get(selected.recipe_id) ?? 0;
 
@@ -461,7 +466,7 @@ export class MealPlanService {
           if (unitCost > 0) portion = Math.min(portion, maxCost / unitCost);
         }
         portion = Math.round(portion * 10) / 10;
-        if (portion <= 0) portion = 0.1;
+        if (portion <= 0) portion = 0.5;
 
         dayCalories += recipeCalories * portion;
 
@@ -554,7 +559,7 @@ export class MealPlanService {
 
     if (!user) {
       throw new NotFoundException(
-        `User #${user_id} not found`,
+        `Không tìm thấy người dùng #${user_id}`,
       );
     }
 
@@ -792,6 +797,42 @@ export class MealPlanService {
         );
       }
 
+      // Kiểm tra dị ứng với nguyên liệu trong công thức mới
+      const userAllergies = await this.allergyRepo.find({
+        where: { user_id },
+      });
+
+      const allergyIngredientIds = new Set(
+        userAllergies.map((row) => row.ingredient_id),
+      );
+
+      if (allergyIngredientIds.size > 0) {
+        const recipeIngredients = await this.recipeIngredientRepo.find({
+          where: { recipe_id: dto.recipe_id },
+        });
+
+        const conflictingIngredients = recipeIngredients.filter((ri) =>
+          allergyIngredientIds.has(ri.ingredient_id),
+        );
+
+        if (conflictingIngredients.length > 0) {
+          // Lấy tên nguyên liệu gây dị ứng
+          const ingredientNames = await this.ingredientService.findByIds(
+            conflictingIngredients.map((ri: RecipeIngredient) => ri.ingredient_id),
+          );
+          const ingredientMap = new Map(
+            ingredientNames.map((i: Ingredient) => [i.ingredient_id, i.ingredient_name]),
+          );
+          const allergenNames = conflictingIngredients
+            .map((ri) => ingredientMap.get(ri.ingredient_id) ?? `#${ri.ingredient_id}`)
+            .join(', ');
+
+          throw new BadRequestException(
+            `Công thức chứa nguyên liệu bạn bị dị ứng: ${allergenNames}`,
+          );
+        }
+      }
+
       mealItem.recipe_id = dto.recipe_id;
       mealItem.is_ai_suggested = false;
       mealItem.added_by_user = true;
@@ -830,7 +871,7 @@ export class MealPlanService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User #${user_id} not found`);
+      throw new NotFoundException(`Không tìm thấy người dùng #${user_id}`);
     }
 
     const missing: string[] = [];
@@ -1007,7 +1048,7 @@ export class MealPlanService {
 
     if (!user) {
       throw new NotFoundException(
-        `User #${user_id} not found`,
+        `Không tìm thấy người dùng #${user_id}`,
       );
     }
 
@@ -1129,57 +1170,63 @@ export class MealPlanService {
     mealPlan.status = MealPlanStatus.ACTIVE;
     mealPlan.generated_by = 'USER';
 
-    const savedMealPlan =
-      await this.mealPlanRepo.save(mealPlan);
+    return this.dataSource.transaction(async (manager) => {
+      const mealPlanRepo = manager.getRepository(MealPlan);
+      const weeklyPlanRepo = manager.getRepository(WeeklyPlan);
+      const dailyMealRepo = manager.getRepository(DailyMeal);
+      const mealItemRepo = manager.getRepository(MealItem);
 
-    for (const weekDto of dto.weekly_plans ?? []) {
-      const weeklyPlan = new WeeklyPlan();
+      const savedMealPlan = await mealPlanRepo.save(mealPlan);
 
-      weeklyPlan.meal_plan_id =
-        savedMealPlan.meal_plan_id;
-      weeklyPlan.week_number = weekDto.week_number;
-      weeklyPlan.start_date = new Date(weekDto.start_date);
-      weeklyPlan.end_date = new Date(weekDto.end_date);
-      weeklyPlan.week_calorie_target =
-        weekDto.week_calorie_target ?? 0;
+      for (const weekDto of dto.weekly_plans ?? []) {
+        const weeklyPlan = new WeeklyPlan();
 
-      const savedWeeklyPlan =
-        await this.weeklyPlanRepo.save(weeklyPlan);
+        weeklyPlan.meal_plan_id =
+          savedMealPlan.meal_plan_id;
+        weeklyPlan.week_number = weekDto.week_number;
+        weeklyPlan.start_date = new Date(weekDto.start_date);
+        weeklyPlan.end_date = new Date(weekDto.end_date);
+        weeklyPlan.week_calorie_target =
+          weekDto.week_calorie_target ?? 0;
 
-      for (const dayDto of weekDto.daily_meals ?? []) {
-        const dailyMeal = new DailyMeal();
+        const savedWeeklyPlan =
+          await weeklyPlanRepo.save(weeklyPlan);
 
-        dailyMeal.weekly_plan_id =
-          savedWeeklyPlan.weekly_plan_id;
-        dailyMeal.meal_date = new Date(dayDto.meal_date);
-        dailyMeal.meal_type = dayDto.meal_type;
-        dailyMeal.target_calories =
-          dayDto.target_calories ?? 0;
+        for (const dayDto of weekDto.daily_meals ?? []) {
+          const dailyMeal = new DailyMeal();
 
-        const savedDailyMeal =
-          await this.dailyMealRepo.save(dailyMeal);
+          dailyMeal.weekly_plan_id =
+            savedWeeklyPlan.weekly_plan_id;
+          dailyMeal.meal_date = new Date(dayDto.meal_date);
+          dailyMeal.meal_type = dayDto.meal_type;
+          dailyMeal.target_calories =
+            dayDto.target_calories ?? 0;
 
-        for (const itemDto of dayDto.meal_items ?? []) {
-          const mealItem = new MealItem();
+          const savedDailyMeal =
+            await dailyMealRepo.save(dailyMeal);
 
-          mealItem.daily_meal_id =
-            savedDailyMeal.daily_meal_id;
-          mealItem.recipe_id = itemDto.recipe_id;
-          mealItem.is_ai_suggested =
-            itemDto.is_ai_suggested ?? false;
-          mealItem.added_by_user = true;
-          mealItem.portion_multiplier =
-            itemDto.portion_multiplier ?? 1;
+          for (const itemDto of dayDto.meal_items ?? []) {
+            const mealItem = new MealItem();
 
-          await this.mealItemRepo.save(mealItem);
+            mealItem.daily_meal_id =
+              savedDailyMeal.daily_meal_id;
+            mealItem.recipe_id = itemDto.recipe_id;
+            mealItem.is_ai_suggested =
+              itemDto.is_ai_suggested ?? false;
+            mealItem.added_by_user = true;
+            mealItem.portion_multiplier =
+              itemDto.portion_multiplier ?? 1;
+
+            await mealItemRepo.save(mealItem);
+          }
         }
       }
-    }
 
-    return this.findMyMealPlanDetail(
-      user_id,
-      savedMealPlan.meal_plan_id,
-    );
+      return this.findMyMealPlanDetail(
+        user_id,
+        savedMealPlan.meal_plan_id,
+      );
+    });
   }
 
   // =========================================================

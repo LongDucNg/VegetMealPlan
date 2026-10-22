@@ -3,7 +3,6 @@ import {
   Delete,
   Get,
   Param,
-  ParseIntPipe,
   Put,
   Req,
   Body,
@@ -15,6 +14,7 @@ import { AuthGuard } from '@nestjs/passport';
 
 import { RecipeService } from './recipe.service';
 import { SetRecipePriceDto } from './dto/set-recipe-price.dto';
+import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
 
 @ApiTags('recipe-prices')
 @ApiBearerAuth()
@@ -35,7 +35,7 @@ export class UserRecipePriceController {
   @Put(':recipeId')
   setMyRecipePrice(
     @Req() req: any,
-    @Param('recipeId', ParseIntPipe) recipeId: number,
+    @Param('recipeId', PositiveIntPipe) recipeId: number,
     @Body() dto: SetRecipePriceDto,
   ) {
     return this.recipeService.setMyRecipePrice(
@@ -48,7 +48,7 @@ export class UserRecipePriceController {
   @Delete(':recipeId')
   removeMyRecipePrice(
     @Req() req: any,
-    @Param('recipeId', ParseIntPipe) recipeId: number,
+    @Param('recipeId', PositiveIntPipe) recipeId: number,
   ) {
     return this.recipeService.removeMyRecipePrice(
       req.user.user_id,

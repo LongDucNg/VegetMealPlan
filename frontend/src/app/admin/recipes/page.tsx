@@ -14,9 +14,9 @@ export default function AdminRecipesPage() {
     <AppShell showRightRail={false}>
       <div className="max-w-[1240px] mx-auto w-full">
         <PageHeader
-          eyebrow="Administration"
-          title="Recipe Management"
-          subtitle="Add, edit, inspect, and delete recipes. Changes sync immediately to user-facing pages, meal planner, and AI nutritionist."
+          eyebrow="Quản trị hệ thống"
+          title="Quản trị Công thức"
+          subtitle="Thêm mới, chỉnh sửa, xem chi tiết và quản lý công thức món ăn. Dữ liệu đồng bộ trực tiếp tới kế hoạch thực đơn và trợ lý AI dinh dưỡng."
         />
         {!ready ? (
           <GatedSkeleton />

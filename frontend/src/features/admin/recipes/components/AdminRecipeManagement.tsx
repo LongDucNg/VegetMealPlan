@@ -21,7 +21,8 @@ import {
   Carrot,
 } from "lucide-react";
 import { useRecipes } from "@/features/recipes/hooks/useRecipes";
-import { Recipe, RecipeStatus } from "@/features/recipes/types";
+import { Recipe, RecipeStatus, formatMealType } from "@/features/recipes";
+import { formatVegetarianType } from "@/features/profile/types";
 import { AdminRecipeModal } from "./AdminRecipeModal";
 import { AdminRecipeDetailModal } from "./AdminRecipeDetailModal";
 import { AdminImportModal } from "./AdminImportModal";
@@ -39,6 +40,8 @@ export function AdminRecipeManagement() {
   const [selectedMealType, setSelectedMealType] = useState<string>("all");
   const [selectedDiet, setSelectedDiet] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 10;
 
   const [modalOpen, setModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -127,6 +130,16 @@ export function AdminRecipeManagement() {
     return true;
   });
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedMealType, selectedDiet, selectedStatus]);
+
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const paginatedRecipes = filtered.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
   const handleOpenAdd = () => {
     setEditingRecipe(null);
     setModalOpen(true);
@@ -147,13 +160,13 @@ export function AdminRecipeManagement() {
   };
 
   const handleDelete = (id: string, title: string) => {
-    if (window.confirm(`Are you sure you want to delete "${title}"?`)) {
+    if (window.confirm(`Bạn có chắc chắn muốn xóa công thức "${title}" không?`)) {
       deleteRecipe(id);
     }
   };
 
   const handleReset = () => {
-    if (window.confirm("Reset all recipes to default mock dataset?")) {
+    if (window.confirm("Khôi phục toàn bộ công thức về dữ liệu mẫu mặc định?")) {
       recipeService.resetRecipes();
       refresh();
     }
@@ -168,7 +181,7 @@ export function AdminRecipeManagement() {
           <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search recipes, ingredients, status..."
+            placeholder="Tìm kiếm công thức, nguyên liệu, trạng thái..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full h-10 pl-9 pr-4 rounded-xl border border-stone-200 bg-stone-50 text-sm focus:bg-white focus:border-emerald-600 outline-none"
@@ -179,11 +192,11 @@ export function AdminRecipeManagement() {
         <div className="flex items-center gap-2.5">
           <button
             onClick={handleReset}
-            title="Reset to default mock recipes"
+            title="Khôi phục dữ liệu mẫu mặc định"
             className="h-10 px-3.5 rounded-xl border border-stone-200 text-stone-600 hover:text-stone-900 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            Reset Data
+            Đặt lại dữ liệu
           </button>
 
           {/* Link to Ingredients CRUD */}
@@ -201,43 +214,49 @@ export function AdminRecipeManagement() {
             className="h-10 px-4 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer"
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
-            <span>Import Recipes</span>
+            <span>Nhập từ file (Import)</span>
           </button>
 
-          <button
-            onClick={handleOpenAdd}
+          <Link
+            href="/admin/recipes/create"
             className="h-10 px-5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            Add Recipe
-          </button>
+            Thêm công thức
+          </Link>
         </div>
       </div>
 
       {/* Filter Tabs */}
       <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="font-semibold text-stone-500 mr-1">Meal Type:</span>
-        {["all", "breakfast", "lunch", "dinner", "snack"].map((m) => (
+        <span className="font-semibold text-stone-500 mr-1">Bữa ăn:</span>
+        {[
+          { id: "all", label: "Tất cả" },
+          { id: "breakfast", label: "Bữa sáng" },
+          { id: "lunch", label: "Bữa trưa" },
+          { id: "dinner", label: "Bữa tối" },
+          { id: "snack", label: "Bữa phụ" },
+        ].map((m) => (
           <button
-            key={m}
-            onClick={() => setSelectedMealType(m)}
-            className={`px-3 py-1.5 rounded-full capitalize font-medium transition-colors cursor-pointer ${
-              selectedMealType === m
+            key={m.id}
+            onClick={() => setSelectedMealType(m.id)}
+            className={`px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer ${
+              selectedMealType === m.id
                 ? "bg-emerald-700 text-white font-semibold"
                 : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
             }`}
           >
-            {m}
+            {m.label}
           </button>
         ))}
 
-        <span className="font-semibold text-stone-500 ml-3 mr-1">Diet:</span>
+        <span className="font-semibold text-stone-500 ml-3 mr-1">Chế độ chay:</span>
         {[
-          { id: "all", label: "All" },
-          { id: "vegan", label: "Vegan" },
-          { id: "lacto_vegetarian", label: "Lacto" },
-          { id: "ovo_vegetarian", label: "Ovo" },
-          { id: "lacto_ovo_vegetarian", label: "Lacto-Ovo" },
+          { id: "all", label: "Tất cả" },
+          { id: "vegan", label: "Thuần chay" },
+          { id: "lacto_vegetarian", label: "Chay có sữa" },
+          { id: "ovo_vegetarian", label: "Chay có trứng" },
+          { id: "lacto_ovo_vegetarian", label: "Trứng & sữa" },
         ].map((d) => (
           <button
             key={d.id}
@@ -252,7 +271,7 @@ export function AdminRecipeManagement() {
           </button>
         ))}
 
-        <span className="font-semibold text-stone-500 ml-3 mr-1">Status:</span>
+        <span className="font-semibold text-stone-500 ml-3 mr-1">Trạng thái:</span>
         {[
           { id: "all", label: "Tất cả" },
           { id: "PENDING_REVIEW", label: "Chờ duyệt", count: pendingCount },
@@ -309,13 +328,13 @@ export function AdminRecipeManagement() {
       <div className="bg-white border border-stone-200 rounded-3xl overflow-hidden shadow-xs">
         <div className="p-4 bg-stone-50/70 border-b border-stone-200 flex items-center justify-between text-xs text-stone-500">
           <span className="font-semibold uppercase tracking-wider">
-            Showing {filtered.length} recipe{filtered.length !== 1 ? "s" : ""}
+            Hiển thị {filtered.length} công thức
           </span>
-          <span>Only APPROVED recipes appear in the Meal Planner</span>
+          <span>Chỉ các công thức "ĐÃ DUYỆT" mới xuất hiện trong Kế hoạch Thực đơn</span>
         </div>
 
         <div className="divide-y divide-stone-100">
-          {filtered.map((recipe) => {
+          {paginatedRecipes.map((recipe) => {
             const cost =
               recipe.estimatedCost ||
               priceService.calculateRecipeCost(recipe.ingredients || []).estimatedCost;
@@ -338,7 +357,7 @@ export function AdminRecipeManagement() {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-xs text-stone-400">
-                        No img
+                        Không có ảnh
                       </div>
                     )}
                   </div>
@@ -347,10 +366,10 @@ export function AdminRecipeManagement() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-200">
-                        {recipe.mealType}
+                        {formatMealType(recipe.mealType)}
                       </span>
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-stone-100 text-stone-700">
-                        {recipe.vegetarianType.replace("_", " ")}
+                        {formatVegetarianType(recipe.vegetarianType)}
                       </span>
                       <span
                         className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
@@ -363,7 +382,13 @@ export function AdminRecipeManagement() {
                             : "bg-stone-200 text-stone-700"
                         }`}
                       >
-                        {status}
+                        {status === "APPROVED"
+                          ? "Đã duyệt"
+                          : status === "PENDING_REVIEW"
+                          ? "Chờ duyệt"
+                          : status === "REJECTED"
+                          ? "Đã từ chối"
+                          : "Bản nháp"}
                       </span>
                       <span className="text-xs text-stone-400">· {recipe.category}</span>
                     </div>
@@ -380,13 +405,13 @@ export function AdminRecipeManagement() {
                         <Flame className="w-3.5 h-3.5 text-amber-500" />
                         {recipe.calories} kcal
                       </span>
-                      <span>P: {recipe.protein}g · C: {recipe.carbs}g · F: {recipe.fat}g</span>
+                      <span>Đạm: {recipe.protein}g · Tinh bột: {recipe.carbs}g · Béo: {recipe.fat}g</span>
                       <span className="font-bold text-emerald-800">
                         {priceService.formatEstimatedPrice(cost)}
                       </span>
                       {recipe.source && (
                         <span className="text-[11px] text-stone-400">
-                          Source: {recipe.source.name}
+                          Nguồn: {recipe.source.name}
                         </span>
                       )}
                     </div>
@@ -429,28 +454,28 @@ export function AdminRecipeManagement() {
 
                   <Link
                     href={`/recipes/${recipe.id}`}
-                    title="Open Recipe Page"
+                    title="Xem trang công thức"
                     className="p-2 rounded-xl text-stone-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
                   >
                     <ExternalLink className="w-4 h-4" />
                   </Link>
                   <button
                     onClick={() => setViewingRecipe(recipe)}
-                    title="Quick Preview"
+                    title="Xem nhanh chi tiết"
                     className="p-2 rounded-xl text-stone-500 hover:text-stone-900 hover:bg-stone-100 transition-colors cursor-pointer"
                   >
                     <Eye className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleOpenEdit(recipe)}
-                    title="Edit Recipe"
+                    title="Chỉnh sửa công thức"
                     className="p-2 rounded-xl text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 transition-colors cursor-pointer"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(recipe.id, recipe.title)}
-                    title="Delete Recipe"
+                    title="Xóa công thức"
                     className="p-2 rounded-xl text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -462,16 +487,68 @@ export function AdminRecipeManagement() {
 
           {filtered.length === 0 && (
             <div className="p-12 text-center text-stone-400">
-              <p className="font-medium text-base">No recipes found matching criteria.</p>
-              <button
-                onClick={handleOpenAdd}
-                className="mt-3 text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
+              <p className="font-medium text-base">Không tìm thấy công thức nào phù hợp tiêu chí.</p>
+              <Link
+                href="/admin/recipes/create"
+                className="mt-3 inline-block text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
               >
-                + Add your first recipe
-              </button>
+                + Thêm công thức đầu tiên
+              </Link>
             </div>
           )}
         </div>
+
+        {/* Frontend Pagination Controls */}
+        {filtered.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-stone-200 bg-stone-50/60">
+            <div className="text-xs text-stone-500 font-medium">
+              Hiển thị <span className="font-semibold text-stone-900">{(currentPage - 1) * pageSize + 1}</span> -{" "}
+              <span className="font-semibold text-stone-900">{Math.min(currentPage * pageSize, filtered.length)}</span> trong{" "}
+              <span className="font-semibold text-stone-900">{filtered.length}</span> công thức
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 rounded-lg border border-stone-200 text-xs font-semibold text-stone-700 bg-white hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              >
+                Trước
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 2)
+                .map((page, idx, arr) => {
+                  const prev = arr[idx - 1];
+                  return (
+                    <React.Fragment key={page}>
+                      {prev && page - prev > 1 && (
+                        <span className="px-1 text-xs text-stone-400">...</span>
+                      )}
+                      <button
+                        onClick={() => setCurrentPage(page)}
+                        className={`min-w-8 h-8 px-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                          currentPage === page
+                            ? "bg-emerald-700 text-white"
+                            : "bg-white border border-stone-200 text-stone-700 hover:bg-stone-50"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    </React.Fragment>
+                  );
+                })}
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 rounded-lg border border-stone-200 text-xs font-semibold text-stone-700 bg-white hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              >
+                Sau
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Add / Edit Modal */}

@@ -35,8 +35,8 @@ export function getBMIStatus(bmi: number): BMIStatus {
  * Height is in cm.
  */
 export function calculateBMI(
-  profileOrWeight: Partial<UserProfile> | number,
-  explicitHeightCm?: number
+  profileOrWeight?: Partial<UserProfile> | number | null,
+  explicitHeightCm?: number | null
 ): BMIResult | null {
   let weightKg = 0;
   let heightCm = 0;
@@ -73,14 +73,14 @@ export function calculateBMI(
       colorClass = "text-amber-500";
       badgeVariant = "warning";
       description =
-        "Your BMI indicates underweight (< 18.5). Focus on healthy weight gain with nutrient-dense plant foods and healthy fats.";
+        "Chỉ số BMI cho thấy bạn đang nhẹ cân (< 18.5). Hãy tập trung tăng cân lành mạnh với các loại thực phẩm thực vật giàu dinh dưỡng và chất béo tốt.";
       break;
 
     case "Balanced":
       colorClass = "text-emerald-400";
       badgeVariant = "success";
       description =
-        "Your BMI is balanced (18.5 - 24.9). Maintain your current energy needs with balanced plant-based nutrition.";
+        "Chỉ số BMI của bạn ở mức cân đối (18.5 - 24.9). Hãy duy trì mức năng lượng hiện tại với chế độ dinh dưỡng thuần chay cân bằng.";
       break;
 
     case "Overweight":
@@ -88,7 +88,7 @@ export function calculateBMI(
       colorClass = "text-amber-400";
       badgeVariant = "warning";
       description =
-        "Your BMI indicates overweight (>= 25). A moderate calorie deficit while prioritizing plant protein and fiber is recommended.";
+        "Chỉ số BMI cho thấy bạn đang thừa cân (>= 25). Khuyến nghị thâm hụt calo vừa phải kết hợp ưu tiên đạm thực vật và chất xơ.";
       break;
   }
 

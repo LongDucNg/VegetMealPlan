@@ -9,24 +9,35 @@ import {
   AlertTriangle,
   CheckCircle2,
   AlertOctagon,
-  Trash2,
+  RefreshCw,
   Check,
-  Edit2,
-  Layers,
-  Sparkles,
-  ExternalLink,
 } from "lucide-react";
-import {
-  excelImportService,
-  ImportPendingRecipe,
-  ImportSummary,
-} from "../services/excelImportService";
-import { Recipe } from "@/features/recipes/types";
+import { excelImportService } from "../services/excelImportService";
+import { adminRecipeApiService } from "@/features/admin/services/adminRecipeApiService";
 
 interface AdminImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCompleted: () => void;
+}
+
+interface ImportBatchData {
+  batch_id: number;
+  total_rows: number;
+  success_count: number;
+  failed_count: number;
+  file_name: string;
+  created_at: string;
+}
+
+interface ImportItemData {
+  import_item_id?: number;
+  row_number: number;
+  recipe_title: string;
+  status: "SUCCESS" | "FAILED";
+  fail_reason?: string;
+  fail_detail?: string;
+  recipe_id?: number;
 }
 
 export function AdminImportModal({
@@ -36,12 +47,10 @@ export function AdminImportModal({
 }: AdminImportModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [summary, setSummary] = useState<ImportSummary | null>(null);
-  const [items, setItems] = useState<ImportPendingRecipe[]>([]);
-  const [filterTab, setFilterTab] = useState<"all" | "valid" | "conflicts" | "non_veg" | "duplicates" | "invalid">("all");
-  const [editingItem, setEditingItem] = useState<ImportPendingRecipe | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editCalories, setEditCalories] = useState<number>(500);
+  const [batch, setBatch] = useState<ImportBatchData | null>(null);
+  const [items, setItems] = useState<ImportItemData[]>([]);
+  const [filterTab, setFilterTab] = useState<"all" | "success" | "failed">("all");
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -49,13 +58,19 @@ export function AdminImportModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setUploadError(null);
+    setIsProcessing(true);
+
     try {
-      setIsProcessing(true);
-      const res = await excelImportService.parseAndValidateFile(file);
-      setSummary(res.summary);
-      setItems(res.items);
+      // Gửi file trực tiếp tới backend NestJS: POST /api/v1/admin/recipe-imports
+      const res = await adminRecipeApiService.importRecipeExcel(file);
+      const resData = res?.data || res;
+      setBatch(resData.batch || null);
+      setItems(resData.items || []);
+      onCompleted();
     } catch (err: unknown) {
-      alert(`Error parsing file: ${(err as Error).message || "Invalid file format."}`);
+      const msg = (err as Error).message || "Định dạng file không hợp lệ hoặc không thể kết nối tới server.";
+      setUploadError(msg);
     } finally {
       setIsProcessing(false);
       if (fileInputRef.current) {
@@ -64,58 +79,15 @@ export function AdminImportModal({
     }
   };
 
-  const handleApprove = (tempId: string) => {
-    excelImportService.approveRecipe(tempId);
-    setItems((prev) => prev.filter((i) => i.tempId !== tempId));
+  const handleFinish = () => {
     onCompleted();
+    onClose();
   };
 
-  const handleApproveAllValid = () => {
-    const approvedCount = excelImportService.approveAllValid();
-    setItems((prev) => prev.filter((i) => !i.isValid));
-    alert(`Successfully approved and published ${approvedCount} valid recipes!`);
-    onCompleted();
-  };
-
-  const handleRemove = (tempId: string) => {
-    excelImportService.removePendingItem(tempId);
-    setItems((prev) => prev.filter((i) => i.tempId !== tempId));
-  };
-
-  const handleStartEdit = (item: ImportPendingRecipe) => {
-    setEditingItem(item);
-    setEditTitle(item.recipe.title);
-    setEditCalories(item.recipe.calories);
-  };
-
-  const handleSaveEdit = () => {
-    if (!editingItem) return;
-    const updated: Recipe = {
-      ...editingItem.recipe,
-      title: editTitle.trim() || editingItem.recipe.title,
-      name: editTitle.trim() || editingItem.recipe.title,
-      calories: Number(editCalories) || editingItem.recipe.calories,
-    };
-    excelImportService.editAndApprove(editingItem.tempId, updated);
-    setItems((prev) => prev.filter((i) => i.tempId !== editingItem.tempId));
-    setEditingItem(null);
-    onCompleted();
-  };
-
-  // Filter items
   const filteredItems = items.filter((item) => {
     if (filterTab === "all") return true;
-    if (filterTab === "valid") return item.isValid;
-    if (filterTab === "conflicts")
-      return item.issues.some((iss) => iss.type === "INGREDIENT_CONFLICT");
-    if (filterTab === "non_veg")
-      return item.issues.some((iss) => iss.type === "NON_VEGETARIAN");
-    if (filterTab === "duplicates")
-      return item.issues.some((iss) => iss.type === "DUPLICATE");
-    if (filterTab === "invalid")
-      return item.issues.some((iss) =>
-        ["MISSING_DATA", "INVALID_INGREDIENT", "INVALID_NUTRITION"].includes(iss.type)
-      );
+    if (filterTab === "success") return item.status === "SUCCESS";
+    if (filterTab === "failed") return item.status === "FAILED";
     return true;
   });
 
@@ -130,10 +102,10 @@ export function AdminImportModal({
             </div>
             <div>
               <h3 className="font-serif font-bold text-lg text-stone-900">
-                Import Recipes from Excel / CSV
+                Nhập công thức từ Excel (Lưu vào Database thật)
               </h3>
               <p className="text-xs text-stone-500">
-                Batch import with multi-row grouping, validation pipeline, and Admin review dashboard
+                Tự động kiểm tra từng trường dữ liệu, nguyên liệu kỵ nhau và lưu trực tiếp vào cơ sở dữ liệu
               </p>
             </div>
           </div>
@@ -142,10 +114,10 @@ export function AdminImportModal({
             <button
               onClick={() => excelImportService.downloadTemplate()}
               className="h-8 px-3 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Download standard Excel template with multi-row examples"
+              title="Tải tệp mẫu Excel chuẩn tiếng Việt kèm ví dụ công thức"
             >
               <Download className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Download Template</span>
+              <span>Tải file mẫu tiếng Việt</span>
             </button>
 
             <button
@@ -164,7 +136,7 @@ export function AdminImportModal({
             <input
               ref={fileInputRef}
               type="file"
-              accept=".xlsx, .xls, .csv"
+              accept=".xlsx, .xls"
               onChange={handleFileUpload}
               className="hidden"
               id="excel-file-input"
@@ -183,84 +155,77 @@ export function AdminImportModal({
               <div>
                 <p className="text-sm font-bold text-stone-800">
                   {isProcessing
-                    ? "Validating recipes & checking ingredients..."
-                    : "Click to upload or drag & drop .xlsx or .csv"}
+                    ? "Đang tải lên, xác thực từng dòng và lưu vào Database..."
+                    : "Nhấn để tải lên tệp Excel (.xlsx)"}
                 </p>
                 <p className="text-xs text-stone-500 mt-0.5">
-                  Multi-row ingredients grouped by Recipe Name · Automatic duplicate & allergy validation
+                  Hỗ trợ tiêu đề tiếng Việt chuẩn: Tên món, Mô tả, Hướng dẫn, Bữa ăn, Chế độ ăn chay, Nguyên liệu
                 </p>
               </div>
             </label>
           </div>
 
-          {/* Validation Summary Metrics (Requirement 14) */}
-          {summary && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-serif font-bold text-base text-stone-900">
-                  Import Summary & Review Dashboard
-                </h4>
+          {/* Upload Error Alert */}
+          {uploadError && (
+            <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-900 text-xs flex items-start gap-2.5">
+              <AlertOctagon className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">Lỗi không thể nhập dữ liệu từ file:</p>
+                <p className="mt-0.5 leading-relaxed">{uploadError}</p>
+              </div>
+            </div>
+          )}
 
-                {summary.validCount > 0 && (
-                  <button
-                    onClick={handleApproveAllValid}
-                    className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    Approve All {summary.validCount} Valid Recipes
-                  </button>
-                )}
+          {/* Result of the Batch */}
+          {batch && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-serif font-bold text-base text-stone-900">
+                    Kết quả nhập dữ liệu (Lô #{batch.batch_id} · {batch.file_name})
+                  </h4>
+                  <p className="text-xs text-stone-500">
+                    Các món ăn hợp lệ đã được lưu thành công vào cơ sở dữ liệu hệ thống
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleFinish}
+                  className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  Hoàn tất & Cập nhật danh sách
+                </button>
               </div>
 
               {/* Metric Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5 text-center text-xs">
-                <div className="p-3 rounded-2xl bg-stone-100 border border-stone-200">
-                  <span className="text-stone-500 block text-[10px] uppercase font-bold">Total</span>
-                  <span className="font-serif font-bold text-xl text-stone-900">
-                    {summary.totalImported}
+              <div className="grid grid-cols-3 gap-3 text-center text-xs">
+                <div className="p-3.5 rounded-2xl bg-stone-100 border border-stone-200">
+                  <span className="text-stone-500 block text-[10px] uppercase font-bold">Tổng số công thức</span>
+                  <span className="font-serif font-bold text-2xl text-stone-900">
+                    {batch.total_rows}
                   </span>
                 </div>
-                <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200">
-                  <span className="text-emerald-700 block text-[10px] uppercase font-bold">Valid</span>
-                  <span className="font-serif font-bold text-xl text-emerald-800">
-                    {summary.validCount}
+                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200">
+                  <span className="text-emerald-700 block text-[10px] uppercase font-bold">Nhập thành công</span>
+                  <span className="font-serif font-bold text-2xl text-emerald-800">
+                    {batch.success_count}
                   </span>
                 </div>
-                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200">
-                  <span className="text-amber-700 block text-[10px] uppercase font-bold">Duplicates</span>
-                  <span className="font-serif font-bold text-xl text-amber-800">
-                    {summary.duplicateCount}
-                  </span>
-                </div>
-                <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200">
-                  <span className="text-rose-700 block text-[10px] uppercase font-bold">Conflicts</span>
-                  <span className="font-serif font-bold text-xl text-rose-800">
-                    {summary.conflictCount}
-                  </span>
-                </div>
-                <div className="p-3 rounded-2xl bg-red-50 border border-red-200">
-                  <span className="text-red-700 block text-[10px] uppercase font-bold">Non-Veg</span>
-                  <span className="font-serif font-bold text-xl text-red-800">
-                    {summary.nonVegetarianCount}
-                  </span>
-                </div>
-                <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200">
-                  <span className="text-stone-500 block text-[10px] uppercase font-bold">Missing</span>
-                  <span className="font-serif font-bold text-xl text-stone-700">
-                    {summary.missingDataCount + summary.invalidDataCount}
+                <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200">
+                  <span className="text-red-700 block text-[10px] uppercase font-bold">Bị lỗi / Từ chối</span>
+                  <span className="font-serif font-bold text-2xl text-red-800">
+                    {batch.failed_count}
                   </span>
                 </div>
               </div>
 
-              {/* Tabs for filtering review list */}
-              <div className="flex flex-wrap items-center gap-1.5 text-xs pt-1">
+              {/* Tabs for filtering list */}
+              <div className="flex items-center gap-2 text-xs pt-1">
                 {[
-                  { id: "all", label: `All (${items.length})` },
-                  { id: "valid", label: "Valid Only" },
-                  { id: "duplicates", label: "Duplicates" },
-                  { id: "conflicts", label: "Ingredient Conflicts" },
-                  { id: "non_veg", label: "Non-Vegetarian" },
-                  { id: "invalid", label: "Missing / Invalid" },
+                  { id: "all", label: `Tất cả (${items.length})` },
+                  { id: "success", label: `Thành công (${batch.success_count})` },
+                  { id: "failed", label: `Bị từ chối (${batch.failed_count})` },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -276,104 +241,61 @@ export function AdminImportModal({
                 ))}
               </div>
 
-              {/* Review Table (Requirement 14, 15) */}
+              {/* Detailed Item List */}
               <div className="border border-stone-200 rounded-2xl overflow-hidden divide-y divide-stone-100 text-xs">
-                {filteredItems.map((item) => {
-                  const hasDuplicates = item.issues.some((iss) => iss.type === "DUPLICATE");
-                  const hasConflicts = item.issues.some((iss) => iss.type === "INGREDIENT_CONFLICT");
-                  const hasNonVeg = item.issues.some((iss) => iss.type === "NON_VEGETARIAN");
-
+                {filteredItems.map((item, idx) => {
+                  const isSuccess = item.status === "SUCCESS";
                   return (
                     <div
-                      key={item.tempId}
-                      className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-stone-50/70 transition-colors"
+                      key={idx}
+                      className={`p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-colors ${
+                        isSuccess ? "hover:bg-emerald-50/30" : "bg-red-50/30 hover:bg-red-50/50"
+                      }`}
                     >
                       <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-stone-400 font-mono text-[11px]">
+                            Dòng {item.row_number}
+                          </span>
                           <span className="font-bold text-stone-900 text-sm">
-                            {item.recipe.title}
+                            {item.recipe_title}
                           </span>
-                          <span className="text-[10px] font-bold uppercase px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800">
-                            {item.recipe.mealType}
-                          </span>
-                          <span className="text-[10px] font-medium px-2 py-0.2 rounded-full bg-stone-100 text-stone-700">
-                            {item.recipe.vegetarianType.replace("_", " ")}
-                          </span>
-                          <span className="text-stone-400">· {item.recipe.calories} kcal</span>
-                          <span className="text-stone-400">· {item.recipe.ingredients.length} ingredients</span>
+                          {item.recipe_id && (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-stone-100 text-stone-600">
+                              Mã món: #{item.recipe_id}
+                            </span>
+                          )}
                         </div>
 
-                        {/* Status / Issue Badges */}
-                        {item.isValid ? (
+                        {/* Status & Detailed Error */}
+                        {isSuccess ? (
                           <div className="flex items-center gap-1.5 text-emerald-700 font-semibold text-[11px]">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Valid · No issues found</span>
+                            <span>Đã xác thực và lưu vào cơ sở dữ liệu thật</span>
                           </div>
                         ) : (
-                          <div className="space-y-1 pt-0.5">
-                            {item.issues.map((iss, idx) => (
-                              <div
-                                key={idx}
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-medium mr-2 ${
-                                  iss.type === "NON_VEGETARIAN"
-                                    ? "bg-red-100 text-red-800"
-                                    : iss.type === "INGREDIENT_CONFLICT"
-                                    ? "bg-rose-100 text-rose-800"
-                                    : iss.type === "DUPLICATE"
-                                    ? "bg-amber-100 text-amber-900"
-                                    : "bg-stone-200 text-stone-800"
-                                }`}
-                              >
-                                <AlertTriangle className="w-3 h-3 shrink-0" />
-                                <span>{iss.message}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Source info (Requirement 16) */}
-                        {item.recipe.source && (
-                          <div className="text-[10px] text-stone-400">
-                            Source: {item.recipe.source.name}
-                            {item.recipe.source.url && (
-                              <a
-                                href={item.recipe.source.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="ml-1 text-emerald-700 underline inline-flex items-center gap-0.5"
-                              >
-                                [View Original Source <ExternalLink className="w-2.5 h-2.5 inline" />]
-                              </a>
-                            )}
+                          <div className="p-2.5 rounded-xl bg-red-100/70 border border-red-200 text-red-900 space-y-0.5 mt-1">
+                            <div className="flex items-center gap-1.5 font-bold text-red-800 text-[11px]">
+                              <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                              <span>Lý do không thể nhập:</span>
+                            </div>
+                            <p className="text-[11px] leading-relaxed pl-5 font-medium">
+                              {item.fail_detail || item.fail_reason || "Dữ liệu không hợp lệ"}
+                            </p>
                           </div>
                         )}
                       </div>
 
-                      {/* Actions */}
-                      <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
-                        <button
-                          onClick={() => handleStartEdit(item)}
-                          className="p-2 rounded-xl text-stone-600 hover:bg-stone-100 transition-colors cursor-pointer"
-                          title="Edit Recipe"
+                      <div className="shrink-0 self-end sm:self-center">
+                        <span
+                          className={`px-3 py-1 rounded-full text-[11px] font-bold ${
+                            isSuccess
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                              : "bg-red-100 text-red-800 border border-red-200"
+                          }`}
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-
-                        <button
-                          onClick={() => handleRemove(item.tempId)}
-                          className="p-2 rounded-xl text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
-                          title="Remove from import"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-
-                        <button
-                          onClick={() => handleApprove(item.tempId)}
-                          className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                          Approve
-                        </button>
+                          {isSuccess ? "THÀNH CÔNG" : "THẤT BÀI"}
+                        </span>
                       </div>
                     </div>
                   );
@@ -381,56 +303,9 @@ export function AdminImportModal({
 
                 {filteredItems.length === 0 && (
                   <div className="p-8 text-center text-stone-400">
-                    No recipes in this review category.
+                    Không có công thức nào trong danh sách lọc này.
                   </div>
                 )}
-              </div>
-            </div>
-          )}
-
-          {/* Quick Inline Edit Sub-Modal */}
-          {editingItem && (
-            <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 p-4">
-              <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
-                <h4 className="font-serif font-bold text-base text-stone-900">
-                  Edit Recipe before Approving
-                </h4>
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1">
-                    Title:
-                  </label>
-                  <input
-                    type="text"
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl border border-stone-200 text-xs font-semibold outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1">
-                    Calories (kcal):
-                  </label>
-                  <input
-                    type="number"
-                    value={editCalories}
-                    onChange={(e) => setEditCalories(Number(e.target.value))}
-                    className="w-full h-10 px-3 rounded-xl border border-stone-200 text-xs font-semibold outline-none"
-                  />
-                </div>
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  <button
-                    onClick={() => setEditingItem(null)}
-                    className="px-4 py-1.5 rounded-xl border border-stone-200 text-xs font-semibold"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveEdit}
-                    className="px-4 py-1.5 rounded-xl bg-emerald-700 text-white text-xs font-bold"
-                  >
-                    Save & Approve
-                  </button>
-                </div>
               </div>
             </div>
           )}

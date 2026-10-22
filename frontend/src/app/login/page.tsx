@@ -1,17 +1,28 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowRight, Leaf, Loader2, Lock, Mail } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  Leaf,
+  Loader2,
+  Lock,
+  Mail,
+} from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { useAuth } from "@/features/auth";
+import { useAuth, authService } from "@/features/auth";
 import { ApiError } from "@/lib/apiClient";
 
-export default function LoginPage() {
+function LoginFormContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const resetSuccess = searchParams.get("reset") === "success";
+
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -42,13 +53,16 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
-    window.location.href = `${apiUrl}/auth/google`;
+    window.location.href = authService.getGoogleLoginUrl();
   };
+
+  const forgotPasswordHref = email.trim()
+    ? `/forgot-password?email=${encodeURIComponent(email.trim())}`
+    : "/forgot-password";
 
   return (
     <AppShell showRightRail={false}>
-      <div className="w-full flex justify-center py-10">
+      <div className="w-full flex justify-center py-10 px-4">
         <Card className="max-w-md w-full p-8 shadow-sm">
           {/* Logo Brand Header */}
           <div className="flex flex-col items-center text-center mb-7 select-none">
@@ -56,12 +70,22 @@ export default function LoginPage() {
               <Leaf className="w-6 h-6 text-white" strokeWidth={1.75} />
             </div>
             <h1 className="font-serif font-bold text-2xl text-stone-900 tracking-tight">
-              Welcome back to VeggieHub
+              Chào mừng trở lại VeggieHub
             </h1>
             <p className="text-sm text-stone-500 mt-1">
-              Log in to access your meal planner, favorite recipes & community
+              Đăng nhập để xem thực đơn, món ăn yêu thích và kết nối cộng đồng
             </p>
           </div>
+
+          {/* Reset Password Success Banner */}
+          {resetSuccess && !errorMsg && (
+            <div className="mb-5 flex items-start gap-2.5 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-sm animate-in fade-in duration-200">
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+              <div className="flex-1 font-medium text-xs leading-relaxed">
+                Đặt lại mật khẩu thành công! Vui lòng đăng nhập bằng mật khẩu mới của bạn.
+              </div>
+            </div>
+          )}
 
           {/* Error Banner */}
           {errorMsg && (
@@ -75,13 +99,13 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1.5">
-                Email address
+                Email
               </label>
               <Input
                 type="email"
                 required
                 icon={<Mail className="w-4 h-4" />}
-                placeholder="you@example.com"
+                placeholder="ban@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading}
@@ -91,9 +115,8 @@ export default function LoginPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600">
-                  Password
+                  Mật khẩu
                 </label>
-
               </div>
               <Input
                 type="password"
@@ -105,11 +128,13 @@ export default function LoginPage() {
                 disabled={isLoading}
               />
               <div className="flex justify-end mt-2">
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-red-500 hover:text-red-600 hover:underline underline-offset-4 cursor-pointer transition-all duration-200">
+                <Link
+                  href={forgotPasswordHref}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline underline-offset-4 cursor-pointer transition-all duration-200"
+                >
                   Quên mật khẩu?
-                </span>
+                </Link>
               </div>
-
             </div>
 
             <button
@@ -120,11 +145,11 @@ export default function LoginPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Logging in...
+                  Đang đăng nhập...
                 </>
               ) : (
                 <>
-                  Log in
+                  Đăng nhập
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -138,7 +163,7 @@ export default function LoginPage() {
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-white px-3 text-stone-400 font-semibold tracking-wider">
-                Or continue with
+                Hoặc tiếp tục với
               </span>
             </div>
           </div>
@@ -167,21 +192,37 @@ export default function LoginPage() {
                 d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
               />
             </svg>
-            Sign in with Google
+            Đăng nhập với Google
           </button>
 
           {/* Footer Link */}
           <div className="mt-6 pt-5 border-t border-stone-100 text-center text-sm text-stone-500">
-            Don’t have an account yet?{" "}
+            Chưa có tài khoản VeggieHub?{" "}
             <Link
               href="/register"
               className="font-semibold text-emerald-700 hover:text-emerald-800"
             >
-              Join free
+              Đăng ký ngay
             </Link>
           </div>
         </Card>
       </div>
     </AppShell>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppShell showRightRail={false}>
+          <div className="w-full flex justify-center py-20">
+            <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+          </div>
+        </AppShell>
+      }
+    >
+      <LoginFormContent />
+    </Suspense>
   );
 }

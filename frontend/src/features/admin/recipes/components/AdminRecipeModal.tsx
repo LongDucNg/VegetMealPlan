@@ -1,10 +1,27 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { X, Plus, Trash2, Check, Tag, Info } from "lucide-react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import {
+  X,
+  Plus,
+  Trash2,
+  Check,
+  Tag,
+  Info,
+  ChefHat,
+  Clock,
+  Flame,
+  DollarSign,
+  Search,
+  Sparkles,
+  UtensilsCrossed,
+  Layers,
+  HelpCircle,
+} from "lucide-react";
 import { Recipe, IngredientItem, MealType, RecipeStatus } from "@/features/recipes/types";
 import { VegetarianType } from "@/features/profile/types";
-import { priceService, PRICE_WARNING_TEXT } from "@/features/recipes/services/priceService";
+import { priceService } from "@/features/recipes/services/priceService";
+import { ingredientApiService, BackendIngredient } from "@/features/recipes/services/ingredientApiService";
 
 interface AdminRecipeModalProps {
   isOpen: boolean;
@@ -14,16 +31,16 @@ interface AdminRecipeModalProps {
 }
 
 const CATEGORY_PRESETS = [
-  "Breakfast & Porridge",
-  "Smoothies & Bowls",
-  "Stir-Fried & Crispy",
-  "Noodles & Pho",
-  "Soups & Broths",
-  "Rolls & Salads",
-  "Curries & Stews",
-  "Mixed Vegan Platters",
-  "Snacks & Pastries",
-  "Desserts & Drinks",
+  "Bữa sáng & Cháo",
+  "Sinh tố & Cơm tô",
+  "Món xào & Giòn rụm",
+  "Bún, Mì & Phở",
+  "Canh, Súp & Lẩu",
+  "Gỏi cuốn & Salad",
+  "Cà ri & Món kho",
+  "Mâm cơm chay thập cẩm",
+  "Ăn vặt & Bánh ngọt",
+  "Tráng miệng & Thức uống",
 ];
 
 const SAMPLE_IMAGES = [
@@ -43,6 +60,11 @@ function AdminRecipeForm({
   onClose: () => void;
   onSave: (recipeData: Omit<Recipe, "id">, editId?: string) => void;
 }) {
+  // Master data: Nguyên liệu trong DB
+  const [availableIngredients, setAvailableIngredients] = useState<BackendIngredient[]>([]);
+  const [loadingIngredients, setLoadingIngredients] = useState<boolean>(true);
+
+  // Form Fields - Nếu chưa nhập thì mặc định là rỗng hoặc 0
   const [title, setTitle] = useState(initialRecipe?.title || "");
   const [description, setDescription] = useState(initialRecipe?.description || "");
   const [image, setImage] = useState(initialRecipe?.image || SAMPLE_IMAGES[0]);
@@ -52,51 +74,162 @@ function AdminRecipeForm({
     initialRecipe?.vegetarianType || "vegan"
   );
   const [status, setStatus] = useState<RecipeStatus>(initialRecipe?.status || "APPROVED");
-  const [sourceName, setSourceName] = useState(initialRecipe?.source?.name || "Admin Created");
+  const [sourceName, setSourceName] = useState(initialRecipe?.source?.name || "Hệ thống tạo");
   const [sourceUrl, setSourceUrl] = useState(initialRecipe?.source?.url || "");
 
-  const [prepTime, setPrepTime] = useState<number>(initialRecipe?.prepTime ?? 15);
-  const [cookTime, setCookTime] = useState<number>(initialRecipe?.cookTime ?? 15);
-  const [serving, setServing] = useState<number>(initialRecipe?.serving ?? 1);
-  const [calories, setCalories] = useState<number>(initialRecipe?.calories ?? 500);
-  const [protein, setProtein] = useState<number>(initialRecipe?.protein ?? 30);
-  const [carbs, setCarbs] = useState<number>(initialRecipe?.carbs ?? 60);
-  const [fat, setFat] = useState<number>(initialRecipe?.fat ?? 15);
-  const [cuisine, setCuisine] = useState(initialRecipe?.cuisine || "Vietnamese");
+  // Các trường số: Chưa nhập thì để là 0
+  const [prepTime, setPrepTime] = useState<number | "">(initialRecipe?.prepTime ?? 0);
+  const [cookTime, setCookTime] = useState<number | "">(initialRecipe?.cookTime ?? 0);
+  const [serving, setServing] = useState<number | "">(initialRecipe?.serving ?? 0);
+  const [calories, setCalories] = useState<number | "">(initialRecipe?.calories ?? 0);
+  const [protein, setProtein] = useState<number | "">(initialRecipe?.protein ?? 0);
+  const [carbs, setCarbs] = useState<number | "">(initialRecipe?.carbs ?? 0);
+  const [fat, setFat] = useState<number | "">(initialRecipe?.fat ?? 0);
+  const [cuisine, setCuisine] = useState(initialRecipe?.cuisine || "Món Việt");
   const [difficulty, setDifficulty] = useState<"Easy" | "Medium" | "Advanced">(
     initialRecipe?.difficulty || "Easy"
   );
 
+  // Nguyên liệu: Chưa nhập thì để trống mảng []
   const [ingredients, setIngredients] = useState<IngredientItem[]>(
-    initialRecipe?.ingredients?.length
-      ? initialRecipe.ingredients
-      : [
-          { id: 1, name: "Firm Tofu", quantity: 200, unit: "g", unitPrice: 45000 },
-          { id: 2, name: "Carrot", quantity: 100, unit: "g", unitPrice: 25000 },
-          { id: 3, name: "Rice", quantity: 150, unit: "g", unitPrice: 30000 },
-        ]
+    initialRecipe?.ingredients?.length ? initialRecipe.ingredients : []
   );
 
+  // Các bước: Chưa nhập thì để trống mảng []
   const [instructions, setInstructions] = useState<string[]>(
-    initialRecipe?.instructions?.length
-      ? initialRecipe.instructions
-      : [
-          "Cut ingredients into bite-sized pieces.",
-          "Pan-fry until golden and fragrant.",
-          "Serve hot with your favorite whole grains.",
-        ]
+    initialRecipe?.instructions?.length ? initialRecipe.instructions : []
   );
 
-  // Live estimated cost calculation (Requirement 4)
+  // Quản lý dropdown gợi ý nguyên liệu
+  const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Load danh sách nguyên liệu từ backend
+  useEffect(() => {
+    let isMounted = true;
+    async function loadIngredients() {
+      try {
+        const res = await ingredientApiService.getIngredients();
+        const list = Array.isArray(res) ? res : (res as any)?.data || [];
+        if (isMounted) {
+          setAvailableIngredients(list);
+        }
+      } catch (err) {
+        console.warn("Không thể tải danh sách nguyên liệu từ DB:", err);
+      } finally {
+        if (isMounted) setLoadingIngredients(false);
+      }
+    }
+    loadIngredients();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Bắt sự kiện click ra ngoài để đóng dropdown gợi ý
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setActiveSearchIndex(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Lọc danh sách nguyên liệu gợi ý theo từ khóa
+  const filteredSuggestions = useMemo(() => {
+    if (!searchQuery.trim()) return availableIngredients.slice(0, 10);
+    const q = searchQuery.toLowerCase();
+    return availableIngredients
+      .filter((item) => (item.ingredient_name || "").toLowerCase().includes(q))
+      .slice(0, 15);
+  }, [availableIngredients, searchQuery]);
+
+  // Tự động tính lượng kcal và dinh dưỡng dựa trên nguyên liệu nhập vào
+  useEffect(() => {
+    // Nếu không có nguyên liệu nào thì dinh dưỡng về 0
+    if (ingredients.length === 0) {
+      if (!initialRecipe) {
+        setCalories(0);
+        setProtein(0);
+        setCarbs(0);
+        setFat(0);
+      }
+      return;
+    }
+
+    let totalKcal = 0;
+    let totalProtein = 0;
+    let totalCarbs = 0;
+    let totalFat = 0;
+    let hasMatchedIngredient = false;
+
+    for (const ing of ingredients) {
+      const qty = Number(ing.quantity || 0);
+      if (!qty) continue;
+
+      const matched = availableIngredients.find(
+        (a) =>
+          (ing.id && a.ingredient_id === ing.id) ||
+          (ing.name && a.ingredient_name.toLowerCase() === ing.name.trim().toLowerCase())
+      );
+
+      if (matched) {
+        hasMatchedIngredient = true;
+        let grams = qty;
+        const u = (ing.unit || matched.unit || "g").toLowerCase();
+        if (u === "kg" || u === "l" || u === "lit") grams = qty * 1000;
+        else if (u === "mg" || u === "ml") grams = qty;
+
+        const caloPer100 = Number(matched.calories_per_100g || 0);
+        const pPer100 = Number(matched.protein_per_100g || 0);
+        const cPer100 = Number(matched.carb_per_100g || 0);
+        const fPer100 = Number(matched.fat_per_100g || 0);
+
+        totalKcal += (grams / 100) * caloPer100;
+        totalProtein += (grams / 100) * pPer100;
+        totalCarbs += (grams / 100) * cPer100;
+        totalFat += (grams / 100) * fPer100;
+      }
+    }
+
+    if (hasMatchedIngredient) {
+      setCalories(Math.round(totalKcal));
+      setProtein(Math.round(totalProtein * 10) / 10);
+      setCarbs(Math.round(totalCarbs * 10) / 10);
+      setFat(Math.round(totalFat * 10) / 10);
+    }
+  }, [ingredients, availableIngredients, initialRecipe]);
+
+  // Tính chi phí ước tính theo thời gian thực
   const estimatedCost = useMemo(() => {
     return priceService.calculateRecipeCost(ingredients).estimatedCost;
   }, [ingredients]);
 
+  // Thêm / Cập nhật / Xóa nguyên liệu
   const handleAddIngredient = () => {
     setIngredients((prev) => [
       ...prev,
-      { id: Date.now(), name: "", quantity: "", unit: "g" },
+      { id: Date.now(), name: "", quantity: 0, unit: "g", unitPrice: 0 },
     ]);
+  };
+
+  const handleSelectIngredient = (index: number, selected: BackendIngredient) => {
+    setIngredients((prev) => {
+      const copy = [...prev];
+      copy[index] = {
+        ...copy[index],
+        id: selected.ingredient_id,
+        name: selected.ingredient_name,
+        unit: selected.unit || "g",
+        unitPrice: Number(selected.avg_price_per_unit || 0),
+      };
+      return copy;
+    });
+    setActiveSearchIndex(null);
+    setSearchQuery("");
   };
 
   const handleUpdateIngredient = (
@@ -115,6 +248,7 @@ function AdminRecipeForm({
     setIngredients((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Thêm / Cập nhật / Xóa bước thực hiện
   const handleAddInstruction = () => {
     setInstructions((prev) => [...prev, ""]);
   };
@@ -131,16 +265,20 @@ function AdminRecipeForm({
     setInstructions((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Submit form
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      alert("Please provide a recipe name.");
+      alert("Vui lòng nhập tên công thức.");
       return;
     }
 
     const { ingredientsWithCost } = priceService.calculateRecipeCost(
       ingredients.filter((i) => i.name.trim() !== "")
     );
+
+    const safePrep = Number(prepTime) || 0;
+    const safeCook = Number(cookTime) || 0;
 
     const payload: Omit<Recipe, "id"> = {
       title: title.trim(),
@@ -153,18 +291,18 @@ function AdminRecipeForm({
       status,
       source: {
         type: sourceUrl ? "web" : "admin",
-        name: sourceName.trim() || "Admin Created",
+        name: sourceName.trim() || "Hệ thống tạo",
         url: sourceUrl.trim() || undefined,
       },
       estimatedCost,
-      prepTime: Number(prepTime),
-      cookTime: Number(cookTime),
-      duration: `${Number(prepTime) + Number(cookTime)} min`,
-      serving: Number(serving),
-      calories: Number(calories),
-      protein: Number(protein),
-      carbs: Number(carbs),
-      fat: Number(fat),
+      prepTime: safePrep,
+      cookTime: safeCook,
+      duration: `${safePrep + safeCook} phút`,
+      serving: Number(serving) || 0,
+      calories: Number(calories) || 0,
+      protein: Number(protein) || 0,
+      carbs: Number(carbs) || 0,
+      fat: Number(fat) || 0,
       cuisine,
       difficulty,
       ingredients: ingredientsWithCost,
@@ -176,20 +314,28 @@ function AdminRecipeForm({
   };
 
   return (
-    <div className="relative w-full max-w-3xl my-8 bg-white rounded-3xl shadow-2xl overflow-hidden border border-stone-200">
+    <div className="relative w-full max-w-4xl my-6 bg-stone-50 rounded-3xl shadow-2xl overflow-hidden border border-stone-200">
       {/* Modal Header */}
-      <div className="bg-stone-900 text-white p-6 flex items-center justify-between">
-        <div>
-          <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
-            Admin Recipe Management
-          </span>
-          <h2 className="font-serif font-bold text-2xl mt-0.5">
-            {initialRecipe ? "Edit Recipe" : "Add New Recipe"}
-          </h2>
+      <div className="bg-emerald-900 text-white p-6 sm:p-7 flex items-center justify-between border-b border-emerald-800">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-emerald-800 flex items-center justify-center text-emerald-300 shadow-inner">
+            <ChefHat className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-800/80 px-2 py-0.5 rounded-full">
+                Quản trị công thức
+              </span>
+              <span className="text-xs text-emerald-200">· Hệ thống VeggieHub</span>
+            </div>
+            <h2 className="font-serif font-bold text-2xl mt-0.5 text-white">
+              {initialRecipe ? "Chỉnh sửa công thức" : "Thêm công thức mới"}
+            </h2>
+          </div>
         </div>
         <button
           onClick={onClose}
-          className="p-2 text-stone-400 hover:text-white transition-colors cursor-pointer"
+          className="p-2.5 rounded-full text-emerald-200 hover:text-white hover:bg-emerald-800/80 transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -198,67 +344,70 @@ function AdminRecipeForm({
       {/* Modal Form */}
       <form
         onSubmit={handleSubmit}
-        className="p-6 sm:p-8 space-y-6 max-h-[calc(85vh-80px)] overflow-y-auto"
+        className="p-6 sm:p-8 space-y-6 max-h-[calc(88vh-80px)] overflow-y-auto"
       >
-        {/* Basic Info */}
-        <div className="space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 border-b pb-2">
-            1. Basic Information & Status
-          </h3>
+        {/* Card 1: Thông tin cơ bản & Phân loại */}
+        <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-xs space-y-5">
+          <div className="flex items-center gap-2.5 text-stone-800 border-b border-stone-100 pb-3">
+            <UtensilsCrossed className="w-4 h-4 text-emerald-700" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-stone-700">
+              1. Thông tin cơ bản & Phân loại
+            </h3>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Recipe Name *
+              <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                Tên công thức món ăn *
               </label>
               <input
                 type="text"
                 required
-                placeholder="e.g. Crispy Lemongrass Tofu Rice Bowl"
+                placeholder="Ví dụ: Đậu hũ sốt sả ớt giòn rụm"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50 px-3.5 text-sm focus:border-emerald-600 focus:bg-white outline-none"
+                className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 text-sm focus:border-emerald-600 focus:bg-white outline-none transition-colors"
               />
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Description
+              <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                Mô tả món ăn
               </label>
               <textarea
                 rows={2}
-                placeholder="Short description highlighting flavors and key health benefits..."
+                placeholder="Mô tả ngắn gọn hương vị, câu chuyện hoặc lợi ích dinh dưỡng..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm focus:border-emerald-600 focus:bg-white outline-none"
+                className="w-full rounded-xl border border-stone-200 bg-stone-50/50 p-3 text-sm focus:border-emerald-600 focus:bg-white outline-none transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Status * (Requirement 26)
+              <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                Trạng thái kiểm duyệt *
               </label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as RecipeStatus)}
-                className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm font-semibold text-emerald-800 focus:border-emerald-600 focus:bg-white outline-none"
+                className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50/50 px-3 text-sm font-semibold text-emerald-800 focus:border-emerald-600 focus:bg-white outline-none cursor-pointer"
               >
-                <option value="APPROVED">APPROVED (Active in Meal Planner)</option>
-                <option value="PENDING_REVIEW">PENDING_REVIEW</option>
-                <option value="DRAFT">DRAFT</option>
-                <option value="REJECTED">REJECTED</option>
-                <option value="ARCHIVED">ARCHIVED</option>
+                <option value="APPROVED">ĐÃ DUYỆT (Hiển thị trong Thực đơn)</option>
+                <option value="PENDING_REVIEW">CHỜ DUYỆT (Đang xét duyệt)</option>
+                <option value="DRAFT">BẢN NHÁP (Chưa công khai)</option>
+                <option value="REJECTED">TỪ CHỐI</option>
+                <option value="ARCHIVED">LƯU TRỮ</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Category
+              <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                Danh mục món ăn
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm focus:border-emerald-600 focus:bg-white outline-none"
+                className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50/50 px-3 text-sm focus:border-emerald-600 focus:bg-white outline-none cursor-pointer"
               >
                 {CATEGORY_PRESETS.map((c) => (
                   <option key={c} value={c}>
@@ -269,319 +418,467 @@ function AdminRecipeForm({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Meal Type *
+              <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                Loại bữa ăn *
               </label>
               <select
                 value={mealType}
                 onChange={(e) => setMealType(e.target.value as MealType)}
-                className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm focus:border-emerald-600 focus:bg-white outline-none"
+                className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50/50 px-3 text-sm focus:border-emerald-600 focus:bg-white outline-none cursor-pointer"
               >
-                <option value="breakfast">Breakfast</option>
-                <option value="lunch">Lunch</option>
-                <option value="dinner">Dinner</option>
-                <option value="snack">Snack</option>
+                <option value="breakfast">Bữa sáng (Breakfast)</option>
+                <option value="lunch">Bữa trưa (Lunch)</option>
+                <option value="dinner">Bữa tối (Dinner)</option>
+                <option value="snack">Bữa phụ (Snack)</option>
+                <option value="any">Bữa trưa / Tối (Linh hoạt)</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Vegetarian Type *
+              <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                Chế độ ăn chay *
               </label>
               <select
                 value={vegetarianType}
                 onChange={(e) => setVegetarianType(e.target.value as VegetarianType)}
-                className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm focus:border-emerald-600 focus:bg-white outline-none"
+                className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50/50 px-3 text-sm focus:border-emerald-600 focus:bg-white outline-none cursor-pointer"
               >
-                <option value="vegan">Vegan (100% Plant)</option>
-                <option value="lacto_vegetarian">Lacto Vegetarian (Allows Dairy)</option>
-                <option value="ovo_vegetarian">Ovo Vegetarian (Allows Eggs)</option>
-                <option value="lacto_ovo_vegetarian">Lacto-Ovo Vegetarian (Dairy & Eggs)</option>
+                <option value="vegan">Thuần chay (Vegan - 100% Thực vật)</option>
+                <option value="lacto_vegetarian">Chay có sữa (Lacto Vegetarian)</option>
+                <option value="ovo_vegetarian">Chay có trứng (Ovo Vegetarian)</option>
+                <option value="lacto_ovo_vegetarian">Chay có trứng & sữa (Lacto-Ovo)</option>
               </select>
             </div>
           </div>
         </div>
 
-        {/* Recipe Source & Citation (Requirement 16) */}
-        <div className="space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 border-b pb-2">
-            2. Recipe Source & Citation
-          </h3>
+        {/* Card 2: Hình ảnh món ăn & Nguồn */}
+        <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-xs space-y-4">
+          <div className="flex items-center gap-2.5 text-stone-800 border-b border-stone-100 pb-3">
+            <Sparkles className="w-4 h-4 text-emerald-700" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-stone-700">
+              2. Hình ảnh món ăn & Nguồn trích dẫn
+            </h3>
+          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-3">
             <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Source Name / Author:
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Minimalist Baker, Admin Created"
-                value={sourceName}
-                onChange={(e) => setSourceName(e.target.value)}
-                className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50 px-3.5 text-sm focus:border-emerald-600 focus:bg-white outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Source URL (if from web):
+              <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                Đường dẫn hình ảnh (URL)
               </label>
               <input
                 type="url"
-                placeholder="https://example.com/recipe"
-                value={sourceUrl}
-                onChange={(e) => setSourceUrl(e.target.value)}
-                className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50 px-3.5 text-sm focus:border-emerald-600 focus:bg-white outline-none"
+                placeholder="https://images.unsplash.com/..."
+                value={image}
+                onChange={(e) => setImage(e.target.value)}
+                className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 text-sm focus:border-emerald-600 focus:bg-white outline-none"
               />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="text-xs text-stone-500 font-medium">Hoặc chọn ảnh mẫu:</span>
+              {SAMPLE_IMAGES.map((url, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setImage(url)}
+                  className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                    image === url
+                      ? "border-emerald-600 bg-emerald-50 text-emerald-800 font-bold"
+                      : "border-stone-200 text-stone-600 hover:bg-stone-50"
+                  }`}
+                >
+                  Ảnh mẫu #{idx + 1}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  Tên nguồn / Tác giả
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Bếp chay An Lạc, Hệ thống tạo"
+                  value={sourceName}
+                  onChange={(e) => setSourceName(e.target.value)}
+                  className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 text-sm focus:border-emerald-600 focus:bg-white outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  Đường dẫn nguồn tham khảo (nếu có)
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://example.com/recipe"
+                  value={sourceUrl}
+                  onChange={(e) => setSourceUrl(e.target.value)}
+                  className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 text-sm focus:border-emerald-600 focus:bg-white outline-none"
+                />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Image Selection / URL */}
-        <div className="space-y-2">
-          <label className="block text-xs font-semibold text-stone-700">
-            Recipe Image URL
-          </label>
-          <input
-            type="url"
-            placeholder="https://images.unsplash.com/..."
-            value={image}
-            onChange={(e) => setImage(e.target.value)}
-            className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50 px-3.5 text-sm focus:border-emerald-600 focus:bg-white outline-none"
-          />
-          <div className="flex items-center gap-2 pt-1">
-            <span className="text-xs text-stone-500">Or pick preset:</span>
-            {SAMPLE_IMAGES.map((url, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => setImage(url)}
-                className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                  image === url
-                    ? "border-emerald-600 bg-emerald-50 text-emerald-800 font-bold"
-                    : "border-stone-200 text-stone-600 hover:bg-stone-50"
-                }`}
-              >
-                Sample #{idx + 1}
-              </button>
-            ))}
+        {/* Card 3: Thời gian nấu & Dinh dưỡng (Kcal tự động tính) */}
+        <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+            <div className="flex items-center gap-2.5 text-stone-800">
+              <Clock className="w-4 h-4 text-emerald-700" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-stone-700">
+                3. Thời gian & Chỉ số dinh dưỡng
+              </h3>
+            </div>
+            <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 flex items-center gap-1">
+              <Flame className="w-3.5 h-3.5 text-amber-500" />
+              Kcal tự động tính theo nguyên liệu
+            </span>
           </div>
-        </div>
 
-        {/* Cooking Metrics & Macros */}
-        <div className="space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 border-b pb-2">
-            3. Timings & Nutritional Values
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
             <div>
-              <label className="block text-xs text-stone-600 mb-1">Prep Time (min)</label>
+              <label className="block text-xs font-medium text-stone-600 mb-1">Chuẩn bị (phút)</label>
               <input
                 type="number"
                 min="0"
                 value={prepTime}
-                onChange={(e) => setPrepTime(Number(e.target.value))}
-                className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm"
+                onChange={(e) => setPrepTime(e.target.value === "" ? 0 : Number(e.target.value))}
+                className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50/50 px-3 text-sm focus:bg-white outline-none"
               />
             </div>
+
             <div>
-              <label className="block text-xs text-stone-600 mb-1">Cook Time (min)</label>
+              <label className="block text-xs font-medium text-stone-600 mb-1">Nấu (phút)</label>
               <input
                 type="number"
                 min="0"
                 value={cookTime}
-                onChange={(e) => setCookTime(Number(e.target.value))}
-                className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm"
+                onChange={(e) => setCookTime(e.target.value === "" ? 0 : Number(e.target.value))}
+                className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50/50 px-3 text-sm focus:bg-white outline-none"
               />
             </div>
+
             <div>
-              <label className="block text-xs text-stone-600 mb-1">Servings</label>
+              <label className="block text-xs font-medium text-stone-600 mb-1">Khẩu phần (người)</label>
               <input
                 type="number"
-                min="1"
+                min="0"
                 value={serving}
-                onChange={(e) => setServing(Number(e.target.value))}
-                className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm"
+                onChange={(e) => setServing(e.target.value === "" ? 0 : Number(e.target.value))}
+                className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50/50 px-3 text-sm focus:bg-white outline-none"
               />
             </div>
+
             <div>
-              <label className="block text-xs text-stone-600 mb-1 font-bold text-amber-700">
-                Calories (kcal) *
+              <label className="block text-xs font-bold text-amber-800 mb-1 flex items-center gap-1">
+                <Flame className="w-3 h-3 text-amber-600" />
+                Calo (kcal)
               </label>
               <input
                 type="number"
-                min="50"
+                min="0"
                 value={calories}
-                onChange={(e) => setCalories(Number(e.target.value))}
-                className="w-full h-10 rounded-xl border border-amber-200 bg-amber-50/50 px-3 text-sm font-bold text-amber-900"
+                onChange={(e) => setCalories(e.target.value === "" ? 0 : Number(e.target.value))}
+                className="w-full h-10 rounded-xl border border-amber-300 bg-amber-50/60 px-3 text-sm font-bold text-amber-900 focus:bg-white outline-none"
+                title="Tự động tính từ các nguyên liệu có trong DB"
               />
             </div>
+
             <div>
-              <label className="block text-xs text-stone-600 mb-1">Protein (g)</label>
+              <label className="block text-xs font-medium text-stone-600 mb-1">Chất đạm / Protein (g)</label>
               <input
                 type="number"
                 min="0"
+                step="0.1"
                 value={protein}
-                onChange={(e) => setProtein(Number(e.target.value))}
-                className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm"
+                onChange={(e) => setProtein(e.target.value === "" ? 0 : Number(e.target.value))}
+                className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50/50 px-3 text-sm focus:bg-white outline-none"
               />
             </div>
+
             <div>
-              <label className="block text-xs text-stone-600 mb-1">Carbs (g)</label>
+              <label className="block text-xs font-medium text-stone-600 mb-1">Tinh bột / Carbs (g)</label>
               <input
                 type="number"
                 min="0"
+                step="0.1"
                 value={carbs}
-                onChange={(e) => setCarbs(Number(e.target.value))}
-                className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm"
+                onChange={(e) => setCarbs(e.target.value === "" ? 0 : Number(e.target.value))}
+                className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50/50 px-3 text-sm focus:bg-white outline-none"
               />
             </div>
+
             <div>
-              <label className="block text-xs text-stone-600 mb-1">Fat (g)</label>
+              <label className="block text-xs font-medium text-stone-600 mb-1">Chất béo / Fat (g)</label>
               <input
                 type="number"
                 min="0"
+                step="0.1"
                 value={fat}
-                onChange={(e) => setFat(Number(e.target.value))}
-                className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm"
+                onChange={(e) => setFat(e.target.value === "" ? 0 : Number(e.target.value))}
+                className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50/50 px-3 text-sm focus:bg-white outline-none"
               />
             </div>
+
             <div>
-              <label className="block text-xs text-stone-600 mb-1">Cuisine</label>
-              <input
-                type="text"
-                value={cuisine}
-                onChange={(e) => setCuisine(e.target.value)}
-                className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm"
-              />
+              <label className="block text-xs font-medium text-stone-600 mb-1">Độ khó chế biến</label>
+              <select
+                value={difficulty}
+                onChange={(e) => setDifficulty(e.target.value as "Easy" | "Medium" | "Advanced")}
+                className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50/50 px-3 text-sm focus:bg-white outline-none cursor-pointer"
+              >
+                <option value="Easy">Dễ (Easy)</option>
+                <option value="Medium">Trung bình (Medium)</option>
+                <option value="Advanced">Nâng cao (Advanced)</option>
+              </select>
             </div>
           </div>
         </div>
 
-        {/* Ingredients & Pricing Calculation (Requirement 4) */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between border-b pb-2">
-            <div className="flex items-center gap-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-                4. Ingredients & Pricing
+        {/* Card 4: Nguyên liệu & Gợi ý từ DB & Tính chi phí */}
+        <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+            <div className="flex items-center gap-2.5 text-stone-800">
+              <DollarSign className="w-4 h-4 text-emerald-700" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-stone-700">
+                4. Nguyên liệu & Chi phí ước tính
               </h3>
               <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                Estimated: {priceService.formatEstimatedPrice(estimatedCost)}
+                Ước tính: {priceService.formatEstimatedPrice(estimatedCost)}
               </span>
             </div>
             <button
               type="button"
               onClick={handleAddIngredient}
-              className="text-xs text-emerald-700 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+              className="text-xs text-emerald-700 font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              Add Ingredient
+              Thêm nguyên liệu
             </button>
           </div>
 
-          <div className="space-y-2">
-            {ingredients.map((ing, idx) => (
-              <div key={ing.id || idx} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="Ingredient Name"
-                  value={ing.name}
-                  onChange={(e) => handleUpdateIngredient(idx, "name", e.target.value)}
-                  className="flex-2 h-9 rounded-lg border border-stone-200 bg-stone-50 px-3 text-sm"
-                />
-                <input
-                  type="text"
-                  placeholder="Qty"
-                  value={ing.quantity}
-                  onChange={(e) => handleUpdateIngredient(idx, "quantity", e.target.value)}
-                  className="w-20 h-9 rounded-lg border border-stone-200 bg-stone-50 px-2 text-sm text-center"
-                />
-                <input
-                  type="text"
-                  placeholder="Unit (g, ml)"
-                  value={ing.unit}
-                  onChange={(e) => handleUpdateIngredient(idx, "unit", e.target.value)}
-                  className="w-20 h-9 rounded-lg border border-stone-200 bg-stone-50 px-2 text-sm text-center"
-                />
-                <input
-                  type="number"
-                  placeholder="Unit price (VND/kg)"
-                  value={ing.unitPrice || ""}
-                  onChange={(e) => handleUpdateIngredient(idx, "unitPrice", Number(e.target.value))}
-                  className="w-32 h-9 rounded-lg border border-stone-200 bg-stone-50 px-2 text-xs text-right"
-                  title="Unit price (VND) per kg/liter/pc"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveIngredient(idx)}
-                  className="p-1.5 text-stone-400 hover:text-red-600 transition-colors cursor-pointer"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
+          {ingredients.length === 0 ? (
+            <div className="py-8 text-center text-stone-400 bg-stone-50 rounded-xl border border-dashed border-stone-200">
+              <p className="text-sm font-medium">Chưa có nguyên liệu nào.</p>
+              <button
+                type="button"
+                onClick={handleAddIngredient}
+                className="mt-2 text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
+              >
+                + Bấm vào đây để thêm nguyên liệu đầu tiên
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {ingredients.map((ing, idx) => (
+                <div key={ing.id || idx} className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-3 bg-stone-50/70 rounded-xl border border-stone-200/80">
+                  {/* Ô nhập tên nguyên liệu có gợi ý */}
+                  <div className="relative flex-1">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Nhập tên nguyên liệu (sẽ gợi ý từ DB)..."
+                        value={ing.name}
+                        onChange={(e) => {
+                          handleUpdateIngredient(idx, "name", e.target.value);
+                          setSearchQuery(e.target.value);
+                          setActiveSearchIndex(idx);
+                        }}
+                        onFocus={() => {
+                          setSearchQuery(ing.name || "");
+                          setActiveSearchIndex(idx);
+                        }}
+                        className="w-full h-10 rounded-lg border border-stone-200 bg-white pl-8 pr-3 text-sm focus:border-emerald-600 outline-none"
+                      />
+                      <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    </div>
 
-          <p className="text-[11px] text-stone-400">
-            Total cost = sum(quantity used × price per unit). Displays as estimated cost on recipe cards.
+                    {/* Dropdown gợi ý nguyên liệu */}
+                    {activeSearchIndex === idx && (
+                      <div
+                        ref={dropdownRef}
+                        className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-stone-200 py-1.5 z-50 max-h-56 overflow-y-auto"
+                      >
+                        <div className="px-3 py-1 text-[11px] font-bold text-stone-400 uppercase tracking-wider border-b border-stone-100 flex items-center justify-between">
+                          <span>Nguyên liệu có sẵn trong DB</span>
+                          <span>Đơn vị / Đơn giá / Calo</span>
+                        </div>
+                        {filteredSuggestions.length === 0 ? (
+                          <div className="px-3 py-3 text-xs text-stone-400 text-center">
+                            Không tìm thấy nguyên liệu trùng khớp. Bạn vẫn có thể dùng tên này.
+                          </div>
+                        ) : (
+                          filteredSuggestions.map((item) => (
+                            <button
+                              key={item.ingredient_id}
+                              type="button"
+                              onClick={() => handleSelectIngredient(idx, item)}
+                              className="w-full px-3 py-2 text-left hover:bg-emerald-50 flex items-center justify-between text-xs transition-colors cursor-pointer border-b border-stone-50 last:border-none"
+                            >
+                              <span className="font-semibold text-stone-800">
+                                {item.ingredient_name}
+                              </span>
+                              <div className="flex items-center gap-2 text-stone-500 text-[11px]">
+                                <span className="px-1.5 py-0.5 rounded bg-stone-100">
+                                  {item.unit || "g"}
+                                </span>
+                                <span className="font-medium text-emerald-700">
+                                  {Number(item.avg_price_per_unit || 0).toLocaleString("vi-VN")} đ
+                                </span>
+                                {item.calories_per_100g && (
+                                  <span className="text-amber-700 font-bold">
+                                    {Math.round(item.calories_per_100g)} kcal/100g
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Số lượng */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="Số lượng"
+                      value={ing.quantity || ""}
+                      onChange={(e) =>
+                        handleUpdateIngredient(
+                          idx,
+                          "quantity",
+                          e.target.value === "" ? 0 : Number(e.target.value)
+                        )
+                      }
+                      className="w-24 h-10 rounded-lg border border-stone-200 bg-white px-2.5 text-sm text-center focus:border-emerald-600 outline-none"
+                      title="Số lượng"
+                    />
+
+                    {/* Đơn vị */}
+                    <input
+                      type="text"
+                      placeholder="Đơn vị"
+                      value={ing.unit || ""}
+                      onChange={(e) => handleUpdateIngredient(idx, "unit", e.target.value)}
+                      className="w-16 h-10 rounded-lg border border-stone-200 bg-white px-2 text-sm text-center focus:border-emerald-600 outline-none"
+                      title="Đơn vị (g, kg, cái, ml...)"
+                    />
+
+                    {/* Đơn giá */}
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Đơn giá (đ)"
+                      value={ing.unitPrice || ""}
+                      onChange={(e) =>
+                        handleUpdateIngredient(
+                          idx,
+                          "unitPrice",
+                          e.target.value === "" ? 0 : Number(e.target.value)
+                        )
+                      }
+                      className="w-28 h-10 rounded-lg border border-stone-200 bg-white px-2.5 text-xs text-right focus:border-emerald-600 outline-none font-medium"
+                      title="Đơn giá nguyên liệu theo đơn vị"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveIngredient(idx)}
+                      className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                      title="Xóa dòng này"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="text-[11px] text-stone-400 flex items-center gap-1 pt-1">
+            <Info className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            Nhập tên nguyên liệu để chọn gợi ý từ 190+ nguyên liệu chuẩn trong DB. Lượng calo và chi phí sẽ tự động cập nhật theo khối lượng.
           </p>
         </div>
 
-        {/* Instructions */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between border-b pb-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-              5. Cooking Steps
-            </h3>
+        {/* Card 5: Hướng dẫn chế biến từng bước */}
+        <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+            <div className="flex items-center gap-2.5 text-stone-800">
+              <Layers className="w-4 h-4 text-emerald-700" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-stone-700">
+                5. Các bước chế biến món ăn
+              </h3>
+            </div>
             <button
               type="button"
               onClick={handleAddInstruction}
-              className="text-xs text-emerald-700 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+              className="text-xs text-emerald-700 font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              Add Step
+              Thêm bước
             </button>
           </div>
 
-          <div className="space-y-2">
-            {instructions.map((step, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <span className="w-6 text-xs font-bold text-stone-400 text-center shrink-0">
-                  {idx + 1}.
-                </span>
-                <input
-                  type="text"
-                  placeholder={`Step ${idx + 1} instruction...`}
-                  value={step}
-                  onChange={(e) => handleUpdateInstruction(idx, e.target.value)}
-                  className="flex-1 h-9 rounded-lg border border-stone-200 bg-stone-50 px-3 text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveInstruction(idx)}
-                  className="p-1.5 text-stone-400 hover:text-red-600 transition-colors cursor-pointer"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
+          {instructions.length === 0 ? (
+            <div className="py-8 text-center text-stone-400 bg-stone-50 rounded-xl border border-dashed border-stone-200">
+              <p className="text-sm font-medium">Chưa có bước thực hiện nào.</p>
+              <button
+                type="button"
+                onClick={handleAddInstruction}
+                className="mt-2 text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
+              >
+                + Bấm vào đây để thêm bước đầu tiên
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {instructions.map((step, idx) => (
+                <div key={idx} className="flex items-center gap-2.5">
+                  <span className="w-7 h-7 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center justify-center shrink-0">
+                    {idx + 1}
+                  </span>
+                  <input
+                    type="text"
+                    placeholder={`Hướng dẫn thực hiện bước ${idx + 1}...`}
+                    value={step}
+                    onChange={(e) => handleUpdateInstruction(idx, e.target.value)}
+                    className="flex-1 h-10 rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 text-sm focus:bg-white focus:border-emerald-600 outline-none transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveInstruction(idx)}
+                    className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                    title="Xóa bước này"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Action buttons */}
-        <div className="pt-4 border-t flex items-center justify-end gap-3">
+        {/* Action Buttons */}
+        <div className="pt-2 flex items-center justify-end gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2.5 rounded-xl border border-stone-200 text-stone-700 text-sm font-semibold hover:bg-stone-50 cursor-pointer"
+            className="px-5 py-2.5 rounded-xl border border-stone-200 text-stone-700 text-sm font-semibold hover:bg-stone-100 transition-colors cursor-pointer"
           >
-            Cancel
+            Hủy bỏ
           </button>
           <button
             type="submit"
             className="px-7 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold shadow-xs transition-colors cursor-pointer flex items-center gap-2"
           >
             <Check className="w-4 h-4" />
-            {initialRecipe ? "Save Changes" : "Create Recipe"}
+            {initialRecipe ? "Lưu thay đổi" : "Tạo công thức mới"}
           </button>
         </div>
       </form>
