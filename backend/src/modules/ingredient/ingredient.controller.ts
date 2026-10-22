@@ -3,7 +3,6 @@ import {
   Controller,
   Get,
   Param,
-  ParseIntPipe,
   Put,
   Req,
   UseGuards,
@@ -13,6 +12,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { IngredientService } from './ingredient.service';
 import { SetPriceDto, ValidatePricePipe } from './dto/set-price.dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
 
 @ApiTags('ingredients')
 @Controller('ingredients')
@@ -34,7 +34,7 @@ export class IngredientController {
   @Public()
   @Get(':id')
   findOne(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', PositiveIntPipe) id: number,
   ) {
     return this.ingredientService.findOne(id);
   }
@@ -48,7 +48,7 @@ export class IngredientController {
   @Put(':id/my-price')
   setMyPrice(
     @Req() req: any,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', PositiveIntPipe) id: number,
     // ValidatePricePipe phải gắn ở @Body(), KHÔNG dùng @UsePipes() cấp route:
     // @UsePipes() áp cho MỌI param của route (kể cả :id) nên pipe sẽ đọc
     // body của path param -> luôn ném "price_per_unit phải lớn hơn 0" -> API 400.

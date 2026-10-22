@@ -1,6 +1,6 @@
 import { createParamDecorator, ExecutionContext, PipeTransform, Injectable, ArgumentMetadata, BadRequestException } from '@nestjs/common';
 import { Transform } from 'class-transformer';
-import { IsNumber, Min } from 'class-validator';
+import { IsNotEmpty, IsNumber, Min } from 'class-validator';
 
 @Injectable()
 export class ValidatePricePipe implements PipeTransform {
@@ -82,6 +82,9 @@ export const SafePrice = createParamDecorator(
 );
 
 export class SetPriceDto {
+  // Không được để trống: báo lỗi rõ ràng khi client gửi thiếu price_per_unit
+  // (trước đây ô trống rơi vào @IsNumber -> báo chung chung "phải là số").
+  @IsNotEmpty({ message: 'Giá nguyên liệu không được để trống.' })
   // Phải có decorator: ValidationPipe global chạy với
   // whitelist + forbidNonWhitelisted, nên DTO không decorator sẽ bị loại field
   // (hoặc văng 400) -> mọi request PUT /ingredients/:id/my-price đều hỏng.
