@@ -9,7 +9,7 @@ export class UserIngredientService {
   constructor(
     @InjectRepository(UserIngredient)
     private readonly repo: Repository<UserIngredient>,
-  ) {}
+  ) { }
 
   findAllByUser(user_id: number): Promise<UserIngredient[]> {
     return this.repo.find({ where: { user_id }, relations: ['ingredient'] });
@@ -23,7 +23,7 @@ export class UserIngredientService {
   async remove(user_id: number, user_ingredient_id: number): Promise<void> {
     const entity = await this.repo.findOne({ where: { user_ingredient_id, user_id } });
     if (!entity) {
-      throw new NotFoundException('Không tìm thấy nguyên liệu này trong pantry của bạn');
+      throw new NotFoundException('Không tìm thấy nguyên liệu này trong kho của bạn');
     }
     await this.repo.delete({ user_ingredient_id });
   }
