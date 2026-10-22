@@ -136,9 +136,24 @@ export const mealPlannerService = {
       "snack"
     );
 
-    // Pick distinct recipes using offset without allergen violations
+    const scaleRecipeToCalories = (raw: Recipe, targetKcal: number): Recipe => {
+      const baseKcal = Number(raw.calories) || 150;
+      const maxPortion = baseKcal < 200 ? 3.0 : baseKcal < 350 ? 2.5 : 1.8;
+      const portion = Math.round(Math.min(maxPortion, Math.max(0.6, targetKcal / baseKcal)) * 10) / 10;
+      return {
+        ...raw,
+        calories: Math.round(baseKcal * portion),
+        serving: Math.round((Number(raw.serving) || 1) * portion * 10) / 10,
+        protein: Math.round((Number(raw.protein) || 0) * portion * 10) / 10,
+        carbs: Math.round((Number(raw.carbs) || 0) * portion * 10) / 10,
+        fat: Math.round((Number(raw.fat) || 0) * portion * 10) / 10,
+      };
+    };
+
+    // Pick distinct recipes using offset without allergen violations, bám sát calo mục tiêu
     const pickRecipe = (
       candidates: Recipe[],
+      targetKcal: number,
       index: number,
       preferredFavIds?: string[]
     ): Recipe => {
@@ -146,7 +161,8 @@ export const mealPlannerService = {
       if (preferredFavIds && preferredFavIds.length > 0) {
         const matchingFavs = candidates.filter((r) => preferredFavIds.includes(r.id));
         if (matchingFavs.length > 0) {
-          return matchingFavs[(index + seed) % matchingFavs.length];
+          const chosen = matchingFavs[(index + seed) % matchingFavs.length];
+          return scaleRecipeToCalories(chosen, targetKcal);
         }
       }
 
@@ -167,20 +183,44 @@ export const mealPlannerService = {
         const allSafe = recipeService
           .getRecipes()
           .filter((r) => !checkAllergies(r, profile).hasAllergy);
-        return allSafe[0] || recipeService.getRecipes()[0];
+        const fallback = allSafe[0] || recipeService.getRecipes()[0];
+        return scaleRecipeToCalories(fallback, targetKcal);
       }
 
-      return pool[(index * 3 + seed) % pool.length];
+      // Sắp xếp theo mức độ gần với targetKcal để chọn món cung cấp đủ năng lượng
+      const sortedByCal = [...pool].sort(
+        (a, b) => Math.abs(a.calories - targetKcal) - Math.abs(b.calories - targetKcal)
+      );
+      // Luân chuyển trong top 6 món gần nhất để đảm bảo đa dạng nhưng vẫn bám sát calo
+      const topPool = sortedByCal.slice(0, Math.min(6, sortedByCal.length));
+      const chosen = topPool[(index + seed) % topPool.length];
+      return scaleRecipeToCalories(chosen, targetKcal);
     };
 
     const breakfastRecipe = pickRecipe(
       breakfastCandidates,
+      mealTargets.breakfast,
       dayIndex,
       options?.favoriteRecipeIds
     );
-    const lunchRecipe = pickRecipe(lunchCandidates, dayIndex, options?.favoriteRecipeIds);
-    const dinnerRecipe = pickRecipe(dinnerCandidates, dayIndex, options?.favoriteRecipeIds);
-    const snackRecipe = pickRecipe(snackCandidates, dayIndex, options?.favoriteRecipeIds);
+    const lunchRecipe = pickRecipe(
+      lunchCandidates,
+      mealTargets.lunch,
+      dayIndex,
+      options?.favoriteRecipeIds
+    );
+    const dinnerRecipe = pickRecipe(
+      dinnerCandidates,
+      mealTargets.dinner,
+      dayIndex,
+      options?.favoriteRecipeIds
+    );
+    const snackRecipe = pickRecipe(
+      snackCandidates,
+      mealTargets.snack,
+      dayIndex,
+      options?.favoriteRecipeIds
+    );
 
     const breakfastSlot: MealSlotItem = {
       recipe: breakfastRecipe,
@@ -421,7 +461,7 @@ export const mealPlannerService = {
 
     // Check diet compatibility
     for (const r of allSelected) {
-      if (!recipeService.isDietCompatible(r.vegetarianType, profile.vegetarianType)) {
+      if (profile.vegetarianType && !recipeService.isDietCompatible(r.vegetarianType, profile.vegetarianType)) {
         warnings.push(`"${r.title}" is ${r.vegetarianType} which is not compatible with your ${profile.vegetarianType} diet.`);
       }
     }
@@ -461,7 +501,9 @@ export const mealPlannerService = {
         dateMap.set(rawDate, {});
       }
       const slots = dateMap.get(rawDate)!;
-      const rawRecipe = dm.meal_items?.[0]?.recipe;
+      const rawItem = dm.meal_items?.[0];
+      const rawRecipe = rawItem?.recipe;
+      const portion = Number(rawItem?.portion_multiplier) || 1;
       if (rawRecipe) {
         let frontendRecipe = mapBackendToFrontendRecipe(rawRecipe);
         if (frontendRecipe.calories === 350) {
@@ -469,6 +511,16 @@ export const mealPlannerService = {
           if (fromCache && fromCache.calories !== 350) {
             frontendRecipe = { ...frontendRecipe, calories: fromCache.calories, protein: fromCache.protein, carbs: fromCache.carbs, fat: fromCache.fat, fiber: fromCache.fiber };
           }
+        }
+        if (portion && portion !== 1) {
+          frontendRecipe = {
+            ...frontendRecipe,
+            calories: Math.round(frontendRecipe.calories * portion),
+            serving: Math.round((Number(frontendRecipe.serving) || 1) * portion * 10) / 10,
+            protein: Math.round(frontendRecipe.protein * portion * 10) / 10,
+            carbs: Math.round(frontendRecipe.carbs * portion * 10) / 10,
+            fat: Math.round(frontendRecipe.fat * portion * 10) / 10,
+          };
         }
         slots[dm.meal_type] = frontendRecipe;
       }
@@ -546,7 +598,9 @@ export const mealPlannerService = {
         dateMap.set(rawDate, {});
       }
       const slots = dateMap.get(rawDate)!;
-      const rawRecipe = dm.meal_items?.[0]?.recipe;
+      const rawItem = dm.meal_items?.[0];
+      const rawRecipe = rawItem?.recipe;
+      const portion = Number(rawItem?.portion_multiplier) || 1;
       if (rawRecipe) {
         let frontendRecipe = mapBackendToFrontendRecipe(rawRecipe);
         if (frontendRecipe.calories === 350) {
@@ -554,6 +608,16 @@ export const mealPlannerService = {
           if (fromCache && fromCache.calories !== 350) {
             frontendRecipe = { ...frontendRecipe, calories: fromCache.calories, protein: fromCache.protein, carbs: fromCache.carbs, fat: fromCache.fat, fiber: fromCache.fiber };
           }
+        }
+        if (portion && portion !== 1) {
+          frontendRecipe = {
+            ...frontendRecipe,
+            calories: Math.round(frontendRecipe.calories * portion),
+            serving: Math.round((Number(frontendRecipe.serving) || 1) * portion * 10) / 10,
+            protein: Math.round(frontendRecipe.protein * portion * 10) / 10,
+            carbs: Math.round(frontendRecipe.carbs * portion * 10) / 10,
+            fat: Math.round(frontendRecipe.fat * portion * 10) / 10,
+          };
         }
         slots[dm.meal_type] = frontendRecipe;
       }

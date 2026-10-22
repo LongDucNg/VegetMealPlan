@@ -76,7 +76,7 @@ export function MealCard({
           <span
             className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border shadow-2xs ${colors.badge}`}
           >
-            {mealType}
+            {mealType === "Breakfast" ? "Bữa sáng" : mealType === "Lunch" ? "Bữa trưa" : mealType === "Dinner" ? "Bữa tối" : "Bữa phụ"}
           </span>
         </div>
 
@@ -115,7 +115,7 @@ export function MealCard({
             </span>
             <span className="flex items-center gap-1 text-[11px]">
               <Users className="w-3 h-3 text-stone-400" />
-              {recipe.serving} serving{recipe.serving > 1 ? "s" : ""}
+              {recipe.serving} khẩu phần
             </span>
           </div>
 
@@ -125,23 +125,23 @@ export function MealCard({
               {myPrice ? (
                 <div>
                   <div className="flex items-center gap-1 text-[10px] text-stone-400">
-                    <span>Est: {priceService.formatEstimatedPrice(adminEstimatedCost)}</span>
+                    <span>Ước tính: {priceService.formatEstimatedPrice(adminEstimatedCost)}</span>
                   </div>
                   <div className="flex items-center gap-1 text-xs font-bold text-emerald-800">
                     <Tag className="w-3 h-3 text-emerald-600" />
-                    <span>My: {priceService.formatActualPrice(myPrice)}</span>
+                    <span>Giá của tôi: {priceService.formatActualPrice(myPrice)}</span>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-1 text-xs font-bold text-stone-800">
-                  <span>Estimated: {priceService.formatEstimatedPrice(adminEstimatedCost)}</span>
+                  <span>Ước tính: {priceService.formatEstimatedPrice(adminEstimatedCost)}</span>
                   <div className="relative inline-block">
                     <button
                       type="button"
                       onClick={() => setShowPriceWarningTooltip(!showPriceWarningTooltip)}
                       onMouseEnter={() => setShowPriceWarningTooltip(true)}
                       onMouseLeave={() => setShowPriceWarningTooltip(false)}
-                      title="Price Disclaimer"
+                      title="Thông tin giá"
                       className="text-stone-400 hover:text-stone-600 cursor-pointer p-0.5"
                     >
                       <Info className="w-3 h-3 text-stone-400" />
@@ -162,7 +162,7 @@ export function MealCard({
                 onClick={() => onOpenPriceModal(recipe)}
                 className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 underline underline-offset-2 transition-colors cursor-pointer shrink-0"
               >
-                {myPrice ? "Edit Price" : "My Price"}
+                {myPrice ? "Sửa giá" : "Nhập giá thực"}
               </button>
             )}
           </div>
@@ -172,9 +172,9 @@ export function MealCard({
         <div className="pt-2 border-t border-stone-100 space-y-2">
           {/* Macronutrient breakdown */}
           <div className="flex flex-wrap gap-1">
-            <MacroPill label="P" grams={recipe.protein} color="bg-emerald-500" />
-            <MacroPill label="C" grams={recipe.carbs} color="bg-amber-400" />
-            <MacroPill label="F" grams={recipe.fat} color="bg-violet-400" />
+            <MacroPill label="Đạm" grams={recipe.protein} color="bg-emerald-500" />
+            <MacroPill label="Carb" grams={recipe.carbs} color="bg-amber-400" />
+            <MacroPill label="Béo" grams={recipe.fat} color="bg-violet-400" />
           </div>
 
           {/* Change / Replace button (Requirement 3) */}
@@ -185,7 +185,7 @@ export function MealCard({
               className="w-full h-8 rounded-xl bg-stone-100 hover:bg-emerald-50 hover:text-emerald-800 border border-stone-200 hover:border-emerald-300 text-stone-700 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
             >
               <RefreshCw className="w-3 h-3 text-emerald-700" />
-              <span>Change / Replace</span>
+              <span>Đổi món</span>
             </button>
           )}
         </div>

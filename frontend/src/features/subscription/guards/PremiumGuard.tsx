@@ -30,18 +30,18 @@ export function PremiumGuard({
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="font-semibold flex items-center gap-1.5">
               <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-              Premium Active
+              Gói Premium đang hoạt động
             </span>
             <span className="text-emerald-700/80 hidden sm:inline">
-              · 99,000 VND / month (persisted in localStorage)
+              · 99.000 VNĐ / tháng
             </span>
           </div>
           <button
             onClick={() => toggle()}
             className="text-[11px] font-medium text-emerald-800 hover:text-red-700 underline underline-offset-2 transition-colors cursor-pointer"
-            title="Click to toggle back to Free for testing guard"
+            title="Nhấn để chuyển sang gói Miễn phí (kiểm thử)"
           >
-            [Dev: Switch to Free]
+            [Thử nghiệm: Về gói Thường]
           </button>
         </div>
         {children}
@@ -64,22 +64,22 @@ export function PremiumGuard({
             </div>
 
             <h2 className="font-serif font-bold text-3xl text-stone-900 mb-3 tracking-tight">
-              {customTitle || "Unlock Personalized Meal Planner"}
+              {customTitle || "Mở khóa Kế hoạch Thực đơn Cá nhân hóa"}
             </h2>
 
             <p className="text-stone-600 text-base max-w-lg mx-auto mb-6">
               {customDescription ||
-                "Get personalized meal recommendations tailored specifically for your body composition and plant-based lifestyle:"}
+                "Nhận thực đơn được thiết kế riêng phù hợp với chỉ số cơ thể và lối sống ăn chay của bạn:"}
             </p>
 
             {/* Feature Checklist */}
             <div className="bg-stone-50 border border-stone-200/90 rounded-2xl p-5 max-w-md mx-auto mb-8 text-left space-y-2.5">
               {[
-                "Your BMI & body metrics calculation",
-                "Your daily calorie & macro needs (Mifflin-St Jeor)",
-                "Your personal health goal (Weight loss, maintenance, muscle gain)",
-                "Your vegetarian diet (Vegan, Lacto, Ovo, Lacto-Ovo)",
-                "Your specific allergies (Peanut, Soy, Gluten, etc.)",
+                "Tính toán chỉ số BMI & vóc dáng của bạn",
+                "Nhu cầu calo & dinh dưỡng đa lượng hàng ngày (Mifflin-St Jeor)",
+                "Mục tiêu sức khỏe cá nhân (Giảm cân, giữ dáng, tăng cơ)",
+                "Trường phái ăn chay của bạn (Thuần chay, Chay có sữa, Chay có trứng, Trứng & Sữa)",
+                "Loại trừ dị ứng thực phẩm cụ thể (Đậu phộng, Đậu nành, Gluten,...)",
               ].map((item) => (
                 <div key={item} className="flex items-start gap-2.5 text-sm text-stone-700">
                   <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
@@ -96,19 +96,19 @@ export function PremiumGuard({
                 className="w-full sm:w-auto h-12 px-8 rounded-full bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold text-base shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Sparkles className="w-4 h-4 text-amber-900 fill-amber-900" />
-                Upgrade to Premium
+                Nâng cấp Premium
                 <ArrowRight className="w-4 h-4" />
               </button>
               <button
                 onClick={() => toggle()}
                 className="text-xs text-stone-500 hover:text-stone-800 underline underline-offset-2 py-2 px-3 cursor-pointer"
               >
-                [Dev Quick Unlock]
+                [Thử nghiệm: Mở nhanh]
               </button>
             </div>
 
             <p className="text-xs text-stone-400 mt-4">
-              99,000 VND / month · Cancel anytime · Prototype mock payment
+              99.000 VNĐ / tháng · Hủy bất cứ lúc nào · Thanh toán mô phỏng
             </p>
           </div>
         </div>
@@ -131,19 +131,19 @@ export function PremiumGuard({
         </div>
 
         <h2 className="font-serif font-bold text-3xl text-stone-900 mb-3 tracking-tight">
-          AI Nutrition Assistant
+          Trợ lý AI Dinh dưỡng
         </h2>
 
         <p className="text-stone-600 text-base max-w-md mx-auto mb-6">
-          This feature is available for Premium users. Unlock unlimited, personalized plant-based nutrition guidance powered by your profile metrics.
+          Tính năng này chỉ dành cho thành viên Premium. Mở khóa tư vấn dinh dưỡng thuần thực vật không giới hạn, được cá nhân hóa theo các chỉ số cơ thể của bạn.
         </p>
 
         <div className="bg-stone-50 border border-stone-200/90 rounded-2xl p-5 max-w-md mx-auto mb-8 text-left space-y-2.5">
           {[
-            "Instant dinner & breakfast recommendations based on remaining calories",
-            "Safe recipe swaps tailored to your allergies & vegetarian diet",
-            "In-depth BMI and metabolic target explanations",
-            "Vietnamese plant-based sourcing & B12 guidance",
+            "Gợi ý tức thì món ăn cho bữa sáng, trưa, tối dựa trên lượng calo còn lại",
+            "Đổi món an toàn theo dị ứng và trường phái ăn chay của bạn",
+            "Giải thích chi tiết chỉ số BMI và mục tiêu chuyển hóa",
+            "Hướng dẫn tìm nguồn thực phẩm chay Việt Nam & bổ sung vi chất B12",
           ].map((item) => (
             <div key={item} className="flex items-start gap-2.5 text-sm text-stone-700">
               <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
@@ -160,19 +160,19 @@ export function PremiumGuard({
             className="w-full sm:w-auto h-12 px-8 rounded-full bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold text-base shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Sparkles className="w-4 h-4 text-amber-900 fill-amber-900" />
-            Upgrade to Premium
+            Nâng cấp Premium
             <ArrowRight className="w-4 h-4" />
           </button>
           <button
             onClick={() => toggle()}
             className="text-xs text-stone-500 hover:text-stone-800 underline underline-offset-2 py-2 px-3 cursor-pointer"
           >
-            [Dev Quick Unlock]
+            [Thử nghiệm: Mở nhanh]
           </button>
         </div>
 
         <p className="text-xs text-stone-400 mt-4">
-          Status is stored in localStorage (<code className="text-stone-600">app_subscription</code>) and persists on refresh.
+          Trạng thái được lưu trong hệ thống và duy trì khi làm mới trang.
         </p>
       </div>
 

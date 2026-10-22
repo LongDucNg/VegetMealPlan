@@ -22,6 +22,9 @@ export class RecipeImportBatch {
   @Column()
   success_count: number;
 
+  @Column({ default: 0 })
+  skipped_count: number;
+
   @Column()
   failed_count: number;
 

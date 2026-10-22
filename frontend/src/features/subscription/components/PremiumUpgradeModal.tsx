@@ -39,10 +39,10 @@ export function PremiumUpgradeModal({
           </div>
 
           <h2 className="font-serif font-bold text-2xl sm:text-3xl text-stone-900 tracking-tight">
-            Unlock Personalized Meal Planning
+            Mở Khóa Kế Hoạch Thực Đơn Cá Nhân Hóa
           </h2>
           <p className="text-stone-600 text-sm sm:text-base max-w-md mx-auto mt-2">
-            Get a meal plan tailored to your BMI, calorie target, diet preferences and allergies.
+            Nhận thực đơn được thiết kế riêng theo chỉ số BMI, mục tiêu calo, trường phái ăn chay và loại trừ dị ứng của bạn.
           </p>
         </div>
 
@@ -78,7 +78,7 @@ export function PremiumUpgradeModal({
 
               <div className="mt-6 pt-3 border-t border-stone-200/60 text-center">
                 <span className="text-xs font-semibold text-stone-500">
-                  Current Free Tier
+                  Gói miễn phí hiện tại
                 </span>
               </div>
             </div>
@@ -87,8 +87,8 @@ export function PremiumUpgradeModal({
             <div className="rounded-2xl p-5 border-2 border-emerald-600 bg-emerald-50/30 flex flex-col justify-between relative shadow-md">
               <div className="absolute -top-3 right-4">
                 <span className="bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-wider px-3 py-0.5 rounded-full shadow-xs flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 fill-amber-950" />
-                  Recommended
+                  <Sparkles className="w-3.5 h-3.5 fill-amber-950" />
+                  Khuyên dùng
                 </span>
               </div>
 
@@ -119,7 +119,7 @@ export function PremiumUpgradeModal({
 
               <div className="mt-6 pt-3 border-t border-emerald-200/60 text-center">
                 <span className="text-xs font-bold text-emerald-800">
-                  👑 Unlock All Features
+                  👑 Mở khóa toàn bộ tính năng
                 </span>
               </div>
             </div>
@@ -132,7 +132,7 @@ export function PremiumUpgradeModal({
               onClick={onClose}
               className="w-full sm:w-auto h-11 px-5 rounded-xl border border-stone-200 hover:bg-stone-100 text-stone-600 hover:text-stone-900 text-xs font-semibold transition-colors cursor-pointer"
             >
-              Continue with Free
+              Tiếp tục với bản miễn phí
             </button>
 
             <button
@@ -141,7 +141,7 @@ export function PremiumUpgradeModal({
               className="w-full sm:w-auto h-11 px-7 rounded-xl bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <Sparkles className="w-4 h-4 text-amber-950 fill-amber-950" />
-              Upgrade to Premium
+              Nâng cấp lên Premium
             </button>
           </div>
         </div>

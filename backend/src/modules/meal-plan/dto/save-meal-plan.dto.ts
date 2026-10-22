@@ -14,8 +14,8 @@ import { Type } from 'class-transformer';
 import { PlanType } from '../entities/meal-plan.entity';
 
 export class SaveMealItemDto {
-  @IsInt()
-  @Min(1)
+  @IsInt({ message: 'ID công thức phải là số nguyên.' })
+  @Min(1, { message: 'ID công thức phải là số nguyên dương.' })
   recipe_id: number;
 
   @IsOptional()
@@ -27,51 +27,51 @@ export class SaveMealItemDto {
   added_by_user?: boolean;
 
   @IsOptional()
-  @IsNumber()
-  @Min(0.1)
+  @IsNumber({}, { message: 'Tỷ lệ khẩu phần phải là số hợp lệ.' })
+  @Min(0.1, { message: 'Tỷ lệ khẩu phần phải lớn hơn 0.' })
   portion_multiplier?: number;
 }
 
 export class SaveDailyMealDto {
-  @IsDateString()
+  @IsDateString({}, { message: 'Ngày ăn không hợp lệ. Định dạng: YYYY-MM-DD.' })
   meal_date: string;
 
-  @IsString()
+  @IsString({ message: 'Loại bữa ăn phải là chuỗi ký tự.' })
   meal_type: string;
 
   @IsOptional()
-  @IsNumber()
-  @Min(0)
+  @IsNumber({}, { message: 'Lượng calo mục tiêu phải là số hợp lệ.' })
+  @Min(0, { message: 'Lượng calo mục tiêu không được âm.' })
   target_calories?: number;
 
-  @IsArray()
+  @IsArray({ message: 'Danh sách món ăn phải là một mảng.' })
   @ValidateNested({ each: true })
   @Type(() => SaveMealItemDto)
   meal_items: SaveMealItemDto[];
 }
 
 export class SaveWeeklyPlanDto {
-  @IsInt()
-  @Min(1)
+  @IsInt({ message: 'Số tuần phải là số nguyên.' })
+  @Min(1, { message: 'Số tuần phải là số nguyên dương.' })
   week_number: number;
 
-  @IsDateString()
+  @IsDateString({}, { message: 'Ngày bắt đầu tuần không hợp lệ. Định dạng: YYYY-MM-DD.' })
   start_date: string;
 
-  @IsDateString()
+  @IsDateString({}, { message: 'Ngày kết thúc tuần không hợp lệ. Định dạng: YYYY-MM-DD.' })
   end_date: string;
 
   @IsOptional()
-  @IsNumber()
-  @Min(0)
+  @IsNumber({}, { message: 'Ngân sách tuần phải là số hợp lệ.' })
+  @Min(0, { message: 'Ngân sách tuần không được âm.' })
   week_budget?: number;
 
   @IsOptional()
-  @IsNumber()
-  @Min(0)
+  @IsNumber({}, { message: 'Lượng calo tuần phải là số hợp lệ.' })
+  @Min(0, { message: 'Lượng calo tuần không được âm.' })
   week_calorie_target?: number;
 
-  @IsArray()
+  @IsArray({ message: 'Danh sách ngày ăn phải là một mảng.' })
   @ValidateNested({ each: true })
   @Type(() => SaveDailyMealDto)
   daily_meals: SaveDailyMealDto[];
@@ -79,18 +79,18 @@ export class SaveWeeklyPlanDto {
 
 export class SaveMealPlanDto {
   @IsOptional()
-  @IsInt()
-  @Min(1)
+  @IsInt({ message: 'ID mục tiêu sức khỏe phải là số nguyên.' })
+  @Min(1, { message: 'ID mục tiêu sức khỏe phải là số nguyên dương.' })
   goal_id?: number;
 
   @IsOptional()
-  @IsEnum(PlanType)
+  @IsEnum(PlanType, { message: 'Loại kế hoạch không hợp lệ.' })
   plan_type?: PlanType;
 
-  @IsDateString()
+  @IsDateString({}, { message: 'Ngày bắt đầu không hợp lệ. Định dạng: YYYY-MM-DD.' })
   start_date: string;
 
-  @IsDateString()
+  @IsDateString({}, { message: 'Ngày kết thúc không hợp lệ. Định dạng: YYYY-MM-DD.' })
   end_date: string;
 
   @IsOptional()
@@ -98,17 +98,17 @@ export class SaveMealPlanDto {
   has_budget?: boolean;
 
   @IsOptional()
-  @IsNumber()
-  @Min(0)
+  @IsNumber({}, { message: 'Tổng ngân sách phải là số hợp lệ.' })
+  @Min(0, { message: 'Tổng ngân sách không được âm.' })
   total_budget?: number;
 
   @IsOptional()
-  @IsNumber()
-  @Min(0)
+  @IsNumber({}, { message: 'Lượng calo mục tiêu mỗi ngày phải là số hợp lệ.' })
+  @Min(0, { message: 'Lượng calo mục tiêu không được âm.' })
   target_calories_per_day?: number;
 
   @IsOptional()
-  @IsArray()
+  @IsArray({ message: 'Danh sách tuần phải là một mảng.' })
   @ValidateNested({ each: true })
   @Type(() => SaveWeeklyPlanDto)
   weekly_plans?: SaveWeeklyPlanDto[];

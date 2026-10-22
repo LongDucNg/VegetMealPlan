@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -12,6 +13,7 @@ import { IngredientStatus } from '../entities/ingredient.entity';
 export class UpdateIngredientDto {
   @IsOptional()
   @IsString()
+  @MaxLength(255)
   ingredient_name?: string;
 
   @IsOptional()

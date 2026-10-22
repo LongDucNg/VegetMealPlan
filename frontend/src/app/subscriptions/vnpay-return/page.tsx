@@ -29,29 +29,31 @@ function VNPayReturnContent() {
     setTxnRef(ref);
 
     // Call backend endpoint: GET /subscriptions/vnpay-return
-    apiClient
-      .get<{ success?: boolean; message?: string }>("/subscriptions/vnpay-return", {
-        params: paramsObj,
-      })
+    subscriptionService
+      .verifyVnpayReturn(paramsObj)
       .then((res) => {
-        if (res?.success || responseCode === "00") {
+        if (res?.status === "success" || responseCode === "00") {
           setSuccess(true);
           setMessage("Giao dịch thanh toán Premium thành công! Tài khoản của bạn đã được kích hoạt.");
-          subscriptionService.upgradeToPremium();
+          subscriptionService.setPremiumActive(res?.premium_until, res?.txn_ref || ref);
         } else {
           setSuccess(false);
-          setMessage(res?.message || "Giao dịch không thành công hoặc đã bị hủy bởi người dùng.");
+          setMessage(
+            res?.status === "invalid"
+              ? "Chữ ký giao dịch không hợp lệ, không thể xác thực."
+              : "Giao dịch không thành công hoặc đã bị hủy bởi người dùng."
+          );
         }
       })
-      .catch(() => {
-        // Fallback: check VNPay response code directly if backend offline
+      .catch((err) => {
+        // Fallback: check VNPay response code directly if server return verification fails
         if (responseCode === "00") {
           setSuccess(true);
           setMessage("Thanh toán thành công! Gói hội viên Premium đã được kích hoạt.");
-          subscriptionService.upgradeToPremium();
+          subscriptionService.setPremiumActive(null, ref);
         } else {
           setSuccess(false);
-          setMessage("Không thể xác thực giao dịch thanh toán hoặc giao dịch bị hủy.");
+          setMessage(err?.message || "Không thể xác thực giao dịch thanh toán hoặc giao dịch bị hủy.");
         }
       })
       .finally(() => {

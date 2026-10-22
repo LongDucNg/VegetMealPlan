@@ -9,13 +9,13 @@ import {
   IsNotEmpty,
   IsNumber,
   IsOptional,
-  IsPositive,
   Max,
   Min,
   MinLength,
 } from 'class-validator';
 import { ActivityLevel, DietType } from '../../users/entities/user.entity';
 import { ALLERGEN_GROUP_CODES } from '../../users/allergen-groups';
+import { BODY_LIMITS } from '../../users/body-limits';
 
 // Ba trường bắt buộc phải có @ApiProperty: Swagger chỉ liệt kê field có decorator, thiếu thì ví dụ
 // trên /api/docs không hiện full_name/email/password và người test không biết phải nhập gì.
@@ -51,8 +51,8 @@ export class RegisterDto {
   @ApiPropertyOptional({ example: 30 })
   @IsOptional()
   @IsInt()
-  @Min(5)
-  @Max(120)
+  @Min(BODY_LIMITS.age.min, { message: `age phải từ ${BODY_LIMITS.age.min} trở lên` })
+  @Max(BODY_LIMITS.age.max, { message: `age không được quá ${BODY_LIMITS.age.max}` })
   age?: number;
 
   @ApiPropertyOptional({ enum: ['male', 'female', 'other'] })
@@ -63,13 +63,15 @@ export class RegisterDto {
   @ApiPropertyOptional({ example: 175 })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(BODY_LIMITS.height_cm.min, { message: `height_cm phải từ ${BODY_LIMITS.height_cm.min} cm trở lên` })
+  @Max(BODY_LIMITS.height_cm.max, { message: `height_cm không được quá ${BODY_LIMITS.height_cm.max} cm` })
   height_cm?: number;
 
   @ApiPropertyOptional({ example: 70 })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(BODY_LIMITS.weight_kg.min, { message: `weight_kg phải từ ${BODY_LIMITS.weight_kg.min} kg trở lên` })
+  @Max(BODY_LIMITS.weight_kg.max, { message: `weight_kg không được quá ${BODY_LIMITS.weight_kg.max} kg` })
   weight_kg?: number;
 
   @ApiPropertyOptional({ description: `Nhóm dị ứng: ${ALLERGEN_GROUP_CODES.join(', ')}`, type: [String], example: ['SOY'] })

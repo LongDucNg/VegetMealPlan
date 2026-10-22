@@ -5,17 +5,20 @@ import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { RightRail } from "./RightRail";
 import { Menu, X } from "lucide-react";
+import { ProfileIncompleteBanner } from "@/components/ui/ProfileIncompleteBanner";
 
 export interface AppShellProps {
   children: React.ReactNode;
   showRightRail?: boolean;
   rightRail?: React.ReactNode;
+  fullWidth?: boolean;
 }
 
 export function AppShell({
   children,
   showRightRail = true,
   rightRail,
+  fullWidth = false,
 }: AppShellProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
@@ -67,9 +70,14 @@ export function AppShell({
           {/* Main Content Column */}
           <div
             className={`min-w-0 w-full ${
-              showRightRail ? "flex-1 max-w-[1150px]" : "max-w-[1240px]"
+              showRightRail
+                ? "flex-1 max-w-[1150px]"
+                : fullWidth
+                ? "max-w-[1440px]"
+                : "max-w-[1240px]"
             }`}
           >
+            <ProfileIncompleteBanner />
             {children}
           </div>
 

@@ -112,6 +112,17 @@ export class SessionService {
     return result.affected ?? 0;
   }
 
+  /** Đổi mật khẩu: đăng xuất mọi thiết bị khác, giữ lại phiên đang thao tác. */
+  async revokeOthers(user_id: number, keep_session_id: string): Promise<number> {
+    const result = await this.sessionRepo
+      .createQueryBuilder()
+      .update(UserSession)
+      .set({ revoked_at: () => 'now()' })
+      .where('user_id = :user_id AND revoked_at IS NULL AND session_id <> :keep', { user_id, keep: keep_session_id })
+      .execute();
+    return result.affected ?? 0;
+  }
+
   private newToken() {
     return randomBytes(48).toString('base64url');
   }

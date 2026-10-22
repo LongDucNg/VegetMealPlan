@@ -37,6 +37,20 @@ export enum ErrorCode {
   AUTH_GOOGLE_CODE_INVALID = 'AUTH_GOOGLE_CODE_INVALID',
   /** 401: refresh token sai, hết hạn, đã bị thu hồi hoặc đã dùng (xoay vòng). FE phải cho đăng nhập lại. */
   AUTH_REFRESH_TOKEN_INVALID = 'AUTH_REFRESH_TOKEN_INVALID',
+  /** 400: mã OTP sai, đã dùng hoặc không tồn tại (cố ý dùng chung một mã để không lộ email nào đã đăng ký). */
+  AUTH_OTP_INVALID = 'AUTH_OTP_INVALID',
+  /** 400: mã OTP đã quá 10 phút. FE cho bấm "Gửi lại mã". */
+  AUTH_OTP_EXPIRED = 'AUTH_OTP_EXPIRED',
+  /** 400: nhập sai mã quá 5 lần, mã bị vô hiệu. FE cho bấm "Gửi lại mã". */
+  AUTH_OTP_TOO_MANY_ATTEMPTS = 'AUTH_OTP_TOO_MANY_ATTEMPTS',
+  /** 429: xin mã quá nhanh (cùng email trong 60 giây, hoặc cùng IP quá nhiều lần). */
+  AUTH_OTP_RATE_LIMITED = 'AUTH_OTP_RATE_LIMITED',
+  /** 400: mật khẩu hiện tại không đúng khi đổi mật khẩu (400 chứ không 401 để FE không tưởng hết phiên). */
+  AUTH_WRONG_PASSWORD = 'AUTH_WRONG_PASSWORD',
+  /** 400: tài khoản chỉ đăng nhập Google, chưa có mật khẩu để đổi. Dùng "Quên mật khẩu" để tạo mật khẩu. */
+  AUTH_PASSWORD_NOT_SET = 'AUTH_PASSWORD_NOT_SET',
+  /** 400: mật khẩu mới trùng mật khẩu hiện tại. */
+  AUTH_PASSWORD_UNCHANGED = 'AUTH_PASSWORD_UNCHANGED',
 
   // ---- User / hồ sơ ----
   /** 404 */
@@ -49,6 +63,20 @@ export enum ErrorCode {
   USER_PROFILE_INCOMPLETE = 'USER_PROFILE_INCOMPLETE',
   /** 400: ingredient_id trong danh sách dị ứng không tồn tại. */
   USER_ALLERGY_INGREDIENT_NOT_FOUND = 'USER_ALLERGY_INGREDIENT_NOT_FOUND',
+  /** 400: target_date không sau hôm nay. */
+  USER_TARGET_DATE_INVALID = 'USER_TARGET_DATE_INVALID',
+  /** 400: admin tự khóa hoặc tự đổi vai trò của chính mình. */
+  USER_CANNOT_MODIFY_SELF = 'USER_CANNOT_MODIFY_SELF',
+
+  // ---- Gói Premium ----
+  /** 404 */
+  SUBSCRIPTION_TRANSACTION_NOT_FOUND = 'SUBSCRIPTION_TRANSACTION_NOT_FOUND',
+  /** 404 */
+  SUBSCRIPTION_NOT_FOUND = 'SUBSCRIPTION_NOT_FOUND',
+  /** 400: chỉ huỷ được gói đang active. */
+  SUBSCRIPTION_NOT_ACTIVE = 'SUBSCRIPTION_NOT_ACTIVE',
+  /** 503: server chưa cấu hình VNPAY_TMN_CODE / VNPAY_HASH_SECRET. */
+  SUBSCRIPTION_PAYMENT_NOT_CONFIGURED = 'SUBSCRIPTION_PAYMENT_NOT_CONFIGURED',
 
   // ---- Danh mục ----
   /** 404 */
@@ -63,6 +91,10 @@ export enum ErrorCode {
   RECIPE_NOT_FOUND = 'RECIPE_NOT_FOUND',
   /** 404 */
   INGREDIENT_NOT_FOUND = 'INGREDIENT_NOT_FOUND',
+  /** 409: tên nguyên liệu đã tồn tại trong hệ thống. */
+  INGREDIENT_NAME_CONFLICT = 'INGREDIENT_NAME_CONFLICT',
+  /** 400: tên nguyên liệu không được để trống. */
+  INGREDIENT_NAME_EMPTY = 'INGREDIENT_NAME_EMPTY',
   /** 404 */
   MEAL_PLAN_NOT_FOUND = 'MEAL_PLAN_NOT_FOUND',
 }
