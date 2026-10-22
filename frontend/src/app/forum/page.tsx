@@ -27,18 +27,18 @@ import { FORUM_CATEGORIES, FORUM_POSTS, ForumPost } from "@/features/community";
 export default function ForumPage() {
   const router = useRouter();
   const { isGuest, role } = useRole();
-  const [activeCategory, setActiveCategory] = useState("All discussions");
+  const [activeCategory, setActiveCategory] = useState("Tất cả thảo luận");
   const [searchQuery, setSearchQuery] = useState("");
   const [posts, setPosts] = useState<ForumPost[]>(FORUM_POSTS);
   const [newPostModalOpen, setNewPostModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newCategory, setNewCategory] = useState(FORUM_CATEGORIES[1]);
   const [newContent, setNewContent] = useState("");
-  const [newTags, setNewTags] = useState("#vegan");
+  const [newTags, setNewTags] = useState("#monchay");
 
   const filteredPosts = posts.filter((post) => {
     const matchesCategory =
-      activeCategory === "All discussions" || post.category === activeCategory;
+      activeCategory === "Tất cả thảo luận" || post.category === activeCategory;
     const matchesSearch =
       !searchQuery.trim() ||
       post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -66,7 +66,7 @@ export default function ForumPage() {
   const resetForm = () => {
     setNewTitle("");
     setNewCategory(FORUM_CATEGORIES[1]);
-    setNewTags("#vegan");
+    setNewTags("#monchay");
     setNewContent("");
     setNewPostModalOpen(false);
   };
@@ -80,7 +80,7 @@ export default function ForumPage() {
       title: newTitle.trim(),
       excerpt: newContent.trim().slice(0, 160) + "…",
       content: newContent.trim(),
-      author: role === "Admin" ? "Admin User" : "Linh Nguyen",
+      author: role === "Admin" ? "Quản trị viên" : "Linh Nguyễn",
       authorHandle: role === "Admin" ? "@admin.operator" : "@linh.greens",
       authorInitials: role === "Admin" ? "AD" : "LN",
       verified: true,
@@ -88,7 +88,7 @@ export default function ForumPage() {
       tags: newTags.split(" ").filter((t) => t.startsWith("#")),
       votes: 1,
       commentsCount: 0,
-      timestamp: "Just now",
+      timestamp: "Vừa xong",
       comments: [],
     };
 
@@ -102,9 +102,9 @@ export default function ForumPage() {
       <div className="flex flex-col space-y-7">
         {/* Header */}
         <PageHeader
-          eyebrow="COMMUNITY EXCHANGE"
-          title="Community forum & articles"
-          subtitle="Explore peer-tested plant-based meal strategies, restaurant discoveries, and evidence-backed nutritional guides."
+          eyebrow="GIAO LƯU CỘNG ĐỒNG"
+          title="Diễn đàn & Bài viết cộng đồng"
+          subtitle="Khám phá kinh nghiệm ăn chay thực tế, địa điểm ăn uống thú vị và cẩm nang dinh dưỡng khoa học từ cộng đồng."
           action={
             <button
               type="button"
@@ -118,7 +118,7 @@ export default function ForumPage() {
               className="h-10 px-5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-base font-semibold transition-colors cursor-pointer shadow-sm inline-flex items-center gap-2"
             >
               <Plus className="w-4 h-4" strokeWidth={2.5} />
-              <span>{isGuest ? "Join to post" : "New discussion"}</span>
+              <span>{isGuest ? "Đăng ký để đăng bài" : "Tạo thảo luận mới"}</span>
             </button>
           }
         />
@@ -128,7 +128,7 @@ export default function ForumPage() {
           <div className="max-w-md">
             <Input
               variant="search"
-              placeholder="Search discussions by keyword or tag (#b12, #protein)…"
+              placeholder="Tìm kiếm bài viết theo từ khóa hoặc hashtag (#dinhduong, #monchay)…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -166,7 +166,7 @@ export default function ForumPage() {
                       className={`p-1 rounded text-stone-500 hover:text-emerald-700 hover:bg-stone-100 transition-colors ${
                         isGuest ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                       }`}
-                      title={isGuest ? "Sign in to vote" : "Upvote"}
+                      title={isGuest ? "Đăng nhập để biểu quyết" : "Bình chọn ủng hộ"}
                     >
                       <ChevronUp className="w-5 h-5" strokeWidth={2.5} />
                     </button>
@@ -180,7 +180,7 @@ export default function ForumPage() {
                       className={`p-1 rounded text-stone-500 hover:text-red-600 hover:bg-stone-100 transition-colors ${
                         isGuest ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                       }`}
-                      title={isGuest ? "Sign in to vote" : "Downvote"}
+                      title={isGuest ? "Đăng nhập để biểu quyết" : "Bình chọn phản đối"}
                     >
                       <ChevronDown className="w-5 h-5" strokeWidth={2.5} />
                     </button>
@@ -194,7 +194,7 @@ export default function ForumPage() {
                       </span>
                       <span className="text-xs text-stone-400">·</span>
                       <span className="text-xs text-stone-500">
-                        Posted {post.timestamp}
+                        Đăng lúc {post.timestamp}
                       </span>
                     </div>
 
@@ -234,7 +234,7 @@ export default function ForumPage() {
                               className="w-full h-full object-cover group-hover/media:scale-[1.02] transition-transform duration-300"
                             />
                             <span className="absolute bottom-2.5 right-2.5 bg-black/70 text-white text-[11px] font-semibold px-2 py-0.5 rounded-md backdrop-blur-xs flex items-center gap-1">
-                              <ImageIcon className="w-3 h-3" /> Photo
+                              <ImageIcon className="w-3 h-3" /> Hình ảnh
                             </span>
                           </div>
                         )}
@@ -265,7 +265,7 @@ export default function ForumPage() {
                         </div>
                         <div className="flex items-center gap-1">
                           <MessageSquare className="w-3.5 h-3.5 text-stone-400" />
-                          <span>{post.commentsCount} comments</span>
+                          <span>{post.commentsCount} bình luận</span>
                         </div>
                       </div>
                     </div>
@@ -279,10 +279,10 @@ export default function ForumPage() {
             <Card className="text-center py-12">
               <Search className="w-10 h-10 text-stone-300 mx-auto mb-3" />
               <p className="text-lg font-semibold text-stone-800">
-                No discussion threads found
+                Không tìm thấy bài thảo luận nào
               </p>
               <p className="mt-1 text-sm text-stone-500">
-                Try selecting &quot;All discussions&quot; or adjusting your search term.
+                Hãy thử chọn &quot;Tất cả thảo luận&quot; hoặc thay đổi từ khóa tìm kiếm.
               </p>
             </Card>
           )}
@@ -293,26 +293,26 @@ export default function ForumPage() {
       <Modal
         isOpen={newPostModalOpen}
         onClose={() => setNewPostModalOpen(false)}
-        title="Start a new discussion thread"
+        title="Bắt đầu chủ đề thảo luận mới"
       >
         <form onSubmit={handleCreatePost} className="flex flex-col space-y-4">
           <div>
             <label className="block text-sm font-semibold text-stone-700 mb-1.5">
-              Title
+              Tiêu đề
             </label>
             <input
               type="text"
               required
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="e.g. My favorite high-protein tempeh marinade"
+              placeholder="Ví dụ: Cách ướp đậu hũ chiên sả giòn rụm tại nhà"
               className="w-full h-11 px-4 rounded-xl border border-stone-200 text-base text-stone-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
             />
           </div>
 
           <div>
             <label className="block text-sm font-semibold text-stone-700 mb-1.5">
-              Category
+              Chuyên mục
             </label>
             <select
               value={newCategory}
@@ -329,27 +329,27 @@ export default function ForumPage() {
 
           <div>
             <label className="block text-sm font-semibold text-stone-700 mb-1.5">
-              Tags (space separated with #)
+              Hashtag (cách nhau bằng dấu cách, kèm ký tự #)
             </label>
             <input
               type="text"
               value={newTags}
               onChange={(e) => setNewTags(e.target.value)}
-              placeholder="#recipe #tempeh #highprotein"
+              placeholder="#congthuc #dauhu #dinhduong"
               className="w-full h-11 px-4 rounded-xl border border-stone-200 text-base text-stone-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
             />
           </div>
 
           <div>
             <label className="block text-sm font-semibold text-stone-700 mb-1.5">
-              Content & Detailed Instructions
+              Nội dung & Hướng dẫn chi tiết
             </label>
             <textarea
               rows={5}
               required
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
-              placeholder="Provide full context, ingredients, or questions for the community…"
+              placeholder="Chia sẻ kinh nghiệm, công thức hoặc đặt câu hỏi cùng cộng đồng…"
               className="w-full p-4 rounded-xl border border-stone-200 text-base text-stone-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
             />
           </div>
@@ -358,15 +358,15 @@ export default function ForumPage() {
             <button
               type="button"
               onClick={resetForm}
-              className="h-10 px-5 rounded-full text-stone-600 hover:bg-stone-100 text-base font-medium transition-colors"
+              className="h-10 px-5 rounded-full text-stone-600 hover:bg-stone-100 text-base font-medium transition-colors cursor-pointer"
             >
-              Cancel
+              Hủy
             </button>
             <button
               type="submit"
-              className="h-10 px-6 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-base font-semibold transition-colors shadow-sm"
+              className="h-10 px-6 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-base font-semibold transition-colors shadow-sm cursor-pointer"
             >
-              Publish discussion
+              Đăng bài thảo luận
             </button>
           </div>
         </form>

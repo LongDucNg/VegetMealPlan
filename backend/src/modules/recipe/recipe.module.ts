@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Recipe } from './entities/recipe.entity';
 import { RecipeIngredient } from './entities/recipe-ingredient.entity';
 import { RecipeCategory } from './entities/recipe-category.entity';
+import { Category } from '../category/entities/category.entity';
 import { FavoriteRecipe } from './entities/favorite-recipe.entity';
 import { UserRecipePrice } from './entities/user-recipe-price.entity';
 
@@ -24,6 +25,7 @@ import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
       Recipe,
       RecipeIngredient,
       RecipeCategory,
+      Category,
       FavoriteRecipe,
       IngredientReplacement,
       User,

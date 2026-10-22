@@ -25,7 +25,7 @@ export function DailyMacroSummary({ day }: DailyMacroSummaryProps) {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400">
-            Daily Nutrition Breakdown ({day.dayName}, {day.dateText})
+            Phân bổ dinh dưỡng trong ngày ({day.dayName}, {day.dateText})
           </span>
           <div className="flex items-baseline gap-2 mt-0.5">
             <span className="font-serif font-bold text-3xl text-stone-900">
@@ -42,7 +42,7 @@ export function DailyMacroSummary({ day }: DailyMacroSummaryProps) {
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="px-3.5 py-1.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-950 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
             <Tag className="w-3.5 h-3.5 text-emerald-700" />
-            <span>Estimated Cost: ~{day.estimatedCost.toLocaleString("vi-VN")} VND/day</span>
+            <span>Chi phí ước tính: ~{day.estimatedCost.toLocaleString("vi-VN")} VNĐ/ngày</span>
           </div>
 
           <div
@@ -55,17 +55,17 @@ export function DailyMacroSummary({ day }: DailyMacroSummaryProps) {
             {isOver ? (
               <>
                 <AlertCircle className="w-3.5 h-3.5 text-red-600" />
-                <span>Exceeded target by {Math.abs(remaining)} kcal</span>
+                <span>Vượt mức tiêu chuẩn {Math.abs(remaining)} kcal</span>
               </>
             ) : (
               <>
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span>{remaining} kcal remaining for snacks/beverages</span>
+                <span>Còn dư {remaining} kcal cho bữa phụ/đồ uống</span>
               </>
             )}
           </div>
           <span className="text-xs font-bold text-stone-500 bg-stone-100 px-2.5 py-1 rounded-full">
-            {pct}% of target
+            {pct}% mục tiêu
           </span>
         </div>
       </div>
@@ -83,26 +83,26 @@ export function DailyMacroSummary({ day }: DailyMacroSummaryProps) {
       {/* Daily Macro Totals */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
         <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-3 text-center">
-          <p className="text-[11px] font-semibold text-stone-500 uppercase">Protein</p>
+          <p className="text-[11px] font-semibold text-stone-500 uppercase">Chất đạm (Protein)</p>
           <p className="font-serif font-bold text-xl text-emerald-800 mt-0.5">{totalProtein}g</p>
           <p className="text-[10px] text-stone-400">~{Math.round(totalProtein * 4)} kcal</p>
         </div>
         <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-3 text-center">
-          <p className="text-[11px] font-semibold text-stone-500 uppercase">Carbs</p>
+          <p className="text-[11px] font-semibold text-stone-500 uppercase">Đường bột (Carbs)</p>
           <p className="font-serif font-bold text-xl text-amber-700 mt-0.5">{totalCarbs}g</p>
           <p className="text-[10px] text-stone-400">~{Math.round(totalCarbs * 4)} kcal</p>
         </div>
         <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-3 text-center">
-          <p className="text-[11px] font-semibold text-stone-500 uppercase">Fat</p>
+          <p className="text-[11px] font-semibold text-stone-500 uppercase">Chất béo (Fat)</p>
           <p className="font-serif font-bold text-xl text-violet-700 mt-0.5">{totalFat}g</p>
           <p className="text-[10px] text-stone-400">~{Math.round(totalFat * 9)} kcal</p>
         </div>
         <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-3 text-center">
-          <p className="text-[11px] font-semibold text-stone-500 uppercase">Daily Cost</p>
+          <p className="text-[11px] font-semibold text-stone-500 uppercase">Chi phí ngày</p>
           <p className="font-serif font-bold text-xl text-emerald-900 mt-0.5">
-            ~{day.estimatedCost.toLocaleString("vi-VN")} đ
+            ~{day.estimatedCost.toLocaleString("vi-VN")} VNĐ
           </p>
-          <p className="text-[10px] text-stone-400">4 planned meals</p>
+          <p className="text-[10px] text-stone-400">4 bữa đã lên lịch</p>
         </div>
       </div>
 

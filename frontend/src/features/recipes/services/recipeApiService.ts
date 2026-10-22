@@ -111,6 +111,11 @@ export const recipeApiService = {
     return apiClient.get<any>("/categories");
   },
 
+  // API GET /categories/:id - Chi tiết một danh mục
+  getCategoryById(id: number | string) {
+    return apiClient.get<any>(`/categories/${id}`);
+  },
+
   // API Admin: GET /admin/recipes - Lấy danh sách công thức cho admin (kèm status)
   getAdminRecipes(status?: string) {
     const query = status ? `?status=${status}` : "";

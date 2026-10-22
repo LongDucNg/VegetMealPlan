@@ -37,10 +37,16 @@ import {
 } from "lucide-react";
 
 import { useProfile } from "@/features/profile/hooks/useProfile";
+import { formatVegetarianType } from "@/features/profile/types";
 import { useSubscription } from "@/features/subscription/hooks/useSubscription";
 import { calculateBMI } from "@/features/nutrition/utils/bmi";
 import { calculateDailyNutrition } from "@/features/nutrition/utils/calorieCalculator";
-import { nutritionService, ServerNutritionSummary } from "@/features/nutrition";
+import {
+  nutritionService,
+  ServerNutritionSummary,
+  NutritionWarnings,
+  CalorieExplanationSection,
+} from "@/features/nutrition";
 import { favoriteService, SavedMealPlan } from "@/features/recipes/services/favoriteService";
 import { priceService, PRICE_WARNING_TEXT } from "@/features/recipes/services/priceService";
 import { recipeService } from "@/features/recipes/services/recipeService";
@@ -93,19 +99,17 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer shrink-0 ${
-        active
+      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer shrink-0 ${active
           ? "bg-emerald-700 text-white shadow-sm"
           : "text-stone-600 hover:bg-stone-100 hover:text-stone-900 bg-white border border-stone-200"
-      }`}
+        }`}
     >
       {icon}
       <span>{label}</span>
       {badgeCount !== undefined && badgeCount > 0 && (
         <span
-          className={`px-2 py-0.5 text-xs font-bold rounded-full ${
-            active ? "bg-white/20 text-white" : "bg-stone-100 text-stone-700"
-          }`}
+          className={`px-2 py-0.5 text-xs font-bold rounded-full ${active ? "bg-white/20 text-white" : "bg-stone-100 text-stone-700"
+            }`}
         >
           {badgeCount}
         </span>
@@ -164,15 +168,26 @@ function ProfileContent() {
       });
   }, [profile]);
 
-  const bmiInfo = calculateBMI(profile.weight, profile.height);
+  const hasPhysicalMetrics = Number(profile.height) > 0 && Number(profile.weight) > 0;
+  const bmiInfo = hasPhysicalMetrics ? calculateBMI(profile.weight, profile.height) : null;
   const nutrition = calculateDailyNutrition(profile);
 
-  const displayBmi = serverNutrition?.bmi ?? profile.bmi ?? (bmiInfo ? Number(bmiInfo.formattedBMI) : null);
-  const displayBmiCategory = serverNutrition?.bmi_category ?? profile.bmiCategory ?? bmiInfo?.category;
-  const displayTargetCalories = serverNutrition?.target_calories ?? nutrition.dailyCalorieTarget;
+  const displayBmi = hasPhysicalMetrics
+    ? (serverNutrition?.bmi ?? profile.bmi ?? (bmiInfo ? Number(bmiInfo.formattedBMI) : null))
+    : null;
+  const displayBmiCategory = hasPhysicalMetrics
+    ? (serverNutrition?.bmi_category ?? profile.bmiCategory ?? bmiInfo?.category)
+    : null;
+  const displayTargetCalories = hasPhysicalMetrics
+    ? (serverNutrition?.target_calories ?? nutrition.dailyCalorieTarget)
+    : null;
 
   // Data queries
-  const allApprovedRecipes = recipeService.getRecipes();
+  const [allApprovedRecipes, setAllApprovedRecipes] = useState<Recipe[]>([]);
+  useEffect(() => {
+    setAllApprovedRecipes(recipeService.getRecipes());
+  }, []);
+
   const [favoriteRecipes, setFavoriteRecipes] = useState<Recipe[]>([]);
   const [favLoading, setFavLoading] = useState(true);
 
@@ -186,13 +201,19 @@ function ProfileContent() {
           const mapped = list.map(mapBackendToFrontendRecipe);
           setFavoriteRecipes(mapped);
 
-          // Sync IDs to local favoriteService
+          // Sync IDs to local favoriteService only when actually changed
           const ids = mapped.map((r) => String(r.id));
-          favoriteService.saveUserFavorites({
-            userId,
-            recipes: ids,
-            mealPlans: favoriteService.getFavoriteMealPlans(userId),
-          });
+          const currentFavs = favoriteService.getUserFavorites(userId);
+          const hasDiff =
+            currentFavs.recipes.length !== ids.length ||
+            !ids.every((id) => currentFavs.recipes.includes(id));
+          if (hasDiff) {
+            favoriteService.saveUserFavorites({
+              userId,
+              recipes: ids,
+              mealPlans: favoriteService.getFavoriteMealPlans(userId),
+            });
+          }
         }
       } catch (err) {
         if (isMounted) {
@@ -259,7 +280,6 @@ function ProfileContent() {
     let isMounted = true;
     async function loadMyRecipes() {
       try {
-        setMyRecipesLoading(true);
         let list: any[] = [];
         try {
           const res = await recipeApiService.getMyRecipes();
@@ -278,7 +298,7 @@ function ProfileContent() {
           setMyRecipes(list.map(mapBackendToFrontendRecipe));
         }
       } catch (err) {
-        if (isMounted) setMyRecipes([]);
+        if (isMounted && myRecipes.length === 0) setMyRecipes([]);
       } finally {
         if (isMounted) setMyRecipesLoading(false);
       }
@@ -426,13 +446,13 @@ function ProfileContent() {
 
           <div className="flex flex-wrap items-center gap-2 mt-3">
             <span className="text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 font-semibold border border-emerald-200">
-              BMI: {displayBmi ? `${displayBmi} (${displayBmiCategory || "Bình thường"})` : "—"}
+              BMI: {displayBmi ? `${displayBmi} (${displayBmiCategory || "Bình thường"})` : "Chưa có chỉ số"}
             </span>
             <span className="text-xs px-3 py-1 rounded-full bg-amber-50 text-amber-800 font-semibold border border-amber-200">
-              Mục tiêu: ~{displayTargetCalories} kcal/ngày
+              Mục tiêu: {displayTargetCalories ? `~${displayTargetCalories} kcal/ngày` : "Chưa thiết lập"}
             </span>
             <span className="text-xs px-3 py-1 rounded-full bg-stone-100 text-stone-700 capitalize font-medium">
-              Chế độ: {profile.vegetarianType.replace("_", " ")}
+              Chế độ: {profile.vegetarianType ? formatVegetarianType(profile.vegetarianType) : "Chưa chọn"}
             </span>
             {profile.allergies.length > 0 && (
               <span className="text-xs px-3 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 font-medium">
@@ -495,15 +515,27 @@ function ProfileContent() {
               Hủy gói hội viên
             </button>
           ) : (
-            <button
-              onClick={() => purchase("premium")}
-              className="text-xs bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold rounded-xl px-4 py-2 transition-colors cursor-pointer shadow-xs"
+            <Link
+              href="/me/settings?tab=subscription"
+              className="text-xs bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold rounded-xl px-4 py-2 transition-colors cursor-pointer shadow-xs inline-flex items-center"
             >
               Nâng cấp Premium
-            </button>
+            </Link>
           )}
         </div>
       </div>
+
+      {/* Cảnh báo dinh dưỡng từ Backend nếu có */}
+      {serverNutrition?.warnings && serverNutrition.warnings.length > 0 && (
+        <NutritionWarnings warnings={serverNutrition.warnings} />
+      )}
+
+      {/* Mục tiêu cân nặng & Giải thích Kcal */}
+      <CalorieExplanationSection
+        explanation={serverNutrition?.explanation}
+        targetGoal={serverNutrition?.target_goal}
+        targetCalories={serverNutrition?.target_calories}
+      />
 
       {/* Quick Overview Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -527,8 +559,8 @@ function ProfileContent() {
         />
         <StatCard
           label="Mục tiêu calo hàng ngày"
-          value={`~${displayTargetCalories}`}
-          subtext="Tính tự động từ BMI"
+          value={displayTargetCalories ? `~${displayTargetCalories}` : "—"}
+          subtext={hasPhysicalMetrics ? "Tính tự động từ BMI" : "Chưa có chỉ số"}
           icon={<Star className="w-4 h-4 text-emerald-600" />}
         />
       </div>
@@ -688,7 +720,7 @@ function ProfileContent() {
                       <div className="pt-3 border-t border-stone-100 flex flex-col gap-2">
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-stone-500">Giá ước tính hệ thống:</span>
-                          <span className="font-semibold text-stone-700">~{adminEst.toLocaleString("vi-VN")} VND</span>
+                          <span className="font-semibold text-stone-700">~{adminEst.toLocaleString("vi-VN")} VNĐ</span>
                         </div>
 
                         <div className="flex items-center justify-between text-xs bg-emerald-50/70 p-2 rounded-xl border border-emerald-100">
@@ -767,24 +799,22 @@ function ProfileContent() {
                 <button
                   type="button"
                   onClick={() => setRecipeStatusFilter("ALL")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                    recipeStatusFilter === "ALL"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${recipeStatusFilter === "ALL"
                       ? "bg-stone-900 text-white"
                       : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-                  }`}
+                    }`}
                 >
                   Tất cả ({myRecipes.length})
                 </button>
                 <button
                   type="button"
                   onClick={() => setRecipeStatusFilter("APPROVED")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    recipeStatusFilter === "APPROVED"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${recipeStatusFilter === "APPROVED"
                       ? "bg-emerald-700 text-white"
                       : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                  }`}
+                    }`}
                 >
-                  <span>✅ Đã duyệt</span>
+                  <span>Đã duyệt</span>
                   <span className="font-bold">
                     ({myRecipes.filter((r) => r.status === "APPROVED").length})
                   </span>
@@ -792,13 +822,12 @@ function ProfileContent() {
                 <button
                   type="button"
                   onClick={() => setRecipeStatusFilter("PENDING_REVIEW")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    recipeStatusFilter === "PENDING_REVIEW"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${recipeStatusFilter === "PENDING_REVIEW"
                       ? "bg-amber-600 text-white"
                       : "bg-amber-50 text-amber-800 hover:bg-amber-100"
-                  }`}
+                    }`}
                 >
-                  <span>⏳ Đang chờ duyệt</span>
+                  <span>Đang chờ duyệt</span>
                   <span className="font-bold">
                     ({myRecipes.filter((r) => r.status === "PENDING_REVIEW").length})
                   </span>
@@ -807,13 +836,12 @@ function ProfileContent() {
                   <button
                     type="button"
                     onClick={() => setRecipeStatusFilter("REJECTED")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                      recipeStatusFilter === "REJECTED"
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${recipeStatusFilter === "REJECTED"
                         ? "bg-rose-600 text-white"
                         : "bg-rose-50 text-rose-700 hover:bg-rose-100"
-                    }`}
+                      }`}
                   >
-                    <span>❌ Bị từ chối</span>
+                    <span>Bị từ chối</span>
                     <span className="font-bold">
                       ({myRecipes.filter((r) => r.status === "REJECTED").length})
                     </span>
@@ -822,7 +850,7 @@ function ProfileContent() {
               </div>
             )}
 
-            {myRecipesLoading ? (
+            {myRecipesLoading && myRecipes.length === 0 ? (
               <div className="p-12 text-center text-stone-400">
                 <p className="text-xs">Đang tải danh sách công thức của bạn...</p>
               </div>
@@ -867,6 +895,16 @@ function ProfileContent() {
                             <img
                               src={recipe.image}
                               alt={recipe.title}
+                              loading="lazy"
+                              decoding="async"
+                              onError={(e) => {
+                                const target = e.currentTarget;
+                                if (!target.dataset.fallback) {
+                                  target.dataset.fallback = "1";
+                                  target.src =
+                                    "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop&q=80";
+                                }
+                              }}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
                           ) : (
@@ -877,17 +915,17 @@ function ProfileContent() {
                           <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
                             {isApproved && (
                               <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-600 text-white shadow-xs">
-                                ✅ Đã duyệt
+                                Đã duyệt
                               </span>
                             )}
                             {isPending && (
                               <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500 text-white shadow-xs">
-                                ⏳ Chờ Admin duyệt
+                                Chờ Admin duyệt
                               </span>
                             )}
                             {isRejected && (
                               <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-600 text-white shadow-xs">
-                                ❌ Bị từ chối
+                                Bị từ chối
                               </span>
                             )}
                             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-stone-900/60 text-white backdrop-blur-xs">
@@ -915,7 +953,7 @@ function ProfileContent() {
 
                           <div className="pt-3 border-t border-stone-100 flex items-center justify-between">
                             <span className="text-xs font-bold text-emerald-800">
-                              ~{(recipe.estimatedCost || 0).toLocaleString("vi-VN")} VND
+                              ~{(recipe.estimatedCost || 0).toLocaleString("vi-VN")} VNĐ
                             </span>
                             {isApproved ? (
                               <Link
@@ -997,15 +1035,15 @@ function ProfileContent() {
 
                       <div className="flex flex-wrap items-center gap-3 text-xs text-stone-600">
                         <span className="font-medium">
-                          📅 {plan.days.length} ngày dinh dưỡng
+                          {plan.days.length} ngày dinh dưỡng
                         </span>
                         <span>·</span>
                         <span className="text-amber-700 font-bold">
-                          ⚡ Mục tiêu: ~{plan.targetCalories} kcal/ngày
+                          Mục tiêu: ~{plan.targetCalories} kcal/ngày
                         </span>
                         <span>·</span>
                         <span className="text-emerald-800 font-bold">
-                          💰 Tổng chi phí: ~{plan.totalEstimatedCost.toLocaleString("vi-VN")} VND
+                          Tổng chi phí: ~{plan.totalEstimatedCost.toLocaleString("vi-VN")} VNĐ
                         </span>
                         <span>·</span>
                         <span className="text-stone-400 text-[11px]">
@@ -1178,24 +1216,23 @@ function ProfileContent() {
                             </span>
                           </td>
                           <td className="py-3.5 px-4 text-stone-600 font-medium">
-                            ~{estimatedCost.toLocaleString("vi-VN")} VND
+                            ~{estimatedCost.toLocaleString("vi-VN")} VNĐ
                           </td>
                           <td className="py-3.5 px-4">
                             <span className="font-bold text-emerald-800">
-                              {myPrice.toLocaleString("vi-VN")} VND
+                              {myPrice.toLocaleString("vi-VN")} VNĐ
                             </span>
                           </td>
                           <td className="py-3.5 px-3">
                             <span
-                              className={`text-xs font-bold px-2 py-0.5 rounded-md ${
-                                diff > 0
+                              className={`text-xs font-bold px-2 py-0.5 rounded-md ${diff > 0
                                   ? "bg-amber-100 text-amber-900"
                                   : diff < 0
-                                  ? "bg-emerald-100 text-emerald-900"
-                                  : "bg-stone-100 text-stone-700"
-                              }`}
+                                    ? "bg-emerald-100 text-emerald-900"
+                                    : "bg-stone-100 text-stone-700"
+                                }`}
                             >
-                              {diff > 0 ? `+${diff.toLocaleString("vi-VN")}` : diff.toLocaleString("vi-VN")} VND
+                              {diff > 0 ? `+${diff.toLocaleString("vi-VN")}` : diff.toLocaleString("vi-VN")} VNĐ
                             </span>
                           </td>
                           <td className="py-3.5 px-4 text-right">
@@ -1385,7 +1422,7 @@ function ProfileContent() {
                     <div className="text-right shrink-0">
                       {existing ? (
                         <span className="text-xs font-bold text-emerald-800">
-                          {existing.toLocaleString("vi-VN")} VND
+                          {existing.toLocaleString("vi-VN")} VNĐ
                         </span>
                       ) : (
                         <span className="text-xs font-semibold text-stone-400">

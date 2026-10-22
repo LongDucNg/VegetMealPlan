@@ -9,7 +9,6 @@ import {
   Query,
   UseGuards,
   Req,
-  ParseIntPipe,
 } from '@nestjs/common';
 import { RecipeService } from './recipe.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
@@ -21,6 +20,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
+import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
 
 @ApiTags('recipes')
 @Controller('recipes')
@@ -68,19 +68,25 @@ export class RecipeController {
 
   @Get(':id/cost')
   @Public()
-  getRecipeCost(@Param('id', ParseIntPipe) id: number) {
+  getRecipeCost(@Param('id', PositiveIntPipe) id: number) {
     return this.recipeService.getRecipeCost(id);
   }
 
   @Get(':id/replacements')
   @Public()
-  getRecipeReplacements(@Param('id', ParseIntPipe) id: number) {
+  getRecipeReplacements(@Param('id', PositiveIntPipe) id: number) {
     return this.recipeService.getRecipeReplacements(id);
+  }
+
+  @Get(':id/prices')
+  @Public()
+  getRecipeCommunityPrices(@Param('id', PositiveIntPipe) id: number) {
+    return this.recipeService.getRecipeCommunityPrices(id);
   }
 
   @Get(':id')
   @Public()
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id', PositiveIntPipe) id: number) {
     return this.recipeService.findOne(id);
   }
 
@@ -105,12 +111,11 @@ export class RecipeController {
     );
   }
 
-  // Đổi PATCH thành PUT theo hợp đồng API BE2
   @Put(':id')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', PositiveIntPipe) id: number,
     @Req() req: any,
     @Body() updateRecipeDto: UpdateRecipeDto,
   ) {
@@ -129,7 +134,7 @@ export class RecipeController {
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   remove(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', PositiveIntPipe) id: number,
     @Req() req: any,
   ) {
     const userId = req.user.user_id;
