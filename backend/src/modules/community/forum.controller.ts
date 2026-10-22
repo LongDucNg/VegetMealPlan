@@ -3,6 +3,8 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ForumService } from './forum.service';
 import { ForumPostQueryDto } from './dto/forum-post-query.dto';
 import { CreateForumPostDto } from './dto/create-forum-post.dto';
+import { ForumCommentQueryDto } from './dto/forum-comment-query.dto';
+import { CreateForumCommentDto } from './dto/create-forum-comment.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { AuthUser, CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -37,5 +39,26 @@ export class ForumController {
   @ApiOperation({ summary: 'Đăng bài (thành viên chờ duyệt, admin duyệt luôn)' })
   createPost(@CurrentUser() user: AuthUser, @Body() dto: CreateForumPostDto) {
     return this.service.createPost(user, dto);
+  }
+
+  @Get('posts/:id/comments')
+  @Public()
+  @ApiOperation({ summary: 'Danh sách comment của bài (cũ nhất trước, có phân trang)' })
+  listComments(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() query: ForumCommentQueryDto,
+  ) {
+    return this.service.listComments(id, query);
+  }
+
+  @Post('posts/:id/comments')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Thêm comment vào bài đã duyệt' })
+  createComment(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreateForumCommentDto,
+  ) {
+    return this.service.createComment(user, id, dto);
   }
 }
