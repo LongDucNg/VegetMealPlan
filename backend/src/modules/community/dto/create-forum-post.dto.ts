@@ -15,12 +15,12 @@ export class CreateForumPostDto {
   @IsString()
   @MinLength(3)
   @MaxLength(200)
-  title: string;
+  title!: string;
 
   @ApiProperty({ example: 'Mình hay nấu món này vào cuối tuần, công thức như sau...' })
   @IsString()
   @MinLength(10)
-  content: string;
+  content!: string;
 
   @ApiPropertyOptional({ description: 'category_id của danh mục diễn đàn' })
   @IsOptional()
