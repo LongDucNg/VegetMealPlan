@@ -9,6 +9,24 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
+export enum CategoryType {
+  FOOD_TYPE = 'food_type',
+  RECIPE_TYPE = 'recipe_type',
+}
+
+/**
+ * Các loại danh mục được phép gắn vào công thức (bảng recipe_categories).
+ *
+ * Quy ước dữ liệu: mỗi công thức có đúng 1 danh mục recipe_type (cách chế biến)
+ * và 1 danh mục food_type (vai trò của món trong bữa ăn).
+ * Danh mục loại khác (vd. 'forum' của module cộng đồng) không liên quan tới
+ * công thức nên không được gắn vào recipe_categories.
+ */
+export const RECIPE_CATEGORY_TYPES: string[] = [
+  CategoryType.RECIPE_TYPE,
+  CategoryType.FOOD_TYPE,
+];
+
 export enum CategoryStatus {
   ACTIVE = 'active',
   INACTIVE = 'inactive',
