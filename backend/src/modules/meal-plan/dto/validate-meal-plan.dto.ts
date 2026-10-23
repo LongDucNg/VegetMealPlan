@@ -1,4 +1,5 @@
 import {
+  ArrayNotEmpty,
   IsArray,
   IsDateString,
   IsInt,
@@ -42,6 +43,7 @@ export class ValidateMealPlanDto {
   end_date: string;
 
   @IsArray({ message: 'Danh sách ngày phải là một mảng.' })
+  @ArrayNotEmpty({ message: 'Danh sách ngày không được để trống.' })
   @ValidateNested({ each: true })
   @Type(() => ValidateMealDayDto)
   days: ValidateMealDayDto[];

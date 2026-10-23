@@ -25,9 +25,21 @@ export class AdminRecipeController {
   async findAll(
     @Query('status') status?: string,
     @Query('category_id') categoryId?: string,
+    // page/limit là tuỳ chọn: nếu client gửi thì backend phân trang và trả
+    // { data, pagination, message }; nếu không gửi thì trả mảng đầy đủ
+    // (frontend admin tự phân trang phía client).
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
     const catId = categoryId ? parseInt(categoryId, 10) : undefined;
-    return this.recipeService.findAllForAdmin(status, catId);
+    const pageNum = page ? parseInt(page, 10) : undefined;
+    const limitNum = limit ? parseInt(limit, 10) : undefined;
+    return this.recipeService.findAllForAdmin(
+      status,
+      catId,
+      pageNum,
+      limitNum,
+    );
   }
 
   @Put(':id/status')
