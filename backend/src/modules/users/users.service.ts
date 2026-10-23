@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository, DataSource } from 'typeorm';
-import { ActivityLevel, BmiCategory, DietType, User, UserRole, UserStatus } from './entities/user.entity';
+import { ActivityLevel, BmiCategory, User, UserRole, UserStatus } from './entities/user.entity';
 import { HealthGoal } from '../health-goal/entities/health-goal.entity';
 import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
 import { Ingredient } from '../ingredient/entities/ingredient.entity';
@@ -352,6 +352,21 @@ export class UsersService {
       await manager.query(`DELETE FROM user_ingredient_prices WHERE user_id = $1`, [targetUserId]);
       await manager.query(`DELETE FROM user_ingredients WHERE user_id = $1`, [targetUserId]);
       await manager.query(`DELETE FROM user_allergies WHERE user_id = $1`, [targetUserId]);
+      // comments/votes trỏ tới bài viết bằng content_type + content_id (không có khoá ngoại thật),
+      // nên phải tự dọn: vote vào bình luận của user, rồi bình luận/vote vào bài viết, video của user.
+      await manager.query(
+        `DELETE FROM votes WHERE content_type = 'comment' AND content_id IN (SELECT comment_id FROM comments WHERE user_id = $1)`,
+        [targetUserId],
+      );
+      for (const [type, table, idColumn] of [['blog', 'blogs', 'blog_id'], ['video', 'videos', 'video_id']]) {
+        const owned = `SELECT ${idColumn} FROM ${table} WHERE user_id = $1`;
+        await manager.query(
+          `DELETE FROM votes WHERE content_type = 'comment' AND content_id IN (SELECT comment_id FROM comments WHERE content_type = '${type}' AND content_id IN (${owned}))`,
+          [targetUserId],
+        );
+        await manager.query(`DELETE FROM comments WHERE content_type = '${type}' AND content_id IN (${owned})`, [targetUserId]);
+        await manager.query(`DELETE FROM votes WHERE content_type = '${type}' AND content_id IN (${owned})`, [targetUserId]);
+      }
       await manager.query(`DELETE FROM votes WHERE user_id = $1`, [targetUserId]);
       await manager.query(`DELETE FROM comments WHERE user_id = $1`, [targetUserId]);
       await manager.query(`DELETE FROM chatbot_conversations WHERE user_id = $1`, [targetUserId]);
@@ -375,8 +390,9 @@ export class UsersService {
       await manager.query(`DELETE FROM subscriptions WHERE user_id = $1`, [targetUserId]);
       await manager.query(`DELETE FROM payment_transactions WHERE user_id = $1`, [targetUserId]);
 
-      // 6. Xóa các nội dung do user tạo
-      await manager.query(`DELETE FROM recipes WHERE created_by = $1`, [targetUserId]);
+      // 6. Món user tạo có thể đã nằm trong thực đơn, danh sách yêu thích, gợi ý của NGƯỜI KHÁC
+      //    (khoá ngoại không cascade), xoá món sẽ lỗi. Giữ món lại, chỉ gỡ tên tác giả.
+      await manager.query(`UPDATE recipes SET created_by = NULL WHERE created_by = $1`, [targetUserId]);
       await manager.query(`DELETE FROM blogs WHERE user_id = $1`, [targetUserId]);
       await manager.query(`DELETE FROM videos WHERE user_id = $1`, [targetUserId]);
 
