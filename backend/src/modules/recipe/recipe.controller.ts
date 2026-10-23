@@ -20,7 +20,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
-import { PositiveIntPipe } from './dto/validators/positive-int.pipe';
+import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
 
 @ApiTags('recipes')
 @Controller('recipes')

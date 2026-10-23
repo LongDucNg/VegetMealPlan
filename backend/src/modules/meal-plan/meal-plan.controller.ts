@@ -22,7 +22,7 @@ import { ValidateMealPlanDto } from './dto/validate-meal-plan.dto';
 import { UpdateMealSlotDto } from './dto/update-meal-slot.dto';
 import { GenerateMealPlanDto } from './dto/generate-meal-plan.dto';
 import { SetProfileAllergiesDto } from './dto/set-profile-allergies.dto';
-import { PositiveIntPipe } from './dto/validators/positive-int.pipe';
+import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
 
 @ApiTags('meal-plans')
 @ApiBearerAuth()

@@ -128,6 +128,7 @@ export class RecipeImportService {
     const existingDbKeys = await this.findExistingTitleKeys(rows);
 
     // Cac tieu de da import thanh cong trong chung lot nay -> row_number cua dong dau tien.
+    // Dong trung trong file KHONG abort ca lot: dong sau bi danh dau SKIPPED.
     const importedInBatch = new Map<string, number>();
 
     const items: RecipeImportItem[] = [];
@@ -590,6 +591,45 @@ export class RecipeImportService {
       );
     }
 
+    // 6c. Validate category_ids TRƯỚC khi mở transaction.
+    // Mục tiêu: dòng lỗi phải bị đánh dấu FAILED chứ không được làm hỏng cả lô.
+    // (Việc kiểm tra loại danh mục hợp lệ - recipe_type/food_type - vẫn do
+    // assertValidRecipeCategoryIds đảm nhiệm trong transaction bên dưới.)
+    if (row.category_ids !== undefined && row.category_ids !== null) {
+      if (!Array.isArray(row.category_ids)) {
+        return this.createFailedItem(
+          row_number,
+          recipe_title,
+          ImportFailReason.MISSING_REQUIRED_FIELD,
+          'Danh mục (category_ids) phải là một danh sách ID',
+        );
+      }
+      if (row.category_ids.length > 0) {
+        const uniqueIds = [...new Set(row.category_ids)];
+        const invalidIds = uniqueIds.filter(
+          (id) => !Number.isInteger(id) || id <= 0,
+        );
+        if (invalidIds.length > 0) {
+          return this.createFailedItem(
+            row_number,
+            recipe_title,
+            ImportFailReason.MISSING_REQUIRED_FIELD,
+            'Danh mục chứa ID không hợp lệ (phải là số nguyên dương)',
+          );
+        }
+        const foundCategoryCount = await this.dataSource.getRepository(Category).count({
+          where: { category_id: In(uniqueIds) },
+        });
+        if (foundCategoryCount !== uniqueIds.length) {
+          return this.createFailedItem(
+            row_number,
+            recipe_title,
+            ImportFailReason.MISSING_REQUIRED_FIELD,
+            'Một hoặc nhiều ID danh mục không tồn tại trong hệ thống',
+          );
+        }
+      }
+    }
     // 7. Tao Recipe, RecipeIngredient va NutritionInfo.
     // Transaction rieng cho tung dong: mot dong loi khong lam anh huong dong khac.
     const recipeId = await this.dataSource.transaction(async (manager) => {

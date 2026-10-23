@@ -162,4 +162,21 @@ export const ingredientApiService = {
   removeMyRecipePrice(recipeId: number | string) {
     return apiClient.delete<any>(`/users/me/recipe-prices/${recipeId}`);
   },
+
+  // Admin Quản lý nguyên liệu kỵ nhau (Phần 10)
+  getIngredientConflicts() {
+    return apiClient.get<any[]>("/admin/ingredients/conflicts");
+  },
+
+  createIngredientConflict(ingredient_id_1: number, ingredient_id_2: number, reason?: string) {
+    return apiClient.post<any>("/admin/ingredients/conflicts", {
+      ingredient_id_1,
+      ingredient_id_2,
+      reason,
+    });
+  },
+
+  deleteIngredientConflict(ingredient_id_1: number, ingredient_id_2: number) {
+    return apiClient.delete<any>(`/admin/ingredients/conflicts/${ingredient_id_1}/${ingredient_id_2}`);
+  },
 };
