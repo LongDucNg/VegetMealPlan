@@ -79,6 +79,20 @@ export class RecipeImportController {
       );
     }
 
+    // Chỉ chấp nhận định dạng Excel mà ExcelJS đọc được. Nếu thiếu check này,
+    // file .csv/.txt/.pdf sẽ lọt qua và rơi vào nhánh catch chung -> trả thông
+    // báo "Không đọc được file Excel" chung chung, khó debug cho admin.
+    const extension = file.originalname
+      .toLowerCase()
+      .split('.')
+      .pop();
+
+    if (!extension || !['xlsx', 'xlsm'].includes(extension)) {
+      throw new BadRequestException(
+        `Định dạng file không hỗ trợ "${file.originalname}". Chỉ chấp nhận file .xlsx hoặc .xlsm.`,
+      );
+    }
+
     let rows: ImportRecipeRow[];
 
     try {
@@ -181,24 +195,45 @@ export class RecipeImportController {
           row_error = `Dòng Excel ${rowNumber}: cột ingredients phải chứa JSON array hợp lệ`;
         }
 
+        // Cột category_ids (tuỳ chọn). Giá trị sai -> đánh dấu dòng FAILED
+        // thay vì âm thầm bỏ qua (tạo công thức không có danh mục).
+        const categoryIds = this.toCategoryIds(row.category_ids);
+
+        if (categoryIds.error) {
+          row_error = row_error
+            ? `${row_error}; ${categoryIds.error}`
+            : `Dòng Excel ${rowNumber}: ${categoryIds.error}`;
+        }
+
         return {
           title: String(row.title || '').trim(),
           description: row.description
             ? String(row.description).trim()
             : undefined,
           instructions: String(row.instructions || '').trim(),
-          prep_time: this.toNumberOrUndefined(row.prep_time),
-          cook_time: this.toNumberOrUndefined(row.cook_time),
-          servings: this.toNumberOrUndefined(row.servings),
+          prep_time: this.toPositiveNumber(row.prep_time),
+          cook_time: this.toPositiveNumber(row.cook_time),
+          servings: this.toPositiveNumber(row.servings),
+          // difficulty/meal_type/diet_type được chuẩn hoá từ tiếng Việt sang
+          // giá trị enum hợp lệ. Nếu không map được thì giữ nguyên giá trị gốc
+          // để service báo rõ lý do dòng đó FAILED (không tự gán mặc định sai).
           difficulty: this.normalizeDifficulty(row.difficulty),
+          // meal_type và diet_type là bắt buộc: giữ chuỗi rỗng khi thiếu để
+          // service báo rõ "Thiếu field bắt buộc" thay vì tự gán mặc định.
           meal_type: this.normalizeMealType(row.meal_type),
+          suitable_meals: row.suitable_meals
+            ? String(row.suitable_meals)
+            : undefined,
           diet_type: this.normalizeDietType(row.diet_type),
+          category_ids: categoryIds.ids,
           row_error,
           ingredients: ingredients.map((ingredient) => ({
             ingredient_name: String(
               ingredient.ingredient_name || '',
             ).trim(),
-            quantity: Number(ingredient.quantity),
+            // Quantity phải là số > 0. Number('abc')=NaN -> để undefined
+            // và để service báo FAILED cho dòng (thay vì lưu NaN xuống DB).
+            quantity: this.toPositiveNumber(ingredient.quantity) ?? NaN,
             unit: String(ingredient.unit || '').trim(),
             is_optional: Boolean(ingredient.is_optional),
           })),
@@ -227,6 +262,90 @@ export class RecipeImportController {
       file.originalname,
       rows,
     );
+  }
+
+  // Chuyển giá trị ô Excel thành số nguyên dương hợp lệ.
+  // Number('')=0, Number('abc')=NaN, Number('12 phút')=NaN -> nếu đẩy thẳng
+  // NaN xuống service/DB sẽ sinh lỗi 500 (invalid input for numeric column).
+  private toPositiveNumber(value: any): number | undefined {
+    if (value === null || value === undefined || value === '') {
+      return undefined;
+    }
+
+    const num = Number(value);
+
+    if (!Number.isFinite(num) || num <= 0) {
+      return undefined;
+    }
+
+    return Math.round(num);
+  }
+
+  // Đọc cột category_ids (tuỳ chọn) của file Excel.
+  // Chấp nhận 2 dạng: JSON array (vd. "[3,12]") hoặc chuỗi số phân tách
+  // bằng dấu phẩy (vd. "3,12"). Ô rỗng -> undefined (dòng không gắn danh mục).
+  // Trả về { error } nếu có giá trị nhưng parse hỏng -> controller đánh dấu
+  // dòng FAILED, không tạo công thức sai danh mục.
+  private toCategoryIds(value: any): {
+    ids?: number[];
+    error?: string;
+  } {
+    if (value === null || value === undefined || value === '') {
+      return {};
+    }
+
+    let raw: unknown[];
+
+    if (Array.isArray(value)) {
+      raw = value;
+    } else if (typeof value === 'string') {
+      const trimmed = value.trim();
+
+      if (!trimmed) {
+        return {};
+      }
+
+      if (trimmed.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+
+          if (!Array.isArray(parsed)) {
+            return {
+              error:
+                'cột category_ids phải chứa JSON array hợp lệ',
+            };
+          }
+
+          raw = parsed;
+        } catch {
+          return {
+            error:
+              'cột category_ids phải chứa JSON array hợp lệ',
+          };
+        }
+      } else {
+        raw = trimmed.split(',');
+      }
+    } else {
+      raw = [value];
+    }
+
+    const ids: number[] = [];
+
+    for (const item of raw) {
+      const num = Number(String(item).trim());
+
+      if (!Number.isFinite(num) || num <= 0) {
+        return {
+          error:
+            'cột category_ids chỉ được chứa số nguyên dương',
+        };
+      }
+
+      ids.push(Math.round(num));
+    }
+
+    return ids.length > 0 ? { ids } : {};
   }
 
   // Chuẩn hoá tên cột tiếng Việt và tiếng Anh về tên trường chuẩn
@@ -354,32 +473,51 @@ export class RecipeImportController {
     return Number.isFinite(parsed) ? parsed : undefined;
   }
 
+  // meal_type: chỉ chấp nhận breakfast/lunch/snack (đúng dữ liệu gốc).
+  // Giá trị không map được thì trả về chuỗi rỗng để service báo rõ
+  // "Loại bữa ăn ... không hợp lệ" thay vì tự gán mặc định sai.
   private normalizeMealType(val?: string): string {
-    if (!val) return 'any';
+    if (!val) return '';
     const lower = String(val).toLowerCase().trim();
+    if (!lower) return '';
     if (lower.includes('sáng') || lower.includes('breakfast')) return 'breakfast';
     if (lower.includes('trưa') || lower.includes('lunch')) return 'lunch';
-    if (lower.includes('tối') || lower.includes('dinner')) return 'dinner';
     if (lower.includes('phụ') || lower.includes('snack')) return 'snack';
-    return 'any';
+    if (lower === 'breakfast' || lower === 'lunch' || lower === 'snack') {
+      return lower;
+    }
+    return lower;
   }
 
+  // diet_type: phải khớp enum DietType (vegan/lacto/ovo/ovo_lacto).
+  // Giá trị không map được thì giữ nguyên để service báo rõ danh sách hợp lệ.
   private normalizeDietType(val?: string): string {
-    if (!val) return 'vegan';
+    if (!val) return '';
     const lower = String(val).toLowerCase().trim();
+    if (!lower) return '';
     if (lower.includes('thuần') || lower.includes('vegan')) return 'vegan';
-    if ((lower.includes('sữa') && lower.includes('trứng')) || lower.includes('lacto_ovo')) return 'lacto_ovo_vegetarian';
-    if (lower.includes('sữa') || lower.includes('lacto')) return 'lacto_vegetarian';
-    if (lower.includes('trứng') || lower.includes('ovo')) return 'ovo_vegetarian';
-    return 'vegan';
+    if (
+      (lower.includes('sữa') && lower.includes('trứng')) ||
+      lower.includes('ovo_lacto') ||
+      lower.includes('lacto_ovo')
+    ) {
+      return 'ovo_lacto';
+    }
+    if (lower.includes('sữa') || lower.includes('lacto')) return 'lacto';
+    if (lower.includes('trứng') || lower.includes('ovo')) return 'ovo';
+    return lower;
   }
 
+  // difficulty: enum Difficulty = easy/medium/hard.
+  // Không map được thì giữ nguyên để service báo rõ danh sách hợp lệ.
   private normalizeDifficulty(val?: string): string {
-    if (!val) return 'medium';
+    if (!val) return '';
     const lower = String(val).toLowerCase().trim();
+    if (!lower) return '';
     if (lower.includes('dễ') || lower.includes('easy')) return 'easy';
     if (lower.includes('khó') || lower.includes('hard')) return 'hard';
-    return 'medium';
+    if (lower.includes('trung bình') || lower.includes('medium')) return 'medium';
+    return lower;
   }
 
   // ExcelJS trả ô công thức/rich text/hyperlink dạng object; đưa về giá trị đơn giản như xlsx cũ.
