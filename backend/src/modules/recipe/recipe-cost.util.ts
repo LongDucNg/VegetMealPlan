@@ -1,12 +1,18 @@
-// Quy đổi đơn vị để tính giá nguyên liệu.
-// Giá nguyên liệu (ingredients.avg_price_per_unit) tính theo ingredients.unit,
-// còn số lượng trong công thức (recipe_ingredients.unit) có thể là đơn vị khác.
+// Quy tắc giá nguyên liệu của BE2 (đã thống nhất):
+// - ingredients.avg_price_per_unit LUÔN là VNĐ/kg, bất kể ingredients.unit
+//   để là g / kg / củ / trái / miếng... (giá nhập từ bảng giá theo kg).
+// - Công thức món (recipe_ingredients.unit) chỉ quy đổi được sang gram khi
+//   đơn vị là đơn vị khối lượng (g, kg, mg) hoặc thể tích (ml, l, tsp, tbsp).
+// - Nguyên liệu tính theo đơn vị đếm (miếng / trái / củ / ổ / tờ / quả / tép)
+//   KHÔNG có khối lượng từng cái trong hệ thống => KHÔNG tự đoán.
+//   Trong trường hợp đó cost = null để lớp gọi biết là không tính được,
+//   tuyệt đối không dùng "quantity * giá/kg" (sai ~1000 lần).
 
 type UnitGroup = 'mass' | 'volume' | 'count';
 
 interface UnitInfo {
   group: UnitGroup;
-  // Hệ số quy về đơn vị gốc: mass -> g, volume -> ml, count -> 1
+  // Hệ số quy về gram: mass (g -> 1, kg -> 1000), volume (1 ml ~ 1 g)
   factor: number;
 }
 
@@ -52,77 +58,103 @@ function normalizeUnit(unit?: string | null): string {
   return UNIT_ALIASES[cleaned] ?? cleaned;
 }
 
-function getUnitInfo(unit: string): UnitInfo {
-  return UNIT_TABLE[unit] ?? { group: 'count', factor: 1 };
-}
-
 /**
- * Quy đổi quantity từ đơn vị `fromUnit` sang `toUnit`.
- * - Cùng nhóm (khối lượng/thể tích): quy đổi theo hệ số.
- * - Khối lượng <-> thể tích: xấp xỉ 1 ml = 1 g.
- * - Đơn vị đếm (quả, củ, cái...): chỉ quy đổi được khi trùng tên đơn vị;
- *   nếu không thì trả về null để bên gọi biết không quy đổi được.
+ * Quy đổi quantity sang gram.
+ * - Trả về null khi đơn vị là đơn vị đếm (miếng / trái / củ / ổ / tờ / quả /
+ *   tép) hoặc đơn vị lạ: hệ thống không có trọng lượng từng cái nên không
+ *   được tự đoán.
  */
-export function convertQuantity(
+export function convertToGrams(
   quantity: number,
-  fromUnit?: string | null,
-  toUnit?: string | null,
+  unit?: string | null,
 ): number | null {
-  const from = normalizeUnit(fromUnit);
-  const to = normalizeUnit(toUnit);
+  const normalized = normalizeUnit(unit);
+  const info = UNIT_TABLE[normalized];
 
-  if (from === to) {
-    return quantity;
-  }
-
-  const fromInfo = getUnitInfo(from);
-  const toInfo = getUnitInfo(to);
-
-  if (fromInfo.group === 'count' || toInfo.group === 'count') {
+  if (!info) {
     return null;
   }
 
-  return (quantity * fromInfo.factor) / toInfo.factor;
+  return Number(quantity || 0) * info.factor;
 }
 
 export interface IngredientCostResult {
-  cost: number;
+  // null = không tính được (thiếu giá hoặc đơn vị không quy đổi được)
+  cost: number | null;
+  // true = đã quy đổi được quantity sang gram để nhân với giá/kg
   converted: boolean;
 }
 
 /**
- * Chi phí một dòng nguyên liệu = số lượng (đã đổi sang đơn vị tính giá) × giá.
+ * Chi phí một dòng nguyên liệu = khối lượng(g) * giá/kg / 1000.
  *
- * Quy ước dữ liệu của dự án: nguyên liệu có ingredients.unit = "g" (hoặc trống)
- * thì avg_price_per_unit là GIÁ MỖI KG (vd. bún tươi 20.000đ/kg), không phải mỗi gram.
- * Với nguyên liệu tính giá theo quả/củ/miếng... mà công thức ghi bằng gram,
- * không có khối lượng mỗi quả nên tạm tính như giá/kg (ước tính, converted = false).
+ * price luôn là VNĐ/kg (xem quy tắc đầu file). Nếu đơn vị công thức không
+ * quy đổi được sang gram thì trả cost = null (không tự đoán trọng lượng).
  */
 export function calculateIngredientCost(
   quantity: number,
   recipeUnit: string | null | undefined,
-  priceUnit: string | null | undefined,
-  price: number,
+  price: number | null | undefined,
 ): IngredientCostResult {
-  const normalizedPriceUnit = normalizeUnit(priceUnit);
-  const effectivePriceUnit =
-    normalizedPriceUnit === '' || normalizedPriceUnit === 'g'
-      ? 'kg'
-      : normalizedPriceUnit;
-
-  const converted = convertQuantity(quantity, recipeUnit, effectivePriceUnit);
-
-  if (converted !== null) {
-    return { cost: converted * price, converted: true };
+  if (price === null || price === undefined || Number.isNaN(Number(price))) {
+    return { cost: null, converted: false };
   }
 
-  // Không quy đổi được (vd. công thức "g" nhưng giá theo "quả").
-  if (getUnitInfo(normalizeUnit(recipeUnit)).group === 'mass') {
-    return {
-      cost: convertQuantity(quantity, recipeUnit, 'kg')! * price,
-      converted: false,
-    };
+  const grams = convertToGrams(quantity, recipeUnit);
+
+  if (grams === null) {
+    return { cost: null, converted: false };
   }
 
-  return { cost: quantity * price, converted: false };
+  return {
+    cost: (grams * Number(price)) / 1000,
+    converted: true,
+  };
+}
+
+export interface RecipeCostLine {
+  quantity: number;
+  unit: string | null | undefined;
+  price: number | null | undefined;
+}
+
+export interface RecipeCostResult {
+  // null = không tính được trọn món (thiếu giá hoặc đơn vị không quy đổi được)
+  total_cost: number | null;
+  is_complete: boolean;
+}
+
+/**
+ * Tổng giá món = tổng giá các nguyên liệu.
+ * Chỉ trả tổng khi MỌI dòng đều tính được; nếu có dòng không tính được thì
+ * total_cost = null (không lưu tổng thiếu như giá đầy đủ).
+ *
+ * Món KHÔNG có nguyên liệu nào cũng trả null chứ không phải 0: 0đ là một
+ * giá hoàn chỉnh, còn "không có nguyên liệu" là chưa tính được.
+ */
+export function calculateRecipeTotalCost(
+  lines: RecipeCostLine[],
+): RecipeCostResult {
+  let total = 0;
+  let isComplete = lines.length > 0;
+
+  for (const line of lines) {
+    const { cost } = calculateIngredientCost(
+      line.quantity,
+      line.unit,
+      line.price,
+    );
+
+    if (cost === null) {
+      isComplete = false;
+      continue;
+    }
+
+    total += cost;
+  }
+
+  return {
+    total_cost: isComplete ? Math.round(total) : null,
+    is_complete: isComplete,
+  };
 }
