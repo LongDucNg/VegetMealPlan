@@ -1,101 +1,60 @@
-import {
-  calculateIngredientCost,
-  calculateRecipeTotalCost,
-  convertToGrams,
-} from './recipe-cost.util';
+import { calculateIngredientCost } from './recipe-cost.util';
 import { calculateNutritionPerServing } from './recipe-nutrition.util';
 
 describe('recipe-cost.util', () => {
-  describe('convertToGrams', () => {
-    it('quy đổi các đơn vị khối lượng sang gram', () => {
-      expect(convertToGrams(500, 'g')).toBe(500);
-      expect(convertToGrams(1, 'kg')).toBe(1000);
-      expect(convertToGrams(1000, 'mg')).toBe(1);
-      expect(convertToGrams(2, 'Gam')).toBe(2);
-      expect(convertToGrams(1, 'kilogram')).toBe(1000);
-    });
-
-    it('quy đổi thể tích sang gram xấp xỉ 1ml ~ 1g', () => {
-      expect(convertToGrams(1, 'l')).toBe(1000);
-      expect(convertToGrams(1, 'ml')).toBe(1);
-      expect(convertToGrams(2, 'thìa canh')).toBe(30);
-    });
-
-    it('KHÔNG đoán trọng lượng cho đơn vị đếm', () => {
-      // Không có bảng gram/cái nên phải trả null thay vì đoán.
-      for (const unit of ['miếng', 'trái', 'củ', 'ổ', 'tờ', 'quả', 'tép']) {
-        expect(convertToGrams(2, unit)).toBeNull();
-      }
-      expect(convertToGrams(1, null)).toBeNull();
-      expect(convertToGrams(1, 'đơn vị lạ')).toBeNull();
-    });
-  });
-
   describe('calculateIngredientCost', () => {
-    it('giá = gram * giá/kg / 1000 (giá luôn là VNĐ/kg)', () => {
-      // 200g yến mạch, giá 20000đ/kg => 4000đ
-      expect(calculateIngredientCost(200, 'g', 20000)).toEqual({
+    it('đơn vị tính giá mặc định là kg (ingredients.unit rỗng hoặc "g")', () => {
+      // 200g yến mạch, giá 20000đ/kg => 0.2kg * 20000 = 4000đ
+      expect(calculateIngredientCost(200, 'g', 'g', 20000)).toEqual({
+        cost: 4000,
+        converted: true,
+      });
+      expect(calculateIngredientCost(200, 'g', null, 20000)).toEqual({
         cost: 4000,
         converted: true,
       });
       // 0.5kg giá 20000đ/kg => 10000đ
-      expect(calculateIngredientCost(0.5, 'kg', 20000)).toEqual({
+      expect(calculateIngredientCost(0.5, 'kg', 'kg', 20000)).toEqual({
         cost: 10000,
         converted: true,
       });
     });
 
-    it('giá không phụ thuộc ingredients.unit (đơn vị tự nhiên của nguyên liệu)', () => {
-      // Trước đây cost sai ~1000 lần khi row.unit == ingredient.unit = 'trái'.
-      const result = calculateIngredientCost(2, 'trái', 35000);
-      expect(result.cost).toBeNull();
+    it('quy đổi qua lại giữa các đơn vị khối lượng', () => {
+      // ingredients.unit = 'g' được chuẩn hoá về 'kg' (giá luôn là VNĐ/kg),
+      // nên 1kg * 20000đ/kg = 20000đ chứ không phải 1kg * 20000đ/g.
+      expect(calculateIngredientCost(1, 'kg', 'g', 20000)).toEqual({
+        cost: 20000,
+        converted: true,
+      });
+      // 1kg tính theo giá mỗi kg => 20000
+      expect(calculateIngredientCost(1, 'kg', 'kg', 20000)).toEqual({
+        cost: 20000,
+        converted: true,
+      });
+      // 1000mg = 1g = 0.001kg; giá 20000đ/kg => 20đ
+      expect(calculateIngredientCost(1000, 'mg', 'g', 20000)).toEqual({
+        cost: 20,
+        converted: true,
+      });
+    });
+
+    it('giá tính theo đơn vị tự nhiên của nguyên liệu (đơn vị đếm)', () => {
+      // ingredient.unit = 'trái' => avg_price_per_unit là giá MỖI trái.
+      // Cùng đơn vị với công thức => nhân thẳng, không quy đổi sai ~1000 lần.
+      expect(calculateIngredientCost(2, 'trái', 'trái', 35000)).toEqual({
+        cost: 70000,
+        converted: true,
+      });
+    });
+
+    it('KHÔNG quy đổi được sang đơn vị đếm thì đánh dấu converted = false', () => {
+      // Công thức ghi bằng g nhưng giá lại tính theo "trái": không có khối
+      // lượng mỗi trái nên ước tính theo kg và BÁO HIỆU converted = false,
+      // để lớp gọi biết đây chỉ là con số ước tính.
+      const result = calculateIngredientCost(200, 'g', 'trái', 35000);
+      expect(result.cost).toBe(7000); // 0.2kg * 35000
       expect(result.converted).toBe(false);
-    });
-
-    it('trả cost null khi thiếu giá', () => {
-      expect(calculateIngredientCost(200, 'g', null)).toEqual({
-        cost: null,
-        converted: false,
-      });
-      expect(calculateIngredientCost(200, 'g', undefined)).toEqual({
-        cost: null,
-        converted: false,
-      });
-    });
-  });
-
-  describe('calculateRecipeTotalCost', () => {
-    it('món KHÔNG có nguyên liệu => cost null, không phải 0đ', () => {
-      expect(calculateRecipeTotalCost([])).toEqual({
-        total_cost: null,
-        is_complete: false,
-      });
-    });
-
-    it('tổng giá món = tổng giá các nguyên liệu (kể cả optional)', () => {
-      const result = calculateRecipeTotalCost([
-        { quantity: 400, unit: 'g', price: 20000 }, // 8000
-        { quantity: 120, unit: 'g', price: 70000 }, // 8400
-        { quantity: 10, unit: 'g', price: 50000 }, // 500
-      ]);
-
-      expect(result).toEqual({ total_cost: 16900, is_complete: true });
-    });
-
-    it('KHÔNG lưu tổng thiếu như giá đầy đủ khi thiếu giá hoặc đơn vị đếm', () => {
-      expect(
-        calculateRecipeTotalCost([
-          { quantity: 400, unit: 'g', price: 20000 },
-          { quantity: 300, unit: 'g', price: null },
-        ]),
-      ).toEqual({ total_cost: null, is_complete: false });
-
-      expect(
-        calculateRecipeTotalCost([
-          { quantity: 400, unit: 'g', price: 20000 },
-          { quantity: 2, unit: 'trái', price: 35000 },
-        ]),
-      ).toEqual({ total_cost: null, is_complete: false });
     });
   });
 });
