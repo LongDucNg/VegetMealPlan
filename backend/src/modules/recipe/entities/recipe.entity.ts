@@ -66,8 +66,10 @@ export class Recipe {
   @Column({ nullable: true })
   source_video_id: number;
 
+  // Cột nullable: null = chưa tính được tổng giá (thiếu giá nguyên liệu hoặc
+  // có nguyên liệu tính theo đơn vị đếm chưa quy đổi được sang gram).
   @Column('float', { nullable: true })
-  estimated_cost: number;
+  estimated_cost: number | null;
 
   @Column({ nullable: true })
   created_by: number;
