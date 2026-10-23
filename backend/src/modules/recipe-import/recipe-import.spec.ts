@@ -7,7 +7,6 @@ import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
 import { Ingredient } from '../ingredient/entities/ingredient.entity';
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 import { Category } from '../category/entities/category.entity';
-import { RecipeCategory } from '../recipe/entities/recipe-category.entity';
 
 const norm = (s: any) =>
   String(s ?? '').replace(/\s+/g, ' ').trim().toLowerCase();

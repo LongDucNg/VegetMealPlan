@@ -330,7 +330,7 @@ export function AdminRecipeManagement() {
           <span className="font-semibold uppercase tracking-wider">
             Hiển thị {filtered.length} công thức
           </span>
-          <span>Chỉ các công thức "ĐÃ DUYỆT" mới xuất hiện trong Kế hoạch Thực đơn</span>
+          <span>Chỉ các công thức &quot;ĐÃ DUYỆT&quot; mới xuất hiện trong Kế hoạch Thực đơn</span>
         </div>
 
         <div className="divide-y divide-stone-100">
