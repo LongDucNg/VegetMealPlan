@@ -40,6 +40,8 @@ export function AdminRecipeManagement() {
   const [selectedMealType, setSelectedMealType] = useState<string>("all");
   const [selectedDiet, setSelectedDiet] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 10;
 
   const [modalOpen, setModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -128,6 +130,16 @@ export function AdminRecipeManagement() {
     return true;
   });
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedMealType, selectedDiet, selectedStatus]);
+
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const paginatedRecipes = filtered.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
   const handleOpenAdd = () => {
     setEditingRecipe(null);
     setModalOpen(true);
@@ -205,13 +217,13 @@ export function AdminRecipeManagement() {
             <span>Nhập từ file (Import)</span>
           </button>
 
-          <button
-            onClick={handleOpenAdd}
+          <Link
+            href="/admin/recipes/create"
             className="h-10 px-5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Thêm công thức
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -322,7 +334,7 @@ export function AdminRecipeManagement() {
         </div>
 
         <div className="divide-y divide-stone-100">
-          {filtered.map((recipe) => {
+          {paginatedRecipes.map((recipe) => {
             const cost =
               recipe.estimatedCost ||
               priceService.calculateRecipeCost(recipe.ingredients || []).estimatedCost;
@@ -476,15 +488,67 @@ export function AdminRecipeManagement() {
           {filtered.length === 0 && (
             <div className="p-12 text-center text-stone-400">
               <p className="font-medium text-base">Không tìm thấy công thức nào phù hợp tiêu chí.</p>
-              <button
-                onClick={handleOpenAdd}
-                className="mt-3 text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
+              <Link
+                href="/admin/recipes/create"
+                className="mt-3 inline-block text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
               >
                 + Thêm công thức đầu tiên
-              </button>
+              </Link>
             </div>
           )}
         </div>
+
+        {/* Frontend Pagination Controls */}
+        {filtered.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-stone-200 bg-stone-50/60">
+            <div className="text-xs text-stone-500 font-medium">
+              Hiển thị <span className="font-semibold text-stone-900">{(currentPage - 1) * pageSize + 1}</span> -{" "}
+              <span className="font-semibold text-stone-900">{Math.min(currentPage * pageSize, filtered.length)}</span> trong{" "}
+              <span className="font-semibold text-stone-900">{filtered.length}</span> công thức
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 rounded-lg border border-stone-200 text-xs font-semibold text-stone-700 bg-white hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              >
+                Trước
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 2)
+                .map((page, idx, arr) => {
+                  const prev = arr[idx - 1];
+                  return (
+                    <React.Fragment key={page}>
+                      {prev && page - prev > 1 && (
+                        <span className="px-1 text-xs text-stone-400">...</span>
+                      )}
+                      <button
+                        onClick={() => setCurrentPage(page)}
+                        className={`min-w-8 h-8 px-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                          currentPage === page
+                            ? "bg-emerald-700 text-white"
+                            : "bg-white border border-stone-200 text-stone-700 hover:bg-stone-50"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    </React.Fragment>
+                  );
+                })}
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 rounded-lg border border-stone-200 text-xs font-semibold text-stone-700 bg-white hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              >
+                Sau
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Add / Edit Modal */}
