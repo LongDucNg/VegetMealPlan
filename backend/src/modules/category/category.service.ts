@@ -69,14 +69,75 @@ export class CategoryService {
     return await this.categoryRepo.save(category);
   }
 
-  findAll(): Promise<Category[]> {
-    return this.categoryRepo.find();
+  async findAll(): Promise<any[]> {
+    const rawCategories = await this.categoryRepo
+      .createQueryBuilder('category')
+      .leftJoin('recipe_categories', 'rc', 'rc.category_id = category.category_id')
+      .select([
+        'category.category_id AS category_id',
+        'category.category_name AS category_name',
+        'category.description AS description',
+        'category.category_type AS category_type',
+        'category.status AS status',
+        'category.created_by AS created_by',
+        'category.created_at AS created_at',
+        'category.updated_at AS updated_at',
+      ])
+      .addSelect('COUNT(rc.recipe_id)::int', 'recipe_count')
+      .groupBy('category.category_id')
+      .orderBy('category.category_id', 'ASC')
+      .getRawMany();
+
+    return rawCategories.map((row) => ({
+      category_id: row.category_id,
+      category_name: row.category_name,
+      description: row.description,
+      category_type: row.category_type,
+      status: row.status,
+      created_by: row.created_by,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      recipe_count: Number(row.recipe_count || 0),
+    }));
   }
 
-  async findOne(category_id: number): Promise<Category> {
-    const category = await this.categoryRepo.findOne({ where: { category_id } });
-    if (!category) throw new NotFoundException({ code: ErrorCode.CATEGORY_NOT_FOUND, message: `Không tìm thấy danh mục #${category_id}` });
-    return category;
+  async findOne(category_id: number): Promise<any> {
+    const row = await this.categoryRepo
+      .createQueryBuilder('category')
+      .leftJoin('recipe_categories', 'rc', 'rc.category_id = category.category_id')
+      .select([
+        'category.category_id AS category_id',
+        'category.category_name AS category_name',
+        'category.description AS description',
+        'category.category_type AS category_type',
+        'category.status AS status',
+        'category.created_by AS created_by',
+        'category.created_at AS created_at',
+        'category.updated_at AS updated_at',
+      ])
+      .addSelect('COUNT(rc.recipe_id)::int', 'recipe_count')
+      .where('category.category_id = :category_id', { category_id })
+      .groupBy('category.category_id')
+      .getRawOne();
+
+    if (!row) {
+      throw new NotFoundException({
+        code: ErrorCode.CATEGORY_NOT_FOUND,
+        message: `Không tìm thấy danh mục #${category_id}`,
+      });
+    }
+
+    return {
+      category_id: row.category_id,
+      category_name: row.category_name,
+      description: row.description,
+      category_type: row.category_type,
+      status: row.status,
+      created_by: row.created_by,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      recipe_count: Number(row.recipe_count || 0),
+    };
   }
 
   async update(category_id: number, dto: UpdateCategoryDto): Promise<Category> {
@@ -115,17 +176,28 @@ export class CategoryService {
       }
     }
 
-    if (dto.category_name !== undefined) {
-      category.category_name = nextName;
+    // Ghi entity thật (findOne trả về object đã map kèm recipe_count).
+    const entity = await this.categoryRepo.findOne({ where: { category_id } });
+    if (!entity) {
+      throw new NotFoundException({
+        code: ErrorCode.CATEGORY_NOT_FOUND,
+        message: `Không tìm thấy danh mục #${category_id}`,
+      });
     }
-    if (dto.description !== undefined) category.description = dto.description;
-    if (dto.category_type !== undefined) category.category_type = dto.category_type;
-    if (dto.status !== undefined) category.status = dto.status;
-    return this.categoryRepo.save(category);
+
+    if (dto.category_name !== undefined) {
+      entity.category_name = nextName;
+    }
+    if (dto.description !== undefined) entity.description = dto.description;
+    if (dto.category_type !== undefined) entity.category_type = dto.category_type;
+    if (dto.status !== undefined) entity.status = dto.status;
+
+    return this.categoryRepo.save(entity);
   }
 
   async remove(category_id: number): Promise<void> {
-    const category = await this.findOne(category_id);
+    // findOne ném 404 nếu danh mục không tồn tại.
+    await this.findOne(category_id);
     const linked = await this.recipeCategoryRepo.count({ where: { category_id } });
     if (linked > 0) {
       throw new ConflictException({
@@ -137,8 +209,16 @@ export class CategoryService {
     // Ngoài recipe_categories, bảng blogs và videos cũng có FK tới categories
     // (ON DELETE mặc định = NO ACTION). Nếu danh mục còn được dùng ở đó,
     // Postgres ném lỗi 23503 -> HTTP 500. Bắt lại thành 409 cho nhất quán.
+    const entity = await this.categoryRepo.findOne({ where: { category_id } });
+    if (!entity) {
+      throw new NotFoundException({
+        code: ErrorCode.CATEGORY_NOT_FOUND,
+        message: `Không tìm thấy danh mục #${category_id}`,
+      });
+    }
+
     try {
-      await this.categoryRepo.remove(category);
+      await this.categoryRepo.remove(entity);
     } catch (error) {
       if ((error as any)?.code === '23503') {
         throw new ConflictException({

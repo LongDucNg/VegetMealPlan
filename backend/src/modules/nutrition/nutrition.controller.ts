@@ -12,7 +12,7 @@ import {
 } from '@nestjs/swagger';
 
 import { NutritionService } from './nutrition.service';
-import { PositiveIntPipe } from '../recipe/dto/validators/positive-int.pipe';
+import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
 
 @ApiTags('nutrition')
 @ApiBearerAuth()
