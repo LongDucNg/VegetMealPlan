@@ -280,6 +280,9 @@ export class RecipeImportService {
         "LOWER(BTRIM(REGEXP_REPLACE(recipe.title, '\\s+', ' ', 'g'))) IN (:...keys)",
         { keys },
       )
+      .andWhere('recipe.status != :removedStatus', {
+        removedStatus: RecipeStatus.REMOVED,
+      })
       .getRawMany<{ title: string }>();
 
     return new Set(
@@ -504,6 +507,7 @@ export class RecipeImportService {
     // 4. Tim nguyen lieu trong he thong.
     const resolved: {
       ingredient_id: number;
+      vegan_flag: boolean;
       row: ImportRecipeRow['ingredients'][number];
     }[] = [];
 
@@ -528,15 +532,17 @@ export class RecipeImportService {
         );
       }
 
-      const found = await this.ingredientService.findByName(
-        ing.ingredient_name.trim(),
-      );
+      const ingName = ing.ingredient_name.trim();
+      const found = await this.ingredientService.findByName(ingName);
 
       if (!found) {
-        unknownNames.push(ing.ingredient_name.trim());
+        unknownNames.push(ingName);
+      } else if ((found as any).status === 'inactive') {
+        unknownNames.push(`${ingName} (đã ngưng hoạt động)`);
       } else {
         resolved.push({
           ingredient_id: found.ingredient_id,
+          vegan_flag: Boolean(found.vegan_flag),
           row: ing,
         });
       }
@@ -547,8 +553,24 @@ export class RecipeImportService {
         row_number,
         recipe_title,
         ImportFailReason.UNKNOWN_INGREDIENT,
-        `Nguyên liệu không có trong hệ thống: ${unknownNames.join(', ')}`,
+        `Nguyên liệu không phù hợp: ${unknownNames.join(', ')}`,
       );
+    }
+
+    // Kiểm tra tính tương thích với chế độ thuần chay (vegan)
+    if (dietTypeValue === 'vegan') {
+      const nonVeganItems = resolved
+        .filter((item) => item.vegan_flag === false)
+        .map((item) => item.row.ingredient_name.trim());
+
+      if (nonVeganItems.length > 0) {
+        return this.createFailedItem(
+          row_number,
+          recipe_title,
+          ImportFailReason.UNKNOWN_INGREDIENT,
+          `Nguyên liệu không phù hợp với chế độ thuần chay (Vegan): ${nonVeganItems.join(', ')}`,
+        );
+      }
     }
 
     // 5. Kiem tra nguyen lieu trung lap.
