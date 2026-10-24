@@ -8,9 +8,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 
-import { Recipe, RecipeStatus } from './entities/recipe.entity';
+import { Recipe, RecipeStatus, Difficulty } from './entities/recipe.entity';
 import { RecipeIngredient } from './entities/recipe-ingredient.entity';
 import { FavoriteRecipe } from './entities/favorite-recipe.entity';
 import { QueryRecipeDto, RecommendationQueryDto } from './dto/query-recipe.dto';
@@ -29,7 +29,16 @@ import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
 import { UserRecipePrice } from './entities/user-recipe-price.entity';
 import { RecipeCategory } from './entities/recipe-category.entity';
 import { Category } from '../category/entities/category.entity';
+import { assertValidRecipeCategoryIds } from '../category/category-validation.util';
 import { calculateIngredientCost } from './recipe-cost.util';
+import {
+  isRecipeSuitableForMeal,
+  deriveSuitableMeals,
+  mealTypesSuitableFor,
+  normalizeMealType,
+  isConsistentMealPair,
+  VALID_MEAL_TYPES,
+} from './recipe-meals.util';
 
 export interface RecipeMatchResult {
   recipe: Recipe;
@@ -77,7 +86,72 @@ export class RecipeService {
 
     @InjectRepository(Category)
     private readonly categoryRepo: Repository<Category>,
+
+    private readonly dataSource: DataSource,
   ) {}
+
+  // =========================
+  // HELPER: CHUẨN HOÁ & KIỂM TRA TRƯỜNG BỮA ĂN
+  // =========================
+
+  /**
+   * Chuẩn hoá meal_type + suitable_meals trước khi ghi vào DB.
+   *
+   * Quy tắc (theo dữ liệu gốc):
+   *   - meal_type phải nằm trong danh sách hợp lệ, không phân biệt hoa thường.
+   *   - suitable_meals phải khớp với meal_type theo mapping chuẩn.
+   *     Không gửi suitable_meals thì suy ra từ meal_type.
+   *
+   * Trả về cặp { meal_type, suitable_meals } đã chuẩn hoá (có thể undefined).
+   * Ném BadRequestException nếu dữ liệu không hợp lệ - để không tạo ra món
+   * mà meal_type/suitable_meals mâu thuẫn nhau (nguồn gây món "lunch" nhưng
+   * suitable_meals lại là "breakfast", khiến bữa tối không sinh được món).
+   */
+  private resolveMealFields(input: {
+    meal_type?: string | null;
+    suitable_meals?: string | null;
+  }): { meal_type?: string; suitable_meals?: string } {
+    const mealType = normalizeMealType(input.meal_type);
+
+    if (input.meal_type?.trim() && !mealType) {
+      throw new BadRequestException(
+        `Loại bữa ăn "${input.meal_type}" không hợp lệ. Chỉ chấp nhận: ${VALID_MEAL_TYPES.join(', ')}.`,
+      );
+    }
+
+    const rawSuitableMeals = input.suitable_meals?.trim();
+
+    if (rawSuitableMeals) {
+      // Client gửi suitable_meals: phải khớp meal_type, nếu không sẽ tạo dữ liệu mâu thuẫn.
+      if (
+        !mealType ||
+        !isConsistentMealPair(mealType, rawSuitableMeals)
+      ) {
+        const expected = mealType
+          ? deriveSuitableMeals(mealType)
+          : null;
+
+        throw new BadRequestException({
+          code: ErrorCode.VALIDATION_FAILED,
+          message:
+            `suitable_meals "${rawSuitableMeals}" không khớp meal_type` +
+            (mealType ? ` "${mealType}"` : '') +
+            (expected ? ` (đúng phải là "${expected}")` : '') +
+            '.',
+        });
+      }
+
+      return {
+        meal_type: mealType,
+        suitable_meals: rawSuitableMeals,
+      };
+    }
+
+    return {
+      meal_type: mealType ?? undefined,
+      suitable_meals: deriveSuitableMeals(mealType) ?? undefined,
+    };
+  }
 
   // =========================
   // GET ALL APPROVED RECIPES
@@ -118,33 +192,60 @@ export class RecipeService {
 
     const qb = this.recipeRepo.createQueryBuilder('recipe');
 
-    if (created_by !== undefined && Number(created_by) > 0) {
-      qb.where('recipe.created_by = :createdBy', {
-        createdBy: Number(created_by),
-      });
-      if (query.status?.trim()) {
-        qb.andWhere('recipe.status = :status', {
-          status: query.status.trim().toLowerCase(),
-        });
-      }
-    } else {
-      qb.where('recipe.status = :status', {
-        status: RecipeStatus.APPROVED,
+    // Route công khai CHỈ trả món APPROVED, bất kể có truyền created_by hay không.
+    // Trước đây khi có created_by và không truyền status thì nhánh đó bỏ qua
+    // điều kiện status -> lộ công thức draft/pending_review/rejected ra API công khai.
+    qb.where('recipe.status = :status', {
+      status: RecipeStatus.APPROVED,
+    });
+
+    if (query.status?.trim()) {
+      qb.andWhere('recipe.status = :status', {
+        status: query.status.trim().toLowerCase(),
       });
     }
 
     // Lọc theo loại bữa ăn
+    // meal_type là phân loại bữa chính; suitable_meals mới là danh sách bữa
+    // thực sự phù hợp (vd. meal_type='lunch' nhưng suitable_meals='lunch,dinner').
+    // Món chưa có suitable_meals thì suy ra từ meal_type theo mapping chuẩn.
     const selectedMealType = mealType || meal_type;
 
     if (selectedMealType?.trim()) {
       const mealTypeValue = selectedMealType.trim().toLowerCase();
 
+      // Các meal_type hợp lệ cho bữa này khi món chưa có suitable_meals.
+      const allowedMealTypes = mealTypesSuitableFor(mealTypeValue);
+
+      // Nhánh "chưa có suitable_meals" chỉ ghép vào query khi danh sách
+      // KHÔNG rỗng. Nếu để trống, TypeORM mở rộng IN (:...arr) thành
+      // "IN ()" -> Postgres báo lỗi cú pháp -> HTTP 500.
+      const legacyMealTypeClause =
+        allowedMealTypes.length > 0
+          ? `OR (
+              (recipe.suitable_meals IS NULL OR TRIM(recipe.suitable_meals) = '')
+              AND LOWER(recipe.meal_type) IN (:...allowedMealTypes)
+            )`
+          : '';
+
       qb.andWhere(
         `(
-          LOWER(recipe.meal_type) = :mealType
+          LOWER(recipe.suitable_meals) = :mealType
+          OR LOWER(recipe.suitable_meals) LIKE :mealTypeStart
+          OR LOWER(recipe.suitable_meals) LIKE :mealTypeMiddle
+          OR LOWER(recipe.suitable_meals) LIKE :mealTypeEnd
+          OR LOWER(recipe.suitable_meals) = 'any'
+          OR LOWER(recipe.meal_type) = :mealType
           OR LOWER(recipe.meal_type) = 'any'
+          ${legacyMealTypeClause}
         )`,
-        { mealType: mealTypeValue },
+        {
+          mealType: mealTypeValue,
+          mealTypeStart: `${mealTypeValue},%`,
+          mealTypeMiddle: `%,${mealTypeValue},%`,
+          mealTypeEnd: `%,${mealTypeValue}`,
+          allowedMealTypes,
+        },
       );
     }
 
@@ -200,8 +301,19 @@ export class RecipeService {
 
     // Lọc theo độ khó
     if (difficulty?.trim()) {
+      const difficultyValue = difficulty.trim().toLowerCase();
+      const validDifficulties = Object.values(Difficulty) as string[];
+
+      // recipes.difficulty là cột ENUM Postgres: truyền giá trị ngoài enum sẽ khiến
+      // Postgres ném lỗi -> HTTP 500. Phải validate trước và trả 400.
+      if (!validDifficulties.includes(difficultyValue)) {
+        throw new BadRequestException(
+          `Độ khó không hợp lệ. Chỉ chấp nhận: ${validDifficulties.join(', ')}`,
+        );
+      }
+
       qb.andWhere('recipe.difficulty = :difficulty', {
-        difficulty: difficulty.trim(),
+        difficulty: difficultyValue,
       });
     }
 
@@ -362,6 +474,15 @@ export class RecipeService {
       );
     }
 
+    // Nguyên liệu phải tồn tại và không được lặp lại.
+    await this.validateIngredientIds(dto.ingredients);
+
+    // meal_type / suitable_meals phải hợp lệ và nhất quán với nhau.
+    const mealFields = this.resolveMealFields({
+      meal_type: dto.meal_type,
+      suitable_meals: dto.suitable_meals,
+    });
+
     // Kiểm tra quy tắc tương thích giữa chế độ ăn chay và nguyên liệu
     if (dto.ingredients && dto.ingredients.length > 0 && dto.diet_type) {
       const ingIds = dto.ingredients.map((i) => i.ingredient_id);
@@ -403,90 +524,159 @@ export class RecipeService {
         ? RecipeStatus.APPROVED
         : RecipeStatus.PENDING_REVIEW;
 
-    const recipe = this.recipeRepo.create({
-      title: dto.title,
-      description: dto.description,
-      instructions: dto.instructions,
-      image_url: dto.image_url,
-      prep_time: dto.prep_time,
-      cook_time: dto.cook_time,
-      servings: dto.servings,
-      difficulty: dto.difficulty,
-      meal_type: dto.meal_type,
-      diet_type: dto.diet_type,
-      source_video_id: dto.source_video_id,
-      estimated_cost: dto.estimated_cost,
-      created_by: userId,
-      status,
-      // Admin tạo thì duyệt luôn: ghi nhận người duyệt và thời điểm như luồng PUT /admin/recipes/:id/status.
-      approved_at: status === RecipeStatus.APPROVED ? new Date() : null,
-      approved_by: status === RecipeStatus.APPROVED ? userId : null,
-    } as Partial<Recipe>);
+    // Ghi recipe + recipe_ingredients + nutrition_infos + recipe_categories:
+    // bọc trong 1 transaction để không để lại recipe mồ côi khi 1 phần thất bại.
+    const savedRecipe = await this.dataSource.transaction(async (manager) => {
+      const recipeRepo = manager.getRepository(Recipe);
+      const recipeIngredientRepo = manager.getRepository(RecipeIngredient);
+      const nutritionRepo = manager.getRepository(NutritionInfo);
+      const recipeCategoryRepo = manager.getRepository(RecipeCategory);
+      const categoryRepo = manager.getRepository(Category);
 
-    const savedRecipe = await this.recipeRepo.save(recipe);
+      const recipe = recipeRepo.create({
+        title: dto.title,
+        description: dto.description,
+        instructions: dto.instructions,
+        image_url: dto.image_url,
+        prep_time: dto.prep_time,
+        cook_time: dto.cook_time,
+        servings: dto.servings,
+        difficulty: dto.difficulty,
+        meal_type: mealFields.meal_type,
+        // suitable_meals: đã chuẩn hoá + khớp meal_type ở resolveMealFields().
+        suitable_meals: mealFields.suitable_meals,
+        diet_type: dto.diet_type,
+        source_video_id: dto.source_video_id,
+        estimated_cost: dto.estimated_cost,
+        created_by: userId,
+        status,
+        // Admin tạo thì duyệt luôn: ghi nhận người duyệt và thời điểm như luồng PUT /admin/recipes/:id/status.
+        approved_at: status === RecipeStatus.APPROVED ? new Date() : null,
+        approved_by: status === RecipeStatus.APPROVED ? userId : null,
+      } as Partial<Recipe>);
 
-    if (dto.ingredients && dto.ingredients.length > 0) {
-      const recipeIngredients = dto.ingredients.map((item) =>
-        this.recipeIngredientRepo.create({
-          recipe_id: savedRecipe.recipe_id,
-          ingredient_id: item.ingredient_id,
-          quantity: item.quantity,
-          unit: item.unit,
-          note: item.note,
-          is_optional: item.is_optional ?? false,
+      const created = await recipeRepo.save(recipe);
+
+      if (dto.ingredients && dto.ingredients.length > 0) {
+        const recipeIngredients = dto.ingredients.map((item) =>
+          recipeIngredientRepo.create({
+            recipe_id: created.recipe_id,
+            ingredient_id: item.ingredient_id,
+            quantity: item.quantity,
+            unit: item.unit,
+            note: item.note,
+            is_optional: item.is_optional ?? false,
+          }),
+        );
+
+        await recipeIngredientRepo.save(recipeIngredients);
+      }
+
+      // Nạp lại nguyên liệu (kèm relation) để tính dinh dưỡng.
+      const ingredients = await recipeIngredientRepo.find({
+        where: { recipe_id: created.recipe_id },
+        relations: ['ingredient'],
+      });
+
+      const nutrition = this.calculateNutrition(ingredients, created.servings);
+
+      const savedNutrition = await nutritionRepo.save(
+        nutritionRepo.create({
+          recipe_id: created.recipe_id,
+          ...nutrition,
         }),
       );
 
-      await this.recipeIngredientRepo.save(recipeIngredients);
-    }
+      // Tạo category links khi request có gửi category_ids.
+      // Trước đây: nếu 1 category_id không tồn tại thì `found !== uniqueIds.length`
+      // khiến TOÀN BỘ danh mục bị bỏ qua mà không báo lỗi (công thức lưu ra không có danh mục).
+      // Nay: validate trước và ném 400 để client biết chính xác danh mục nào sai.
+      if (
+        dto.category_ids !== undefined &&
+        Array.isArray(dto.category_ids) &&
+        dto.category_ids.length > 0
+      ) {
+        const uniqueIds = [...new Set(dto.category_ids)];
 
-    const ingredients = await this.recipeIngredientRepo.find({
-      where: { recipe_id: savedRecipe.recipe_id },
-      relations: ['ingredient'],
-    });
+        const invalidIds = uniqueIds.filter(
+          (id) => !Number.isInteger(id) || id <= 0,
+        );
+        if (invalidIds.length > 0) {
+          throw new BadRequestException({
+            code: ErrorCode.VALIDATION_FAILED,
+            message: `category_ids phải là số nguyên dương: ${invalidIds.join(', ')}`,
+          });
+        }
 
-    const nutrition = this.calculateNutrition(ingredients, savedRecipe.servings);
-
-    const savedNutrition = await this.nutritionRepo.save(
-      this.nutritionRepo.create({
-        recipe_id: savedRecipe.recipe_id,
-        ...nutrition,
-      }),
-    );
-
-    // Validate và tạo category links khi request có gửi category_ids
-    if (
-      dto.category_ids !== undefined &&
-      Array.isArray(dto.category_ids) &&
-      dto.category_ids.length > 0
-    ) {
-      const uniqueIds = [...new Set(dto.category_ids.filter((id) => Number.isInteger(id) && id > 0))];
-      if (uniqueIds.length !== dto.category_ids.length) {
-        throw new BadRequestException('ID danh mục phải là số nguyên dương hợp lệ.');
-      }
-      if (uniqueIds.length > 0) {
-        const found = await this.categoryRepo.count({
+        const foundCategories = await categoryRepo.find({
           where: { category_id: In(uniqueIds) },
         });
-        if (found !== uniqueIds.length) {
-          throw new BadRequestException('Một hoặc nhiều danh mục không tồn tại trong hệ thống.');
-        }
-        await this.recipeCategoryRepo.save(
+
+        // Kiểm tra cả tồn tại lẫn loại danh mục hợp lệ (recipe_type/food_type).
+        assertValidRecipeCategoryIds(uniqueIds, foundCategories);
+
+        await recipeCategoryRepo.save(
           uniqueIds.map((category_id) =>
-            this.recipeCategoryRepo.create({
-              recipe_id: savedRecipe.recipe_id,
+            recipeCategoryRepo.create({
+              recipe_id: created.recipe_id,
               category_id,
             }),
           ),
         );
       }
-    }
+
+      return {
+        recipe: created,
+        ingredients,
+        nutrition: savedNutrition,
+      };
+    });
 
     return {
-      ...savedRecipe,
-      ingredients,
-      nutrition: savedNutrition,
+      ...savedRecipe.recipe,
+      ingredients: savedRecipe.ingredients,
+      nutrition: savedRecipe.nutrition,
     };
+  }
+
+  /**
+   * Kiểm tra danh sách nguyên liệu của công thức:
+   * - ingredient_id phải tồn tại trong bảng ingredients.
+   * - Không được lặp lại cùng một ingredient_id.
+   *
+   * Trước đây thiếu bước này: gửi ingredient_id không tồn tại sẽ gây lỗi
+   * foreign key (500), còn gửi trùng sẽ tạo dòng recipe_ingredients lặp.
+   */
+  private async validateIngredientIds(
+    ingredients?: { ingredient_id: number }[],
+  ): Promise<void> {
+    if (!ingredients || ingredients.length === 0) {
+      return;
+    }
+
+    const ids = ingredients.map((item) => Number(item.ingredient_id));
+
+    const uniqueIds = [...new Set(ids)];
+
+    if (uniqueIds.length !== ids.length) {
+      throw new BadRequestException({
+        code: ErrorCode.VALIDATION_FAILED,
+        message: 'Công thức có nguyên liệu bị lặp lại.',
+      });
+    }
+
+    const found = await this.ingredientService.findByIds(uniqueIds);
+
+    const foundIds = new Set(found.map((item) => item.ingredient_id));
+
+    const missing = uniqueIds.filter((id) => !foundIds.has(id));
+
+    if (missing.length > 0) {
+      throw new BadRequestException({
+        code: ErrorCode.VALIDATION_FAILED,
+        message: `Nguyên liệu không tồn tại: ${missing.join(', ')}`,
+      });
+    }
   }
 
   // =========================
@@ -776,10 +966,12 @@ export class RecipeService {
     for (const recipe of recipes) {
       // Lọc theo bữa ăn
       if (query.mealType?.trim()) {
-        const selectedMeal = query.mealType.trim().toLowerCase();
-        const recipeMeal = recipe.meal_type?.trim().toLowerCase();
-
-        if (recipeMeal !== selectedMeal && recipeMeal !== 'any') {
+        if (
+          !isRecipeSuitableForMeal(
+            recipe,
+            query.mealType,
+          )
+        ) {
           continue;
         }
       }
@@ -1157,105 +1349,162 @@ export class RecipeService {
       }
     }
 
+    // Nguyên liệu phải tồn tại và không được lặp lại.
+    await this.validateIngredientIds(dto.ingredients);
+
+    // meal_type / suitable_meals phải hợp lệ và nhất quán với nhau.
+    // Tính TRƯỚC khi mở transaction để lỗi validation không sinh thay đổi nào.
+    //
+    // Chỉ kiểm tra khi client thực sự gửi lên trường bữa ăn:
+    //   - gửi suitable_meals -> phải khớp meal_type (mới hoặc đang lưu).
+    //   - gửi meal_type mà không gửi suitable_meals -> suy ra lại cho khớp.
+    //   - không gửi gì -> giữ nguyên cặp đang lưu (kể cả dòng dữ liệu cũ
+    //     đang lệch chuẩn, không nên chặn cập nhật trường khác).
+    let nextMealType: string | null = recipe.meal_type ?? null;
+    let nextSuitableMeals: string | null = recipe.suitable_meals ?? null;
+
+    if (dto.suitable_meals !== undefined) {
+      const resolved = this.resolveMealFields({
+        meal_type: dto.meal_type ?? recipe.meal_type,
+        suitable_meals: dto.suitable_meals,
+      });
+
+      nextMealType = resolved.meal_type ?? null;
+      nextSuitableMeals = resolved.suitable_meals ?? null;
+    } else if (dto.meal_type !== undefined) {
+      const resolved = this.resolveMealFields({
+        meal_type: dto.meal_type,
+      });
+
+      nextMealType = resolved.meal_type ?? null;
+      nextSuitableMeals = resolved.suitable_meals ?? null;
+    }
+
     // Kiểm tra danh mục trước khi ghi gì vào DB.
+    // Trước đây chỉ so sánh COUNT nên không biết id nào sai; và không kiểm tra
+    // category_type => có thể gắn danh mục loại khác (vd. forum) vào công thức.
     const categoryIds =
       dto.category_ids !== undefined
         ? [...new Set(dto.category_ids)]
         : undefined;
 
     if (categoryIds && categoryIds.length > 0) {
-      const found = await this.recipeRepo.manager.count(Category, {
-        where: { category_id: In(categoryIds) },
-      });
-
-      if (found !== categoryIds.length) {
-        throw new BadRequestException('Có category_id không tồn tại');
-      }
-    }
-
-    Object.assign(recipe, {
-      title: dto.title ?? recipe.title,
-      description: dto.description ?? recipe.description,
-      instructions: dto.instructions ?? recipe.instructions,
-      image_url: dto.image_url ?? recipe.image_url,
-      prep_time: dto.prep_time ?? recipe.prep_time,
-      cook_time: dto.cook_time ?? recipe.cook_time,
-      servings: dto.servings ?? recipe.servings,
-      difficulty: dto.difficulty ?? recipe.difficulty,
-      meal_type: dto.meal_type ?? recipe.meal_type,
-      diet_type: dto.diet_type ?? recipe.diet_type,
-      source_video_id: dto.source_video_id ?? recipe.source_video_id,
-      estimated_cost: dto.estimated_cost ?? recipe.estimated_cost,
-    });
-
-    const updatedRecipe = await this.recipeRepo.save(recipe);
-
-    // Chỉ thay nguyên liệu nếu request có gửi trường ingredients.
-    if (dto.ingredients !== undefined) {
-      await this.recipeIngredientRepo.delete({
-        recipe_id: recipeId,
-      });
-
-      if (dto.ingredients.length > 0) {
-        const recipeIngredients = dto.ingredients.map((item) =>
-          this.recipeIngredientRepo.create({
-            recipe_id: recipeId,
-            ingredient_id: item.ingredient_id,
-            quantity: item.quantity,
-            unit: item.unit,
-            note: item.note,
-            is_optional: item.is_optional ?? false,
-          }),
-        );
-
-        await this.recipeIngredientRepo.save(recipeIngredients);
-      }
-    }
-
-    // Chỉ đồng bộ danh mục nếu request có gửi category_ids ([] = bỏ hết danh mục).
-    // Không gửi trường này thì giữ nguyên danh mục hiện tại.
-    if (categoryIds !== undefined) {
-      await this.recipeRepo.manager.transaction(async (manager) => {
-        await manager.delete(RecipeCategory, { recipe_id: recipeId });
-
-        if (categoryIds.length > 0) {
-          await manager.insert(
-            RecipeCategory,
-            categoryIds.map((category_id) => ({
-              recipe_id: recipeId,
-              category_id,
-            })),
-          );
-        }
-      });
-    }
-
-    const ingredients = await this.recipeIngredientRepo.find({
-      where: { recipe_id: recipeId },
-      relations: ['ingredient'],
-    });
-
-    // Tính lại dinh dưỡng khi nguyên liệu hoặc số khẩu phần thay đổi.
-    if (dto.ingredients !== undefined || dto.servings !== undefined) {
-      const nutritionValues = this.calculateNutrition(ingredients, updatedRecipe.servings);
-
-      let nutritionInfo = await this.nutritionRepo.findOne({
-        where: { recipe_id: recipeId },
-      });
-
-      if (!nutritionInfo) {
-        nutritionInfo = this.nutritionRepo.create({
-          recipe_id: recipeId,
+      const invalidIds = categoryIds.filter(
+        (id) => !Number.isInteger(id) || id <= 0,
+      );
+      if (invalidIds.length > 0) {
+        throw new BadRequestException({
+          code: ErrorCode.VALIDATION_FAILED,
+          message: `category_ids phải là số nguyên dương: ${invalidIds.join(', ')}`,
         });
       }
 
-      Object.assign(nutritionInfo, nutritionValues);
-      await this.nutritionRepo.save(nutritionInfo);
+      const foundCategories = await this.recipeRepo.manager.find(Category, {
+        where: { category_id: In(categoryIds) },
+      });
+
+      assertValidRecipeCategoryIds(categoryIds, foundCategories);
     }
 
+    // Ghi recipe + recipe_ingredients + recipe_categories + nutrition_infos:
+    // bọc trong 1 transaction để không để lại dữ liệu mồ côi / mất nối khi
+    // 1 phần thất bại (trước đây xoá nguyên liệu rồi mới lưu, lỗi là mất cả).
+    const updatedRecipe = await this.dataSource.transaction(async (manager) => {
+      const recipeRepo = manager.getRepository(Recipe);
+      const recipeIngredientRepo = manager.getRepository(RecipeIngredient);
+      const recipeCategoryRepo = manager.getRepository(RecipeCategory);
+      const nutritionRepo = manager.getRepository(NutritionInfo);
+
+      Object.assign(recipe, {
+        title: dto.title ?? recipe.title,
+        description: dto.description ?? recipe.description,
+        instructions: dto.instructions ?? recipe.instructions,
+        image_url: dto.image_url ?? recipe.image_url,
+        prep_time: dto.prep_time ?? recipe.prep_time,
+        cook_time: dto.cook_time ?? recipe.cook_time,
+        servings: dto.servings ?? recipe.servings,
+        difficulty: dto.difficulty ?? recipe.difficulty,
+        meal_type: nextMealType,
+        // suitable_meals: đã chuẩn hoá + khớp meal_type ở resolveMealFields().
+        suitable_meals: nextSuitableMeals,
+        diet_type: dto.diet_type ?? recipe.diet_type,
+        source_video_id: dto.source_video_id ?? recipe.source_video_id,
+        estimated_cost: dto.estimated_cost ?? recipe.estimated_cost,
+      });
+
+      const saved = await recipeRepo.save(recipe);
+
+      // Chỉ thay nguyên liệu nếu request có gửi trường ingredients.
+      if (dto.ingredients !== undefined) {
+        await recipeIngredientRepo.delete({
+          recipe_id: recipeId,
+        });
+
+        if (dto.ingredients.length > 0) {
+          const recipeIngredients = dto.ingredients.map((item) =>
+            recipeIngredientRepo.create({
+              recipe_id: recipeId,
+              ingredient_id: item.ingredient_id,
+              quantity: item.quantity,
+              unit: item.unit,
+              note: item.note,
+              is_optional: item.is_optional ?? false,
+            }),
+          );
+
+          await recipeIngredientRepo.save(recipeIngredients);
+        }
+      }
+
+      // Chỉ đồng bộ danh mục nếu request có gửi category_ids ([] = bỏ hết danh mục).
+      // Không gửi trường này thì giữ nguyên danh mục hiện tại.
+      if (categoryIds !== undefined) {
+        await recipeCategoryRepo.delete({ recipe_id: recipeId });
+
+        if (categoryIds.length > 0) {
+          await recipeCategoryRepo.save(
+            categoryIds.map((category_id) =>
+              recipeCategoryRepo.create({
+                recipe_id: recipeId,
+                category_id,
+              }),
+            ),
+          );
+        }
+      }
+
+      const ingredients = await recipeIngredientRepo.find({
+        where: { recipe_id: recipeId },
+        relations: ['ingredient'],
+      });
+
+      // Tính lại dinh dưỡng khi nguyên liệu hoặc số khẩu phần thay đổi.
+      if (dto.ingredients !== undefined || dto.servings !== undefined) {
+        const nutritionValues = this.calculateNutrition(
+          ingredients,
+          saved.servings,
+        );
+
+        let nutritionInfo = await nutritionRepo.findOne({
+          where: { recipe_id: recipeId },
+        });
+
+        if (!nutritionInfo) {
+          nutritionInfo = nutritionRepo.create({
+            recipe_id: recipeId,
+          });
+        }
+
+        Object.assign(nutritionInfo, nutritionValues);
+        await nutritionRepo.save(nutritionInfo);
+      }
+
+      return { recipe: saved, ingredients };
+    });
+
     return {
-      ...updatedRecipe,
-      ingredients,
+      ...updatedRecipe.recipe,
+      ingredients: updatedRecipe.ingredients,
     };
   }
 
@@ -1421,7 +1670,9 @@ export class RecipeService {
   async findAllForAdmin(
     status?: string,
     categoryId?: number,
-  ) {
+    page?: number,
+    limit?: number,
+  ): Promise<any> {
     const value = status?.trim().toLowerCase();
     if (value && !Object.values(RecipeStatus).includes(value as RecipeStatus)) {
       throw new BadRequestException('Trạng thái công thức không hợp lệ');
@@ -1431,22 +1682,78 @@ export class RecipeService {
       throw new BadRequestException('ID danh mục phải là số nguyên dương');
     }
 
-    const qb = this.recipeRepo.createQueryBuilder('recipe');
+    // Validate phân trang
+    if (page !== undefined && (isNaN(page) || page < 1)) {
+      throw new BadRequestException('Số trang phải là số nguyên dương');
+    }
+    if (limit !== undefined) {
+      if (isNaN(limit) || limit < 1) {
+        throw new BadRequestException('Số lượng công thức mỗi trang phải là số nguyên dương');
+      }
+      if (limit > 100) {
+        throw new BadRequestException('Số lượng công thức mỗi trang vượt quá giới hạn cho phép');
+      }
+    }
 
+    // Chỉ dùng phân trang phía server khi client yêu cầu (có page hoặc limit).
+    // Nếu không, trả về mảng đầy đủ cho frontend tự phân trang.
+    const wantsPagination = page !== undefined || limit !== undefined;
+    const pageNum = page ?? 1;
+    const limitNum = limit ?? 20;
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: any = {};
     if (value) {
-      qb.andWhere('recipe.status = :status', { status: value });
+      where.status = value as RecipeStatus;
     }
 
-    if (categoryId) {
-      qb.innerJoin(
-        RecipeCategory,
-        'rc',
-        'rc.recipe_id = recipe.recipe_id AND rc.category_id = :categoryId',
-        { categoryId },
-      );
+    // Lọc theo danh mục PHẢI áp dụng TRƯỚC khi phân trang, nếu không trang
+    // hiện tại có thể rỗng dù DB có món thuộc danh mục, và `total` không
+    // phản ánh đúng số món của danh mục đó.
+    if (categoryId !== undefined) {
+      const rcRecords = await this.recipeCategoryRepo.find({
+        where: { category_id: categoryId },
+        select: { recipe_id: true },
+      });
+
+      const recipeIds = [...new Set(rcRecords.map((rc) => rc.recipe_id))];
+
+      if (recipeIds.length === 0) {
+        if (wantsPagination) {
+          return {
+            data: [],
+            pagination: {
+              page: pageNum,
+              limit: limitNum,
+              total: 0,
+            },
+            message: 'Lấy danh sách công thức quản trị thành công.',
+          };
+        }
+
+        return [];
+      }
+
+      where.recipe_id = In(recipeIds);
     }
 
-    const recipes = await qb.orderBy('recipe.created_at', 'DESC').getMany();
+    // Đếm tổng
+    const total = await this.recipeRepo.count({ where });
+
+    // Có page/limit -> trả về object có phân trang (contract đã dùng ở BE2).
+    // Không có page/limit -> trả về mảng (contract mà frontend admin đang dùng,
+    // frontend tự phân trang phía client).
+    const recipes = wantsPagination
+      ? await this.recipeRepo.find({
+          where,
+          order: { created_at: 'DESC' },
+          skip,
+          take: limitNum,
+        })
+      : await this.recipeRepo.find({
+          where,
+          order: { created_at: 'DESC' },
+        });
 
     if (recipes.length > 0) {
       const ids = recipes.map((r) => r.recipe_id);
@@ -1457,6 +1764,18 @@ export class RecipeService {
       for (const recipe of recipes as any[]) {
         recipe.nutrition = nutritionMap.get(recipe.recipe_id) || null;
       }
+    }
+
+    if (wantsPagination) {
+      return {
+        data: recipes,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+        },
+        message: 'Lấy danh sách công thức quản trị thành công.',
+      };
     }
 
     return recipes;
