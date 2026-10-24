@@ -53,7 +53,12 @@ export class Recipe {
   difficulty: Difficulty;
 
   @Column({ nullable: true })
-  meal_type: string; // breakfast / lunch / dinner / any
+  meal_type: string; // breakfast / lunch / snack / any - phân loại bữa chính
+
+  // Danh sách bữa ăn phù hợp, cách nhau dấu phẩy (vd. "lunch,dinner").
+  // Không có giá trị thì lọc/generate thực đơn dùng meal_type.
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  suitable_meals: string;
 
   @Column({ type: 'enum', enum: DietType, nullable: true })
   diet_type: DietType;
@@ -61,8 +66,10 @@ export class Recipe {
   @Column({ nullable: true })
   source_video_id: number;
 
+  // Cột nullable: null = chưa tính được tổng giá (thiếu giá nguyên liệu hoặc
+  // có nguyên liệu tính theo đơn vị đếm chưa quy đổi được sang gram).
   @Column('float', { nullable: true })
-  estimated_cost: number;
+  estimated_cost: number | null;
 
   @Column({ nullable: true })
   created_by: number;

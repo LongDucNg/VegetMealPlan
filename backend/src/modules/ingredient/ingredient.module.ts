@@ -8,6 +8,9 @@ import { IngredientService } from './ingredient.service';
 import { IngredientController } from './ingredient.controller';
 import { IngredientReplacement } from './entities/ingredient-replacement.entity';
 import { AdminIngredientController } from './admin-ingredient.controller';
+import { Recipe } from '../recipe/entities/recipe.entity';
+import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
+import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 
 @Module({
   imports: [
@@ -17,6 +20,11 @@ import { AdminIngredientController } from './admin-ingredient.controller';
       UserAllergy,
       UserIngredientPrice,
       IngredientReplacement,
+      // Cần cho syncAffectedRecipes: sửa giá/dinh dưỡng nguyên liệu thì
+      // tính lại đúng các công thức chứa nguyên liệu đó.
+      Recipe,
+      RecipeIngredient,
+      NutritionInfo,
     ]),
   ],
   controllers: [
