@@ -70,20 +70,42 @@ export class IngredientService {
     const trimmed = ingredient_name.trim();
     if (!trimmed) return null;
 
+    // Chuẩn hoá khoảng trắng thừa (ví dụ '  nấm   mèo  ' -> 'nấm mèo')
+    const normalized = trimmed.replace(/\s+/g, ' ').toLowerCase();
+
+    // 1. So khớp chính xác 100% không phân biệt hoa thường và khoảng trắng
     const exact = await this.ingredientRepo
       .createQueryBuilder('i')
-      .where('LOWER(i.ingredient_name) = LOWER(:name)', { name: trimmed })
+      .where('LOWER(BTRIM(REGEXP_REPLACE(i.ingredient_name, \'\\s+\', \' \', \'g\'))) = :name', {
+        name: normalized,
+      })
       .getOne();
 
     if (exact) return exact;
 
-    return this.ingredientRepo
-      .createQueryBuilder('i')
-      .where('LOWER(i.ingredient_name) ILIKE :like OR :trimmed ILIKE (\'%\' || LOWER(i.ingredient_name) || \'%\')', {
-        like: `%${trimmed.toLowerCase()}%`,
-        trimmed: trimmed.toLowerCase(),
-      })
-      .getOne();
+    // 2. Tra cứu từ đồng nghĩa ẩm thực thông dụng chuẩn nếu có
+    const synonyms: Record<string, string> = {
+      'đậu phụ': 'đậu hũ trắng',
+      'đậu phụ trắng': 'đậu hũ trắng',
+      'đậu phụ chiên': 'đậu hũ chiên',
+      'tàu hũ': 'đậu hũ trắng',
+      'tàu hũ chiên': 'đậu hũ chiên',
+      'mộc nhĩ': 'nấm mèo',
+      'mộc nhĩ đen': 'nấm mèo',
+    };
+
+    if (synonyms[normalized]) {
+      return this.ingredientRepo
+        .createQueryBuilder('i')
+        .where('LOWER(BTRIM(REGEXP_REPLACE(i.ingredient_name, \'\\s+\', \' \', \'g\'))) = :name', {
+          name: synonyms[normalized].toLowerCase(),
+        })
+        .getOne();
+    }
+
+    // TUYỆT ĐỐI không dùng ILIKE '%...%' lỏng lẻo vì sẽ làm nguyên liệu không có trong DB
+    // (như "gà", "thịt gà", "thịt bò",...) khớp nhầm với "đậu gà khô", "gà chay", "bò lát chay".
+    return null;
   }
 
   // =========================
