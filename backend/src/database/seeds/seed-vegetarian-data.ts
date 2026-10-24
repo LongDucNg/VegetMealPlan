@@ -7,6 +7,7 @@ import { RecipeCategory } from '../../modules/recipe/entities/recipe-category.en
 import { NutritionInfo } from '../../modules/nutrition/entities/nutrition-info.entity';
 import { Category } from '../../modules/category/entities/category.entity';
 import { IngredientReplacement } from '../../modules/ingredient/entities/ingredient-replacement.entity';
+import { deriveSuitableMeals } from '../../modules/recipe/recipe-meals.util';
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -184,6 +185,11 @@ export async function seedVegetarianData(ds: DataSource) {
             servings: r.servings,
             difficulty: r.difficulty,
             meal_type: r.meal_type,
+            // suitable_meals: lấy từ JSON nếu có, không thì suy ra từ meal_type.
+            suitable_meals:
+              r.suitable_meals ??
+              deriveSuitableMeals(r.meal_type) ??
+              undefined,
             diet_type: r.diet_type,
             // Tính từ nguyên liệu, không lấy từ JSON
             estimated_cost: calc?.estimated_cost ?? 0,
