@@ -380,6 +380,7 @@ export class MealPlanService {
     for (let dayIndex = 0; dayIndex < dayCount; dayIndex++) {
       let dayCalories = 0;
       const globalDay = dayOffset + dayIndex;
+      const dayStartIndex = planned.length;
 
       for (let mealIndex = 0; mealIndex < mealEntries.length; mealIndex++) {
         const [mealType, baseCalories] = mealEntries[mealIndex];
@@ -413,13 +414,13 @@ export class MealPlanService {
         }
 
         // Đánh giá điểm độ phù hợp của món ăn:
-        // 1. So khớp calo sau khi tính tỷ lệ khẩu phần khả dĩ (0.6x - 3.0x tuỳ calo gốc).
+        // 1. So khớp calo sau khi tính tỷ lệ khẩu phần khả dĩ (0.4x - 3.0x tuỳ calo gốc).
         // 2. Phạt nhẹ các món đã dùng trước đó và món vừa ăn gần đây để luân phiên món.
         // 3. Ưu tiên cao việc khớp calo để tổng ngày không bị hụt mục tiêu dinh dưỡng.
         const score = (recipe: Recipe) => {
           const recipeCalories = Number(nutritionMap.get(recipe.recipe_id)?.calories ?? 0);
           const maxPortion = recipeCalories < 200 ? 3.0 : recipeCalories < 350 ? 2.5 : 1.8;
-          let testPortion = recipeCalories > 0 ? Math.min(maxPortion, Math.max(0.6, calories / recipeCalories)) : 1;
+          let testPortion = recipeCalories > 0 ? Math.min(maxPortion, Math.max(0.4, calories / recipeCalories)) : 1;
           testPortion = Math.round(testPortion * 10) / 10;
           const effectiveCalories = recipeCalories * testPortion;
           const calDiff = Math.abs(effectiveCalories - calories);
@@ -446,12 +447,12 @@ export class MealPlanService {
         usedCounts.set(selected.recipe_id, (usedCounts.get(selected.recipe_id) ?? 0) + 1);
         recentDays.set(selected.recipe_id, globalDay);
 
-        // Chỉnh khẩu phần (0.6x–3.0x) để calo bữa bám sát mục tiêu khi món calo thấp.
+        // Chỉnh khẩu phần (0.4x–3.0x) để calo bữa bám sát mục tiêu khi món calo thấp hoặc cao.
         const recipeCalories = Number(nutritionMap.get(selected.recipe_id)?.calories ?? 0);
         const maxPortion = recipeCalories < 200 ? 3.0 : recipeCalories < 350 ? 2.5 : 1.8;
         let portion =
           recipeCalories > 0
-            ? Math.min(maxPortion, Math.max(0.6, calories / recipeCalories))
+            ? Math.min(maxPortion, Math.max(0.4, calories / recipeCalories))
             : 1;
         const unitCost = costMap.get(selected.recipe_id) ?? 0;
 
@@ -461,7 +462,7 @@ export class MealPlanService {
           if (unitCost > 0) portion = Math.min(portion, maxCost / unitCost);
         }
         portion = Math.round(portion * 10) / 10;
-        if (portion <= 0) portion = 0.5;
+        if (portion <= 0) portion = 0.4;
 
         dayCalories += recipeCalories * portion;
 
@@ -471,6 +472,25 @@ export class MealPlanService {
         }
 
         planned.push({ dayIndex, mealType, calories, recipe: selected, portion });
+      }
+
+      // Hậu kiểm và vi chỉnh calo ngày:
+      // Đảm bảo tổng calo của ngày bám sát dayTarget (không vượt quá +150 kcal và không thiếu quá 100 kcal)
+      const dayMeals = planned.slice(dayStartIndex);
+      const totalDayKcal = dayMeals.reduce((sum, item) => {
+        const rc = Number(nutritionMap.get(item.recipe.recipe_id)?.calories ?? 0);
+        return sum + rc * item.portion;
+      }, 0);
+
+      const diff = totalDayKcal - dayTarget;
+      if (totalDayKcal > 0 && (diff > 150 || diff < -100)) {
+        const ratio = dayTarget / totalDayKcal;
+        for (const item of dayMeals) {
+          const adjustedPortion = Math.round(item.portion * ratio * 10) / 10;
+          if (adjustedPortion >= 0.4 && adjustedPortion <= 3.0) {
+            item.portion = adjustedPortion;
+          }
+        }
       }
     }
 
@@ -925,10 +945,16 @@ export class MealPlanService {
     const safeRecipes = await this.getSafeRecipes(user_id, user.diet_type);
     const nutritionMap = await this.getNutritionMap(safeRecipes);
 
+    const b = Math.round(targetCalories * 0.22);
+    const l = Math.round(targetCalories * 0.31);
+    const d = Math.round(targetCalories * 0.31);
+    const s = Math.max(0, targetCalories - (b + l + d));
+
     const mealTargets: Record<string, number> = {
-      breakfast: Math.round(targetCalories * 0.25),
-      lunch: Math.round(targetCalories * 0.35),
-      dinner: Math.round(targetCalories * 0.4),
+      breakfast: b,
+      lunch: l,
+      dinner: d,
+      snack: s,
     };
 
     return { user, targetCalories, safeRecipes, nutritionMap, mealTargets };
@@ -962,7 +988,7 @@ export class MealPlanService {
       recentUsedDays: new Map<number, number>(),
       dayOffset: 0,
       budget: hasBudget
-        ? { remaining: dto.total_budget!, slotsLeft: 21 }
+        ? { remaining: dto.total_budget!, slotsLeft: 7 * Object.keys(mealTargets).length }
         : undefined,
     });
 
@@ -1382,7 +1408,7 @@ export class MealPlanService {
 
     const totalDays = weeks.reduce((sum, week) => sum + week.days, 0);
     const budget: BudgetTracker | undefined = hasBudget
-      ? { remaining: dto.total_budget!, slotsLeft: totalDays * 3 }
+      ? { remaining: dto.total_budget!, slotsLeft: totalDays * Object.keys(mealTargets).length }
       : undefined;
 
     const usedRecipeCounts = new Map<number, number>();
@@ -1604,10 +1630,16 @@ export class MealPlanService {
       ? await this.getRecipeCostMap(safeRecipes)
       : new Map<number, number>();
 
+    const b = Math.round(targetCalories * 0.22);
+    const l = Math.round(targetCalories * 0.31);
+    const d = Math.round(targetCalories * 0.31);
+    const s = Math.max(0, targetCalories - (b + l + d));
+
     const mealTargets: Record<string, number> = {
-      breakfast: Math.round(targetCalories * 0.25),
-      lunch: Math.round(targetCalories * 0.35),
-      dinner: Math.round(targetCalories * 0.4),
+      breakfast: b,
+      lunch: l,
+      dinner: d,
+      snack: s,
     };
 
     // Chọn món trước khi ghi DB; ném lỗi nếu không đủ ngân sách.
@@ -1621,7 +1653,7 @@ export class MealPlanService {
       recentUsedDays: new Map<number, number>(),
       dayOffset: 0,
       budget: hasBudget
-        ? { remaining: dto.total_budget!, slotsLeft: 21 }
+        ? { remaining: dto.total_budget!, slotsLeft: 7 * Object.keys(mealTargets).length }
         : undefined,
     });
 
