@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Put,
@@ -52,6 +53,18 @@ export class AdminRecipeController {
       id,
       req.user.user_id,
       dto,
+    );
+  }
+
+  @Delete(':id')
+  async remove(
+    @Req() req: any,
+    @Param('id', PositiveIntPipe) id: number,
+  ) {
+    return this.recipeService.removeRecipe(
+      id,
+      req.user.user_id,
+      req.user.role,
     );
   }
 }
