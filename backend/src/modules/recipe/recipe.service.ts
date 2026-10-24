@@ -8,7 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, In, Not, Repository } from 'typeorm';
 
 import { Recipe, RecipeStatus, Difficulty } from './entities/recipe.entity';
 import { RecipeIngredient } from './entities/recipe-ingredient.entity';
@@ -1534,10 +1534,46 @@ export class RecipeService {
       );
     }
 
-    recipe.status = RecipeStatus.REMOVED;
-    await this.recipeRepo.save(recipe);
+    await this.dataSource.transaction(async (manager) => {
+      // 1. Gỡ tham chiếu từ recipe_import_items (để không bị chặn bởi khóa ngoại ON DELETE NO ACTION)
+      await manager.query(
+        `UPDATE recipe_import_items SET recipe_id = NULL WHERE recipe_id = $1`,
+        [recipeId],
+      );
+
+      // 2. Xóa các bảng phụ thuộc không dùng CASCADE
+      await manager.query(
+        `DELETE FROM favorite_recipes WHERE recipe_id = $1`,
+        [recipeId],
+      );
+      await manager.query(
+        `DELETE FROM user_recipe_prices WHERE recipe_id = $1`,
+        [recipeId],
+      );
+      await manager.query(
+        `DELETE FROM ai_recommendations WHERE recipe_id = $1`,
+        [recipeId],
+      );
+
+      // 3. Kiểm tra xem công thức có trong thực đơn (meal_items) nào không
+      const mealItemsCount = await manager.query(
+        `SELECT COUNT(*) FROM meal_items WHERE recipe_id = $1`,
+        [recipeId],
+      );
+      const inMealPlan = parseInt(mealItemsCount[0]?.count || '0', 10) > 0;
+
+      if (inMealPlan) {
+        // Món đã được người dùng chọn vào kế hoạch bữa ăn -> đánh dấu REMOVED để giữ lịch sử
+        await manager.update(Recipe, { recipe_id: recipeId }, { status: RecipeStatus.REMOVED });
+      } else {
+        // Món chưa bị ràng buộc bởi kế hoạch thực đơn -> xóa sạch hoàn toàn khỏi cơ sở dữ liệu
+        // Các bảng recipe_ingredients, recipe_categories, nutrition_infos tự động xóa theo CASCADE
+        await manager.delete(Recipe, { recipe_id: recipeId });
+      }
+    });
 
     return {
+      success: true,
       message: 'Đã xóa công thức thành công.',
       recipe_id: recipeId,
     };
@@ -1705,6 +1741,8 @@ export class RecipeService {
     const where: any = {};
     if (value) {
       where.status = value as RecipeStatus;
+    } else {
+      where.status = Not(RecipeStatus.REMOVED);
     }
 
     // Lọc theo danh mục PHẢI áp dụng TRƯỚC khi phân trang, nếu không trang

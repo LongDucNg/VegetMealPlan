@@ -20,6 +20,9 @@ import {
   Check,
   Carrot,
   Activity,
+  X,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { useRecipes } from "@/features/recipes/hooks/useRecipes";
 import { Recipe, RecipeStatus, formatMealType } from "@/features/recipes";
@@ -51,12 +54,40 @@ export function AdminRecipeManagement() {
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
 
+  // In-app dialog modal states
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [recipeToDelete, setRecipeToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [recipeToReject, setRecipeToReject] = useState<Recipe | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [isRejecting, setIsRejecting] = useState(false);
+
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  // Toast notification state
+  const [toast, setToast] = useState<{
+    id: number;
+    type: "success" | "error" | "info";
+    message: string;
+  } | null>(null);
+
+  const showToast = useCallback((type: "success" | "error" | "info", message: string) => {
+    const id = Date.now();
+    setToast({ id, type, message });
+    setTimeout(() => {
+      setToast((prev) => (prev?.id === id ? null : prev));
+    }, 3500);
+  }, []);
+
   const loadAdminRecipes = useCallback(async () => {
     setLoadingServer(true);
     try {
       const data = await recipeApiService.getAdminRecipes();
       const list = Array.isArray(data) ? data : (data as any)?.data || [];
-      if (Array.isArray(list) && list.length > 0) {
+      if (Array.isArray(list)) {
         const mapped = list.map(mapBackendToFrontendRecipe);
         setServerRecipes(mapped);
       }
@@ -84,35 +115,105 @@ export function AdminRecipeManagement() {
       if (!isNaN(numId)) {
         await recipeApiService.reviewRecipe(numId, "approved");
       }
-      recipeService.updateRecipe(recipe.id, { status: "APPROVED" });
+      setServerRecipes((prev) =>
+        prev.map((r) => (r.id === recipe.id ? { ...r, status: "APPROVED" as RecipeStatus } : r))
+      );
       await loadAdminRecipes();
       refresh();
+      showToast("success", `Đã phê duyệt công thức "${recipe.name || recipe.title}" thành công!`);
     } catch (err: any) {
-      alert(err?.message || "Không thể phê duyệt công thức này");
+      showToast("error", err?.message || "Không thể phê duyệt công thức này");
     }
   };
 
-  const handleReject = async (recipe: Recipe) => {
-    const reason = window.prompt(
-      `Nhập lý do từ chối công thức "${recipe.name || recipe.title}":`,
-      "Nội dung chưa đầy đủ hoặc không phù hợp tiêu chuẩn cộng đồng"
-    );
-    if (reason === null) return;
-    const numId = parseInt(recipe.id.replace(/\D/g, ""), 10);
+  const handleOpenReject = (recipe: Recipe) => {
+    setRecipeToReject(recipe);
+    setRejectReason("Nội dung chưa đầy đủ hoặc không phù hợp tiêu chuẩn cộng đồng");
+    setRejectModalOpen(true);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!recipeToReject) return;
+    setIsRejecting(true);
+    const numId = parseInt(recipeToReject.id.replace(/\D/g, ""), 10);
+    const recipeTitle = recipeToReject.name || recipeToReject.title;
     try {
       if (!isNaN(numId)) {
-        await recipeApiService.reviewRecipe(numId, "rejected", reason);
+        await recipeApiService.reviewRecipe(numId, "rejected", rejectReason);
       }
-      recipeService.updateRecipe(recipe.id, { status: "REJECTED" });
+      setServerRecipes((prev) =>
+        prev.map((r) => (String(r.id) === String(recipeToReject.id) ? { ...r, status: "REJECTED" as RecipeStatus } : r))
+      );
+      setRejectModalOpen(false);
+      setRecipeToReject(null);
       await loadAdminRecipes();
       refresh();
+      showToast("success", `Đã từ chối công thức "${recipeTitle}"!`);
     } catch (err: any) {
-      alert(err?.message || "Không thể từ chối công thức này");
+      setRejectModalOpen(false);
+      setRecipeToReject(null);
+      showToast("error", err?.message || "Không thể từ chối công thức này");
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
+  const handleOpenDelete = (id: string, title: string) => {
+    setRecipeToDelete({ id, title });
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!recipeToDelete) return;
+    setIsDeleting(true);
+    const idToDelete = recipeToDelete.id;
+    const titleToDelete = recipeToDelete.title;
+    const numId = parseInt(idToDelete.replace(/\D/g, ""), 10);
+    try {
+      if (!isNaN(numId)) {
+        await recipeApiService.deleteRecipe(numId);
+      }
+      try {
+        recipeService.deleteRecipe(idToDelete);
+      } catch (_) {}
+      // Gỡ khỏi state tức thì để giao diện biến mất ngay không cần reload trang
+      setServerRecipes((prev) => prev.filter((r) => String(r.id) !== String(idToDelete)));
+      setDeleteModalOpen(false);
+      setRecipeToDelete(null);
+      await loadAdminRecipes();
+      refresh();
+      showToast("success", `Đã xóa công thức "${titleToDelete}" thành công!`);
+    } catch (err: any) {
+      setDeleteModalOpen(false);
+      setRecipeToDelete(null);
+      showToast("error", err?.message || `Không thể xóa công thức "${titleToDelete}"`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleConfirmReset = async () => {
+    setIsResetting(true);
+    try {
+      recipeService.resetRecipes();
+      setResetModalOpen(false);
+      await loadAdminRecipes();
+      refresh();
+      showToast("info", "Đã khôi phục dữ liệu mẫu mặc định!");
+    } catch (err: any) {
+      setResetModalOpen(false);
+      showToast("error", err?.message || "Không thể khôi phục dữ liệu");
+    } finally {
+      setIsResetting(false);
     }
   };
 
   // Filtered recipes
   const filtered = allRecipes.filter((r) => {
+    // Không hiển thị công thức đã bị xóa (removed) trừ khi admin chọn bộ lọc cụ thể
+    if (selectedStatus === "all" && (r.status || "").toLowerCase() === "removed") {
+      return false;
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       const match =
@@ -153,25 +254,19 @@ export function AdminRecipeManagement() {
     setModalOpen(true);
   };
 
-  const handleSave = (recipeData: Omit<Recipe, "id">, editId?: string) => {
-    if (editId) {
-      updateRecipe(editId, recipeData);
-    } else {
-      createRecipe(recipeData);
-    }
-    refresh();
-  };
-
-  const handleDelete = (id: string, title: string) => {
-    if (window.confirm(`Bạn có chắc chắn muốn xóa công thức "${title}" không?`)) {
-      deleteRecipe(id);
-    }
-  };
-
-  const handleReset = () => {
-    if (window.confirm("Khôi phục toàn bộ công thức về dữ liệu mẫu mặc định?")) {
-      recipeService.resetRecipes();
+  const handleSave = async (recipeData: Omit<Recipe, "id">, editId?: string) => {
+    try {
+      if (editId) {
+        await updateRecipe(editId, recipeData);
+        showToast("success", `Đã cập nhật công thức "${recipeData.name || recipeData.title}" thành công!`);
+      } else {
+        await createRecipe(recipeData);
+        showToast("success", "Đã tạo công thức mới thành công!");
+      }
+      await loadAdminRecipes();
       refresh();
+    } catch (err: any) {
+      showToast("error", err?.message || "Thao tác lưu công thức thất bại");
     }
   };
 
@@ -194,7 +289,7 @@ export function AdminRecipeManagement() {
         {/* Buttons */}
         <div className="flex items-center gap-2.5">
           <button
-            onClick={handleReset}
+            onClick={() => setResetModalOpen(true)}
             title="Khôi phục dữ liệu mẫu mặc định"
             className="h-10 px-3.5 rounded-xl border border-stone-200 text-stone-600 hover:text-stone-900 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
@@ -443,7 +538,7 @@ export function AdminRecipeManagement() {
                         <span>Duyệt</span>
                       </button>
                       <button
-                        onClick={() => handleReject(recipe)}
+                        onClick={() => handleOpenReject(recipe)}
                         title="Từ chối công thức"
                         className="h-8 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                       >
@@ -486,7 +581,7 @@ export function AdminRecipeManagement() {
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => handleDelete(recipe.id, recipe.title)}
+                    onClick={() => handleOpenDelete(recipe.id, recipe.name || recipe.title)}
                     title="Xóa công thức"
                     className="p-2 rounded-xl text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors cursor-pointer"
                   >
@@ -585,15 +680,164 @@ export function AdminRecipeManagement() {
       <AdminImportModal
         isOpen={importModalOpen}
         onClose={() => setImportModalOpen(false)}
-        onCompleted={() => refresh()}
+        onCompleted={async () => {
+          await loadAdminRecipes();
+          refresh();
+          showToast("success", "Đã cập nhật danh sách công thức thành công!");
+        }}
       />
 
-      {/* Nutrition DB Modal (GET /api/v1/nutrition) */}
-      <AdminNutritionModal
-        isOpen={nutritionModalOpen}
-        onClose={() => setNutritionModalOpen(false)}
-        recipes={allRecipes}
-      />
+      {/* Delete Confirmation Modal */}
+      {deleteModalOpen && recipeToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-100 animate-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-stone-900 text-center mb-2">
+              Xác nhận xóa công thức
+            </h3>
+            <p className="text-sm text-stone-600 text-center mb-6 leading-relaxed">
+              Bạn có chắc chắn muốn xóa vĩnh viễn công thức <span className="font-semibold text-stone-900">"{recipeToDelete.title}"</span>? Thao tác này sẽ gỡ công thức khỏi hệ thống và không thể hoàn tác.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => {
+                  setDeleteModalOpen(false);
+                  setRecipeToDelete(null);
+                }}
+                className="flex-1 h-11 rounded-xl border border-stone-200 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                className="flex-1 h-11 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+              >
+                {isDeleting && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isDeleting ? "Đang xóa..." : "Xác nhận xóa"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Recipe Modal */}
+      {rejectModalOpen && recipeToReject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-100 animate-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-stone-900 text-center mb-1">
+              Từ chối công thức
+            </h3>
+            <p className="text-xs text-stone-500 text-center mb-4 truncate px-2 font-medium">
+              {recipeToReject.name || recipeToReject.title}
+            </p>
+            <div className="mb-5">
+              <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                Lý do từ chối kiểm duyệt <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Nhập lý do gửi đến tác giả để họ chỉnh sửa..."
+                rows={3}
+                className="w-full p-3 rounded-xl border border-stone-200 text-sm text-stone-800 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 resize-none"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={isRejecting}
+                onClick={() => {
+                  setRejectModalOpen(false);
+                  setRecipeToReject(null);
+                }}
+                className="flex-1 h-11 rounded-xl border border-stone-200 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={isRejecting || !rejectReason.trim()}
+                onClick={handleConfirmReject}
+                className="flex-1 h-11 rounded-xl bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700 transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+              >
+                {isRejecting && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isRejecting ? "Đang xử lý..." : "Xác nhận từ chối"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Confirmation Modal */}
+      {resetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-100 animate-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-4">
+              <RotateCcw className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-stone-900 text-center mb-2">
+              Khôi phục dữ liệu mẫu
+            </h3>
+            <p className="text-sm text-stone-600 text-center mb-6 leading-relaxed">
+              Bạn có chắc chắn muốn làm mới toàn bộ danh sách về dữ liệu mẫu ban đầu? Các công thức thêm thủ công trong bộ nhớ tạm sẽ bị đặt lại.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={() => setResetModalOpen(false)}
+                className="flex-1 h-11 rounded-xl border border-stone-200 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={handleConfirmReset}
+                className="flex-1 h-11 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+              >
+                {isResetting && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isResetting ? "Đang khôi phục..." : "Xác nhận khôi phục"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed top-6 right-6 z-50 animate-in slide-in-from-top-4 fade-in duration-300">
+          <div
+            className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border text-sm font-semibold backdrop-blur-md ${
+              toast.type === "success"
+                ? "bg-emerald-50/95 text-emerald-950 border-emerald-300 shadow-emerald-900/10"
+                : toast.type === "error"
+                ? "bg-red-50/95 text-red-950 border-red-300 shadow-red-900/10"
+                : "bg-blue-50/95 text-blue-950 border-blue-300 shadow-blue-900/10"
+            }`}
+          >
+            {toast.type === "success" && <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />}
+            {toast.type === "error" && <XCircle className="w-5 h-5 text-red-600 shrink-0" />}
+            {toast.type === "info" && <AlertCircle className="w-5 h-5 text-blue-600 shrink-0" />}
+            <span>{toast.message}</span>
+            <button
+              onClick={() => setToast(null)}
+              className="ml-3 p-1 rounded-lg hover:bg-black/5 text-stone-400 hover:text-stone-700 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
