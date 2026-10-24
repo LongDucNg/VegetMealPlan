@@ -51,6 +51,13 @@ export function MealCard({
   const adminEstimatedCost =
     recipe.estimatedCost || priceService.calculateRecipeCost(recipe.ingredients || []).estimatedCost;
 
+  const totalGrams = (recipe.ingredients || []).reduce((sum, ing) => {
+    const q = Number(ing.quantity) || 0;
+    const u = (ing.unit || "").toLowerCase();
+    if (u === "g" || u === "gram" || u === "gam" || u === "ml") return sum + q;
+    return sum;
+  }, 0);
+
   return (
     <div
       className={`bg-white border ${colors.border} rounded-3xl overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col group`}
@@ -107,16 +114,17 @@ export function MealCard({
             {recipe.name || recipe.title}
           </Link>
 
-          {/* Calories & Serving */}
+          {/* Calories & Weight */}
           <div className="flex items-center gap-2 mt-2 text-xs text-stone-500">
             <span className="flex items-center gap-1 font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
               <Flame className="w-3 h-3 text-amber-500 fill-amber-500" />
               {recipe.calories} kcal
             </span>
-            <span className="flex items-center gap-1 text-[11px]">
-              <Users className="w-3 h-3 text-stone-400" />
-              {recipe.serving} khẩu phần
-            </span>
+            {totalGrams > 0 && (
+              <span className="flex items-center gap-1 text-[11px] font-medium text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200/60">
+                ~{Math.round(totalGrams)}g
+              </span>
+            )}
           </div>
 
           {/* Pricing Section (Requirements 4, 5, 6) */}
