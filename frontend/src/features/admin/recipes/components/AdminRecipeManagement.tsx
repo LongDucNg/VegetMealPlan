@@ -19,6 +19,7 @@ import {
   AlertCircle,
   Check,
   Carrot,
+  Activity,
 } from "lucide-react";
 import { useRecipes } from "@/features/recipes/hooks/useRecipes";
 import { Recipe, RecipeStatus, formatMealType } from "@/features/recipes";
@@ -26,6 +27,7 @@ import { formatVegetarianType } from "@/features/profile/types";
 import { AdminRecipeModal } from "./AdminRecipeModal";
 import { AdminRecipeDetailModal } from "./AdminRecipeDetailModal";
 import { AdminImportModal } from "./AdminImportModal";
+import { AdminNutritionModal } from "./AdminNutritionModal";
 import { recipeService } from "@/features/recipes/services/recipeService";
 import { priceService } from "@/features/recipes/services/priceService";
 import { recipeApiService } from "@/features/recipes/services/recipeApiService";
@@ -45,6 +47,7 @@ export function AdminRecipeManagement() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [nutritionModalOpen, setNutritionModalOpen] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
 
@@ -207,6 +210,15 @@ export function AdminRecipeManagement() {
             <Carrot className="w-4 h-4 text-emerald-700" />
             <span>Kho Nguyên liệu</span>
           </Link>
+
+          {/* Nutrition DB Button (API /nutrition) */}
+          <button
+            onClick={() => setNutritionModalOpen(true)}
+            className="h-10 px-4 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+          >
+            <Activity className="w-4 h-4 text-emerald-700" />
+            <span>Dinh dưỡng (API)</span>
+          </button>
 
           {/* Import Recipes Button (Requirement 8) */}
           <button
@@ -574,6 +586,13 @@ export function AdminRecipeManagement() {
         isOpen={importModalOpen}
         onClose={() => setImportModalOpen(false)}
         onCompleted={() => refresh()}
+      />
+
+      {/* Nutrition DB Modal (GET /api/v1/nutrition) */}
+      <AdminNutritionModal
+        isOpen={nutritionModalOpen}
+        onClose={() => setNutritionModalOpen(false)}
+        recipes={allRecipes}
       />
     </div>
   );
