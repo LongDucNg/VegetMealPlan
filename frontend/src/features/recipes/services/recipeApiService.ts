@@ -126,4 +126,30 @@ export const recipeApiService = {
   reviewRecipe(id: number | string, status: "approved" | "rejected", reason?: string) {
     return apiClient.put<any>(`/admin/recipes/${id}/status`, { status, reason });
   },
+
+  // API Nutrition #1: GET /nutrition - Lấy danh sách dinh dưỡng các công thức
+  getAllNutrition() {
+    return apiClient.get<{ data: NutritionItem[]; message: string } | NutritionItem[]>("/nutrition");
+  },
+
+  // API Nutrition #2: GET /nutrition/:recipeId - Lấy thông tin dinh dưỡng của công thức
+  getNutritionByRecipeId(recipeId: number | string) {
+    return apiClient.get<{ data: NutritionItem; message: string } | NutritionItem>(`/nutrition/${recipeId}`);
+  },
 };
+
+export interface NutritionItem {
+  nutrition_id: number;
+  recipe_id: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  updated_at?: string;
+  recipe?: {
+    recipe_id: number;
+    title: string;
+    image_url?: string;
+  };
+}
