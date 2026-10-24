@@ -99,6 +99,51 @@ export const mealPlannerService = {
   },
 
   /**
+   * Cân bằng calo trong ngày để bám sát mục tiêu:
+   * Đảm bảo tổng calo không vượt quá mục tiêu >150 kcal và không thiếu quá 100 kcal
+   */
+  calibrateDayCalories(day: DayMealPlan, targetKcal: number): DayMealPlan {
+    const rawTotal =
+      day.breakfast.recipe.calories +
+      day.lunch.recipe.calories +
+      day.dinner.recipe.calories +
+      day.snack.recipe.calories;
+
+    const diff = rawTotal - targetKcal;
+    // Nếu tổng calo lệch quá +150 kcal hoặc thiếu quá 100 kcal:
+    if (rawTotal > 0 && (diff > 150 || diff < -100)) {
+      const ratio = targetKcal / rawTotal;
+      const scaleR = (r: Recipe): Recipe => {
+        const scaledIngredients = (r.ingredients || []).map((ing) => ({
+          ...ing,
+          quantity:
+            typeof ing.quantity === "number"
+              ? Math.round(ing.quantity * ratio * 10) / 10
+              : ing.quantity,
+        }));
+        return {
+          ...r,
+          calories: Math.round(r.calories * ratio),
+          serving: 1,
+          protein: Math.round(r.protein * ratio * 10) / 10,
+          carbs: Math.round(r.carbs * ratio * 10) / 10,
+          fat: Math.round(r.fat * ratio * 10) / 10,
+          ingredients: scaledIngredients,
+        };
+      };
+
+      return {
+        ...day,
+        breakfast: { ...day.breakfast, recipe: scaleR(day.breakfast.recipe) },
+        lunch: { ...day.lunch, recipe: scaleR(day.lunch.recipe) },
+        dinner: { ...day.dinner, recipe: scaleR(day.dinner.recipe) },
+        snack: { ...day.snack, recipe: scaleR(day.snack.recipe) },
+      };
+    }
+    return day;
+  },
+
+  /**
    * Generates a single day plan based on the user's Profile, BMI status, calorie target,
    * vegetarian diet, and strictly excluding any allergy conflicts (Requirements 4, 5, 6, 7).
    */
@@ -139,14 +184,22 @@ export const mealPlannerService = {
     const scaleRecipeToCalories = (raw: Recipe, targetKcal: number): Recipe => {
       const baseKcal = Number(raw.calories) || 150;
       const maxPortion = baseKcal < 200 ? 3.0 : baseKcal < 350 ? 2.5 : 1.8;
-      const portion = Math.round(Math.min(maxPortion, Math.max(0.6, targetKcal / baseKcal)) * 10) / 10;
+      const portion = Math.round(Math.min(maxPortion, Math.max(0.4, targetKcal / baseKcal)) * 10) / 10;
+      const scaledIngredients = (raw.ingredients || []).map((ing) => ({
+        ...ing,
+        quantity:
+          typeof ing.quantity === "number"
+            ? Math.round(ing.quantity * portion * 10) / 10
+            : ing.quantity,
+      }));
       return {
         ...raw,
         calories: Math.round(baseKcal * portion),
-        serving: Math.round((Number(raw.serving) || 1) * portion * 10) / 10,
+        serving: 1,
         protein: Math.round((Number(raw.protein) || 0) * portion * 10) / 10,
         carbs: Math.round((Number(raw.carbs) || 0) * portion * 10) / 10,
         fat: Math.round((Number(raw.fat) || 0) * portion * 10) / 10,
+        ingredients: scaledIngredients,
       };
     };
 
@@ -256,7 +309,8 @@ export const mealPlannerService = {
       estimatedCost: 0,
     };
 
-    return this.recalculateDay(baseDay, targetCalories, userId);
+    const calibratedDay = this.calibrateDayCalories(baseDay, targetCalories);
+    return this.recalculateDay(calibratedDay, targetCalories, userId);
   },
 
   /**
@@ -513,13 +567,21 @@ export const mealPlannerService = {
           }
         }
         if (portion && portion !== 1) {
+          const scaledIngredients = (frontendRecipe.ingredients || []).map((ing) => ({
+            ...ing,
+            quantity:
+              typeof ing.quantity === "number"
+                ? Math.round(ing.quantity * portion * 10) / 10
+                : ing.quantity,
+          }));
           frontendRecipe = {
             ...frontendRecipe,
             calories: Math.round(frontendRecipe.calories * portion),
-            serving: Math.round((Number(frontendRecipe.serving) || 1) * portion * 10) / 10,
+            serving: 1,
             protein: Math.round(frontendRecipe.protein * portion * 10) / 10,
             carbs: Math.round(frontendRecipe.carbs * portion * 10) / 10,
             fat: Math.round(frontendRecipe.fat * portion * 10) / 10,
+            ingredients: scaledIngredients,
           };
         }
         slots[dm.meal_type] = frontendRecipe;
@@ -558,7 +620,8 @@ export const mealPlannerService = {
         estimatedCost: 0,
       };
 
-      return this.recalculateDay(baseDay, plan.target_calories_per_day || 2000, String(profile.id || ""));
+      const calibratedDay = this.calibrateDayCalories(baseDay, plan.target_calories_per_day || 2000);
+      return this.recalculateDay(calibratedDay, plan.target_calories_per_day || 2000, String(profile.id || ""));
     });
 
     const totalKcal = days.reduce((sum, d) => sum + d.totalCalories, 0);
@@ -610,13 +673,21 @@ export const mealPlannerService = {
           }
         }
         if (portion && portion !== 1) {
+          const scaledIngredients = (frontendRecipe.ingredients || []).map((ing) => ({
+            ...ing,
+            quantity:
+              typeof ing.quantity === "number"
+                ? Math.round(ing.quantity * portion * 10) / 10
+                : ing.quantity,
+          }));
           frontendRecipe = {
             ...frontendRecipe,
             calories: Math.round(frontendRecipe.calories * portion),
-            serving: Math.round((Number(frontendRecipe.serving) || 1) * portion * 10) / 10,
+            serving: 1,
             protein: Math.round(frontendRecipe.protein * portion * 10) / 10,
             carbs: Math.round(frontendRecipe.carbs * portion * 10) / 10,
             fat: Math.round(frontendRecipe.fat * portion * 10) / 10,
+            ingredients: scaledIngredients,
           };
         }
         slots[dm.meal_type] = frontendRecipe;
@@ -663,7 +734,8 @@ export const mealPlannerService = {
         estimatedCost: 0,
       };
 
-      const calculated = this.recalculateDay(baseDay, targetCalories, String(profile.id || ""));
+      const calibratedDay = this.calibrateDayCalories(baseDay, targetCalories);
+      const calculated = this.recalculateDay(calibratedDay, targetCalories, String(profile.id || ""));
       calendarDays.push({
         ...calculated,
         dayOfMonth: d,
