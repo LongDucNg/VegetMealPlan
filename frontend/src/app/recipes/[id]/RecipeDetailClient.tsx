@@ -57,6 +57,8 @@ export function RecipeDetailClient({
   const [isFavorite, setIsFavorite] = useState(false);
   const [checkedIngredients, setCheckedIngredients] = useState<Record<string, boolean>>({});
   const [servingsMultiplier, setServingsMultiplier] = useState(1);
+  const [nutritionVerified, setNutritionVerified] = useState(false);
+  const [nutritionLoading, setNutritionLoading] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -82,7 +84,33 @@ export function RecipeDetailClient({
         }
       }
 
-      // 2. Fetch Cost Data from API #5
+      // 2. Fetch Dedicated Nutrition Data from API GET /nutrition/:recipeId
+      if (!isNaN(numericId)) {
+        try {
+          const nutRes = await recipeApiService.getNutritionByRecipeId(numericId);
+          const nut = (nutRes as any)?.data || nutRes;
+          if (nut && (nut.nutrition_id !== undefined || nut.calories !== undefined)) {
+            if (isMounted) {
+              setRecipe((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  calories: typeof nut.calories === "number" ? Math.round(nut.calories) : prev.calories,
+                  protein: typeof nut.protein === "number" ? Math.round(nut.protein) : prev.protein,
+                  carbs: typeof nut.carbs === "number" ? Math.round(nut.carbs) : prev.carbs,
+                  fat: typeof nut.fat === "number" ? Math.round(nut.fat) : prev.fat,
+                  fiber: typeof nut.fiber === "number" ? Math.round(nut.fiber) : prev.fiber,
+                };
+              });
+              setNutritionVerified(true);
+            }
+          }
+        } catch {
+          // silently keep base recipe nutrition if guest or not created yet
+        }
+      }
+
+      // 3. Fetch Cost Data from API #5
       if (!isNaN(numericId)) {
         try {
           const costRes = await recipeApiService.getRecipeCost(numericId);
@@ -91,7 +119,7 @@ export function RecipeDetailClient({
           // ignore cost API error
         }
 
-        // 3. Fetch Replacements from API #4
+        // 4. Fetch Replacements from API #4
         try {
           const repRes = await recipeApiService.getReplacements(numericId);
           const items = repRes?.data?.replacements || repRes?.replacements || [];
@@ -101,7 +129,7 @@ export function RecipeDetailClient({
         }
       }
 
-      // 4. Check Favorite status
+      // 5. Check Favorite status
       try {
         const favs = await favoriteApiService.getMyFavorites();
         const list = Array.isArray(favs) ? favs : (favs as any)?.data || [];
@@ -316,18 +344,28 @@ export function RecipeDetailClient({
 
         {/* Nutritional Summary Card */}
         <div className="p-6 rounded-3xl bg-white border border-stone-200/80 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="font-serif font-bold text-lg text-stone-900">
-                Giá trị dinh dưỡng
-              </h3>
-              <p className="text-xs text-stone-500">
+              <div className="flex items-center gap-2">
+                <h3 className="font-serif font-bold text-lg text-stone-900">
+                  Giá trị dinh dưỡng
+                </h3>
+                {nutritionVerified && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-semibold">
+                    <Sparkles className="w-3 h-3 text-emerald-600" />
+                    Đồng bộ API Dinh dưỡng
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-stone-500 mt-0.5">
                 Chỉ số dinh dưỡng được tính toán trên 1 khẩu phần ăn tiêu chuẩn
               </p>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 font-bold text-sm">
-              <Flame className="w-4 h-4 text-amber-500 fill-amber-500" />
-              <span>{recipe.calories} kcal</span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 font-bold text-sm">
+                <Flame className="w-4 h-4 text-amber-500 fill-amber-500" />
+                <span>{recipe.calories} kcal</span>
+              </div>
             </div>
           </div>
 

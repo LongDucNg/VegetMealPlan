@@ -40,7 +40,7 @@ export function MockPaymentModal({
         const res = await subscriptionService.createCheckout();
         if (res?.payment_url) {
           // Điều hướng toàn trang sang cổng thanh toán VNPay
-          window.location.href = res.payment_url;
+          window.location.assign(res.payment_url);
           return;
         }
         throw new Error("Không nhận được link thanh toán từ hệ thống.");
