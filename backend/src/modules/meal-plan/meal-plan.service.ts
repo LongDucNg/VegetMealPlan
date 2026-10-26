@@ -29,6 +29,7 @@ import {
 } from '../recipe/entities/recipe.entity';
 import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
 import { calculateIngredientCost } from '../recipe/recipe-cost.util';
+import { isRecipeSuitableForMeal } from '../recipe/recipe-meals.util';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { FavoriteRecipe } from '../recipe/entities/favorite-recipe.entity';
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
@@ -109,16 +110,10 @@ export class MealPlanService {
     recipe: Recipe,
     mealType: string,
   ): boolean {
-    const requestedMeal = mealType.trim().toLowerCase();
-
-    const recipeMealType = recipe.meal_type
-      ?.trim()
-      .toLowerCase();
-
-    return (
-      recipeMealType === requestedMeal ||
-      recipeMealType === 'any'
-    );
+    // suitable_meals là nguồn chuẩn (vd. meal_type='lunch' nhưng
+    // suitable_meals='lunch,dinner' thì dùng được cho cả bữa tối).
+    // Chỉ fallback về meal_type khi suitable_meals trống.
+    return isRecipeSuitableForMeal(recipe, mealType);
   }
 
   // =========================================================
@@ -305,10 +300,10 @@ export class MealPlanService {
     const computed = new Map<number, number>();
 
     for (const row of rows) {
-      if (row.is_optional) {
-        continue;
-      }
-
+      // Tính cả nguyên liệu optional: khớp với RecipeService.getRecipeCost
+      // và recipe-import (estimated_cost là chi phí CẢ MÓN, gồm cả nguyên
+      // liệu phụ). Trước đây meal-plan bỏ qua optional -> chi phí thực đơn
+      // luôn thấp hơn giá hiển thị ở API chi phí công thức.
       const price = Number(row.ingredient?.avg_price_per_unit ?? 0);
 
       const { cost } = calculateIngredientCost(
@@ -385,6 +380,7 @@ export class MealPlanService {
     for (let dayIndex = 0; dayIndex < dayCount; dayIndex++) {
       let dayCalories = 0;
       const globalDay = dayOffset + dayIndex;
+      const dayStartIndex = planned.length;
 
       for (let mealIndex = 0; mealIndex < mealEntries.length; mealIndex++) {
         const [mealType, baseCalories] = mealEntries[mealIndex];
@@ -418,13 +414,13 @@ export class MealPlanService {
         }
 
         // Đánh giá điểm độ phù hợp của món ăn:
-        // 1. So khớp calo sau khi tính tỷ lệ khẩu phần khả dĩ (0.6x - 3.0x tuỳ calo gốc).
+        // 1. So khớp calo sau khi tính tỷ lệ khẩu phần khả dĩ (0.4x - 3.0x tuỳ calo gốc).
         // 2. Phạt nhẹ các món đã dùng trước đó và món vừa ăn gần đây để luân phiên món.
         // 3. Ưu tiên cao việc khớp calo để tổng ngày không bị hụt mục tiêu dinh dưỡng.
         const score = (recipe: Recipe) => {
           const recipeCalories = Number(nutritionMap.get(recipe.recipe_id)?.calories ?? 0);
           const maxPortion = recipeCalories < 200 ? 3.0 : recipeCalories < 350 ? 2.5 : 1.8;
-          let testPortion = recipeCalories > 0 ? Math.min(maxPortion, Math.max(0.6, calories / recipeCalories)) : 1;
+          let testPortion = recipeCalories > 0 ? Math.min(maxPortion, Math.max(0.4, calories / recipeCalories)) : 1;
           testPortion = Math.round(testPortion * 10) / 10;
           const effectiveCalories = recipeCalories * testPortion;
           const calDiff = Math.abs(effectiveCalories - calories);
@@ -451,12 +447,12 @@ export class MealPlanService {
         usedCounts.set(selected.recipe_id, (usedCounts.get(selected.recipe_id) ?? 0) + 1);
         recentDays.set(selected.recipe_id, globalDay);
 
-        // Chỉnh khẩu phần (0.6x–3.0x) để calo bữa bám sát mục tiêu khi món calo thấp.
+        // Chỉnh khẩu phần (0.4x–3.0x) để calo bữa bám sát mục tiêu khi món calo thấp hoặc cao.
         const recipeCalories = Number(nutritionMap.get(selected.recipe_id)?.calories ?? 0);
         const maxPortion = recipeCalories < 200 ? 3.0 : recipeCalories < 350 ? 2.5 : 1.8;
         let portion =
           recipeCalories > 0
-            ? Math.min(maxPortion, Math.max(0.6, calories / recipeCalories))
+            ? Math.min(maxPortion, Math.max(0.4, calories / recipeCalories))
             : 1;
         const unitCost = costMap.get(selected.recipe_id) ?? 0;
 
@@ -466,7 +462,7 @@ export class MealPlanService {
           if (unitCost > 0) portion = Math.min(portion, maxCost / unitCost);
         }
         portion = Math.round(portion * 10) / 10;
-        if (portion <= 0) portion = 0.5;
+        if (portion <= 0) portion = 0.4;
 
         dayCalories += recipeCalories * portion;
 
@@ -476,6 +472,25 @@ export class MealPlanService {
         }
 
         planned.push({ dayIndex, mealType, calories, recipe: selected, portion });
+      }
+
+      // Hậu kiểm và vi chỉnh calo ngày:
+      // Đảm bảo tổng calo của ngày bám sát dayTarget (không vượt quá +150 kcal và không thiếu quá 100 kcal)
+      const dayMeals = planned.slice(dayStartIndex);
+      const totalDayKcal = dayMeals.reduce((sum, item) => {
+        const rc = Number(nutritionMap.get(item.recipe.recipe_id)?.calories ?? 0);
+        return sum + rc * item.portion;
+      }, 0);
+
+      const diff = totalDayKcal - dayTarget;
+      if (totalDayKcal > 0 && (diff > 150 || diff < -100)) {
+        const ratio = dayTarget / totalDayKcal;
+        for (const item of dayMeals) {
+          const adjustedPortion = Math.round(item.portion * ratio * 10) / 10;
+          if (adjustedPortion >= 0.4 && adjustedPortion <= 3.0) {
+            item.portion = adjustedPortion;
+          }
+        }
       }
     }
 
@@ -833,6 +848,36 @@ export class MealPlanService {
         }
       }
 
+      // Món phải hợp với bữa (suitable_meals chứa meal_type của ngày).
+      // Nếu không kiểm tra, người dùng có thể đổi bữa tối sang món chỉ
+      // hợp bữa sáng -> thực đơn sai nghiệp vụ.
+      if (
+        dailyMeal.meal_type &&
+        !this.isSuitableForMeal(recipe, dailyMeal.meal_type)
+      ) {
+        throw new BadRequestException(
+          `Công thức "${recipe.title}" không hợp với bữa ${dailyMeal.meal_type} ` +
+            `(suitable_meals: ${recipe.suitable_meals ?? 'không có'}).`,
+        );
+      }
+
+      // Món phải hợp chế độ ăn của user.
+      const mealPlanOwner = await this.userRepo.findOne({
+        where: { user_id },
+      });
+
+      if (
+        mealPlanOwner &&
+        !isRecipeDietCompatible(
+          mealPlanOwner.diet_type,
+          recipe.diet_type,
+        )
+      ) {
+        throw new BadRequestException(
+          `Công thức "${recipe.title}" không hợp với chế độ ăn của bạn.`,
+        );
+      }
+
       mealItem.recipe_id = dto.recipe_id;
       mealItem.is_ai_suggested = false;
       mealItem.added_by_user = true;
@@ -900,10 +945,16 @@ export class MealPlanService {
     const safeRecipes = await this.getSafeRecipes(user_id, user.diet_type);
     const nutritionMap = await this.getNutritionMap(safeRecipes);
 
+    const b = Math.round(targetCalories * 0.22);
+    const l = Math.round(targetCalories * 0.31);
+    const d = Math.round(targetCalories * 0.31);
+    const s = Math.max(0, targetCalories - (b + l + d));
+
     const mealTargets: Record<string, number> = {
-      breakfast: Math.round(targetCalories * 0.25),
-      lunch: Math.round(targetCalories * 0.35),
-      dinner: Math.round(targetCalories * 0.4),
+      breakfast: b,
+      lunch: l,
+      dinner: d,
+      snack: s,
     };
 
     return { user, targetCalories, safeRecipes, nutritionMap, mealTargets };
@@ -937,7 +988,7 @@ export class MealPlanService {
       recentUsedDays: new Map<number, number>(),
       dayOffset: 0,
       budget: hasBudget
-        ? { remaining: dto.total_budget!, slotsLeft: 21 }
+        ? { remaining: dto.total_budget!, slotsLeft: 7 * Object.keys(mealTargets).length }
         : undefined,
     });
 
@@ -970,32 +1021,44 @@ export class MealPlanService {
     mealPlan.status = MealPlanStatus.ACTIVE;
     mealPlan.generated_by = 'AI';
 
-    const savedMealPlan =
-      await this.mealPlanRepo.save(mealPlan);
+    // Ghi MealPlan + WeeklyPlan + DailyMeal + MealItem trong 1 transaction để
+    // không để lại thực đơn dở dang (thiếu bữa) khi 1 phần ghi lỗi.
+    const savedMealPlanId = await this.dataSource.transaction(async (manager) => {
+      const mealPlanRepo = manager.getRepository(MealPlan);
+      const weeklyPlanRepo = manager.getRepository(WeeklyPlan);
+      const dailyMealRepo = manager.getRepository(DailyMeal);
+      const mealItemRepo = manager.getRepository(MealItem);
 
-    const weeklyPlan = new WeeklyPlan();
+      const savedMealPlan = await mealPlanRepo.save(mealPlan);
 
-    weeklyPlan.meal_plan_id =
-      savedMealPlan.meal_plan_id;
-    weeklyPlan.week_number = 1;
-    weeklyPlan.start_date = monday;
-    weeklyPlan.end_date = sunday;
-    weeklyPlan.rollover_amount = 0;
-    weeklyPlan.week_calorie_target =
-      targetCalories * 7;
+      const weeklyPlan = new WeeklyPlan();
 
-    const savedWeeklyPlan =
-      await this.weeklyPlanRepo.save(weeklyPlan);
+      weeklyPlan.meal_plan_id =
+        savedMealPlan.meal_plan_id;
+      weeklyPlan.week_number = 1;
+      weeklyPlan.start_date = monday;
+      weeklyPlan.end_date = sunday;
+      weeklyPlan.rollover_amount = 0;
+      weeklyPlan.week_calorie_target =
+        targetCalories * 7;
 
-    await this.savePlannedMeals(
-      savedWeeklyPlan.weekly_plan_id,
-      monday,
-      plannedMeals,
-    );
+      const savedWeeklyPlan =
+        await weeklyPlanRepo.save(weeklyPlan);
+
+      await this.savePlannedMeals(
+        savedWeeklyPlan.weekly_plan_id,
+        monday,
+        plannedMeals,
+        dailyMealRepo,
+        mealItemRepo,
+      );
+
+      return savedMealPlan.meal_plan_id;
+    });
 
     return this.findMyMealPlanDetail(
       user_id,
-      savedMealPlan.meal_plan_id,
+      savedMealPlanId,
     );
   }
 
@@ -1007,6 +1070,8 @@ export class MealPlanService {
     weeklyPlanId: number,
     firstDate: Date,
     plannedMeals: PlannedMeal[],
+    dailyMealRepo: Repository<DailyMeal> = this.dailyMealRepo,
+    mealItemRepo: Repository<MealItem> = this.mealItemRepo,
   ) {
     for (const planned of plannedMeals) {
       const mealDate = new Date(firstDate);
@@ -1020,7 +1085,7 @@ export class MealPlanService {
       dailyMeal.meal_type = planned.mealType;
       dailyMeal.target_calories = planned.calories;
 
-      const savedDailyMeal = await this.dailyMealRepo.save(dailyMeal);
+      const savedDailyMeal = await dailyMealRepo.save(dailyMeal);
 
       const mealItem = new MealItem();
 
@@ -1030,7 +1095,7 @@ export class MealPlanService {
       mealItem.added_by_user = false;
       mealItem.portion_multiplier = planned.portion;
 
-      await this.mealItemRepo.save(mealItem);
+      await mealItemRepo.save(mealItem);
     }
   }
 
@@ -1147,6 +1212,51 @@ export class MealPlanService {
       }
     }
 
+    // Món trong bữa phải hợp với bữa (suitable_meals chứa meal_type của ngày)
+    // và phải hợp chế độ ăn của user - trước đây chỉ kiểm tra "đã duyệt"
+    // nên người dùng có thể lưu bữa tối chứa món chỉ hợp bữa sáng.
+    const recipeById = new Map<number, Recipe>();
+
+    if (recipeIds.length > 0) {
+      const approvedRecipes = await this.recipeRepo.find({
+        where: { recipe_id: In(recipeIds) },
+      });
+
+      for (const recipe of approvedRecipes) {
+        recipeById.set(recipe.recipe_id, recipe);
+      }
+    }
+
+    for (const week of dto.weekly_plans ?? []) {
+      for (const meal of week.daily_meals ?? []) {
+        for (const item of meal.meal_items ?? []) {
+          const recipe = recipeById.get(item.recipe_id);
+
+          if (!recipe) {
+            continue;
+          }
+
+          if (!this.isSuitableForMeal(recipe, meal.meal_type)) {
+            throw new BadRequestException(
+              `Công thức "${recipe.title}" không hợp với bữa ${meal.meal_type} ` +
+                `(suitable_meals: ${recipe.suitable_meals ?? 'không có'}).`,
+            );
+          }
+
+          if (
+            !isRecipeDietCompatible(
+              user.diet_type,
+              recipe.diet_type,
+            )
+          ) {
+            throw new BadRequestException(
+              `Công thức "${recipe.title}" không hợp với chế độ ăn của bạn.`,
+            );
+          }
+        }
+      }
+    }
+
     const mealPlan = new MealPlan();
 
     mealPlan.user_id = user_id;
@@ -1170,7 +1280,11 @@ export class MealPlanService {
     mealPlan.status = MealPlanStatus.ACTIVE;
     mealPlan.generated_by = 'USER';
 
-    return this.dataSource.transaction(async (manager) => {
+    // Ghi MealPlan + WeeklyPlan + DailyMeal + MealItem trong 1 transaction.
+    // Sau khi COMMIT mới đọc lại chi tiết: đọc bằng this.mealPlanRepo (default
+    // connection) trong lúc transaction chưa commit sẽ không thấy dữ liệu vừa
+    // ghi -> trả 404 và làm rollback toàn bộ lưu thực đơn.
+    const savedMealPlanId = await this.dataSource.transaction(async (manager) => {
       const mealPlanRepo = manager.getRepository(MealPlan);
       const weeklyPlanRepo = manager.getRepository(WeeklyPlan);
       const dailyMealRepo = manager.getRepository(DailyMeal);
@@ -1222,11 +1336,10 @@ export class MealPlanService {
         }
       }
 
-      return this.findMyMealPlanDetail(
-        user_id,
-        savedMealPlan.meal_plan_id,
-      );
+      return savedMealPlan.meal_plan_id;
     });
+
+    return this.findMyMealPlanDetail(user_id, savedMealPlanId);
   }
 
   // =========================================================
@@ -1295,7 +1408,7 @@ export class MealPlanService {
 
     const totalDays = weeks.reduce((sum, week) => sum + week.days, 0);
     const budget: BudgetTracker | undefined = hasBudget
-      ? { remaining: dto.total_budget!, slotsLeft: totalDays * 3 }
+      ? { remaining: dto.total_budget!, slotsLeft: totalDays * Object.keys(mealTargets).length }
       : undefined;
 
     const usedRecipeCounts = new Map<number, number>();
@@ -1336,34 +1449,46 @@ export class MealPlanService {
     mealPlan.status = MealPlanStatus.ACTIVE;
     mealPlan.generated_by = 'AI';
 
-    const savedMealPlan =
-      await this.mealPlanRepo.save(mealPlan);
+    // Ghi MealPlan + WeeklyPlan + DailyMeal + MealItem trong 1 transaction để
+    // không để lại thực đơn dở dang khi 1 tuần ghi lỗi.
+    const savedMealPlanId = await this.dataSource.transaction(async (manager) => {
+      const mealPlanRepo = manager.getRepository(MealPlan);
+      const weeklyPlanRepo = manager.getRepository(WeeklyPlan);
+      const dailyMealRepo = manager.getRepository(DailyMeal);
+      const mealItemRepo = manager.getRepository(MealItem);
 
-    for (const [index, week] of weeks.entries()) {
-      const weeklyPlan = new WeeklyPlan();
+      const savedMealPlan = await mealPlanRepo.save(mealPlan);
 
-      weeklyPlan.meal_plan_id =
-        savedMealPlan.meal_plan_id;
-      weeklyPlan.week_number = index + 1;
-      weeklyPlan.start_date = new Date(week.start);
-      weeklyPlan.end_date = new Date(week.end);
-      weeklyPlan.rollover_amount = 0;
-      weeklyPlan.week_calorie_target =
-        targetCalories * week.days;
+      for (const [index, week] of weeks.entries()) {
+        const weeklyPlan = new WeeklyPlan();
 
-      const savedWeeklyPlan =
-        await this.weeklyPlanRepo.save(weeklyPlan);
+        weeklyPlan.meal_plan_id =
+          savedMealPlan.meal_plan_id;
+        weeklyPlan.week_number = index + 1;
+        weeklyPlan.start_date = new Date(week.start);
+        weeklyPlan.end_date = new Date(week.end);
+        weeklyPlan.rollover_amount = 0;
+        weeklyPlan.week_calorie_target =
+          targetCalories * week.days;
 
-      await this.savePlannedMeals(
-        savedWeeklyPlan.weekly_plan_id,
-        week.start,
-        plannedByWeek[index],
-      );
-    }
+        const savedWeeklyPlan =
+          await weeklyPlanRepo.save(weeklyPlan);
+
+        await this.savePlannedMeals(
+          savedWeeklyPlan.weekly_plan_id,
+          week.start,
+          plannedByWeek[index],
+          dailyMealRepo,
+          mealItemRepo,
+        );
+      }
+
+      return savedMealPlan.meal_plan_id;
+    });
 
     return this.findMyMealPlanDetail(
       user_id,
-      savedMealPlan.meal_plan_id,
+      savedMealPlanId,
     );
   }
 
@@ -1505,10 +1630,16 @@ export class MealPlanService {
       ? await this.getRecipeCostMap(safeRecipes)
       : new Map<number, number>();
 
+    const b = Math.round(targetCalories * 0.22);
+    const l = Math.round(targetCalories * 0.31);
+    const d = Math.round(targetCalories * 0.31);
+    const s = Math.max(0, targetCalories - (b + l + d));
+
     const mealTargets: Record<string, number> = {
-      breakfast: Math.round(targetCalories * 0.25),
-      lunch: Math.round(targetCalories * 0.35),
-      dinner: Math.round(targetCalories * 0.4),
+      breakfast: b,
+      lunch: l,
+      dinner: d,
+      snack: s,
     };
 
     // Chọn món trước khi ghi DB; ném lỗi nếu không đủ ngân sách.
@@ -1522,7 +1653,7 @@ export class MealPlanService {
       recentUsedDays: new Map<number, number>(),
       dayOffset: 0,
       budget: hasBudget
-        ? { remaining: dto.total_budget!, slotsLeft: 21 }
+        ? { remaining: dto.total_budget!, slotsLeft: 7 * Object.keys(mealTargets).length }
         : undefined,
     });
 
