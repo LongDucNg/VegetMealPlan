@@ -57,7 +57,7 @@ export class ChatbotService {
     return this.conversationRepo.save(conversation);
   }
 
-  private async callAiService(question: string): Promise<string> {
+  private async callAiService(_question: string): Promise<string> {
     // TODO: gọi LLM thật (OpenAI/Anthropic API...) ở đây.
     throw new Error('AI service chưa được cấu hình — placeholder cho môn học.');
   }

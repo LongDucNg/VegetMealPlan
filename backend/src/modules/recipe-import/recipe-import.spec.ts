@@ -7,7 +7,6 @@ import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
 import { Ingredient } from '../ingredient/entities/ingredient.entity';
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 import { Category } from '../category/entities/category.entity';
-import { RecipeCategory } from '../recipe/entities/recipe-category.entity';
 
 const norm = (s: any) =>
   String(s ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -404,5 +403,156 @@ describe('RecipeImportService - regression BE2', () => {
     expect(res.data.summary.success).toBe(0);
     expect(res.data.details[0].reason).toContain('xung khắc');
     expect(ctx.savedRecipes.length).toBe(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Validation field bắt buộc của file import:
+// title, instructions, meal_type, diet_type, ingredients (>= 1).
+// Không tự gán mặc định cho field bắt buộc.
+// ─────────────────────────────────────────────────────────────
+describe('RecipeImportService - validation field bắt buộc', () => {
+  it('thiếu title -> failed, nêu rõ field bị thiếu', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v1.xlsx', [
+      row('', { title: '   ' }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(res.data.details[0].status).toBe('failed');
+    expect(res.data.details[0].reason).toContain('title');
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('thiếu instructions -> failed', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v2.xlsx', [
+      row('Món A', { instructions: '  ' }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(res.data.details[0].reason).toContain('instructions');
+  });
+
+  it('thiếu meal_type -> failed', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v3.xlsx', [
+      row('Món A', { meal_type: '' }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(res.data.details[0].reason).toContain('meal_type');
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('thiếu diet_type -> failed', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v4.xlsx', [
+      row('Món A', { diet_type: '' }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(res.data.details[0].reason).toContain('diet_type');
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('ingredients rỗng -> failed', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v5.xlsx', [
+      row('Món A', { ingredients: [] }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(res.data.details[0].reason).toContain('ingredients');
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('báo liệt kê nhiều field thiếu cùng lúc', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v6.xlsx', [
+      row('', { title: '', instructions: '', meal_type: '', diet_type: '' }),
+    ] as any);
+
+    const reason = res.data.details[0].reason;
+    expect(reason).toContain('title');
+    expect(reason).toContain('instructions');
+    expect(reason).toContain('meal_type');
+    expect(reason).toContain('diet_type');
+  });
+
+  it('meal_type ngoài danh sách cho phép -> failed (chỉ breakfast/lunch/snack)', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v7.xlsx', [
+      row('Món A', { meal_type: 'dinner' }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(res.data.details[0].reason).toContain('breakfast, lunch, snack');
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('diet_type sai enum -> failed, nêu rõ các giá trị hợp lệ', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v8.xlsx', [
+      row('Món A', { diet_type: 'vegetarian' }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(res.data.details[0].reason).toContain('vegan');
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('các field không bắt buộc thiếu vẫn import thành công', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v9.xlsx', [
+      row('Món Tối Giản', {
+        description: undefined,
+        prep_time: undefined,
+        cook_time: undefined,
+        servings: undefined,
+        difficulty: undefined,
+      }),
+    ] as any);
+
+    expect(res.data.summary.success).toBe(1);
+    expect(res.data.summary.failed).toBe(0);
+    expect(ctx.savedRecipes.length).toBe(1);
+  });
+
+  it('meal_type hợp lệ (breakfast/lunch/snack) đều import được', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v10.xlsx', [
+      row('Món Sáng', { meal_type: 'breakfast' }),
+      row('Món Trưa', { meal_type: 'lunch' }),
+      row('Món Vặt', { meal_type: 'snack' }),
+    ] as any);
+
+    expect(res.data.summary.success).toBe(3);
+    expect(res.data.summary.failed).toBe(0);
+    expect(ctx.savedRecipes.map((r) => r.meal_type)).toEqual([
+      'breakfast',
+      'lunch',
+      'snack',
+    ]);
   });
 });

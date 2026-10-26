@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, Put, BadRequestException } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CategoryService } from './category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { PositiveIntPipe } from './dto/validators/positive-int.pipe';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../users/entities/user.entity';
@@ -29,7 +30,10 @@ export class AdminCategoryController {
 
   @Put(':id')
   @ApiOperation({ summary: 'Admin: cập nhật danh mục' })
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateCategoryDto) {
+  update(@Param('id', PositiveIntPipe) id: number, @Body() dto: UpdateCategoryDto) {
+    if (!dto || Object.keys(dto).length === 0) {
+      throw new BadRequestException('Vui lòng cung cấp thông tin cần cập nhật');
+    }
     return this.categoryService.update(id, dto);
   }
 
@@ -39,7 +43,7 @@ export class AdminCategoryController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Admin: xoá danh mục' })
   @ApiResponse({ status: 204, description: 'Xoá thành công, không có nội dung trả về' })
-  remove(@Param('id', ParseIntPipe) id: number) {
+  remove(@Param('id', PositiveIntPipe) id: number) {
     return this.categoryService.remove(id);
   }
 }
