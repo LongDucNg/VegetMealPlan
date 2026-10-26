@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -42,8 +43,10 @@ export class UpdateRecipeDto {
   @IsString()
   description?: string;
 
+  // Khi có gửi instructions thì không được rỗng (DB là NOT NULL).
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   instructions?: string;
 
   @IsOptional()
@@ -72,6 +75,12 @@ export class UpdateRecipeDto {
   @IsOptional()
   @IsString()
   meal_type?: string;
+
+  // Danh sách bữa ăn phù hợp, cách nhau dấu phẩy (vd. "lunch,dinner").
+  // Bỏ trống thì suy ra từ meal_type theo mapping chuẩn.
+  @IsOptional()
+  @IsString()
+  suitable_meals?: string;
 
   @IsOptional()
   @IsEnum(DietType)
