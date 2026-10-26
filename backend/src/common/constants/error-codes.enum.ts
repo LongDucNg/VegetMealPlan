@@ -81,11 +81,26 @@ export enum ErrorCode {
   // ---- Danh mục ----
   /** 404 */
   CATEGORY_NOT_FOUND = 'CATEGORY_NOT_FOUND',
- // ---- Diễn đàn ----
+  // ---- Diễn đàn ----
   /** 404 */
   FORUM_POST_NOT_FOUND = 'FORUM_POST_NOT_FOUND',
   /** 400: category_id không tồn tại, đã tắt, hoặc không thuộc diễn đàn. */
   FORUM_CATEGORY_INVALID = 'FORUM_CATEGORY_INVALID',
+
+  // ---- Video ----
+  /** 404: không tìm thấy video hoặc video chưa được duyệt. */
+  VIDEO_NOT_FOUND = 'VIDEO_NOT_FOUND',
+  /** 400: category không tồn tại, đã tắt, hoặc không thuộc video. */
+  VIDEO_CATEGORY_INVALID = 'VIDEO_CATEGORY_INVALID',
+  /** 403: không phải chủ video hoặc admin. */
+  VIDEO_FORBIDDEN = 'VIDEO_FORBIDDEN',
+  /** 400: nguyên liệu chứa từ khóa mặn. */
+  VIDEO_NON_VEGETARIAN_INGREDIENT = 'VIDEO_NON_VEGETARIAN_INGREDIENT',
+  /** 404: không tìm thấy bình luận video. */
+  VIDEO_COMMENT_NOT_FOUND = 'VIDEO_COMMENT_NOT_FOUND',
+  /** 400: không thể tự vote cho bình luận của chính mình. */
+  VIDEO_SELF_VOTE_FORBIDDEN = 'VIDEO_SELF_VOTE_FORBIDDEN',
+
   // ---- Recipe / Nguyên liệu / Thực đơn ----
   /** 404 */
   RECIPE_NOT_FOUND = 'RECIPE_NOT_FOUND',
