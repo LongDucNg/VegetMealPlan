@@ -94,6 +94,16 @@ export enum ErrorCode {
   FORUM_POST_NOT_FOUND = 'FORUM_POST_NOT_FOUND',
   /** 400: category_id không tồn tại, đã tắt, hoặc không thuộc diễn đàn. */
   FORUM_CATEGORY_INVALID = 'FORUM_CATEGORY_INVALID',
+  /** 403: không phải chủ bài viết hoặc admin. */
+  FORUM_FORBIDDEN = 'FORUM_FORBIDDEN',
+  /** 403: không phải chủ bình luận hoặc admin. */
+  FORUM_COMMENT_FORBIDDEN = 'FORUM_COMMENT_FORBIDDEN',
+  /** 404: không tìm thấy bình luận hoặc bình luận không thuộc bài viết này. */
+  FORUM_COMMENT_NOT_FOUND = 'FORUM_COMMENT_NOT_FOUND',
+  /** 400: không thể tự bình chọn cho bài viết của chính mình. */
+  FORUM_SELF_VOTE_FORBIDDEN = 'FORUM_SELF_VOTE_FORBIDDEN',
+  /** 409: bài viết không ở trạng thái chờ duyệt. */
+  FORUM_POST_NOT_PENDING = 'FORUM_POST_NOT_PENDING',
 
   // ---- Video ----
   /** 404: không tìm thấy video hoặc video chưa được duyệt. */
