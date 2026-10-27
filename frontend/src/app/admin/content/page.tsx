@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -8,7 +8,7 @@ import { DataTable } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
-import { AdminContentItem } from "@/features/admin";
+import { ADMIN_CONTENT_ITEMS, AdminContentItem } from "@/features/admin";
 import { forumService } from "@/features/community";
 import {
   EyeOff,
@@ -36,31 +36,33 @@ function TypeIcon({ type }: { type: AdminContentItem["type"] }) {
 
 function ContentManagement() {
   const [activeTab, setActiveTab] = useState<ContentTab>("all");
-  const [items, setItems] = useState<AdminContentItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const loadContent = useCallback(async () => {
-    setLoading(true);
-    try {
-      const realItems = await forumService.getAdminContentList();
-      setItems(realItems);
-    } catch (err) {
-      console.warn("Error loading admin content:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadContent();
-  }, [loadContent]);
+  const [items, setItems] = useState<AdminContentItem[]>([...ADMIN_CONTENT_ITEMS]);
+  const [loading, setLoading] = useState(false);
 
   const tabs: { id: ContentTab; label: string }[] = [
     { id: "all", label: "Tất cả nội dung" },
-    { id: "Blog", label: "Bài viết diễn đàn" },
+    { id: "Blog", label: "Bài viết" },
     { id: "Video", label: "Video" },
     { id: "Comment", label: "Bình luận" },
   ];
+
+  const loadContent = async () => {
+    setLoading(true);
+    try {
+      const realItems = await forumService.getAdminContentList();
+      if (realItems && realItems.length > 0) {
+        setItems(realItems);
+      }
+    } catch (err) {
+      console.warn("[AdminContent] Error loading real content:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadContent();
+  }, []);
 
   const filtered = activeTab === "all" ? items : items.filter((i) => i.type === activeTab);
 
@@ -92,15 +94,17 @@ function ContentManagement() {
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer ${activeTab === t.id
-                ? "bg-emerald-700 text-white shadow-sm"
-                : "bg-white border border-stone-200 text-stone-600 hover:border-emerald-300 hover:text-stone-900"
-                }`}
+              className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
+                activeTab === t.id
+                  ? "bg-emerald-700 text-white shadow-sm"
+                  : "bg-white border border-stone-200 text-stone-600 hover:border-emerald-300 hover:text-stone-900"
+              }`}
             >
               {t.label}
               <span
-                className={`ml-2 text-xs ${activeTab === t.id ? "text-emerald-200" : "text-stone-400"
-                  }`}
+                className={`ml-2 text-xs ${
+                  activeTab === t.id ? "text-emerald-200" : "text-stone-400"
+                }`}
               >
                 {t.id === "all"
                   ? items.length
@@ -201,8 +205,15 @@ export default function AdminContentPage() {
         <PageHeader
           eyebrow="Quản trị hệ thống"
           title="Quản lý Nội dung"
-          subtitle="Duyệt bài, gắn cờ và quản lý các bài viết, nội dung thực tế từ cộng đồng người dùng."
-
+          subtitle="Duyệt bài, gắn cờ và quản lý các bài viết, video công thức, bình luận của cộng đồng."
+          action={
+            <Link
+              href="/admin/recipes"
+              className="h-10 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-xs"
+            >
+              <span>Quản lý công thức hệ thống →</span>
+            </Link>
+          }
         />
         {!ready ? (
           <GatedSkeleton />

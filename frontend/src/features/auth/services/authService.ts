@@ -8,6 +8,9 @@ import {
   DietOption,
   LoginPayload,
   RegisterPayload,
+  RegisterResponse,
+  VerifyEmailPayload,
+  ResendVerificationResponse,
   UserRole,
   ForgotPasswordPayload,
   ForgotPasswordResponse,
@@ -49,11 +52,20 @@ export const authService = {
   },
 
   /**
-   * Đăng ký tài khoản mới (kèm tùy chọn hồ sơ ăn chay)
+   * Đăng ký tài khoản mới. Backend KHÔNG trả token: tài khoản chưa xác thực,
+   * mã OTP 6 số được gửi tới email; gọi verifyEmail() để kích hoạt và đăng nhập.
    * POST /auth/register
    */
-  async register(payload: RegisterPayload): Promise<AuthResponse> {
-    const data = await apiClient.post<AuthResponse>("/auth/register", payload);
+  async register(payload: RegisterPayload): Promise<RegisterResponse> {
+    return apiClient.post<RegisterResponse>("/auth/register", payload);
+  },
+
+  /**
+   * Nhập mã OTP xác thực email. Đúng mã thì backend trả token như đăng nhập.
+   * POST /auth/verify-email
+   */
+  async verifyEmail(payload: VerifyEmailPayload): Promise<AuthResponse> {
+    const data = await apiClient.post<AuthResponse>("/auth/verify-email", payload);
     if (data?.access_token) {
       tokenStorage.saveAuthSession({
         access_token: data.access_token,
@@ -62,6 +74,14 @@ export const authService = {
       });
     }
     return data;
+  },
+
+  /**
+   * Gửi lại mã xác thực email (cách nhau tối thiểu 60 giây).
+   * POST /auth/resend-verification
+   */
+  async resendVerification(email: string): Promise<ResendVerificationResponse> {
+    return apiClient.post<ResendVerificationResponse>("/auth/resend-verification", { email });
   },
 
   /**
