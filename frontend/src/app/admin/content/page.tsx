@@ -9,11 +9,9 @@ import { Badge } from "@/components/ui/Badge";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
 import { AdminContentItem } from "@/features/admin";
-import { forumService, setAdminPostStatus } from "@/features/community";
+import { forumService } from "@/features/community";
 import {
-  CheckCircle2,
   EyeOff,
-  Flag,
   FileText,
   Video,
   MessageSquare,
@@ -25,9 +23,9 @@ import {
 type ContentTab = "all" | "Blog" | "Video" | "Comment";
 
 function StatusBadge({ status }: { status: AdminContentItem["status"] }) {
-  if (status === "Published") return <Badge variant="success">Đã xuất bản</Badge>;
-  if (status === "Under Review") return <Badge variant="info">Đang xét duyệt</Badge>;
-  return <Badge variant="flagged">Đã gỡ bỏ</Badge>;
+  if (status === "Published") return <Badge variant="success">Đã được duyệt</Badge>;
+  if (status === "Under Review") return <Badge variant="info">Chờ duyệt</Badge>;
+  return <Badge variant="flagged">Đã bị gỡ</Badge>;
 }
 
 function TypeIcon({ type }: { type: AdminContentItem["type"] }) {
@@ -66,15 +64,19 @@ function ContentManagement() {
 
   const filtered = activeTab === "all" ? items : items.filter((i) => i.type === activeTab);
 
-  const handleSetStatus = (id: string, status: AdminContentItem["status"]) => {
+  const handleSetStatus = async (id: string, status: AdminContentItem["status"]) => {
     const backendStatus =
       status === "Published"
         ? "approved"
         : status === "Removed"
-        ? "removed"
-        : "pending_review";
+          ? "removed"
+          : "pending_review";
 
-    setAdminPostStatus(id, backendStatus);
+    try {
+      await forumService.adminUpdatePostStatus(id, backendStatus as any);
+    } catch (err) {
+      console.error("Error updating post status:", err);
+    }
 
     setItems((prev) =>
       prev.map((i) => (i.id === id ? { ...i, status } : i))
@@ -90,17 +92,15 @@ function ContentManagement() {
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
-                activeTab === t.id
-                  ? "bg-emerald-700 text-white shadow-sm"
-                  : "bg-white border border-stone-200 text-stone-600 hover:border-emerald-300 hover:text-stone-900"
-              }`}
+              className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer ${activeTab === t.id
+                ? "bg-emerald-700 text-white shadow-sm"
+                : "bg-white border border-stone-200 text-stone-600 hover:border-emerald-300 hover:text-stone-900"
+                }`}
             >
               {t.label}
               <span
-                className={`ml-2 text-xs ${
-                  activeTab === t.id ? "text-emerald-200" : "text-stone-400"
-                }`}
+                className={`ml-2 text-xs ${activeTab === t.id ? "text-emerald-200" : "text-stone-400"
+                  }`}
               >
                 {t.id === "all"
                   ? items.length
@@ -160,8 +160,8 @@ function ContentManagement() {
                 {item.type === "Video"
                   ? "Video"
                   : item.type === "Blog"
-                  ? "Bài viết"
-                  : "Bình luận"}
+                    ? "Bài viết"
+                    : "Bình luận"}
               </span>
             ),
             author: <span className="text-xs text-stone-600">{item.author}</span>,
@@ -169,35 +169,19 @@ function ContentManagement() {
             status: <StatusBadge status={item.status} />,
             actions: (
               <div className="flex items-center gap-1.5">
-                {item.status !== "Published" && (
-                  <button
-                    onClick={() => handleSetStatus(item.id, "Published")}
-                    title="Duyệt bài đăng"
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-semibold transition-colors cursor-pointer"
-                  >
-                    <CheckCircle2 className="w-3 h-3" />
-                    Duyệt
-                  </button>
-                )}
-                {item.status !== "Removed" && (
+                {item.status !== "Removed" ? (
                   <button
                     onClick={() => handleSetStatus(item.id, "Removed")}
-                    title="Gỡ bỏ nội dung"
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 text-xs font-semibold transition-colors cursor-pointer"
+                    title="Gỡ bỏ bài viết này khỏi diễn đàn"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 text-xs font-semibold transition-colors cursor-pointer border border-red-200"
                   >
                     <EyeOff className="w-3 h-3" />
-                    Gỡ
+                    <span>Gỡ</span>
                   </button>
-                )}
-                {item.status !== "Under Review" && (
-                  <button
-                    onClick={() => handleSetStatus(item.id, "Under Review")}
-                    title="Chuyển về trạng thái chờ xét duyệt"
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 text-xs font-semibold transition-colors cursor-pointer"
-                  >
-                    <Flag className="w-3 h-3" />
-                    Xét duyệt
-                  </button>
+                ) : (
+                  <span className="text-xs text-stone-400 font-medium italic select-none">
+                    Đã bị gỡ
+                  </span>
                 )}
               </div>
             ),
@@ -216,16 +200,9 @@ export default function AdminContentPage() {
       <div className="max-w-[1240px] mx-auto w-full">
         <PageHeader
           eyebrow="Quản trị hệ thống"
-          title="Quản lý Nội dung Diễn đàn"
+          title="Quản lý Nội dung"
           subtitle="Duyệt bài, gắn cờ và quản lý các bài viết, nội dung thực tế từ cộng đồng người dùng."
-          action={
-            <Link
-              href="/forum"
-              className="h-10 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-xs"
-            >
-              <span>Xem diễn đàn người dùng →</span>
-            </Link>
-          }
+
         />
         {!ready ? (
           <GatedSkeleton />
