@@ -32,6 +32,21 @@ import {
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
+/**
+ * Các cột BẮT BUỘC phải có trong file Excel import.
+ * Tên đã được chuẩn hoá qua canonicalColumnName() (alias tiếng Việt/Anh).
+ */
+const REQUIRED_IMPORT_COLUMNS = [
+  'title',
+  'instructions',
+  'meal_type',
+  'diet_type',
+  'ingredients',
+] as const;
+
+/** Giới hạn số dòng dữ liệu trong 1 lần import để tránh quá tải server. */
+const MAX_IMPORT_ROWS = 5000;
+
 @ApiTags('recipe-import')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -122,7 +137,22 @@ export class RecipeImportController {
         }
       });
 
-      const data: Record<string, any>[] = [];
+      // Kiểm tra các cột BẮT BUỘC có trong file không.
+      // Báo chính xác TÊN CỘT THIẾU để admin sửa file (thay vì import ra
+      // toàn bộ dòng bị FAILED mà không biết nguyên nhân).
+      const presentColumns = new Set<string>(headerMap.values());
+      const missingColumns = REQUIRED_IMPORT_COLUMNS.filter(
+        (column) => !presentColumns.has(column),
+      );
+
+      if (missingColumns.length > 0) {
+        throw new BadRequestException(
+          `File Excel thiếu cột bắt buộc: ${missingColumns.join(', ')}. ` +
+            `Các cột bắt buộc là: ${REQUIRED_IMPORT_COLUMNS.join(', ')}.`,
+        );
+      }
+
+      const data: { rowNumber: number; values: Record<string, any> }[] = [];
       sheet.eachRow((row, rowNumber) => {
         if (rowNumber === 1) return;
         const obj: Record<string, any> = {};
@@ -133,7 +163,8 @@ export class RecipeImportController {
         });
         // Bỏ qua dòng hoàn toàn rỗng
         if (Object.values(obj).some((v) => v !== '' && v !== null && v !== undefined)) {
-          data.push(obj);
+          // Giữ lại số dòng THẬT của file Excel để báo lỗi đúng dòng.
+          data.push({ rowNumber, values: obj });
         }
       });
 
@@ -157,8 +188,17 @@ export class RecipeImportController {
         );
       }
 
-      rows = data.map((row, index) => {
-        const rowNumber = index + 2; // dòng 1 là header
+      if (data.length > MAX_IMPORT_ROWS) {
+        throw new BadRequestException(
+          `File Excel có ${data.length} dòng dữ liệu, vượt quá giới hạn ` +
+            `${MAX_IMPORT_ROWS} dòng cho 1 lần import. Vui lòng chia nhỏ file.`,
+        );
+      }
+
+      rows = data.map((entry) => {
+        const row = entry.values;
+        // Số dòng THẬT trong file Excel (dòng 1 là header) để báo lỗi chính xác.
+        const rowNumber = entry.rowNumber;
         let ingredients: ImportIngredientRow[];
         let row_error: string | undefined;
 
@@ -227,13 +267,14 @@ export class RecipeImportController {
           diet_type: this.normalizeDietType(row.diet_type),
           category_ids: categoryIds.ids,
           row_error,
+          row_number: rowNumber,
           ingredients: ingredients.map((ingredient) => ({
             ingredient_name: String(
               ingredient.ingredient_name || '',
             ).trim(),
-            // Quantity phải là số > 0. Number('abc')=NaN -> để undefined
-            // và để service báo FAILED cho dòng (thay vì lưu NaN xuống DB).
-            quantity: this.toPositiveNumber(ingredient.quantity) ?? NaN,
+            // Số lượng phải là số > 0. Giá trị sai (0, âm, "abc") -> NaN để
+            // service báo FAILED cho dòng (thay vì lưu NaN/0 xuống DB).
+            quantity: this.toQuantity(ingredient.quantity),
             unit: String(ingredient.unit || '').trim(),
             is_optional: Boolean(ingredient.is_optional),
           })),
@@ -262,6 +303,27 @@ export class RecipeImportController {
       file.originalname,
       rows,
     );
+  }
+
+  /**
+   * Chuyển giá trị số lượng nguyên liệu thành số hợp lệ.
+   *
+   * Số lượng BẮT BUỘC phải là số > 0. Ô thiếu số lượng -> 1 (quy ước cũ:
+   * chỉ có tên nguyên liệu). Số lượng có mặt nhưng sai (0, âm, "abc", NaN)
+   * -> NaN để service đánh dấu dòng FAILED, KHÔNG tự sửa thành 1.
+   */
+  private toQuantity(value: any): number {
+    if (value === null || value === undefined || value === '') {
+      return 1;
+    }
+
+    const num = Number(value);
+
+    if (!Number.isFinite(num) || num <= 0) {
+      return NaN;
+    }
+
+    return num;
   }
 
   // Chuyển giá trị ô Excel thành số nguyên dương hợp lệ.
@@ -373,7 +435,9 @@ export class RecipeImportController {
     if (Array.isArray(value)) {
       return value.map((i) => ({
         ingredient_name: String(i.ingredient_name || i.name || '').trim(),
-        quantity: Number(i.quantity) || 1,
+        // KHÔNG dùng `Number(x) || 1`: số 0 / số âm / giá trị không parse được
+        // sẽ bị đổi thành 1 và lọt vào DB. Giữ NaN để service báo FAILED cho dòng.
+        quantity: this.toQuantity(i.quantity),
         unit: String(i.unit || 'g').trim(),
         is_optional: Boolean(i.is_optional),
       }));
@@ -391,7 +455,8 @@ export class RecipeImportController {
         if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed.map((i) => ({
             ingredient_name: String(i.ingredient_name || i.name || '').trim(),
-            quantity: Number(i.quantity) || 1,
+            // Xem chú thích ở nhánh Array.isArray ở trên.
+            quantity: this.toQuantity(i.quantity),
             unit: String(i.unit || 'g').trim(),
             is_optional: Boolean(i.is_optional),
           }));
@@ -415,7 +480,7 @@ export class RecipeImportController {
       if (matchParen) {
         result.push({
           ingredient_name: matchParen[1].trim(),
-          quantity: parseFloat(matchParen[2].replace(',', '.')) || 1,
+          quantity: this.toQuantity(parseFloat(matchParen[2].replace(',', '.'))),
           unit: matchParen[3]?.trim() || 'g',
           is_optional: false,
         });
@@ -427,7 +492,7 @@ export class RecipeImportController {
       if (matchColon) {
         result.push({
           ingredient_name: matchColon[1].trim(),
-          quantity: parseFloat(matchColon[2].replace(',', '.')) || 1,
+          quantity: this.toQuantity(parseFloat(matchColon[2].replace(',', '.'))),
           unit: matchColon[3]?.trim() || 'g',
           is_optional: false,
         });
@@ -439,7 +504,7 @@ export class RecipeImportController {
       if (matchEndNum && !/^\d/.test(matchEndNum[1].trim())) {
         result.push({
           ingredient_name: matchEndNum[1].trim(),
-          quantity: parseFloat(matchEndNum[2].replace(',', '.')) || 1,
+          quantity: this.toQuantity(parseFloat(matchEndNum[2].replace(',', '.'))),
           unit: matchEndNum[3]?.trim() || 'g',
           is_optional: false,
         });
