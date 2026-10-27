@@ -13,6 +13,7 @@ import { DietType } from '../users/entities/user.entity';
 import { GoogleExchangeDto } from './dto/google-exchange.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ChangePasswordDto, ForgotPasswordDto, ResetPasswordDto } from './dto/password.dto';
+import { ResendVerificationDto, VerifyEmailDto } from './dto/verify-email.dto';
 import { SessionMeta } from './session.service';
 import { GoogleAuthCallbackGuard, GoogleAuthGuard, GoogleConfiguredGuard } from './guards/google.guards';
 import { GoogleProfile } from './strategies/google.strategy';
@@ -29,16 +30,46 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  @ApiOperation({ summary: 'Đăng ký tài khoản (có thể kèm hồ sơ và dị ứng)' })
+  @ApiOperation({
+    summary: 'Đăng ký tài khoản (có thể kèm hồ sơ và dị ứng)',
+    description:
+      'Tạo tài khoản CHƯA xác thực và gửi mã OTP 6 số tới email. Không trả token: ' +
+      'FE chuyển sang màn nhập mã rồi gọi POST /auth/verify-email để kích hoạt và đăng nhập.',
+  })
   @ApiResponse({ status: 409, description: 'AUTH_EMAIL_TAKEN: email đã được đăng ký' })
-  register(@Body() dto: RegisterDto, @Req() req: Request) {
-    return this.authService.register(dto, sessionMeta(req));
+  register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
+  }
+
+  @Public()
+  @Post('verify-email')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Xác thực email bằng mã OTP nhận sau khi đăng ký',
+    description: 'Đúng mã thì tài khoản được kích hoạt và trả access_token, refresh_token như /auth/login.',
+  })
+  @ApiResponse({ status: 400, description: 'AUTH_OTP_INVALID, AUTH_OTP_EXPIRED, AUTH_OTP_TOO_MANY_ATTEMPTS hoặc VALIDATION_FAILED' })
+  verifyEmail(@Body() dto: VerifyEmailDto, @Req() req: Request) {
+    return this.authService.verifyEmail(dto, sessionMeta(req));
+  }
+
+  @Public()
+  @Post('resend-verification')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Gửi lại mã xác thực email',
+    description: 'Luôn trả cùng một câu (chống dò email). Gửi lại phải cách 60 giây; mã hiệu lực 10 phút.',
+  })
+  @ApiResponse({ status: 429, description: 'AUTH_OTP_RATE_LIMITED: một IP gọi quá 10 lần trong 15 phút' })
+  resendVerification(@Body() dto: ResendVerificationDto, @Req() req: Request) {
+    return this.authService.resendVerification(dto.email, req.ip ?? null);
   }
 
   @Public()
   @Post('login')
   @ApiOperation({ summary: 'Đăng nhập, trả về access_token và refresh_token' })
   @ApiResponse({ status: 401, description: 'AUTH_INVALID_CREDENTIALS hoặc AUTH_ACCOUNT_LOCKED' })
+  @ApiResponse({ status: 403, description: 'AUTH_EMAIL_NOT_VERIFIED: đúng mật khẩu nhưng chưa xác thực email (server đã gửi mã mới)' })
   login(@Body() dto: LoginDto, @Req() req: Request) {
     return this.authService.login(dto, sessionMeta(req));
   }

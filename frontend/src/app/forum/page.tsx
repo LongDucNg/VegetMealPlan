@@ -111,7 +111,7 @@ function ForumContent() {
               const count = myRes.data.filter((p) => p.status !== "removed" && p.status !== "rejected").length;
               setMyPostCount(count);
             })
-            .catch(() => {});
+            .catch(() => { });
         }
       }
     } catch (err) {

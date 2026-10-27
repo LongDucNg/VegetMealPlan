@@ -42,6 +42,11 @@ function LoginFormContent() {
         router.push("/me");
       }
     } catch (err: any) {
+      if (err instanceof ApiError && err.code === "AUTH_EMAIL_NOT_VERIFIED") {
+        // Đúng mật khẩu nhưng chưa xác thực email: backend đã gửi mã mới, chuyển sang màn nhập mã
+        router.push(`/verify-email?email=${encodeURIComponent(email.trim())}&sent=1`);
+        return;
+      }
       if (err instanceof ApiError) {
         setErrorMsg(err.message);
       } else {
