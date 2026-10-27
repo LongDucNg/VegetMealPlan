@@ -50,6 +50,13 @@ export const NON_VEG_EXCEPTIONS = [
   'bọ cạp',
   'cá tính',
   'chuột túi',
+  'nấm đùi gà',
+  'đậu gà',
+  'rau càng cua',
+  'trứng gà',
+  'trứng vịt',
+  'trứng cút',
+  'hoa móng bò',
 ];
 
 export interface NonVegCheckResult {
