@@ -29,7 +29,16 @@ import { isBlockingConflict } from '../ingredient/ingredient-conflict.util';
 import { findDietIncompatibleIngredients } from '../../common/utils/diet-compat.util';
 import { Ingredient } from '../ingredient/entities/ingredient.entity';
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
-import { calculateIngredientCost } from '../recipe/recipe-cost.util';
+import {
+  calculateIngredientCost,
+  calculateRecipeEstimatedCost,
+  RecipeCostRow,
+} from '../recipe/recipe-cost.util';
+import {
+  calculateNutritionPerServing,
+  NutritionCalcRow,
+} from '../recipe/recipe-nutrition.util';
+import { RecipeValidatorService } from '../recipe/recipe-validator.service';
 import {
   deriveSuitableMeals,
   parseSuitableMeals,
@@ -55,6 +64,25 @@ function normalizeTitle(title: string | null | undefined): string {
 }
 
 /**
+ * Khoá so sánh TRÙNG MÓN: tiêu đề (đã chuẩn hoá) + tập `ingredient_id` đã sort.
+ *
+ * Quy tắc nghiệp vụ:
+ *   - Trùng khi tên giống nhau (không phân biệt hoa/thường, đã trim) VÀ
+ *     tập nguyên liệu giống nhau (thứ tự nguyên liệu không quan trọng).
+ *   - Cùng tên nhưng khác nguyên liệu -> KHÔNG trùng, vẫn cho phép nhập.
+ */
+function buildDuplicateKey(
+  title: string | null | undefined,
+  ingredientIds: number[] | null | undefined,
+): string {
+  const ids = [...new Set(ingredientIds ?? [])]
+    .filter((id) => Number.isInteger(id) && id > 0)
+    .sort((a, b) => a - b);
+
+  return `${normalizeTitle(title)}::${ids.join(',')}`;
+}
+
+/**
  * Loại bữa ăn được phép import, theo dữ liệu gốc (cột meal_type của file seed).
  * Không có 'dinner'/'any': món ăn trưa dùng suitable_meals = "lunch,dinner".
  */
@@ -76,6 +104,7 @@ export class RecipeImportService {
     private readonly recipeIngredientRepo: Repository<RecipeIngredient>,
 
     private readonly ingredientService: IngredientService,
+    private readonly recipeValidator: RecipeValidatorService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -125,12 +154,13 @@ export class RecipeImportService {
       throw new BadRequestException('Danh sách import không được rỗng');
     }
 
-    // Cac tieu de da ton tai trong DB (da chuan hoa de so sanh).
-    const existingDbKeys = await this.findExistingTitleKeys(rows);
+    // Cac mon da ton tai trong DB, chi muc theo KHOA TRUNG (ten + tap nguyen lieu).
+    const existingDbIndex = await this.findExistingDuplicateIndex(rows);
 
-    // Cac tieu de da import thanh cong trong chung lot nay -> row_number cua dong dau tien.
+    // Cac khoa trung da import thanh cong trong chung lot nay -> thong tin dong dau tien.
     // Dong trung trong file KHONG abort ca lot: dong sau bi danh dau SKIPPED.
-    const importedInBatch = new Map<string, number>();
+    // (value = { row_number, title } de thong bao nen ten mon + so dong Excel goc.)
+    const importedInBatch = new Map<string, { row_number: number; title: string }>();
 
     const items: RecipeImportItem[] = [];
     let success_count = 0;
@@ -138,14 +168,20 @@ export class RecipeImportService {
     let failed_count = 0;
 
     for (let i = 0; i < rows.length; i++) {
-      const row_number = i + 1;
+      // Ưu tiên số dòng THẬT trong file Excel (controller gán khi đọc file).
+      // Fallback về index + 1 khi gọi service trực tiếp (không qua controller).
+      const excelRowNumber = rows[i]?.row_number;
+      const row_number =
+        typeof excelRowNumber === 'number' && excelRowNumber > 0
+          ? excelRowNumber
+          : i + 1;
 
       try {
         const result = await this.importOneRow(
           rows[i],
           row_number,
           admin_user_id,
-          existingDbKeys,
+          existingDbIndex,
           importedInBatch,
         );
 
@@ -251,12 +287,17 @@ export class RecipeImportService {
   }
 
   /**
-   * Lay danh sach khoa tieu de (da chuan hoa) da ton tai trong DB.
+   * Lập chỉ mục các món đã tồn tại trong DB theo KHOÁ TRÙNG (tên + tập nguyên liệu).
+   *
+   * Trả về: tên đã chuẩn hoá -> tập khoá trùng (mỗi khoá là chuỗi id đã sort).
+   * Cùng tên nhưng khác tập nguyên liệu -> khác khoá -> KHÔNG bị coi là trùng.
    */
-  private async findExistingTitleKeys(
+  private async findExistingDuplicateIndex(
     rows: ImportRecipeRow[],
-  ): Promise<Set<string>> {
-    const keys = [
+  ): Promise<Map<string, Set<string>>> {
+    const index = new Map<string, Set<string>>();
+
+    const titleKeys = [
       ...new Set(
         rows
           .map((row) => normalizeTitle(row?.title))
@@ -264,30 +305,63 @@ export class RecipeImportService {
       ),
     ];
 
-    if (keys.length === 0) {
-      return new Set<string>();
+    if (titleKeys.length === 0) {
+      return index;
     }
 
     // Dùng getRawMany() thay vì getMany(): khi select chỉ 1 cột (alias 'title')
-    // thì getMany() KHÔNG map được entity -> trả về mảng rỗng, khiến cơ chế
-    // skip trùng tên không bao giờ chạy (mọi lần import lại đều tạo bản sao).
+    // thì getMany() KHÔNG map được entity -> trả về mảng rỗng.
     // BTRIM là BẮT BUỘC: normalizeTitle() ở JS có trim() nên nếu SQL không trim
     // thì tiêu đề trong DB có khoảng trắng đầu/cuối ("  Món X  ") sẽ không bao
     // giờ khớp -> tạo bản sao công thức.
     const existing = await this.recipeRepo
       .createQueryBuilder('recipe')
-      .select('recipe.title', 'title')
+      .select('recipe.recipe_id', 'recipe_id')
+      .addSelect('recipe.title', 'title')
       .where(
         "LOWER(BTRIM(REGEXP_REPLACE(recipe.title, '\\s+', ' ', 'g'))) IN (:...keys)",
-        { keys },
+        { keys: titleKeys },
       )
-      .getRawMany<{ title: string }>();
+      .andWhere('recipe.status != :removedStatus', {
+        removedStatus: RecipeStatus.REMOVED,
+      })
+      .getRawMany<{ recipe_id: number; title: string }>();
 
-    return new Set(
-      existing
-        .map((r) => normalizeTitle(r?.title))
-        .filter((key) => key.length > 0),
-    );
+    if (existing.length === 0) {
+      return index;
+    }
+
+    // Lấy tập nguyên liệu của từng món đã tồn tại để so sánh.
+    const recipeIds = existing.map((row) => row.recipe_id);
+
+    const recipeIngredients = await this.recipeIngredientRepo.find({
+      where: { recipe_id: In(recipeIds) },
+    });
+
+    const idsByRecipe = new Map<number, number[]>();
+
+    for (const row of recipeIngredients) {
+      const list = idsByRecipe.get(row.recipe_id) ?? [];
+      list.push(row.ingredient_id);
+      idsByRecipe.set(row.recipe_id, list);
+    }
+
+    for (const row of existing) {
+      const titleKey = normalizeTitle(row.title);
+
+      if (!titleKey) continue;
+
+      const duplicateKey = buildDuplicateKey(
+        row.title,
+        idsByRecipe.get(row.recipe_id) ?? [],
+      );
+
+      const set = index.get(titleKey) ?? new Set<string>();
+      set.add(duplicateKey);
+      index.set(titleKey, set);
+    }
+
+    return index;
   }
 
   /**
@@ -297,8 +371,8 @@ export class RecipeImportService {
     row: ImportRecipeRow,
     row_number: number,
     adminUserId: number,
-    existingDbKeys: Set<string>,
-    importedInBatch: Map<string, number>,
+    existingDbIndex: Map<string, Set<string>>,
+    importedInBatch: Map<string, { row_number: number; title: string }>,
   ): Promise<RecipeImportItem> {
     // 1. Kiem tra row.
     if (!row || typeof row !== 'object' || Array.isArray(row)) {
@@ -479,84 +553,61 @@ export class RecipeImportService {
       }
     }
 
-    // 3. Kiem tra trung tieu de.
-    // Chi nhung dong IMPORT THANH CONG moi danh dau tieu de, nen mot dong loi
-    // o dau khong chan dong trung tiep theo trong cung file.
-    const titleKey = normalizeTitle(row.title);
-
-    if (existingDbKeys.has(titleKey)) {
-      return this.createSkippedItem(
-        row_number,
-        recipe_title,
-        `Tiêu đề "${recipe_title}" đã tồn tại trong hệ thống`,
+    // 3. Tim + KIEM TRA nguyen lieu trong he thong.
+    // Validator DUNG CHUNG voi create/update: nguyen lieu ton tai + active,
+    // khong trung lap, quantity > 0, don vi "g" cho nguyen lieu bat buoc,
+    // keyword tren TEN nguyen lieu va diet_type cua cong thuc.
+    //
+    // Kiem tra TRUNG (tieu de + tap nguyen lieu) dien ra SAU buoc nay,
+    // vi can ingredient_id da resolve de so sanh tap nguyen lieu.
+    const ingredientCheck =
+      await this.recipeValidator.validateImportIngredients(
+        row.ingredients,
+        dietTypeValue,
       );
-    }
 
-    const firstRowInBatch = importedInBatch.get(titleKey);
+    if (!ingredientCheck.isValid) {
+      const unknownNames = ingredientCheck.violations
+        .filter((violation) =>
+          violation.reason.includes('không tồn tại') ||
+          violation.reason.includes('ngưng hoạt động'),
+        )
+        .map((violation) => violation.ingredient_name)
+        .filter(Boolean);
 
-    if (firstRowInBatch !== undefined) {
-      return this.createSkippedItem(
-        row_number,
-        recipe_title,
-        `Tiêu đề "${recipe_title}" trùng với dòng ${firstRowInBatch} trong cùng file`,
-      );
-    }
-
-    // 4. Tim nguyen lieu trong he thong.
-    const resolved: {
-      ingredient_id: number;
-      ingredient_name: string;
-      vegan_flag: boolean;
-      row: ImportRecipeRow['ingredients'][number];
-    }[] = [];
-
-    const unknownNames: string[] = [];
-
-    for (const ing of row.ingredients) {
-      if (
-        !ing ||
-        typeof ing.ingredient_name !== 'string' ||
-        !ing.ingredient_name.trim() ||
-        typeof ing.unit !== 'string' ||
-        !ing.unit.trim() ||
-        typeof ing.quantity !== 'number' ||
-        !Number.isFinite(ing.quantity) ||
-        ing.quantity <= 0
-      ) {
+      if (unknownNames.length > 0) {
         return this.createFailedItem(
           row_number,
           recipe_title,
-          ImportFailReason.MISSING_REQUIRED_FIELD,
-          'Nguyên liệu có tên, đơn vị hoặc số lượng không hợp lệ',
+          ImportFailReason.UNKNOWN_INGREDIENT,
+          `Nguyên liệu không phù hợp: ${unknownNames.join(', ')}`,
         );
       }
 
-      const found = await this.ingredientService.findByName(
-        ing.ingredient_name.trim(),
-      );
-
-      if (!found) {
-        unknownNames.push(ing.ingredient_name.trim());
-      } else {
-        resolved.push({
-          ingredient_id: found.ingredient_id,
-          ingredient_name: found.ingredient_name,
-          vegan_flag: found.vegan_flag,
-          row: ing,
-        });
-      }
-    }
-
-    if (unknownNames.length > 0) {
       return this.createFailedItem(
         row_number,
         recipe_title,
-        ImportFailReason.UNKNOWN_INGREDIENT,
-        `Nguyên liệu không có trong hệ thống: ${unknownNames.join(', ')}`,
+        ImportFailReason.MISSING_REQUIRED_FIELD,
+        ingredientCheck.violations
+          .map((violation) => violation.reason)
+          .join(' '),
       );
     }
 
+    const resolved = ingredientCheck.resolved.map((item) => ({
+      ingredient_id: item.ingredient_id,
+      vegan_flag: item.vegan_flag,
+      row: {
+        ingredient_name: item.ingredient_name,
+        quantity: item.quantity,
+        unit: item.unit,
+        is_optional: item.is_optional,
+      },
+    }));
+
     // 5. Kiem tra nguyen lieu trung lap.
+    // (Validator DUNG CHUNG da kiem tra trung ten nguyen lieu o buoc 3;
+    //  kiem tra nay theo ingredient_id de chan 2 ten khac nhau tro toi cung 1 nguyen lieu.)
     const ingredientIds = resolved.map((item) => item.ingredient_id);
     const uniqueIngredientIds = new Set(ingredientIds);
 
@@ -569,32 +620,30 @@ export class RecipeImportService {
       );
     }
 
-    // 5b. Kiem tra tuong thich diet_type <-> nguyen lieu.
-    // Dung chung helper voi luong tao / cap nhat / duyet cong thuc de ca 4 luong
-    // bao loi giong nhau. Dong khong tuong thich -> FAILED (khong tao cong thuc),
-    // cac dong khac trong lot van duoc xu ly binh thuong.
-    const incompatible = findDietIncompatibleIngredients(
-      dietTypeValue,
-      resolved.map((item) => ({
-        ingredient_id: item.ingredient_id,
-        ingredient_name: item.ingredient_name,
-        vegan_flag: item.vegan_flag,
-      })),
-    );
+    // 5b. KIEM TRA TRUNG MON (tieu de + tap nguyen lieu).
+    // Chi nhung dong IMPORT THANH CONG moi danh dau khoa trung, nen mot dong loi
+    // o dau khong chan dong trung tiep theo trong cung file.
+    const titleKey = normalizeTitle(row.title);
+    const duplicateKey = buildDuplicateKey(row.title, ingredientIds);
+    const dbDuplicateKeys = existingDbIndex.get(titleKey);
 
-    if (incompatible.length > 0) {
-      const detail = incompatible
-        .map(
-          (item) =>
-            `"${item.ingredient_name}" (${item.reason})`,
-        )
-        .join(', ');
-
-      return this.createFailedItem(
+    if (dbDuplicateKeys && dbDuplicateKeys.has(duplicateKey)) {
+      return this.createSkippedItem(
         row_number,
         recipe_title,
-        ImportFailReason.DIET_INCOMPATIBLE,
-        `Nguyên liệu không phù hợp với chế độ ăn chay "${dietTypeValue}": ${detail}`,
+        `Công thức "${recipe_title}" đã tồn tại trong hệ thống ` +
+          `(cùng tên và cùng tập nguyên liệu).`,
+      );
+    }
+
+    const firstRowInBatch = importedInBatch.get(duplicateKey);
+
+    if (firstRowInBatch !== undefined) {
+      return this.createSkippedItem(
+        row_number,
+        recipe_title,
+        `Công thức "${firstRowInBatch.title}" trùng với dòng ${firstRowInBatch.row_number} trong cùng file ` +
+          `(cùng tên và cùng tập nguyên liệu).`,
       );
     }
 
@@ -674,27 +723,16 @@ export class RecipeImportService {
       const nutritionRepository = manager.getRepository(NutritionInfo);
 
       // Tinh dinh duong + chi phi tu nguyen lieu.
-      let calories = 0;
-      let protein = 0;
-      let carbs = 0;
-      let fat = 0;
-      let fiber = 0;
-      let estimatedCost = 0;
-      let hasCompletePrice = true;
+      // Dinh duong dung CHUNG calculateNutritionPerServing() (khớp API create/update).
+      // Chi phi dung CHUNG calculateRecipeEstimatedCost() (khớp API + meal plan).
+      const nutritionRows: NutritionCalcRow[] = [];
+      const costRows: RecipeCostRow[] = [];
 
       for (const item of resolved) {
         // Nguyên liệu OPTIONAL vẫn được tính vào chi phí (giống
         // RecipeService.getRecipeCost và script fix-recipe-cost-nutrition),
         // nhưng KHÔNG tính vào dinh dưỡng (món không bắt buộc phải dùng).
         const isOptional = item.row.is_optional ?? false;
-
-        if (!isOptional) {
-          if (item.row.unit.trim().toLowerCase() !== 'g') {
-            throw new BadRequestException(
-              `Nguyên liệu "${item.row.ingredient_name}" phải có đơn vị g để tính dinh dưỡng`,
-            );
-          }
-        }
 
         const ingredient = await ingredientRepository.findOne({
           where: { ingredient_id: item.ingredient_id },
@@ -706,35 +744,35 @@ export class RecipeImportService {
           );
         }
 
-        if (!isOptional) {
-          const factor = item.row.quantity / 100;
+        nutritionRows.push({
+          quantity: item.row.quantity,
+          is_optional: isOptional,
+          ingredient: {
+            calories_per_100g: ingredient.calories_per_100g,
+            protein_per_100g: ingredient.protein_per_100g,
+            carb_per_100g: ingredient.carb_per_100g,
+            fat_per_100g: ingredient.fat_per_100g,
+            fiber_per_100g: ingredient.fiber_per_100g,
+          },
+        });
 
-          calories += (ingredient.calories_per_100g ?? 0) * factor;
-          protein += (ingredient.protein_per_100g ?? 0) * factor;
-          carbs += (ingredient.carb_per_100g ?? 0) * factor;
-          fat += (ingredient.fat_per_100g ?? 0) * factor;
-          fiber += (ingredient.fiber_per_100g ?? 0) * factor;
-        }
-
-        // Chi phi: quy doi sang don vi tinh gia cua nguyen lieu.
-        if (ingredient.avg_price_per_unit == null) {
-          hasCompletePrice = false;
-        } else {
-          const { cost } = calculateIngredientCost(
-            item.row.quantity,
-            item.row.unit.trim(),
-            ingredient.unit,
-            Number(ingredient.avg_price_per_unit),
-          );
-
-          estimatedCost += cost;
-        }
+        costRows.push({
+          quantity: item.row.quantity,
+          unit: item.row.unit.trim(),
+          is_optional: isOptional,
+          ingredient: {
+            avg_price_per_unit: ingredient.avg_price_per_unit,
+            unit: ingredient.unit,
+          },
+        });
       }
 
       // nutrition_infos lưu dinh dưỡng THEO 1 KHẨU PHẦN (khớp với
       // seed-vegetarian-data.ts, fix-recipe-cost-nutrition.ts và
       // RecipeService.getRecipeCost). Tổng món chia cho số khẩu phần.
       const servings = row.servings && row.servings > 0 ? row.servings : 1;
+      const nutrition = calculateNutritionPerServing(nutritionRows, servings);
+      const estimatedCost = calculateRecipeEstimatedCost(costRows);
 
       const recipe = await recipeRepository.save(
         recipeRepository.create({
@@ -753,9 +791,8 @@ export class RecipeImportService {
             deriveSuitableMeals(mealTypeValue) ??
             undefined,
           diet_type: dietTypeValue as Recipe['diet_type'],
-          estimated_cost: hasCompletePrice
-            ? Math.round(estimatedCost)
-            : undefined,
+          // Chi phi CUA MON (giong API create/update). null = thieu gia nguyen lieu.
+          estimated_cost: estimatedCost.estimated_cost ?? undefined,
           created_by: adminUserId,
           status: RecipeStatus.PENDING_REVIEW,
         }),
@@ -776,12 +813,12 @@ export class RecipeImportService {
       await nutritionRepository.save(
         nutritionRepository.create({
           recipe_id: recipe.recipe_id,
-          // Dinh duong theo 1 khau phan (khớp seed + getRecipeCost).
-          calories: Math.round((calories / servings) * 100) / 100,
-          protein: Math.round((protein / servings) * 100) / 100,
-          carbs: Math.round((carbs / servings) * 100) / 100,
-          fat: Math.round((fat / servings) * 100) / 100,
-          fiber: Math.round((fiber / servings) * 100) / 100,
+          // Dinh duong theo 1 khau phan (dung chung calculateNutritionPerServing).
+          calories: Math.round(nutrition.calories * 100) / 100,
+          protein: Math.round(nutrition.protein * 100) / 100,
+          carbs: Math.round(nutrition.carbs * 100) / 100,
+          fat: Math.round(nutrition.fat * 100) / 100,
+          fiber: Math.round(nutrition.fiber * 100) / 100,
         }),
       );
 
@@ -823,8 +860,11 @@ export class RecipeImportService {
       return recipe.recipe_id;
     });
 
-    // Chi danh dau tieu de sau khi dong nay import THANH CONG that su.
-    importedInBatch.set(titleKey, row_number);
+    // Chi danh dau khoa trung sau khi dong nay import THANH CONG that su.
+    importedInBatch.set(duplicateKey, {
+      row_number,
+      title: recipe_title,
+    });
 
     return this.itemRepo.create({
       row_number,

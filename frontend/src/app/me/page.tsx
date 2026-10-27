@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
-import { FORUM_POSTS } from "@/features/community";
 
 import {
   FileText,
@@ -37,7 +36,7 @@ import {
 } from "lucide-react";
 
 import { useProfile } from "@/features/profile/hooks/useProfile";
-import { formatVegetarianType } from "@/features/profile/types";
+import { formatVegetarianType, formatAllergies } from "@/features/profile/types";
 import { useSubscription } from "@/features/subscription/hooks/useSubscription";
 import { calculateBMI } from "@/features/nutrition/utils/bmi";
 import { calculateDailyNutrition } from "@/features/nutrition/utils/calorieCalculator";
@@ -456,7 +455,7 @@ function ProfileContent() {
             </span>
             {profile.allergies.length > 0 && (
               <span className="text-xs px-3 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 font-medium">
-                Dị ứng: {profile.allergies.join(", ")}
+                Dị ứng: {formatAllergies(profile.allergies)}
               </span>
             )}
           </div>

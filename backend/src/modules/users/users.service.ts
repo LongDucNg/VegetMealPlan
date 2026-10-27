@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository, DataSource } from 'typeorm';
-import { ActivityLevel, BmiCategory, DietType, User, UserRole, UserStatus } from './entities/user.entity';
+import { ActivityLevel, BmiCategory, User, UserRole, UserStatus } from './entities/user.entity';
 import { HealthGoal } from '../health-goal/entities/health-goal.entity';
+import { HEALTH_GOAL_DEFINITIONS } from '../health-goal/health-goal.service';
 import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
 import { Ingredient } from '../ingredient/entities/ingredient.entity';
 import { UserSession } from '../auth/entities/user-session.entity';
@@ -11,6 +12,16 @@ import { UpdateAllergiesDto } from './dto/update-allergies.dto';
 import { ALLERGEN_GROUPS } from './allergen-groups';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
 import { bmiGoalWarnings, ExplanationStep, fmt, goalLabel, goalProgress, NutritionWarning } from './nutrition-advice';
+import {
+  assessWeightGoal,
+  assertCompleteProfile,
+  assertValidGoalInput,
+  GoalAssessment,
+  ProfileMetrics,
+  resolveGoalPlan,
+  WeightGoalDirection,
+} from './weight-goal.util';
+import { WeightGoalDto } from './dto/weight-goal.dto';
 
 const ACTIVITY_FACTOR: Record<ActivityLevel, number> = {
   [ActivityLevel.SEDENTARY]: 1.2,
@@ -53,6 +64,81 @@ export class UsersService {
     return user;
   }
 
+  /**
+   * Tìm mục tiêu sức khoẻ theo `goal_id`, tự lành khi bảng `health_goals` bị trống.
+   *
+   * Vì sao cần:
+   *   - `health_goals` là master data chỉ có 3 dòng. Nếu bảng bị trống (dev mới
+   *     chưa seed, ai đó xoá nhầm) thì `current_goal_id` không gán được -> mọi
+   *     request rơi về 'maintain' dù người dùng đã chọn tăng/giảm.
+   *   - `goal_id` là SERIAL, nên id client gửi có thể lệch với id thật trong DB
+   *     (vd. bảng bị seed lại, hoặc DB khác môi trường). Vì vậy khi id không
+   *     tồn tại, ta ánh xạ lại theo THỨ TỰ mục tiêu chuẩn thay vì báo lỗi
+   *     và làm mất lựa chọn của người dùng.
+   *
+   * Trả về null khi id không hợp lệ VÀ không thể suy ra mục tiêu tương ứng.
+   */
+  private async resolveHealthGoalById(goal_id: number): Promise<HealthGoal | null> {
+    const byId = await this.goalRepo.findOne({ where: { goal_id } });
+    if (byId) return byId;
+
+    // Bảng trống -> khởi tạo master data rồi thử lại.
+    const all = await this.goalRepo.find({ order: { goal_id: 'ASC' } });
+    if (all.length === 0) {
+      await this.ensureHealthGoalMasterData();
+      const seeded = await this.goalRepo.find({ order: { goal_id: 'ASC' } });
+      const seededById = seeded.find((g) => g.goal_id === goal_id);
+      if (seededById) return seededById;
+      // Id client gửi không khớp id vừa tạo -> ánh xạ theo thứ tự chuẩn.
+      return this.mapGoalIdToStandard(seeded, goal_id);
+    }
+
+    return this.mapGoalIdToStandard(all, goal_id);
+  }
+
+  /**
+   * Ánh xạ `goal_id` lệch (client gửi id cũ / id của DB khác) sang dòng mục tiêu
+   * chuẩn tương ứng theo thứ tự cố định:
+   *   1 = lose_weight, 2 = gain_muscle, 3 = maintain.
+   *
+   * Chỉ dùng khi id KHÔNG tồn tại trong DB. Giữ đúng thứ tự này để khớp với
+   * `HEALTH_GOAL_DEFINITIONS` (mà frontend cũng giả định 1/2/3).
+   */
+  private mapGoalIdToStandard(
+    goals: HealthGoal[],
+    goal_id: number,
+  ): HealthGoal | null {
+    if (goals.length === 0) return null;
+
+    // Sắp xếp lại theo thứ tự master data chuẩn: 1 = lose_weight,
+    // 2 = gain_muscle, 3 = maintain (khớp với `HEALTH_GOAL_DEFINITIONS`).
+    const standardOrder = goals
+      .slice()
+      .sort((a, b) => {
+        const ai = HEALTH_GOAL_DEFINITIONS.findIndex((d) => d.name === a.name);
+        const bi = HEALTH_GOAL_DEFINITIONS.findIndex((d) => d.name === b.name);
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      });
+
+    // Mục tiêu không nằm trong master data -> không đoán, trả null.
+    if (standardOrder[0].name !== HEALTH_GOAL_DEFINITIONS[0].name) return null;
+
+    return standardOrder[goal_id - 1] ?? null;
+  }
+
+  /**
+   * Khởi tạo master data `health_goals` nếu bảng đang trống.
+   * Idempotent, không tạo migration, không đổi schema.
+   */
+  private async ensureHealthGoalMasterData(): Promise<void> {
+    const existing = await this.goalRepo.find();
+    if (existing.length > 0) return;
+
+    await this.goalRepo.save(
+      HEALTH_GOAL_DEFINITIONS.map((g) => this.goalRepo.create({ ...g })),
+    );
+  }
+
   /** Hồ sơ đầy đủ của user (không có password_hash). */
   async getProfile(user_id: number) {
     const user = await this.findOne(user_id);
@@ -74,7 +160,7 @@ export class UsersService {
     const user = await this.findOne(user_id);
 
     if (dto.current_goal_id !== undefined) {
-      const goal = await this.goalRepo.findOne({ where: { goal_id: dto.current_goal_id } });
+      const goal = await this.resolveHealthGoalById(dto.current_goal_id);
       if (!goal) throw new BadRequestException({
           code: ErrorCode.USER_GOAL_NOT_FOUND,
           message: `Mục tiêu #${dto.current_goal_id} không tồn tại`,
@@ -277,6 +363,115 @@ export class UsersService {
     return BmiCategory.OBESE;
   }
 
+  // =========================================================
+  // MỤC TIÊU CÂN NẶNG → TÍNH KCAL → ĐÁNH GIÁ AN TOÀN
+  // =========================================================
+
+  /**
+   * Lấy chỉ số cơ thể từ hồ sơ để tính BMR/TDEE.
+   * Ném BadRequestException nếu hồ sơ thiếu dữ liệu bắt buộc.
+   */
+  private profileMetrics(u: User): ProfileMetrics {
+    assertCompleteProfile({
+      age: u.age ?? undefined,
+      gender: u.gender ?? undefined,
+      height_cm: u.height_cm ?? undefined,
+      weight_kg: u.weight_kg ?? undefined,
+      activity_level: u.activity_level ?? undefined,
+    });
+    return {
+      age: u.age!,
+      gender: u.gender!,
+      height_cm: u.height_cm!,
+      weight_kg: u.weight_kg!,
+      activity_level: u.activity_level!,
+    };
+  }
+
+  /**
+   * Đánh giá mục tiêu cân nặng: validate đầu vào, tính BMI/BMR/TDEE/kcal mục tiêu
+   * và kiểm tra an toàn.
+   *
+   * - Ném BadRequestException (WEIGHT_GOAL_INVALID) nếu dữ liệu thiếu/sai.
+   * - Ném BadRequestException (WEIGHT_GOAL_UNSAFE) nếu mục tiêu MÂU THUẪN NỘI TẠI
+   *   (vd. chọn giảm cân nhưng cân nặng mục tiêu cao hơn hiện tại).
+   * - Mục tiêu quá nhanh / BMI không khớp hướng -> KHÔNG ném lỗi, chỉ trả
+   *   `warnings` kèm kcal đã tính (vẫn sinh được thực đơn).
+   */
+  async assessGoal(user_id: number, dto: WeightGoalDto): Promise<GoalAssessment> {
+    const user = await this.findOne(user_id);
+
+    const clientExplicitDirection = dto.direction ?? null;
+    const clientHasWeights =
+      dto.current_weight_kg !== undefined && dto.target_weight_kg !== undefined;
+
+    // Chốt mục tiêu cân nặng bằng quy tắc dùng chung với luồng sinh thực đơn:
+    //   - `direction` client gửi thắng tuyệt đối.
+    //   - Cân nặng mục tiêu CŨ trong hồ sơ không ghi đè lựa chọn mới.
+    const plan = resolveGoalPlan({
+      clientCurrentWeight: dto.current_weight_kg ?? null,
+      clientTargetWeight: dto.target_weight_kg ?? null,
+      clientDurationDays: dto.duration_days ?? null,
+      clientDirection: clientExplicitDirection,
+      profileCurrentWeight: user.weight_kg ?? null,
+      profileTargetWeight: user.target_weight_kg ?? null,
+      profileTargetDate: user.target_date ?? null,
+      profileHealthGoalName: user.current_goal?.name ?? null,
+    });
+
+    const direction = plan.direction;
+    const current = plan.current_weight_kg;
+    const target = plan.target_weight_kg;
+    const durationDays = plan.duration_days;
+
+    // Chế độ duy trì đến từ hồ sơ -> bỏ qua cân nặng mục tiêu tồn đọng,
+    // dùng chính cân nặng hiện tại làm "mục tiêu" (không thâm hụt/thặng dư).
+    const maintainFromProfile =
+      direction === 'maintain' && !clientExplicitDirection && !clientHasWeights;
+    const effectiveTarget = maintainFromProfile ? current : target;
+
+    if (current == null || effectiveTarget == null || durationDays == null) {
+      throw new BadRequestException({
+        code: ErrorCode.WEIGHT_GOAL_INVALID,
+        message:
+          'Thiếu dữ liệu mục tiêu cân nặng: cần cân nặng hiện tại, cân nặng mục tiêu và thời gian đạt mục tiêu (số ngày).',
+      });
+    }
+
+    assertValidGoalInput({
+      current_weight_kg: current,
+      target_weight_kg: effectiveTarget,
+      duration_days: durationDays,
+      direction: direction as WeightGoalDirection,
+    });
+
+    const metrics = this.profileMetrics(user);
+    const assessment = assessWeightGoal(
+      {
+        current_weight_kg: current!,
+        target_weight_kg: effectiveTarget!,
+        duration_days: durationDays!,
+        direction: direction as WeightGoalDirection,
+      },
+      metrics,
+    );
+
+    if (!assessment.valid) {
+      throw new BadRequestException({
+        code: ErrorCode.WEIGHT_GOAL_UNSAFE,
+        message: assessment.message,
+        suggestion: assessment.suggestion,
+      });
+    }
+
+    // Gắn cảnh báo từ quá trình chốt mục tiêu (vd. bỏ qua cân nặng mục tiêu cũ).
+    if (plan.warnings.length > 0) {
+      assessment.warnings = [...plan.warnings, ...assessment.warnings];
+    }
+
+    return assessment;
+  }
+
   /** Lấy danh sách thành viên cho Admin kèm tìm kiếm và lọc trạng thái */
   async findMembers(search?: string, status?: string): Promise<User[]> {
     const qb = this.userRepo.createQueryBuilder('u').select([
@@ -352,6 +547,21 @@ export class UsersService {
       await manager.query(`DELETE FROM user_ingredient_prices WHERE user_id = $1`, [targetUserId]);
       await manager.query(`DELETE FROM user_ingredients WHERE user_id = $1`, [targetUserId]);
       await manager.query(`DELETE FROM user_allergies WHERE user_id = $1`, [targetUserId]);
+      // comments/votes trỏ tới bài viết bằng content_type + content_id (không có khoá ngoại thật),
+      // nên phải tự dọn: vote vào bình luận của user, rồi bình luận/vote vào bài viết, video của user.
+      await manager.query(
+        `DELETE FROM votes WHERE content_type = 'comment' AND content_id IN (SELECT comment_id FROM comments WHERE user_id = $1)`,
+        [targetUserId],
+      );
+      for (const [type, table, idColumn] of [['blog', 'blogs', 'blog_id'], ['video', 'videos', 'video_id']]) {
+        const owned = `SELECT ${idColumn} FROM ${table} WHERE user_id = $1`;
+        await manager.query(
+          `DELETE FROM votes WHERE content_type = 'comment' AND content_id IN (SELECT comment_id FROM comments WHERE content_type = '${type}' AND content_id IN (${owned}))`,
+          [targetUserId],
+        );
+        await manager.query(`DELETE FROM comments WHERE content_type = '${type}' AND content_id IN (${owned})`, [targetUserId]);
+        await manager.query(`DELETE FROM votes WHERE content_type = '${type}' AND content_id IN (${owned})`, [targetUserId]);
+      }
       await manager.query(`DELETE FROM votes WHERE user_id = $1`, [targetUserId]);
       await manager.query(`DELETE FROM comments WHERE user_id = $1`, [targetUserId]);
       await manager.query(`DELETE FROM chatbot_conversations WHERE user_id = $1`, [targetUserId]);
@@ -375,8 +585,9 @@ export class UsersService {
       await manager.query(`DELETE FROM subscriptions WHERE user_id = $1`, [targetUserId]);
       await manager.query(`DELETE FROM payment_transactions WHERE user_id = $1`, [targetUserId]);
 
-      // 6. Xóa các nội dung do user tạo
-      await manager.query(`DELETE FROM recipes WHERE created_by = $1`, [targetUserId]);
+      // 6. Món user tạo có thể đã nằm trong thực đơn, danh sách yêu thích, gợi ý của NGƯỜI KHÁC
+      //    (khoá ngoại không cascade), xoá món sẽ lỗi. Giữ món lại, chỉ gỡ tên tác giả.
+      await manager.query(`UPDATE recipes SET created_by = NULL WHERE created_by = $1`, [targetUserId]);
       await manager.query(`DELETE FROM blogs WHERE user_id = $1`, [targetUserId]);
       await manager.query(`DELETE FROM videos WHERE user_id = $1`, [targetUserId]);
 
