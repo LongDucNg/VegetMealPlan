@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { X, ExternalLink, Tag, AlertCircle, Info, Sparkles } from "lucide-react";
+import { X, ExternalLink, Info } from "lucide-react";
 import { Recipe, formatMealType } from "@/features/recipes";
 import { formatVegetarianType } from "@/features/profile/types";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
 import { priceService, PRICE_WARNING_TEXT } from "@/features/recipes/services/priceService";
-import { recipeApiService, NutritionItem } from "@/features/recipes/services/recipeApiService";
 
 interface AdminRecipeDetailModalProps {
   recipe: Recipe | null;
@@ -21,28 +20,6 @@ export function AdminRecipeDetailModal({
   onClose,
   onEdit,
 }: AdminRecipeDetailModalProps) {
-  const [liveNutrition, setLiveNutrition] = useState<NutritionItem | null>(null);
-
-  useEffect(() => {
-    if (!recipe) {
-      setLiveNutrition(null);
-      return;
-    }
-    const numId = parseInt(recipe.id.replace(/\D/g, ""), 10);
-    if (!isNaN(numId)) {
-      recipeApiService.getNutritionByRecipeId(numId)
-        .then((res) => {
-          const data = (res as any)?.data || res;
-          if (data && (data.nutrition_id !== undefined || data.calories !== undefined)) {
-            setLiveNutrition(data);
-          }
-        })
-        .catch(() => {
-          setLiveNutrition(null);
-        });
-    }
-  }, [recipe]);
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -55,10 +32,6 @@ export function AdminRecipeDetailModal({
 
   const costResult = priceService.calculateRecipeCost(recipe.ingredients || []);
   const estimatedCost = recipe.estimatedCost || costResult.estimatedCost;
-  const calories = liveNutrition?.calories ?? recipe.calories;
-  const protein = liveNutrition?.protein ?? recipe.protein;
-  const carbs = liveNutrition?.carbs ?? recipe.carbs;
-  const fat = liveNutrition?.fat ?? recipe.fat;
 
   return (
     <div
@@ -137,30 +110,22 @@ export function AdminRecipeDetailModal({
           <RecipeAllergyBadge recipe={recipe} />
 
           {/* Quick Nutrition Metrics Cards */}
-          <div className="space-y-2">
-            {liveNutrition && (
-              <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-medium">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Chỉ số dinh dưỡng đồng bộ trực tiếp từ API /nutrition/{recipe.id}</span>
-              </div>
-            )}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-100 text-center">
-                <p className="text-xs text-stone-500 font-medium">Calo</p>
-                <p className="font-serif font-bold text-lg text-amber-700 mt-0.5">{calories} kcal</p>
-              </div>
-              <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-center">
-                <p className="text-xs text-stone-500 font-medium">Chất đạm</p>
-                <p className="font-serif font-bold text-lg text-emerald-800 mt-0.5">{protein}g</p>
-              </div>
-              <div className="p-3 rounded-2xl bg-orange-50/70 border border-orange-100 text-center">
-                <p className="text-xs text-stone-500 font-medium">Tinh bột</p>
-                <p className="font-serif font-bold text-lg text-orange-600 mt-0.5">{carbs}g</p>
-              </div>
-              <div className="p-3 rounded-2xl bg-violet-50/70 border border-violet-100 text-center">
-                <p className="text-xs text-stone-500 font-medium">Chất béo</p>
-                <p className="font-serif font-bold text-lg text-violet-700 mt-0.5">{fat}g</p>
-              </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-100 text-center">
+              <p className="text-xs text-stone-500 font-medium">Calo</p>
+              <p className="font-serif font-bold text-lg text-amber-700 mt-0.5">{recipe.calories} kcal</p>
+            </div>
+            <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-center">
+              <p className="text-xs text-stone-500 font-medium">Chất đạm</p>
+              <p className="font-serif font-bold text-lg text-emerald-800 mt-0.5">{recipe.protein}g</p>
+            </div>
+            <div className="p-3 rounded-2xl bg-orange-50/70 border border-orange-100 text-center">
+              <p className="text-xs text-stone-500 font-medium">Tinh bột</p>
+              <p className="font-serif font-bold text-lg text-orange-600 mt-0.5">{recipe.carbs}g</p>
+            </div>
+            <div className="p-3 rounded-2xl bg-violet-50/70 border border-violet-100 text-center">
+              <p className="text-xs text-stone-500 font-medium">Chất béo</p>
+              <p className="font-serif font-bold text-lg text-violet-700 mt-0.5">{recipe.fat}g</p>
             </div>
           </div>
 
