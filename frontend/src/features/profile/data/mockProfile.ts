@@ -22,9 +22,12 @@ export const ALLERGY_MASTER_LIST = [
   { id: "gluten", label: "Gluten / Lúa mì" },
   { id: "dairy", label: "Sữa & Chế phẩm sữa (Lactose)" },
   { id: "treenut", label: "Hạt cây (Điều, Hạnh nhân, Óc chó)" },
-  { id: "sesame", label: "Mè (Vừng)" },
+  { id: "sesame", label: "Mè & Hạt gieo (Vừng, Hướng dương, Bí)" },
   { id: "corn", label: "Bắp (Ngô)" },
   { id: "egg", label: "Trứng" },
+  { id: "legume", label: "Họ Đậu khác (Đậu đen, xanh, đỏ, gà...)" },
+  { id: "fungi", label: "Nấm" },
+  { id: "allium", label: "Họ hành tỏi (Ngũ vị tân)" },
 ];
 
 export const VEGETARIAN_TYPE_OPTIONS: { id: UserProfile["vegetarianType"]; label: string; desc: string }[] = [
