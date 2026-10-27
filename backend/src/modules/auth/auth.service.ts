@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -18,12 +18,15 @@ import { EmailOtpService, OTP_RESEND_AFTER_SECONDS, OTP_TTL_SECONDS } from './em
 import { IpRateLimiter } from './ip-rate-limiter';
 import { MailService } from '../mail/mail.service';
 import { ChangePasswordDto, ResetPasswordDto } from './dto/password.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 
 // Hash giả để email không tồn tại cũng tốn thời gian bcrypt như email có thật (chống dò email qua thời gian phản hồi).
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync('vegetmealplan-timing-equaliser', 10);
 
 const FORGOT_PER_IP_LIMIT = 10;
 const FORGOT_PER_IP_WINDOW_MS = 15 * 60 * 1000;
+const RESEND_VERIFY_PER_IP_LIMIT = 10;
+const RESEND_VERIFY_PER_IP_WINDOW_MS = 15 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
@@ -41,17 +44,23 @@ export class AuthService {
     private readonly ipLimiter: IpRateLimiter,
   ) {}
 
-  async register(dto: RegisterDto, meta: SessionMeta = {}) {
-    const existing = await this.userRepo.findOne({ where: { email: dto.email } });
+  /**
+   * POST /auth/register: tạo tài khoản ở trạng thái CHƯA xác thực email và gửi OTP 6 số.
+   * Không trả token: phải gọi /auth/verify-email với mã trong mail thì mới được đăng nhập.
+   */
+  async register(dto: RegisterDto) {
+    const email = normalizeEmail(dto.email);
+    const existing = await this.findByEmail(email);
     if (existing) throw new ConflictException({ code: ErrorCode.AUTH_EMAIL_TAKEN, message: 'Email đã được đăng ký' });
 
     const password_hash = await bcrypt.hash(dto.password, 10);
     const user = await this.userRepo.save(
       this.userRepo.create({
         full_name: dto.full_name,
-        email: dto.email,
+        email,
         password_hash,
         status: UserStatus.ACTIVE,
+        email_verified_at: null,
       }),
     );
 
@@ -72,11 +81,18 @@ export class AuthService {
       throw err;
     }
 
-    return this.issueTokens(user, meta);
+    await this.sendVerificationCode(email);
+    return {
+      message: 'Đăng ký thành công. Mã xác thực 6 số đã được gửi tới email của bạn',
+      email,
+      verification_required: true,
+      expires_in_seconds: OTP_TTL_SECONDS,
+      resend_after_seconds: OTP_RESEND_AFTER_SECONDS,
+    };
   }
 
   async login(dto: LoginDto, meta: SessionMeta = {}) {
-    const user = await this.userRepo.findOne({ where: { email: dto.email } });
+    const user = await this.findByEmail(normalizeEmail(dto.email));
     // Cố ý dùng chung một mã/câu cho "email không tồn tại" và "sai mật khẩu" để kẻ tấn công không dò được email nào đã đăng ký.
     const invalid = { code: ErrorCode.AUTH_INVALID_CREDENTIALS, message: 'Sai email hoặc mật khẩu' };
     // Tài khoản chỉ đăng nhập bằng Google (chưa có mật khẩu) cũng trả "sai thông tin",
@@ -91,7 +107,75 @@ export class AuthService {
       throw new UnauthorizedException({ code: ErrorCode.AUTH_ACCOUNT_LOCKED, message: 'Tài khoản đã bị khóa' });
     }
 
+    // Cũng kiểm SAU khi đúng mật khẩu, vì cùng lý do trên. Gửi luôn mã mới để FE chuyển thẳng sang màn nhập OTP.
+    if (!user.email_verified_at) {
+      await this.sendVerificationCode(normalizeEmail(user.email));
+      throw new ForbiddenException({
+        code: ErrorCode.AUTH_EMAIL_NOT_VERIFIED,
+        message: 'Email chưa được xác thực. Mã xác thực đã được gửi tới hộp thư của bạn',
+      });
+    }
+
     return this.issueTokens(user, meta);
+  }
+
+  // ---- Xác thực email sau khi đăng ký ----
+
+  /**
+   * POST /auth/verify-email: nhập OTP trong mail. Đúng thì đánh dấu email đã xác thực và đăng nhập luôn
+   * (trả token giống /auth/login), để người dùng không phải gõ lại mật khẩu ngay sau khi đăng ký.
+   */
+  async verifyEmail(dto: VerifyEmailDto, meta: SessionMeta = {}) {
+    const email = normalizeEmail(dto.email);
+    await this.otpService.consume(email, EmailOtpPurpose.VERIFY_EMAIL, dto.code);
+
+    const user = await this.findByEmail(email);
+    if (!user) throw new BadRequestException({ code: ErrorCode.AUTH_OTP_INVALID, message: 'Mã xác minh không đúng' });
+    if (user.status === UserStatus.LOCKED) {
+      throw new UnauthorizedException({ code: ErrorCode.AUTH_ACCOUNT_LOCKED, message: 'Tài khoản đã bị khóa' });
+    }
+
+    if (!user.email_verified_at) {
+      user.email_verified_at = new Date();
+      await this.userRepo.update({ user_id: user.user_id }, { email_verified_at: user.email_verified_at });
+    }
+    return this.issueTokens(user, meta);
+  }
+
+  /**
+   * POST /auth/resend-verification: gửi lại mã xác thực. Giống quên mật khẩu, luôn trả cùng một câu
+   * (không lộ email nào đã đăng ký hay đã xác thực); chỉ gửi thật khi tài khoản tồn tại và chưa xác thực.
+   */
+  async resendVerification(rawEmail: string, ip: string | null) {
+    this.ipLimiter.hit(`verify:${ip ?? 'unknown'}`, RESEND_VERIFY_PER_IP_LIMIT, RESEND_VERIFY_PER_IP_WINDOW_MS);
+
+    const email = normalizeEmail(rawEmail);
+    const user = await this.findByEmail(email);
+    if (user && !user.email_verified_at && user.status !== UserStatus.LOCKED) {
+      await this.sendVerificationCode(email);
+    }
+
+    return {
+      message: 'Nếu email đã đăng ký và chưa xác thực, mã xác thực 6 số sẽ được gửi tới hộp thư trong ít phút',
+      expires_in_seconds: OTP_TTL_SECONDS,
+      resend_after_seconds: OTP_RESEND_AFTER_SECONDS,
+    };
+  }
+
+  /**
+   * Tạo OTP xác thực email rồi gửi mail ở nền (gửi lỗi chỉ ghi log).
+   * Đang trong 60 giây chờ thì bỏ qua: mã gửi lúc trước vẫn còn dùng được.
+   */
+  private async sendVerificationCode(email: string) {
+    try {
+      const code = await this.otpService.issue(email, EmailOtpPurpose.VERIFY_EMAIL);
+      this.mailService
+        .sendVerifyEmailOtp(email, code, OTP_TTL_SECONDS / 60)
+        .catch((err) => this.logger.error(`Gửi OTP xác thực email tới ${email} thất bại: ${err?.message ?? err}`));
+    } catch (err) {
+      const code = (err as { response?: { code?: string } })?.response?.code;
+      if (code !== ErrorCode.AUTH_OTP_RATE_LIMITED) throw err;
+    }
   }
 
   /**
@@ -115,6 +199,12 @@ export class AuthService {
 
       if (user) {
         user.google_id = profile.googleId;
+        if (!user.email_verified_at) {
+          // Tài khoản đăng ký bằng mật khẩu nhưng chưa xác thực: mật khẩu đó có thể do người khác đặt
+          // (đăng ký trước bằng email của nạn nhân). Google vừa chứng minh chủ thật nên bỏ mật khẩu cũ.
+          user.password_hash = null;
+          user.email_verified_at = new Date();
+        }
         user = await this.userRepo.save(user);
       } else {
         user = await this.userRepo.save(
@@ -124,6 +214,7 @@ export class AuthService {
             password_hash: null,
             google_id: profile.googleId,
             status: UserStatus.ACTIVE,
+            email_verified_at: new Date(),
           }),
         );
         isNewUser = true;
@@ -223,7 +314,8 @@ export class AuthService {
 
     const password_hash = await bcrypt.hash(dto.new_password, 10);
     await this.userRepo.manager.transaction(async (manager) => {
-      await manager.update(User, { user_id: user.user_id }, { password_hash });
+      // Nhập đúng OTP gửi qua email cũng là chứng minh sở hữu email, nên đánh dấu đã xác thực luôn.
+      await manager.update(User, { user_id: user.user_id }, { password_hash, email_verified_at: user.email_verified_at ?? new Date() });
       await manager.update(UserSession, { user_id: user.user_id, revoked_at: IsNull() }, { revoked_at: new Date() });
     });
 
@@ -267,7 +359,7 @@ export class AuthService {
     return this.userRepo.createQueryBuilder('user').where('LOWER(user.email) = :email', { email }).getOne();
   }
 
-  /** Mở phiên mới rồi trả access_token (JWT có sid) + refresh_token. Dùng cho đăng ký, đăng nhập, Google. */
+  /** Mở phiên mới rồi trả access_token (JWT có sid) + refresh_token. Dùng cho xác thực email, đăng nhập, Google. */
   private async issueTokens(user: User, meta: SessionMeta) {
     const { session, refreshToken } = await this.sessionService.create(user.user_id, meta);
     return this.buildTokenResponse(user, session.session_id, refreshToken);
