@@ -31,6 +31,52 @@ export function formatVegetarianType(type?: string): string {
   return VEGETARIAN_TYPE_LABELS[type] || type.replace(/_/g, " ");
 }
 
+export const ALLERGEN_LABELS_VI: Record<string, string> = {
+  peanut: "Đậu phộng (lạc)",
+  PEANUT: "Đậu phộng (lạc)",
+  soy: "Đậu nành & đậu hũ",
+  SOY: "Đậu nành & đậu hũ",
+  gluten: "Gluten (lúa mì)",
+  GLUTEN: "Gluten (lúa mì)",
+  dairy: "Sữa & chế phẩm sữa",
+  DAIRY: "Sữa & chế phẩm sữa",
+  treenut: "Hạt cây",
+  tree_nut: "Hạt cây",
+  TREE_NUT: "Hạt cây",
+  nuts: "Hạt cây",
+  sesame: "Mè & hạt gieo",
+  seed: "Mè & hạt gieo",
+  SEED: "Mè & hạt gieo",
+  corn: "Bắp (ngô)",
+  CORN: "Bắp (ngô)",
+  egg: "Trứng",
+  EGG: "Trứng",
+  legume: "Họ đậu khác",
+  LEGUME: "Họ đậu khác",
+  fungi: "Nấm",
+  mushroom: "Nấm",
+  FUNGI: "Nấm",
+  allium: "Hành tỏi (ngũ vị tân)",
+  ALLIUM: "Hành tỏi (ngũ vị tân)",
+};
+
+export function formatAllergy(allergy?: string): string {
+  if (!allergy) return "";
+  const trimmed = allergy.trim();
+  const lower = trimmed.toLowerCase();
+  return (
+    ALLERGEN_LABELS_VI[trimmed] ||
+    ALLERGEN_LABELS_VI[lower] ||
+    ALLERGEN_LABELS_VI[trimmed.toUpperCase()] ||
+    trimmed
+  );
+}
+
+export function formatAllergies(allergies?: string[] | null): string {
+  if (!allergies || !allergies.length) return "";
+  return allergies.map(formatAllergy).join(", ");
+}
+
 export interface UserProfile {
   id: number | string;
   name: string;

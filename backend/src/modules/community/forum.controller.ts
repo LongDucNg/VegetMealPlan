@@ -24,7 +24,7 @@ import { AuthUser, CurrentUser } from '../../common/decorators/current-user.deco
 @ApiTags('forum')
 @Controller('forum')
 export class ForumController {
-  constructor(private readonly service: ForumService) {}
+  constructor(private readonly service: ForumService) { }
 
   @Get('categories')
   @Public()
@@ -47,12 +47,15 @@ export class ForumController {
     return this.service.listPosts(query);
   }
 
-  // Chú ý: Route 'posts/mine' PHẢI khai báo trước 'posts/:id' để không bị coi là ID
-  @Get('posts/mine')
+  @Get('my-posts')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Danh sách bài viết của tôi (kèm status, reject_reason)' })
-  listMyPosts(@CurrentUser() user: AuthUser, @Query() query: ForumPostQueryDto) {
-    return this.service.listMyPosts(user, query);
+  @ApiOperation({ summary: 'Danh sách bài viết của tôi (bao gồm cả chờ duyệt)' })
+  listMyPosts(
+    @CurrentUser() user: AuthUser,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.service.listMyPosts(user, { page, limit });
   }
 
   @Get('posts/:id')

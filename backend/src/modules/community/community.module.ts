@@ -6,6 +6,7 @@ import { Comment } from './entities/comment.entity';
 import { Vote } from './entities/vote.entity';
 import { Category } from '../category/entities/category.entity';
 import { ForumController } from './forum.controller';
+import { AdminForumController } from './admin-forum.controller';
 import { ForumService } from './forum.service';
 import { VideoController } from './video.controller';
 import { VideoService } from './video.service';
@@ -17,11 +18,12 @@ import { NonVegetarianDetectorService } from '../../common/services/non-vegetari
   imports: [TypeOrmModule.forFeature([Blog, Video, Comment, Vote, Category])],
   controllers: [
     ForumController,
+    AdminForumController,
     VideoController,
     AdminModerationController,
     AdminContentController,
   ],
   providers: [ForumService, VideoService, NonVegetarianDetectorService],
-  exports: [TypeOrmModule, VideoService, NonVegetarianDetectorService],
+  exports: [TypeOrmModule, VideoService, NonVegetarianDetectorService, ForumService],
 })
 export class CommunityModule {}

@@ -111,12 +111,7 @@ export function Sidebar() {
       icon: Heart,
       active: pathname === "/me",
     },
-    {
-      label: "Công thức của tôi",
-      href: "/me?tab=my_recipes",
-      icon: ChefHat,
-      active: false,
-    },
+
     {
       label: "Cài đặt & Dị ứng",
       href: "/me/settings",
@@ -159,7 +154,6 @@ export function Sidebar() {
       href: "/admin/moderation",
       icon: ShieldAlert,
       active: pathname.startsWith("/admin/moderation"),
-      flagCount: "3",
     },
     {
       label: "Thư viện nội dung",
@@ -192,19 +186,17 @@ export function Sidebar() {
           <Link
             key={item.label}
             href={item.href}
-            className={`min-h-[44px] px-3 py-1.5 rounded-xl flex items-center justify-between text-[14px] font-medium transition-all group ${
-              item.active
-                ? "bg-emerald-50 text-emerald-950 font-semibold shadow-xs border border-emerald-100"
-                : "text-stone-600 hover:bg-stone-100/80 hover:text-stone-900"
-            }`}
+            className={`min-h-[44px] px-3 py-1.5 rounded-xl flex items-center justify-between text-[14px] font-medium transition-all group ${item.active
+              ? "bg-emerald-50 text-emerald-950 font-semibold shadow-xs border border-emerald-100"
+              : "text-stone-600 hover:bg-stone-100/80 hover:text-stone-900"
+              }`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <div
-                className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
-                  item.active
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "bg-stone-100 text-stone-500 group-hover:bg-stone-200/80 group-hover:text-stone-800"
-                }`}
+                className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${item.active
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "bg-stone-100 text-stone-500 group-hover:bg-stone-200/80 group-hover:text-stone-800"
+                  }`}
               >
                 <Icon
                   className="w-3.5 h-3.5"
