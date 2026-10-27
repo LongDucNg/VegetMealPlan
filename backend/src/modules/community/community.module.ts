@@ -13,6 +13,7 @@ import { AdminModerationController } from './admin-moderation.controller';
 import { AdminContentController } from './admin-content.controller';
 import { NonVegetarianDetectorService } from '../../common/services/non-vegetarian-detector.service';
 
+// TODO: VideoService, comment, vote, admin moderation (làm ở các đợt sau).
 @Module({
   imports: [TypeOrmModule.forFeature([Blog, Video, Comment, Vote, Category])],
   controllers: [
