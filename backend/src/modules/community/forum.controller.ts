@@ -27,6 +27,17 @@ export class ForumController {
     return this.service.listPosts(query);
   }
 
+  @Get('my-posts')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Danh sách bài viết của tôi (bao gồm cả chờ duyệt)' })
+  listMyPosts(
+    @CurrentUser() user: AuthUser,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.service.listMyPosts(user, { page, limit });
+  }
+
   @Get('posts/:id')
   @Public()
   @ApiOperation({ summary: 'Chi tiết bài, tăng lượt xem' })
