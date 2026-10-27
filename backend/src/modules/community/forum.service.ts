@@ -31,6 +31,7 @@ const POST_COLUMNS = [
   'blog.content',
   'blog.tags',
   'blog.views',
+  'blog.status',
   'blog.created_at',
   'user.user_id',
   'user.full_name',
@@ -315,6 +316,7 @@ export class ForumService {
         : null,
       tags: post.tags,
       views: post.views,
+      status: post.status,
       rating: ratingMap.get(post.blog_id) ?? 0,
       comment_count: commentMap.get(post.blog_id) ?? 0,
       author: post.user ? { user_id: post.user.user_id, full_name: post.user.full_name } : null,
@@ -336,5 +338,108 @@ export class ForumService {
       author: c.user ? { user_id: c.user.user_id, full_name: c.user.full_name } : null,
       created_at: c.created_at,
     };
+  }
+
+  // ---------- Bài viết của tôi (thành viên tự xem bài của mình) ----------
+
+  async listMyPosts(user: AuthUser, query: { page?: number; limit?: number }) {
+    const { page, limit } = this.normalizePaging(query.page, query.limit, 20);
+    const qb = this.blogRepo
+      .createQueryBuilder('blog')
+      .leftJoin('blog.user', 'user')
+      .leftJoin('blog.category', 'category')
+      .select(POST_COLUMNS)
+      .where('blog.user_id = :userId', { userId: user.user_id })
+      .andWhere('blog.status NOT IN (:...hiddenStatuses)', {
+        hiddenStatuses: [ContentStatus.REMOVED, ContentStatus.REJECTED],
+      })
+      .orderBy('blog.created_at', 'DESC')
+      .addOrderBy('blog.blog_id', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [posts, total] = await qb.getManyAndCount();
+    const { ratingMap, commentMap } = await this.loadStats(posts.map((p) => p.blog_id));
+
+    return {
+      data: posts.map((p) => this.toPostView(p, ratingMap, commentMap, false)),
+      pagination: { page, limit, total, total_pages: Math.ceil(total / limit) },
+    };
+  }
+
+  // ---------- Admin: Quản lý bài viết & Kiểm duyệt ----------
+
+  async adminListPosts(query: { status?: string; page?: number; limit?: number }) {
+    const { page, limit } = this.normalizePaging(query.page, query.limit, 20);
+    const qb = this.blogRepo
+      .createQueryBuilder('blog')
+      .leftJoin('blog.user', 'user')
+      .leftJoin('blog.category', 'category')
+      .select([...POST_COLUMNS, 'blog.approved_at']);
+
+    if (query.status && query.status !== 'all') {
+      qb.andWhere('blog.status = :status', { status: query.status });
+    }
+
+    qb.orderBy('blog.created_at', 'DESC')
+      .addOrderBy('blog.blog_id', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [posts, total] = await qb.getManyAndCount();
+    const { ratingMap, commentMap } = await this.loadStats(posts.map((p) => p.blog_id));
+
+    return {
+      data: posts.map((p) => this.toPostView(p, ratingMap, commentMap, false)),
+      pagination: { page, limit, total, total_pages: Math.ceil(total / limit) },
+    };
+  }
+
+  async adminListPending(query: { page?: number; limit?: number }) {
+    return this.adminListPosts({ status: ContentStatus.PENDING_REVIEW, ...query });
+  }
+
+  async adminGetPendingCount() {
+    const count = await this.blogRepo.count({
+      where: { status: ContentStatus.PENDING_REVIEW },
+    });
+    return { count };
+  }
+
+  async adminUpdateStatus(adminId: number, blogId: number, status: ContentStatus) {
+    const blog = await this.blogRepo
+      .createQueryBuilder('blog')
+      .leftJoinAndSelect('blog.user', 'user')
+      .leftJoinAndSelect('blog.category', 'category')
+      .where('blog.blog_id = :id', { id: blogId })
+      .getOne();
+
+    if (!blog) {
+      throw new NotFoundException({
+        code: ErrorCode.FORUM_POST_NOT_FOUND,
+        message: `Không tìm thấy bài viết #${blogId}`,
+      });
+    }
+
+    blog.status = status;
+    blog.approved_by = adminId;
+    blog.approved_at = new Date();
+
+    const saved = await this.blogRepo.save(blog);
+    const { ratingMap, commentMap } = await this.loadStats([blogId]);
+    return this.toPostView(saved, ratingMap, commentMap, true);
+  }
+
+  async adminDeletePost(blogId: number) {
+    const blog = await this.blogRepo.findOne({ where: { blog_id: blogId } });
+    if (!blog) {
+      throw new NotFoundException({
+        code: ErrorCode.FORUM_POST_NOT_FOUND,
+        message: `Không tìm thấy bài viết #${blogId}`,
+      });
+    }
+
+    await this.blogRepo.delete({ blog_id: blogId });
+    return { success: true, message: `Đã xoá bài viết #${blogId}` };
   }
 }

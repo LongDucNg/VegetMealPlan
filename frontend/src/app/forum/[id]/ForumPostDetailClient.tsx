@@ -31,7 +31,7 @@ export function ForumPostDetailClient({
   postId: string;
   initialPost?: ForumPost | null;
 }) {
-  const { isGuest, role, user } = useRole();
+  const { isGuest } = useRole();
   const [post, setPost] = useState<ForumPost | null>(initialPost);
   const [loading, setLoading] = useState(!initialPost);
   const [comments, setComments] = useState<CommentItem[]>(initialPost?.comments || []);
@@ -42,38 +42,30 @@ export function ForumPostDetailClient({
   const [copied, setCopied] = useState(false);
   const [otherPosts, setOtherPosts] = useState<ForumPost[]>([]);
 
-  // Sync post details & status from client-side forumService
+  // Fetch real post details & increment views from Backend API
   useEffect(() => {
     let isMounted = true;
 
-    const syncPost = () => {
-      forumService
-        .getPostDetail(postId)
-        .then((updated) => {
-          if (isMounted) {
-            if (updated) {
-              setPost(updated);
-            }
-            setLoading(false);
+    forumService
+      .getPostDetail(postId)
+      .then((updated) => {
+        if (isMounted) {
+          if (updated) {
+            setPost(updated);
           }
-        })
-        .catch(() => {
-          if (isMounted) setLoading(false);
-        });
-    };
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setLoading(false);
+      });
 
-    syncPost();
-
-    window.addEventListener("storage", syncPost);
-    window.addEventListener("forum_status_changed", syncPost);
     return () => {
       isMounted = false;
-      window.removeEventListener("storage", syncPost);
-      window.removeEventListener("forum_status_changed", syncPost);
     };
   }, [postId]);
 
-  // Load comments from API for real posts
+  // Load real comments from Backend API
   useEffect(() => {
     const numId = Number(postId);
     if (numId && !isNaN(numId)) {
@@ -91,7 +83,7 @@ export function ForumPostDetailClient({
         });
     }
 
-    // Load related posts from API
+    // Load related posts from Backend API
     forumService.listPosts({ limit: 4 }).then((res) => {
       setOtherPosts(res.data.filter((p) => p.id !== postId).slice(0, 3));
     });
@@ -112,6 +104,7 @@ export function ForumPostDetailClient({
           content: commentText.trim(),
         });
         setComments((prev) => [...prev, created]);
+        setPost((prev) => (prev ? { ...prev, commentsCount: (prev.commentsCount || 0) + 1 } : prev));
         setCommentText("");
       } catch (err: any) {
         setCommentError(
@@ -120,21 +113,6 @@ export function ForumPostDetailClient({
       } finally {
         setSubmittingComment(false);
       }
-    } else {
-      // Local fallback
-      const authorName = user?.full_name || (role === "Admin" ? "Quản trị viên" : "Tôi");
-      const newComment: CommentItem = {
-        id: `fc-${Date.now()}`,
-        author: authorName,
-        authorInitials: authorName.slice(0, 2).toUpperCase(),
-        verified: true,
-        content: commentText.trim(),
-        timestamp: "Vừa xong",
-        votes: 1,
-      };
-      setComments((prev) => [...prev, newComment]);
-      setCommentText("");
-      setSubmittingComment(false);
     }
   };
 
@@ -182,7 +160,7 @@ export function ForumPostDetailClient({
       <AppShell>
         <div className="flex flex-col items-center justify-center py-24 gap-3 text-stone-500">
           <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
-          <p className="text-sm font-medium">Đang tải nội dung bài viết…</p>
+          <p className="text-sm font-medium">Đang tải nội dung bài viết từ máy chủ…</p>
         </div>
       </AppShell>
     );
@@ -199,7 +177,7 @@ export function ForumPostDetailClient({
             Không tìm thấy bài viết #{postId}
           </h2>
           <p className="text-sm text-stone-600 leading-relaxed">
-            Bài viết này không tồn tại, đã bị gỡ bỏ hoặc đang được kiểm duyệt.
+            Bài viết này không tồn tại, đã bị gỡ bỏ hoặc đang chờ kiểm duyệt.
           </p>
           <div className="pt-2">
             <Link
@@ -236,7 +214,7 @@ export function ForumPostDetailClient({
             <div>
               <p className="font-bold text-amber-950">Bài viết đang chờ kiểm duyệt</p>
               <p className="text-amber-800 text-xs mt-0.5">
-                Bài viết này đang được ban quản trị xem xét. Sau khi được phê duyệt, bài viết sẽ được công khai rộng rãi trên diễn đàn.
+                Bài viết này đang được ban quản trị xem xét trước khi công khai rộng rãi trên diễn đàn.
               </p>
             </div>
           </div>
@@ -244,7 +222,7 @@ export function ForumPostDetailClient({
           <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm flex items-center gap-2.5 shadow-2xs">
             <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shrink-0">✓</span>
             <span className="text-emerald-900 font-medium text-xs sm:text-sm">
-              Bài viết đã được ban quản trị phê duyệt và đang hiển thị công khai trên diễn đàn.
+              Bài viết đã được phê duyệt và đang hiển thị công khai trên diễn đàn.
             </span>
           </div>
         )}
@@ -313,12 +291,13 @@ export function ForumPostDetailClient({
               {/* Tags */}
               <div className="mt-8 pt-4 border-t border-stone-100 flex flex-wrap gap-2">
                 {post.tags.map((tag) => (
-                  <span
+                  <Link
                     key={tag}
-                    className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full"
+                    href={`/forum?tag=${tag.replace(/^#/, "")}`}
+                    className="text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 rounded-full transition-colors"
                   >
                     {tag}
-                  </span>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -342,7 +321,7 @@ export function ForumPostDetailClient({
                 Tham gia thảo luận
               </h3>
               <p className="text-sm text-stone-600 mt-1 mb-4">
-                Bạn đang xem với tư cách Khách. Hãy tạo tài khoản miễn phí hoặc đăng nhập để bình luận và biểu quyết.
+                Bạn đang xem với tư cách Khách. Hãy tạo tài khoản miễn phí hoặc đăng nhập để bình luận.
               </p>
               <div className="flex items-center justify-center gap-3">
                 <Link
@@ -372,7 +351,7 @@ export function ForumPostDetailClient({
                 rows={3}
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Chia sẻ góc nhìn của bạn hoặc đặt câu hỏi cùng cộng đồng…"
+                placeholder="Chia sẻ góc nhìn của bạn hoặc thảo luận cùng cộng đồng…"
                 className="w-full p-4 rounded-xl border border-stone-200 bg-white text-base text-stone-900 placeholder:text-stone-400 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 shadow-xs"
               />
               <div className="flex justify-end">
@@ -392,7 +371,7 @@ export function ForumPostDetailClient({
           {loadingComments ? (
             <div className="flex items-center justify-center py-8 gap-2 text-stone-400">
               <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
-              <span className="text-sm">Đang tải bình luận…</span>
+              <span className="text-sm">Đang tải bình luận từ máy chủ…</span>
             </div>
           ) : (
             <div className="space-y-4">

@@ -9,7 +9,7 @@ import { Tabs } from "@/components/ui/Tabs";
 import { Card } from "@/components/ui/Card";
 import { VideoCard, VIDEO_RECIPES } from "@/features/videos";
 import { PlaceRow, VEGAN_PLACES } from "@/features/places";
-import { FORUM_POSTS } from "@/features/community";
+import { ForumPost, forumService } from "@/features/community";
 
 
 const SEARCH_SUGGESTIONS = [
@@ -24,8 +24,15 @@ const SEARCH_SUGGESTIONS = [
 export function SearchClient({ initialQuery }: { initialQuery: string }) {
   const [query, setQuery] = useState(initialQuery);
   const [activeTab, setActiveTab] = useState("videos");
+  const [matchedPosts, setMatchedPosts] = useState<ForumPost[]>([]);
 
   const qLower = query.toLowerCase().trim();
+
+  React.useEffect(() => {
+    forumService.listPosts({ q: query, limit: 20 }).then((res) => {
+      setMatchedPosts(res.data);
+    });
+  }, [query]);
 
   const matchedVideos = VIDEO_RECIPES.filter(
     (v) =>
@@ -33,14 +40,6 @@ export function SearchClient({ initialQuery }: { initialQuery: string }) {
       v.title.toLowerCase().includes(qLower) ||
       v.description.toLowerCase().includes(qLower) ||
       v.cuisine.toLowerCase().includes(qLower)
-  );
-
-  const matchedPosts = FORUM_POSTS.filter(
-    (p) =>
-      !qLower ||
-      p.title.toLowerCase().includes(qLower) ||
-      p.content.toLowerCase().includes(qLower) ||
-      p.tags.some((t) => t.toLowerCase().includes(qLower))
   );
 
   const matchedPlaces = VEGAN_PLACES.filter(

@@ -25,6 +25,7 @@ export interface BackendForumPostListItem {
   author: BackendForumPostAuthor | null;
   created_at: string;
   excerpt: string;
+  status?: string;
 }
 
 export interface BackendForumPostDetail {
@@ -40,6 +41,7 @@ export interface BackendForumPostDetail {
   content: string;
   updated_at?: string;
   excerpt?: string;
+  status?: string;
 }
 
 export interface BackendForumComment {
