@@ -73,7 +73,7 @@ export enum ErrorCode {
   SUBSCRIPTION_TRANSACTION_NOT_FOUND = 'SUBSCRIPTION_TRANSACTION_NOT_FOUND',
   /** 404 */
   SUBSCRIPTION_NOT_FOUND = 'SUBSCRIPTION_NOT_FOUND',
-  /** 400: chỉ huỷ được gói đang active. */
+  /** 400: chế độ cũ đã được gia hạn đang active. */
   SUBSCRIPTION_NOT_ACTIVE = 'SUBSCRIPTION_NOT_ACTIVE',
   /** 503: server chưa cấu hình VNPAY_TMN_CODE / VNPAY_HASH_SECRET. */
   SUBSCRIPTION_PAYMENT_NOT_CONFIGURED = 'SUBSCRIPTION_PAYMENT_NOT_CONFIGURED',
@@ -106,7 +106,7 @@ export enum ErrorCode {
   RECIPE_NOT_FOUND = 'RECIPE_NOT_FOUND',
   /** 404 */
   INGREDIENT_NOT_FOUND = 'INGREDIENT_NOT_FOUND',
-  /** 409: tên nguyên liệu đã tồn tại trong hệ thống. */
+  /** 409: tên nguyên liệu đã tồn tại. */
   INGREDIENT_NAME_CONFLICT = 'INGREDIENT_NAME_CONFLICT',
   /** 400: tên nguyên liệu không được để trống. */
   INGREDIENT_NAME_EMPTY = 'INGREDIENT_NAME_EMPTY',

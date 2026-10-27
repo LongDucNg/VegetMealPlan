@@ -10,7 +10,7 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { IngredientService } from './ingredient.service';
-import { SetPriceDto } from './dto/set-price.dto';
+import { SetPriceDto, ValidatePricePipe } from './dto/set-price.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
 
@@ -49,7 +49,10 @@ export class IngredientController {
   setMyPrice(
     @Req() req: any,
     @Param('id', PositiveIntPipe) id: number,
-    @Body() dto: SetPriceDto,
+    // ValidatePricePipe phải gắn ở @Body(), KHÔNG dùng @UsePipes() cấp route:
+    // @UsePipes() áp cho MỌI param của route (kể cả :id) nên pipe sẽ đọc
+    // body của path param -> luôn ném "price_per_unit phải lớn hơn 0" -> API 400.
+    @Body(new ValidatePricePipe()) dto: SetPriceDto,
   ) {
     return this.ingredientService.setUserPrice(
       req.user.user_id,
