@@ -1,5 +1,5 @@
 import { profileService } from "@/features/profile/services/profileService";
-import { formatVegetarianType } from "@/features/profile/types";
+import { formatVegetarianType, formatAllergies } from "@/features/profile/types";
 import { nutritionService } from "@/features/nutrition/services/nutritionService";
 import { recipeService } from "@/features/recipes/services/recipeService";
 import { ChatbotMessage } from "../types";
@@ -60,7 +60,7 @@ export const chatbotService = {
       const topPick = recommendations[0];
       const allergyNote =
         profile.allergies.length > 0
-          ? `Đã lọc để tránh các thành phần dị ứng của bạn (${profile.allergies.join(", ")}).`
+          ? `Đã lọc để tránh các thành phần dị ứng của bạn (${formatAllergies(profile.allergies)}).`
           : "Phù hợp với chế độ ăn chay của bạn.";
 
       if (topPick) {
@@ -159,7 +159,7 @@ export const chatbotService = {
       id: `ai-${Math.random().toString(36).substring(2, 9)}`,
       sender: "ai",
       timestamp: "Vừa xong",
-      text: `Chào bạn! Với vai trò là Chuyên gia Dinh dưỡng Chay AI, tôi luôn ghi nhớ hồ sơ của bạn:\n• Chế độ ăn: **${formatVegetarianType(profile.vegetarianType)}**\n• Mục tiêu sức khỏe: **${nutrition.goalTitle}** (~${nutrition.dailyCalorieTarget} kcal/ngày)\n• Dị ứng thực phẩm: **${profile.allergies.length ? profile.allergies.join(", ") : "Không có"}**\n\nBạn có thể hỏi tôi:\n1. *"Tối nay ăn gì?"*\n2. *"Giải thích chỉ số BMI và thể trạng của tôi"*\n3. *"Tôi nên nạp bao nhiêu calo mỗi ngày?"*\n4. *"Nguyên liệu thay thế trứng khi làm bánh"* hoặc *"Cách bổ sung B12 cho người ăn chay tại Việt Nam"*.`,
+      text: `Chào bạn! Với vai trò là Chuyên gia Dinh dưỡng Chay AI, tôi luôn ghi nhớ hồ sơ của bạn:\n• Chế độ ăn: **${formatVegetarianType(profile.vegetarianType)}**\n• Mục tiêu sức khỏe: **${nutrition.goalTitle}** (~${nutrition.dailyCalorieTarget} kcal/ngày)\n• Dị ứng thực phẩm: **${profile.allergies.length ? formatAllergies(profile.allergies) : "Không có"}**\n\nBạn có thể hỏi tôi:\n1. *"Tối nay ăn gì?"*\n2. *"Giải thích chỉ số BMI và thể trạng của tôi"*\n3. *"Tôi nên nạp bao nhiêu calo mỗi ngày?"*\n4. *"Nguyên liệu thay thế trứng khi làm bánh"* hoặc *"Cách bổ sung B12 cho người ăn chay tại Việt Nam"*.`,
     };
   },
 };

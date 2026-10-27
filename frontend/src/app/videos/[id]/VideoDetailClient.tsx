@@ -28,7 +28,7 @@ import {
   CommentItem,
   VIDEO_RECIPES,
 } from "@/features/videos";
-import { FORUM_POSTS } from "@/features/community";
+import { ForumPost, forumService } from "@/features/community";
 import { useRole } from "@/context/RoleContext";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
 
@@ -40,6 +40,11 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
   const [comments, setComments] = useState<CommentItem[]>(video.comments);
   const [newCommentText, setNewCommentText] = useState("");
   const [checkedIngredients, setCheckedIngredients] = useState<Record<number, boolean>>({});
+  const [forumPosts, setForumPosts] = useState<ForumPost[]>([]);
+
+  React.useEffect(() => {
+    forumService.listPosts({ limit: 3 }).then((res) => setForumPosts(res.data));
+  }, []);
 
   // Interactive Star Rating state
   const [userRating, setUserRating] = useState<number | null>(null);
@@ -133,7 +138,7 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
           </Link>
         </div>
         <div className="space-y-3 divide-y divide-stone-100">
-          {FORUM_POSTS.slice(0, 3).map((post) => (
+          {forumPosts.slice(0, 3).map((post) => (
             <Link
               key={post.id}
               href={`/forum/${post.id}`}
