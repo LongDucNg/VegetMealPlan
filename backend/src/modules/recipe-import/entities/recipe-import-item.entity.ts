@@ -13,6 +13,8 @@ export enum ImportFailReason {
   UNKNOWN_INGREDIENT = 'UNKNOWN_INGREDIENT',
   INGREDIENT_CONFLICT = 'INGREDIENT_CONFLICT',
   DUPLICATE_TITLE = 'DUPLICATE_TITLE',
+  /** Nguyên liệu không tương thích với diet_type của công thức. */
+  DIET_INCOMPATIBLE = 'DIET_INCOMPATIBLE',
 }
 
 @Entity('recipe_import_items')
