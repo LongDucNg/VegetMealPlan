@@ -22,6 +22,7 @@ const INGREDIENTS: Record<string, any> = {
     fat_per_100g: 7,
     fiber_per_100g: 10,
     avg_price_per_unit: 20000,
+    vegan_flag: true,
   },
   'bí đỏ': {
     ingredient_id: 70,
@@ -33,6 +34,7 @@ const INGREDIENTS: Record<string, any> = {
     fat_per_100g: 0.1,
     fiber_per_100g: 0.5,
     avg_price_per_unit: 8000,
+    vegan_flag: true,
   },
   'nấm rơm': {
     ingredient_id: 88,
@@ -44,6 +46,7 @@ const INGREDIENTS: Record<string, any> = {
     fat_per_100g: 0.7,
     fiber_per_100g: 2.2,
     avg_price_per_unit: 30000,
+    vegan_flag: true,
   },
 };
 
@@ -74,9 +77,10 @@ function buildService(ctx: Ctx): RecipeImportService {
       const qb: any = {
         select: () => qb,
         where: (_sql: string, params: any) => {
-          keys = params.keys;
+          keys = params?.keys ?? [];
           return qb;
         },
+        andWhere: () => qb,
         // Service dùng getRawMany() (getMany() với select 1 cột trả về mảng rỗng).
         getRawMany: async () =>
           ctx.dbTitles
