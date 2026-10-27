@@ -81,6 +81,14 @@ export enum ErrorCode {
   // ---- Danh mục ----
   /** 404 */
   CATEGORY_NOT_FOUND = 'CATEGORY_NOT_FOUND',
+  /** 400: category_id không tồn tại trong bảng categories. */
+  CATEGORY_ID_NOT_FOUND = 'CATEGORY_ID_NOT_FOUND',
+  /** 400: category_id không thuộc loại hợp lệ để gắn vào công thức. */
+  CATEGORY_TYPE_INVALID = 'CATEGORY_TYPE_INVALID',
+  /** 409: trùng tên danh mục trong cùng một category_type. */
+  CATEGORY_NAME_DUPLICATE = 'CATEGORY_NAME_DUPLICATE',
+  /** 409: danh mục đang được công thức/nội dung khác sử dụng nên không xoá/đổi loại được. */
+  CATEGORY_IN_USE = 'CATEGORY_IN_USE',
   // ---- Diễn đàn ----
   /** 404 */
   FORUM_POST_NOT_FOUND = 'FORUM_POST_NOT_FOUND',
@@ -112,4 +120,16 @@ export enum ErrorCode {
   INGREDIENT_NAME_EMPTY = 'INGREDIENT_NAME_EMPTY',
   /** 404 */
   MEAL_PLAN_NOT_FOUND = 'MEAL_PLAN_NOT_FOUND',
+
+  // ---- Chatbot AI ----
+  /** 429: hết hạn mức câu hỏi chatbot trong ngày. */
+  CHATBOT_QUOTA_EXCEEDED = 'CHATBOT_QUOTA_EXCEEDED',
+  /** 429: gửi câu hỏi quá nhanh (vượt quá 10 req/phút). */
+  CHATBOT_RATE_LIMITED = 'CHATBOT_RATE_LIMITED',
+  /** 400: khách chưa đăng nhập bắt buộc phải gửi session_id. */
+  CHATBOT_SESSION_REQUIRED = 'CHATBOT_SESSION_REQUIRED',
+  /** 503: server chưa cấu hình AI_API_KEY hoặc nhà cung cấp AI. */
+  CHATBOT_AI_NOT_CONFIGURED = 'CHATBOT_AI_NOT_CONFIGURED',
+  /** 503: dịch vụ AI tạm thời không khả dụng, quá thời gian hoặc lỗi mạng. */
+  CHATBOT_SERVICE_UNAVAILABLE = 'CHATBOT_SERVICE_UNAVAILABLE',
 }
