@@ -1,7 +1,10 @@
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { config as loadEnv } from 'dotenv';
+import { resolve } from 'path';
 
-loadEnv();
+// Nạp .env từ thư mục backend (thư mục chứa package.json) để lệnh migration
+// vẫn đọc đúng config dù chạy từ thư mục khác.
+loadEnv({ path: resolve(__dirname, '..', '..', '.env') });
 
 // Datasource dùng cho TypeORM CLI (migration:generate / migration:run).
 // App runtime lấy config qua ConfigService trong app.module.ts, không import file này.
