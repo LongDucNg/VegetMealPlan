@@ -20,6 +20,7 @@ export class CreateForumPostDto {
   @ApiProperty({ example: 'Mình hay nấu món này vào cuối tuần, công thức như sau...' })
   @IsString()
   @MinLength(10)
+  @MaxLength(20000)
   content!: string;
 
   @ApiPropertyOptional({ description: 'category_id của danh mục diễn đàn' })
