@@ -7,7 +7,7 @@ import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
 import { Ingredient } from '../ingredient/entities/ingredient.entity';
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 import { Category } from '../category/entities/category.entity';
-import { RecipeCategory } from '../recipe/entities/recipe-category.entity';
+import { RecipeValidatorService } from '../recipe/recipe-validator.service';
 
 const norm = (s: any) =>
   String(s ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -23,6 +23,7 @@ const INGREDIENTS: Record<string, any> = {
     fat_per_100g: 7,
     fiber_per_100g: 10,
     avg_price_per_unit: 20000,
+    vegan_flag: true,
   },
   'bí đỏ': {
     ingredient_id: 70,
@@ -34,6 +35,7 @@ const INGREDIENTS: Record<string, any> = {
     fat_per_100g: 0.1,
     fiber_per_100g: 0.5,
     avg_price_per_unit: 8000,
+    vegan_flag: true,
   },
   'nấm rơm': {
     ingredient_id: 88,
@@ -45,11 +47,16 @@ const INGREDIENTS: Record<string, any> = {
     fat_per_100g: 0.7,
     fiber_per_100g: 2.2,
     avg_price_per_unit: 30000,
+    vegan_flag: true,
   },
 };
 
 interface Ctx {
   dbTitles: string[];
+  /** ingredient_id của từng món đã tồn tại trong DB (để test trùng theo TẬP nguyên liệu). */
+  dbIngredients: Map<string, number[]>;
+  /** map recipe_id -> title (để mock recipe_ingredients biết món nào). */
+  recipeIdToTitle: Map<number, string>;
   nextRecipeId: number;
   savedRecipes: any[];
   savedItems: any[];
@@ -74,17 +81,38 @@ function buildService(ctx: Ctx): RecipeImportService {
       let keys: string[] = [];
       const qb: any = {
         select: () => qb,
+        addSelect: () => qb,
         where: (_sql: string, params: any) => {
-          keys = params.keys;
+          keys = params?.keys ?? [];
           return qb;
         },
+        andWhere: () => qb,
         // Service dùng getRawMany() (getMany() với select 1 cột trả về mảng rỗng).
         getRawMany: async () =>
           ctx.dbTitles
             .filter((t) => keys.includes(norm(t)))
-            .map((t) => ({ title: t })),
+            .map((t, i) => ({ recipe_id: i + 1, title: t })),
       };
       return qb;
+    },
+  };
+
+  // Mock repo recipe_ingredients: trả về tập ingredient_id theo recipe_id.
+  const recipeIngredientRepo: any = {
+    find: async ({ where }: any) => {
+      const ids: number[] = where?.recipe_id?.value ?? [];
+      const out: any[] = [];
+
+      for (const recipeId of ids) {
+        const title = ctx.dbTitles[recipeId - 1];
+        const ingredientIds = title ? ctx.dbIngredients.get(norm(title)) ?? [] : [];
+
+        for (const ingredientId of ingredientIds) {
+          out.push({ recipe_id: recipeId, ingredient_id: ingredientId });
+        }
+      }
+
+      return out;
     },
   };
 
@@ -105,10 +133,28 @@ function buildService(ctx: Ctx): RecipeImportService {
         const id = ctx.nextRecipeId++;
         ctx.savedRecipes.push({ ...o, recipe_id: id });
         ctx.dbTitles.push(o.title);
+        ctx.recipeIdToTitle.set(id, o.title);
         return { ...o, recipe_id: id };
       },
     };
-    const riRepoM: any = { create: (o: any) => o, save: async (o: any) => o };
+    const riRepoM: any = {
+      create: (o: any) => o,
+      save: async (rows: any[]) => {
+        // Ghi lại tập nguyên liệu của món vừa tạo để lần import sau
+        // nhận ra món trùng (cùng tên + cùng tập nguyên liệu).
+        for (const r of rows) {
+          const title = ctx.recipeIdToTitle.get(r.recipe_id);
+
+          if (!title) continue;
+
+          const list = ctx.dbIngredients.get(norm(title)) ?? [];
+          list.push(r.ingredient_id);
+          ctx.dbIngredients.set(norm(title), list);
+        }
+
+        return rows;
+      },
+    };
     const ingRepoM: any = {
       findOne: async ({ where }: any) =>
         Object.values(INGREDIENTS).find(
@@ -158,12 +204,17 @@ function buildService(ctx: Ctx): RecipeImportService {
     transaction: async (cb: any) => cb(makeManager()),
   };
 
+  // Validator DÙNG CHUNG giữa create / update / import công thức.
+  // Ở unit test dùng đúng instance thật (không DB) để 3 luồng hành xử giống nhau.
+  const recipeValidator = new RecipeValidatorService(ingredientService);
+
   return new RecipeImportService(
     batchRepo,
     itemRepo,
     recipeRepo,
-    { create: (o: any) => o, save: async (o: any) => o } as any,
+    recipeIngredientRepo as any,
     ingredientService,
+    recipeValidator,
     dataSource,
   );
 }
@@ -189,8 +240,15 @@ const row = (title: string, extra: any = {}) => ({
   ...extra,
 });
 
-const newCtx = (dbTitles: string[] = []): Ctx => ({
+const newCtx = (
+  dbTitles: string[] = [],
+  dbIngredients: Record<string, number[]> = {},
+): Ctx => ({
   dbTitles,
+  dbIngredients: new Map(
+    Object.entries(dbIngredients).map(([k, v]) => [norm(k), v]),
+  ),
+  recipeIdToTitle: new Map(),
   nextRecipeId: 900,
   savedRecipes: [],
   savedItems: [],
@@ -210,7 +268,8 @@ function buildServiceWithConflicts(
 
 describe('RecipeImportService - xu ly trung ten', () => {
   it('skip cong thuc trung DB / trung trong file, va xu ly dong loi doc lap', async () => {
-    const ctx = newCtx(['Món Đã Có']);
+    // Món đã có trong DB dùng CÙNG tập nguyên liệu (Yến mạch) -> trùng.
+    const ctx = newCtx(['Món Đã Có'], { 'Món Đã Có': [25] });
     const svc = buildService(ctx);
 
     const rows = [
@@ -288,7 +347,7 @@ describe('RecipeImportService - xu ly trung ten', () => {
   });
 
   it('bo qua cong thuc trung DB khi khac hoa/thuong va khoang trang', async () => {
-    const ctx = newCtx(['  Món  Có  ']);
+    const ctx = newCtx(['  Món  Có  '], { 'Món  Có': [25] });
     const svc = buildService(ctx);
 
     const res: any = await svc.importRows(1, 'd.xlsx', [
@@ -555,5 +614,53 @@ describe('RecipeImportService - validation field bắt buộc', () => {
       'lunch',
       'snack',
     ]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Quy tac trung moi: trung = cung TEN (chuan hoa) + cung TAP nguyen lieu.
+// Cung ten nhung nguyen lieu khac -> van duoc phep nhap.
+// ─────────────────────────────────────────────────────────────
+describe('RecipeImportService - quy tac trung ten + tap nguyen lieu', () => {
+  it('cung ten nhung nguyen lieu KHAC nhau -> van import duoc', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'k1.xlsx', [
+      row('Món Cùng Tên', { ingredients: [ing('Yến mạch')] }),
+      row('món cùng tên', { ingredients: [ing('Bí đỏ')] }),
+    ] as any);
+
+    expect(res.data.summary).toEqual({
+      total: 2,
+      success: 2,
+      skipped: 0,
+      failed: 0,
+    });
+    expect(ctx.savedRecipes.length).toBe(2);
+  });
+
+  it('hai dong trung trong cung file (cung ten + cung tap nguyen lieu) -> dong sau bi SKIPPED, nêu so dong Excel', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'k2.xlsx', [
+      { ...row('Món Trùng'), row_number: 2 },
+      { ...row('  món trùng  '), row_number: 3 },
+    ] as any);
+
+    expect(res.data.summary).toEqual({
+      total: 2,
+      success: 1,
+      skipped: 1,
+      failed: 0,
+    });
+    expect(res.data.details[0].status).toBe('success');
+    expect(res.data.details[0].row).toBe(2);
+    expect(res.data.details[1].status).toBe('skipped');
+    expect(res.data.details[1].row).toBe(3);
+    // Thông báo phải nêu tên món + số dòng Excel của dòng bị trùng.
+    expect(res.data.details[1].reason).toContain('Món Trùng');
+    expect(res.data.details[1].reason).toContain('dòng 2');
   });
 });
