@@ -19,8 +19,8 @@ export interface ExplanationStep {
 }
 
 /** Tốc độ thay đổi cân nặng được coi là an toàn (kg/tuần). */
-const SAFE_LOSS_PER_WEEK = 1;
-const SAFE_GAIN_PER_WEEK = 0.5;
+export const SAFE_LOSS_PER_WEEK = 1;
+export const SAFE_GAIN_PER_WEEK = 0.5;
 
 const GOAL_LABEL: Record<string, string> = {
   lose_weight: 'giảm cân',
