@@ -24,13 +24,20 @@ import {
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 import { IngredientReplacement } from '../ingredient/entities/ingredient-replacement.entity';
 import { IngredientService } from '../ingredient/ingredient.service';
-import { User, DietType } from '../users/entities/user.entity';
+import { User } from '../users/entities/user.entity';
 import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
 import { UserRecipePrice } from './entities/user-recipe-price.entity';
 import { RecipeCategory } from './entities/recipe-category.entity';
 import { Category } from '../category/entities/category.entity';
 import { assertValidRecipeCategoryIds } from '../category/category-validation.util';
 import { calculateIngredientCost } from './recipe-cost.util';
+import { calculateNutritionPerServing } from './recipe-nutrition.util';
+import { RecipeValidatorService } from './recipe-validator.service';
+import {
+  assertRecipeValidation,
+  buildRecipeDuplicateKey,
+  normalizeRecipeTitle,
+} from './recipe-validation.util';
 import {
   isRecipeSuitableForMeal,
   deriveSuitableMeals,
@@ -86,6 +93,8 @@ export class RecipeService {
 
     @InjectRepository(Category)
     private readonly categoryRepo: Repository<Category>,
+
+    private readonly recipeValidator: RecipeValidatorService,
 
     private readonly dataSource: DataSource,
   ) {}
@@ -463,61 +472,57 @@ export class RecipeService {
     userRole: string,
     dto: CreateRecipeDto,
   ) {
-    if (
-      dto.ingredients?.some(
-        (item) =>
-          (item.is_optional ?? false) === false && item.unit !== 'g',
-      )
-    ) {
-      throw new BadRequestException(
-        'Nguyên liệu bắt buộc phải sử dụng đơn vị g để tính dinh dưỡng',
-      );
+    // Tiêu đề phải được trim + không rỗng (DTO đã chuẩn hoá sẵn, nhưng service
+    // cũng có thể được gọi trực tiếp trong test -> kiểm tra lại ở đây).
+    const title = typeof dto.title === 'string' ? dto.title.trim() : '';
+
+    if (!title) {
+      throw new BadRequestException({
+        code: ErrorCode.VALIDATION_FAILED,
+        message: 'Tên món không được để trống.',
+      });
     }
 
-    // Nguyên liệu phải tồn tại và không được lặp lại.
-    await this.validateIngredientIds(dto.ingredients);
+    // Công thức PHẢI có ít nhất 1 nguyên liệu. DTO đã chặn sẵn, nhưng service
+    // cũng có thể được gọi trực tiếp (test/script) -> kiểm tra lại ở đây.
+    if (!Array.isArray(dto.ingredients) || dto.ingredients.length === 0) {
+      throw new BadRequestException({
+        code: ErrorCode.VALIDATION_FAILED,
+        message: 'Công thức phải có ít nhất 1 nguyên liệu.',
+      });
+    }
+
+    // Validator DÙNG CHUNG với update + import:
+    //   - nguyên liệu tồn tại, active, không trùng lặp;
+    //   - quantity > 0, đơn vị "g" cho nguyên liệu bắt buộc;
+    //   - keyword trên TÊN NGUYÊN LIỆU;
+    //   - diet_type của công thức vs từng nguyên liệu.
+    const ingredientCheck = await this.recipeValidator.validateApiIngredients(
+      dto.ingredients,
+      dto.diet_type,
+    );
+
+    assertRecipeValidation(
+      { isValid: ingredientCheck.isValid, violations: ingredientCheck.violations },
+      'Công thức không hợp lệ:',
+    );
+
+    // Chống trùng món: CHỈ áp dụng cho ADMIN.
+    // User thường vẫn được gửi công thức trùng để chờ admin duyệt.
+    // Trùng = cùng tiêu đề (trim + không phân biệt hoa/thường) VÀ cùng tập
+    // ingredient_id (thứ tự nguyên liệu không quan trọng).
+    if (userRole === 'admin') {
+      await this.assertRecipeNotDuplicate(
+        title,
+        ingredientCheck.resolved.map((item) => item.ingredient_id),
+      );
+    }
 
     // meal_type / suitable_meals phải hợp lệ và nhất quán với nhau.
     const mealFields = this.resolveMealFields({
       meal_type: dto.meal_type,
       suitable_meals: dto.suitable_meals,
     });
-
-    // Kiểm tra quy tắc tương thích giữa chế độ ăn chay và nguyên liệu
-    if (dto.ingredients && dto.ingredients.length > 0 && dto.diet_type) {
-      const ingIds = dto.ingredients.map((i) => i.ingredient_id);
-      const dbIngredients = await Promise.all(
-        ingIds.map((id) => this.ingredientService.findOne(id).catch(() => null)),
-      );
-
-      for (const ing of dbIngredients) {
-        if (!ing) continue;
-        const name = (ing.ingredient_name || '').toLowerCase();
-        const isEgg = /trứng/i.test(name);
-        const isDairy =
-          /sữa tươi|sữa đặc|bơ lạt|phô mai|kem tươi|sữa chua|whey/i.test(name);
-
-        if (dto.diet_type === DietType.VEGAN) {
-          if (ing.vegan_flag === false || isEgg || isDairy) {
-            throw new BadRequestException(
-              `Món thuần chay (Vegan) không được chứa trứng, sữa hoặc nguyên liệu từ động vật: "${ing.ingredient_name}"`,
-            );
-          }
-        } else if (dto.diet_type === DietType.LACTO) {
-          if (isEgg) {
-            throw new BadRequestException(
-              `Chế độ ăn chay có sữa (Lacto) không được chứa trứng: "${ing.ingredient_name}"`,
-            );
-          }
-        } else if (dto.diet_type === DietType.OVO) {
-          if (isDairy) {
-            throw new BadRequestException(
-              `Chế độ ăn chay có trứng (Ovo) không được chứa sữa hoặc chế phẩm từ sữa: "${ing.ingredient_name}"`,
-            );
-          }
-        }
-      }
-    }
 
     const status =
       userRole === 'admin'
@@ -534,7 +539,7 @@ export class RecipeService {
       const categoryRepo = manager.getRepository(Category);
 
       const recipe = recipeRepo.create({
-        title: dto.title,
+        title,
         description: dto.description,
         instructions: dto.instructions,
         image_url: dto.image_url,
@@ -563,7 +568,8 @@ export class RecipeService {
             recipe_id: created.recipe_id,
             ingredient_id: item.ingredient_id,
             quantity: item.quantity,
-            unit: item.unit,
+            // Đơn vị đã được validator chuẩn hoá (trim + không phân biệt hoa thường).
+            unit: item.unit.trim(),
             note: item.note,
             is_optional: item.is_optional ?? false,
           }),
@@ -640,41 +646,92 @@ export class RecipeService {
   }
 
   /**
-   * Kiểm tra danh sách nguyên liệu của công thức:
-   * - ingredient_id phải tồn tại trong bảng ingredients.
-   * - Không được lặp lại cùng một ingredient_id.
-   *
-   * Trước đây thiếu bước này: gửi ingredient_id không tồn tại sẽ gây lỗi
-   * foreign key (500), còn gửi trùng sẽ tạo dòng recipe_ingredients lặp.
+   * Lấy tập `ingredient_id` hiện tại của một công thức.
+   * Dùng khi cập nhật mà client KHÔNG gửi lại `ingredients` -> tập nguyên liệu
+   * dùng để so sánh trùng là tập đang lưu trong DB.
    */
-  private async validateIngredientIds(
-    ingredients?: { ingredient_id: number }[],
+  private async getRecipeIngredientIds(
+    recipeId: number,
+  ): Promise<number[]> {
+    const rows = await this.recipeIngredientRepo.find({
+      where: { recipe_id: recipeId },
+    });
+
+    return rows.map((row) => row.ingredient_id);
+  }
+
+  /**
+   * Chặn trùng MÓN (tiêu đề + tập nguyên liệu) khi ADMIN tạo công thức.
+   *
+   * Quy tắc:
+   *   - Trùng khi tiêu đề giống nhau (đã trim, không phân biệt hoa/thường)
+   *     VÀ tập `ingredient_id` giống nhau (thứ tự nguyên liệu không quan trọng).
+   *   - Cùng tiêu đề nhưng KHÁC tập nguyên liệu -> được phép tạo.
+   *
+   * User thường KHÔNG bị chặn vì công thức của họ còn chờ admin duyệt.
+   */
+  private async assertRecipeNotDuplicate(
+    title: string | null | undefined,
+    ingredientIds: number[] | undefined,
+    excludeRecipeId?: number,
   ): Promise<void> {
-    if (!ingredients || ingredients.length === 0) {
+    const key = normalizeRecipeTitle(title);
+
+    if (!key) {
       return;
     }
 
-    const ids = ingredients.map((item) => Number(item.ingredient_id));
+    const targetKey = buildRecipeDuplicateKey(title, ingredientIds);
 
-    const uniqueIds = [...new Set(ids)];
+    const existing = await this.recipeRepo
+      .createQueryBuilder('recipe')
+      .select('recipe.recipe_id', 'recipe_id')
+      .addSelect('recipe.title', 'title')
+      .where(
+        "LOWER(BTRIM(REGEXP_REPLACE(recipe.title, '\\s+', ' ', 'g'))) = :key",
+        { key },
+      )
+      .andWhere('recipe.status != :removedStatus', {
+        removedStatus: RecipeStatus.REMOVED,
+      })
+      .getRawMany<{ recipe_id: number; title: string }>();
 
-    if (uniqueIds.length !== ids.length) {
-      throw new BadRequestException({
-        code: ErrorCode.VALIDATION_FAILED,
-        message: 'Công thức có nguyên liệu bị lặp lại.',
-      });
+    const candidateIds = existing
+      .map((row) => row.recipe_id)
+      .filter((id) => id !== excludeRecipeId);
+
+    if (candidateIds.length === 0) {
+      return;
     }
 
-    const found = await this.ingredientService.findByIds(uniqueIds);
+    // Lấy tập nguyên liệu của các món trùng tiêu đề để so sánh.
+    const recipeIngredients = await this.recipeIngredientRepo.find({
+      where: { recipe_id: In(candidateIds) },
+    });
 
-    const foundIds = new Set(found.map((item) => item.ingredient_id));
+    const idsByRecipe = new Map<number, number[]>();
 
-    const missing = uniqueIds.filter((id) => !foundIds.has(id));
+    for (const row of recipeIngredients) {
+      const list = idsByRecipe.get(row.recipe_id) ?? [];
+      list.push(row.ingredient_id);
+      idsByRecipe.set(row.recipe_id, list);
+    }
 
-    if (missing.length > 0) {
-      throw new BadRequestException({
-        code: ErrorCode.VALIDATION_FAILED,
-        message: `Nguyên liệu không tồn tại: ${missing.join(', ')}`,
+    const duplicate = candidateIds.find((id) => {
+      const existingKey = buildRecipeDuplicateKey(
+        existing.find((row) => row.recipe_id === id)?.title,
+        idsByRecipe.get(id) ?? [],
+      );
+
+      return existingKey === targetKey;
+    });
+
+    if (duplicate !== undefined) {
+      throw new ConflictException({
+        code: ErrorCode.RECIPE_TITLE_DUPLICATE,
+        message:
+          `Công thức "${title?.trim()}" đã tồn tại trong hệ thống ` +
+          `(cùng tên và cùng tập nguyên liệu).`,
       });
     }
   }
@@ -683,45 +740,29 @@ export class RecipeService {
   // CALCULATE NUTRITION
   // =========================
 
-  // nutrition_infos lưu trên 1 KHẨU PHẦN (cùng quy ước với seed và bộ sinh thực đơn),
-  // nên chia tổng của cả món cho số khẩu phần.
-  private calculateNutrition(ingredients: RecipeIngredient[], servings?: number | null) {
-    const nutrition = {
-      calories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-      fiber: 0,
-    };
-
-    for (const item of ingredients) {
-      if (item.is_optional) {
-        continue;
-      }
-
-      const ingredient = item.ingredient;
-      const ratio = Number(item.quantity || 0) / 100;
-
-      nutrition.calories +=
-        ratio * Number(ingredient?.calories_per_100g ?? 0);
-      nutrition.protein +=
-        ratio * Number(ingredient?.protein_per_100g ?? 0);
-      nutrition.carbs +=
-        ratio * Number(ingredient?.carb_per_100g ?? 0);
-      nutrition.fat +=
-        ratio * Number(ingredient?.fat_per_100g ?? 0);
-      nutrition.fiber +=
-        ratio * Number(ingredient?.fiber_per_100g ?? 0);
-    }
-
-    const divisor = servings && servings > 0 ? servings : 1;
-    return {
-      calories: nutrition.calories / divisor,
-      protein: nutrition.protein / divisor,
-      carbs: nutrition.carbs / divisor,
-      fat: nutrition.fat / divisor,
-      fiber: nutrition.fiber / divisor,
-    };
+  // nutrition_infos lưu trên 1 KHẨU PHẦN (cùng quy ước với seed, import và
+  // bộ sinh thực đơn), nên chia tổng của cả món cho số khẩu phần.
+  // Dùng CHUNG calculateNutritionPerServing() để không có 2 chỗ tự tính lệch nhau.
+  private calculateNutrition(
+    ingredients: RecipeIngredient[],
+    servings?: number | null,
+  ) {
+    return calculateNutritionPerServing(
+      ingredients.map((item) => ({
+        quantity: Number(item.quantity ?? 0),
+        is_optional: item.is_optional,
+        ingredient: item.ingredient
+          ? {
+              calories_per_100g: item.ingredient.calories_per_100g,
+              protein_per_100g: item.ingredient.protein_per_100g,
+              carb_per_100g: item.ingredient.carb_per_100g,
+              fat_per_100g: item.ingredient.fat_per_100g,
+              fiber_per_100g: item.ingredient.fiber_per_100g,
+            }
+          : null,
+      })),
+      servings,
+    );
   }
 
   // =========================
@@ -1336,21 +1377,58 @@ export class RecipeService {
       );
     }
 
-    if (dto.ingredients) {
-      const unsupportedIngredient = dto.ingredients.find(
-        (item) =>
-          (item.is_optional ?? false) === false && item.unit !== 'g',
-      );
+    // Tiêu đề mới (nếu có) phải được trim + không rỗng.
+    const nextTitle =
+      dto.title !== undefined
+        ? typeof dto.title === 'string'
+          ? dto.title.trim()
+          : ''
+        : undefined;
 
-      if (unsupportedIngredient) {
-        throw new BadRequestException(
-          `Cannot calculate nutrition for unit "${unsupportedIngredient.unit}". Use "g" for required ingredients.`,
-        );
-      }
+    if (dto.title !== undefined && !nextTitle) {
+      throw new BadRequestException({
+        code: ErrorCode.VALIDATION_FAILED,
+        message: 'Tên món không được để trống.',
+      });
     }
 
-    // Nguyên liệu phải tồn tại và không được lặp lại.
-    await this.validateIngredientIds(dto.ingredients);
+    // Validator DÙNG CHUNG với create + import.
+    // diet_type dùng giá trị MỚI nếu có, nếu không thì dùng giá trị đang lưu
+    // (để đổi nguyên liệu mà không gửi diet_type vẫn được kiểm tra đúng chế độ).
+    const nextDietType = dto.diet_type ?? recipe.diet_type;
+
+    const ingredientCheck = await this.recipeValidator.validateApiIngredients(
+      dto.ingredients,
+      nextDietType,
+    );
+
+    assertRecipeValidation(
+      {
+        isValid: ingredientCheck.isValid,
+        violations: ingredientCheck.violations,
+      },
+      'Công thức không hợp lệ:',
+    );
+
+    // Chống trùng món khi CẬP NHẬT: dùng CÙNG quy tắc với create/import
+    // (tên chuẩn hoá + tập `ingredient_id` đã sort) -> cùng tên nhưng khác
+    // nguyên liệu vẫn được phép; chính recipe đang sửa bị loại trừ.
+    //
+    // Tập nguyên liệu dùng để so sánh là tập SAU khi cập nhật:
+    //   - client gửi ingredients -> dùng tập đã validate;
+    //   - không gửi ingredients -> dùng tập nguyên liệu hiện tại của món.
+    if (nextTitle !== undefined) {
+      const nextIngredientIds =
+        dto.ingredients !== undefined
+          ? ingredientCheck.resolved.map((item) => item.ingredient_id)
+          : await this.getRecipeIngredientIds(recipeId);
+
+      await this.assertRecipeNotDuplicate(
+        nextTitle,
+        nextIngredientIds,
+        recipeId,
+      );
+    }
 
     // meal_type / suitable_meals phải hợp lệ và nhất quán với nhau.
     // Tính TRƯỚC khi mở transaction để lỗi validation không sinh thay đổi nào.
@@ -1416,7 +1494,7 @@ export class RecipeService {
       const nutritionRepo = manager.getRepository(NutritionInfo);
 
       Object.assign(recipe, {
-        title: dto.title ?? recipe.title,
+        title: nextTitle ?? recipe.title,
         description: dto.description ?? recipe.description,
         instructions: dto.instructions ?? recipe.instructions,
         image_url: dto.image_url ?? recipe.image_url,
@@ -1446,7 +1524,8 @@ export class RecipeService {
               recipe_id: recipeId,
               ingredient_id: item.ingredient_id,
               quantity: item.quantity,
-              unit: item.unit,
+              // Đơn vị đã được validator chuẩn hoá (trim + không phân biệt hoa thường).
+              unit: item.unit.trim(),
               note: item.note,
               is_optional: item.is_optional ?? false,
             }),
