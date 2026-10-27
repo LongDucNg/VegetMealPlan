@@ -31,4 +31,7 @@ export interface ImportRecipeRow {
   // Lỗi đọc được khi controller parse dòng (VD: cột ingredients không phải JSON hợp lệ).
   // Dòng này sẽ được đánh dấu FAILED thay vì hủy toàn bộ lô import.
   row_error?: string;
+  // Số dòng THẬT trong file Excel (dòng 1 = header, dòng 2 = dữ liệu đầu tiên).
+  // Controller gán khi đọc file để thông báo lỗi chỉ đúng dòng Excel.
+  row_number?: number;
 }
