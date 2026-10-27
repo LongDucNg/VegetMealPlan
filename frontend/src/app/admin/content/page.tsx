@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DataTable } from "@/components/ui/Table";
@@ -8,14 +9,23 @@ import { Badge } from "@/components/ui/Badge";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
 import { ADMIN_CONTENT_ITEMS, AdminContentItem } from "@/features/admin";
-import { CheckCircle2, EyeOff, Flag, FileText, Video, MessageSquare } from "lucide-react";
+import { forumService } from "@/features/community";
+import {
+  EyeOff,
+  FileText,
+  Video,
+  MessageSquare,
+  ExternalLink,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 
 type ContentTab = "all" | "Blog" | "Video" | "Comment";
 
 function StatusBadge({ status }: { status: AdminContentItem["status"] }) {
-  if (status === "Published") return <Badge variant="success">Đã xuất bản</Badge>;
-  if (status === "Under Review") return <Badge variant="info">Đang xét duyệt</Badge>;
-  return <Badge variant="flagged">Đã gỡ bỏ</Badge>;
+  if (status === "Published") return <Badge variant="success">Đã được duyệt</Badge>;
+  if (status === "Under Review") return <Badge variant="info">Chờ duyệt</Badge>;
+  return <Badge variant="flagged">Đã bị gỡ</Badge>;
 }
 
 function TypeIcon({ type }: { type: AdminContentItem["type"] }) {
@@ -27,6 +37,7 @@ function TypeIcon({ type }: { type: AdminContentItem["type"] }) {
 function ContentManagement() {
   const [activeTab, setActiveTab] = useState<ContentTab>("all");
   const [items, setItems] = useState<AdminContentItem[]>([...ADMIN_CONTENT_ITEMS]);
+  const [loading, setLoading] = useState(false);
 
   const tabs: { id: ContentTab; label: string }[] = [
     { id: "all", label: "Tất cả nội dung" },
@@ -35,106 +46,155 @@ function ContentManagement() {
     { id: "Comment", label: "Bình luận" },
   ];
 
+  const loadContent = async () => {
+    setLoading(true);
+    try {
+      const realItems = await forumService.getAdminContentList();
+      if (realItems && realItems.length > 0) {
+        setItems(realItems);
+      }
+    } catch (err) {
+      console.warn("[AdminContent] Error loading real content:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadContent();
+  }, []);
+
   const filtered = activeTab === "all" ? items : items.filter((i) => i.type === activeTab);
 
-  const setStatus = (id: string, status: AdminContentItem["status"]) => {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, status } : i)));
+  const handleSetStatus = async (id: string, status: AdminContentItem["status"]) => {
+    const backendStatus =
+      status === "Published"
+        ? "approved"
+        : status === "Removed"
+          ? "removed"
+          : "pending_review";
+
+    try {
+      await forumService.adminUpdatePostStatus(id, backendStatus as any);
+    } catch (err) {
+      console.error("Error updating post status:", err);
+    }
+
+    setItems((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, status } : i))
+    );
   };
 
   return (
     <div className="space-y-5">
-      {/* Tabs */}
-      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTab(t.id)}
-            className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
-              activeTab === t.id
-                ? "bg-emerald-700 text-white shadow-sm"
-                : "bg-white border border-stone-200 text-stone-600 hover:border-emerald-300 hover:text-stone-900"
-            }`}
-          >
-            {t.label}
-            <span className={`ml-2 text-xs ${activeTab === t.id ? "text-emerald-200" : "text-stone-400"}`}>
-              {t.id === "all" ? items.length : items.filter((i) => i.type === t.id).length}
-            </span>
-          </button>
-        ))}
+      {/* Tabs & Refresh */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
+                activeTab === t.id
+                  ? "bg-emerald-700 text-white shadow-sm"
+                  : "bg-white border border-stone-200 text-stone-600 hover:border-emerald-300 hover:text-stone-900"
+              }`}
+            >
+              {t.label}
+              <span
+                className={`ml-2 text-xs ${
+                  activeTab === t.id ? "text-emerald-200" : "text-stone-400"
+                }`}
+              >
+                {t.id === "all"
+                  ? items.length
+                  : items.filter((i) => i.type === t.id).length}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={loadContent}
+          disabled={loading}
+          className="h-9 px-3 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-600 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+          <span>Làm mới</span>
+        </button>
       </div>
 
-      {/* Table */}
-      <DataTable
-        columns={[
-          { key: "content", label: "Nội dung" },
-          { key: "type", label: "Phân loại" },
-          { key: "author", label: "Tác giả" },
-          { key: "date", label: "Ngày đăng" },
-          { key: "reports", label: "Báo cáo" },
-          { key: "status", label: "Trạng thái" },
-          { key: "actions", label: "Thao tác" },
-        ]}
-        rows={filtered.map((item) => ({
-          content: (
-            <p className="text-sm font-medium text-stone-900 line-clamp-1 max-w-[280px]">
-              {item.title}
-            </p>
-          ),
-          type: (
-            <span className="flex items-center gap-1.5 text-xs font-medium text-stone-600">
-              <TypeIcon type={item.type} />
-              {item.type === "Video" ? "Video" : item.type === "Blog" ? "Bài viết" : "Bình luận"}
-            </span>
-          ),
-          author: <span className="text-xs text-stone-600">{item.author}</span>,
-          date: <span className="text-xs text-stone-500">{item.date}</span>,
-          reports: (
-            <span className={`text-xs font-semibold ${item.reports > 0 ? "text-red-600" : "text-stone-400"}`}>
-              {item.reports > 0 ? `⚠ ${item.reports}` : "—"}
-            </span>
-          ),
-          status: <StatusBadge status={item.status} />,
-          actions: (
-            <div className="flex items-center gap-1">
-              {item.status !== "Published" && (
-                <button
-                  onClick={() => setStatus(item.id, "Published")}
-                  title="Duyệt bài"
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-semibold transition-colors cursor-pointer"
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3 text-stone-400 bg-white rounded-2xl border border-stone-200">
+          <Loader2 className="w-7 h-7 animate-spin text-emerald-600" />
+          <span className="text-sm font-medium text-stone-500">
+            Đang tải dữ liệu nội dung diễn đàn thực tế…
+          </span>
+        </div>
+      ) : (
+        /* Table */
+        <DataTable
+          columns={[
+            { key: "content", label: "Nội dung" },
+            { key: "type", label: "Phân loại" },
+            { key: "author", label: "Tác giả" },
+            { key: "date", label: "Thời gian" },
+            { key: "status", label: "Trạng thái" },
+            { key: "actions", label: "Thao tác" },
+          ]}
+          rows={filtered.map((item) => ({
+            content: (
+              <div className="flex items-center gap-2 max-w-[320px]">
+                <p className="text-sm font-medium text-stone-900 line-clamp-1">
+                  {item.title}
+                </p>
+                <Link
+                  href={`/forum/${item.id}`}
+                  target="_blank"
+                  title="Xem bài viết trên diễn đàn"
+                  className="text-stone-400 hover:text-emerald-600 shrink-0"
                 >
-                  <CheckCircle2 className="w-3 h-3" />
-                  Duyệt
-                </button>
-              )}
-              {item.status !== "Removed" && (
-                <button
-                  onClick={() => setStatus(item.id, "Removed")}
-                  title="Gỡ bỏ"
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  <EyeOff className="w-3 h-3" />
-                  Gỡ bỏ
-                </button>
-              )}
-              {item.status !== "Under Review" && (
-                <button
-                  onClick={() => setStatus(item.id, "Under Review")}
-                  title="Chuyển xét duyệt"
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  <Flag className="w-3 h-3" />
-                  Gắn cờ
-                </button>
-              )}
-            </div>
-          ),
-        }))}
-      />
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            ),
+            type: (
+              <span className="flex items-center gap-1.5 text-xs font-medium text-stone-600">
+                <TypeIcon type={item.type} />
+                {item.type === "Video"
+                  ? "Video"
+                  : item.type === "Blog"
+                    ? "Bài viết"
+                    : "Bình luận"}
+              </span>
+            ),
+            author: <span className="text-xs text-stone-600">{item.author}</span>,
+            date: <span className="text-xs text-stone-500">{item.date}</span>,
+            status: <StatusBadge status={item.status} />,
+            actions: (
+              <div className="flex items-center gap-1.5">
+                {item.status !== "Removed" ? (
+                  <button
+                    onClick={() => handleSetStatus(item.id, "Removed")}
+                    title="Gỡ bỏ bài viết này khỏi diễn đàn"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 text-xs font-semibold transition-colors cursor-pointer border border-red-200"
+                  >
+                    <EyeOff className="w-3 h-3" />
+                    <span>Gỡ</span>
+                  </button>
+                ) : (
+                  <span className="text-xs text-stone-400 font-medium italic select-none">
+                    Đã bị gỡ
+                  </span>
+                )}
+              </div>
+            ),
+          }))}
+        />
+      )}
     </div>
   );
 }
-
-import Link from "next/link";
 
 export default function AdminContentPage() {
   const { isGuest, isMember, ready } = useRole();
@@ -168,4 +228,3 @@ export default function AdminContentPage() {
     </AppShell>
   );
 }
-
