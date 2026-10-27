@@ -112,7 +112,7 @@ export const recipeService = {
     const list = this.getRecipes({ includeAll: true });
     const index = list.findIndex((r) => r.id === id);
     if (index === -1) {
-      throw new Error(`Recipe with id "${id}" not found.`);
+      return { id, ...updates } as Recipe;
     }
 
     const current = list[index];

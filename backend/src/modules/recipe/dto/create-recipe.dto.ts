@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -35,15 +36,18 @@ export class CreateRecipeIngredientDto {
 
 export class CreateRecipeDto {
   @IsString()
+  @IsNotEmpty()
   title: string;
 
   @IsOptional()
   @IsString()
   description?: string;
 
-  @IsOptional()
+  // instructions là NOT NULL trong DB (recipes.instructions text NOT NULL).
+  // Để optional sẽ gây lỗi 500 khi thiếu trường -> bắt buộc + không rỗng.
   @IsString()
-  instructions?: string;
+  @IsNotEmpty()
+  instructions: string;
 
   @IsOptional()
   @IsString()
@@ -72,13 +76,22 @@ export class CreateRecipeDto {
   @IsString()
   meal_type?: string;
 
+  // Danh sách bữa ăn phù hợp, cách nhau dấu phẩy (vd. "lunch,dinner").
+  // Bỏ trống thì suy ra từ meal_type theo mapping chuẩn.
+  @IsOptional()
+  @IsString()
+  suitable_meals?: string;
+
   @IsOptional()
   @IsEnum(DietType)
   diet_type?: DietType;
 
+  // source_video_id là INT trong DB (recipes.source_video_id int).
+  // Để @IsString() sẽ nhận "abc" -> lỗi DB 500.
   @IsOptional()
-  @IsString()
-  source_video_id?: string;
+  @IsInt()
+  @Min(1)
+  source_video_id?: number;
 
   @IsOptional()
   @IsNumber()
