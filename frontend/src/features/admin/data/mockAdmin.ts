@@ -11,7 +11,7 @@ export const ADMIN_STATS: AdminStat[] = [
   { label: "Tổng số thành viên", value: "24,850", change: "+12.4% tháng này", positive: true },
   { label: "Công thức món ăn", value: "1,420", change: "+38 tuần này", positive: true },
   { label: "Truy vấn gợi ý AI", value: "184.2K", change: "+24.8% tháng này", positive: true },
-  { label: "Báo cáo chờ duyệt", value: "7 mục", change: "3 mục cần duyệt gấp", positive: false },
+  { label: "Báo cáo chờ duyệt", value: "7 mục", change: "3 mục cần duyệt ", positive: false },
 ];
 
 export const ADMIN_MEMBERS: AdminMember[] = [
