@@ -51,6 +51,8 @@ export enum ErrorCode {
   AUTH_PASSWORD_NOT_SET = 'AUTH_PASSWORD_NOT_SET',
   /** 400: mật khẩu mới trùng mật khẩu hiện tại. */
   AUTH_PASSWORD_UNCHANGED = 'AUTH_PASSWORD_UNCHANGED',
+  /** 403: đúng mật khẩu nhưng email chưa xác thực. FE chuyển sang màn nhập OTP (server đã gửi mã mới). */
+  AUTH_EMAIL_NOT_VERIFIED = 'AUTH_EMAIL_NOT_VERIFIED',
 
   // ---- User / hồ sơ ----
   /** 404 */
@@ -67,6 +69,12 @@ export enum ErrorCode {
   USER_TARGET_DATE_INVALID = 'USER_TARGET_DATE_INVALID',
   /** 400: admin tự khóa hoặc tự đổi vai trò của chính mình. */
   USER_CANNOT_MODIFY_SELF = 'USER_CANNOT_MODIFY_SELF',
+
+  // ---- Mục tiêu cân nặng → kcal → thực đơn ----
+  /** 400: thiếu hoặc sai dữ liệu mục tiêu cân nặng (cân nặng hiện tại/mục tiêu, thời gian, hướng mục tiêu). */
+  WEIGHT_GOAL_INVALID = 'WEIGHT_GOAL_INVALID',
+  /** 400: mục tiêu cân nặng không an toàn (tốc độ thay đổi quá nhanh, mức thay đổi quá lớn, hoặc không thể tính kcal an toàn). */
+  WEIGHT_GOAL_UNSAFE = 'WEIGHT_GOAL_UNSAFE',
 
   // ---- Gói Premium ----
   /** 404 */
@@ -94,9 +102,36 @@ export enum ErrorCode {
   FORUM_POST_NOT_FOUND = 'FORUM_POST_NOT_FOUND',
   /** 400: category_id không tồn tại, đã tắt, hoặc không thuộc diễn đàn. */
   FORUM_CATEGORY_INVALID = 'FORUM_CATEGORY_INVALID',
+  /** 403: không phải chủ bài viết hoặc admin. */
+  FORUM_FORBIDDEN = 'FORUM_FORBIDDEN',
+  /** 403: không phải chủ bình luận hoặc admin. */
+  FORUM_COMMENT_FORBIDDEN = 'FORUM_COMMENT_FORBIDDEN',
+  /** 404: không tìm thấy bình luận hoặc bình luận không thuộc bài viết này. */
+  FORUM_COMMENT_NOT_FOUND = 'FORUM_COMMENT_NOT_FOUND',
+  /** 400: không thể tự bình chọn cho bài viết của chính mình. */
+  FORUM_SELF_VOTE_FORBIDDEN = 'FORUM_SELF_VOTE_FORBIDDEN',
+  /** 409: bài viết không ở trạng thái chờ duyệt. */
+  FORUM_POST_NOT_PENDING = 'FORUM_POST_NOT_PENDING',
+
+  // ---- Video ----
+  /** 404: không tìm thấy video hoặc video chưa được duyệt. */
+  VIDEO_NOT_FOUND = 'VIDEO_NOT_FOUND',
+  /** 400: category không tồn tại, đã tắt, hoặc không thuộc video. */
+  VIDEO_CATEGORY_INVALID = 'VIDEO_CATEGORY_INVALID',
+  /** 403: không phải chủ video hoặc admin. */
+  VIDEO_FORBIDDEN = 'VIDEO_FORBIDDEN',
+  /** 400: nguyên liệu chứa từ khóa mặn. */
+  VIDEO_NON_VEGETARIAN_INGREDIENT = 'VIDEO_NON_VEGETARIAN_INGREDIENT',
+  /** 404: không tìm thấy bình luận video. */
+  VIDEO_COMMENT_NOT_FOUND = 'VIDEO_COMMENT_NOT_FOUND',
+  /** 400: không thể tự vote cho bình luận của chính mình. */
+  VIDEO_SELF_VOTE_FORBIDDEN = 'VIDEO_SELF_VOTE_FORBIDDEN',
+
   // ---- Recipe / Nguyên liệu / Thực đơn ----
   /** 404 */
   RECIPE_NOT_FOUND = 'RECIPE_NOT_FOUND',
+  /** 409: tiêu đề công thức đã tồn tại (đã chuẩn hoá không phân biệt hoa thường). */
+  RECIPE_TITLE_DUPLICATE = 'RECIPE_TITLE_DUPLICATE',
   /** 404 */
   INGREDIENT_NOT_FOUND = 'INGREDIENT_NOT_FOUND',
   /** 409: tên nguyên liệu đã tồn tại. */
@@ -105,4 +140,16 @@ export enum ErrorCode {
   INGREDIENT_NAME_EMPTY = 'INGREDIENT_NAME_EMPTY',
   /** 404 */
   MEAL_PLAN_NOT_FOUND = 'MEAL_PLAN_NOT_FOUND',
+
+  // ---- Chatbot AI ----
+  /** 429: hết hạn mức câu hỏi chatbot trong ngày. */
+  CHATBOT_QUOTA_EXCEEDED = 'CHATBOT_QUOTA_EXCEEDED',
+  /** 429: gửi câu hỏi quá nhanh (vượt quá 10 req/phút). */
+  CHATBOT_RATE_LIMITED = 'CHATBOT_RATE_LIMITED',
+  /** 400: khách chưa đăng nhập bắt buộc phải gửi session_id. */
+  CHATBOT_SESSION_REQUIRED = 'CHATBOT_SESSION_REQUIRED',
+  /** 503: server chưa cấu hình AI_API_KEY hoặc nhà cung cấp AI. */
+  CHATBOT_AI_NOT_CONFIGURED = 'CHATBOT_AI_NOT_CONFIGURED',
+  /** 503: dịch vụ AI tạm thời không khả dụng, quá thời gian hoặc lỗi mạng. */
+  CHATBOT_SERVICE_UNAVAILABLE = 'CHATBOT_SERVICE_UNAVAILABLE',
 }

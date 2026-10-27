@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IngredientService } from './ingredient.service';
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
 import { UpdateIngredientDto } from './dto/update-ingredient.dto';
+import { CreateIngredientConflictDto } from './dto/create-ingredient-conflict.dto';
 import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
@@ -23,11 +24,8 @@ export class AdminIngredientController {
 
   @Post('conflicts')
   createConflict(
-    @Body() dto: { ingredient_id_1: number; ingredient_id_2: number; reason?: string },
+    @Body() dto: CreateIngredientConflictDto,
   ) {
-    if (!dto.ingredient_id_1 || !dto.ingredient_id_2) {
-      throw new BadRequestException('Vui lòng cung cấp đầy đủ ingredient_id_1 và ingredient_id_2');
-    }
     return this.ingredientService.createConflict(
       Number(dto.ingredient_id_1),
       Number(dto.ingredient_id_2),

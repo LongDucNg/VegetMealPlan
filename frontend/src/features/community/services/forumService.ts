@@ -44,8 +44,8 @@ export function mapBackendPostToForumPost(
     "excerpt" in p && p.excerpt
       ? p.excerpt
       : content.length > 200
-      ? `${content.slice(0, 200)}…`
-      : content;
+        ? `${content.slice(0, 200)}…`
+        : content;
 
   return {
     id: String(p.blog_id),
