@@ -14,6 +14,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 
 import { MealPlanService } from './meal-plan.service';
+import { CreateMealPlanDto } from './dto/create-meal-plan.dto';
 import { SaveMealPlanDto } from './dto/save-meal-plan.dto';
 import { GenerateForSomeoneDto } from './dto/generate-for-someone.dto';
 import { UpdateMyMealPlanDto } from './dto/update-my-meal-plan.dto';

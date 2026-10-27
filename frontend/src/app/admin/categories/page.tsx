@@ -161,10 +161,11 @@ function CategoriesContent() {
             </button>
             <button
               onClick={() => toggleArchive(item.id)}
-              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${item.status === "Active"
-                ? "hover:bg-amber-50 text-stone-400 hover:text-amber-700"
-                : "hover:bg-emerald-50 text-stone-400 hover:text-emerald-700"
-                }`}
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                item.status === "Active"
+                  ? "hover:bg-amber-50 text-stone-400 hover:text-amber-700"
+                  : "hover:bg-emerald-50 text-stone-400 hover:text-emerald-700"
+              }`}
               title={item.status === "Active" ? "Lưu trữ" : "Khôi phục"}
             >
               {item.status === "Active" ? (
@@ -273,7 +274,19 @@ function CategoriesContent() {
             />
           </div>
 
-
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1.5">
+              Loại hình danh mục
+            </label>
+            <select
+              value={formType}
+              onChange={(e) => setFormType(e.target.value as CategoryItem["type"])}
+              className="w-full h-10 px-3.5 rounded-xl border border-stone-200 text-sm focus:border-emerald-600 outline-none bg-white"
+            >
+              <option value="Recipe Category">Danh mục món ăn</option>
+              <option value="Food Type">Trường phái ẩm thực</option>
+            </select>
+          </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-stone-100">
             <button
