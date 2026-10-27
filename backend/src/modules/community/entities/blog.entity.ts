@@ -52,11 +52,30 @@ export class Blog {
   @Column({ type: 'enum', enum: ContentStatus, default: ContentStatus.DRAFT })
   status: ContentStatus;
 
+  @Column({ type: 'boolean', default: false })
+  is_flagged: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  flag_reason: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  reject_reason: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  reviewed_by: number | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'reviewed_by' })
+  reviewer: User;
+
   @Column({ type: 'timestamp', nullable: true })
-  approved_at: Date;
+  reviewed_at: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  approved_at: Date | null;
 
   @Column({ nullable: true })
-  approved_by: number;
+  approved_by: number | null;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'approved_by' })
