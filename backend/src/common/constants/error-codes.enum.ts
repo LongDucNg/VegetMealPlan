@@ -68,6 +68,12 @@ export enum ErrorCode {
   /** 400: admin tự khóa hoặc tự đổi vai trò của chính mình. */
   USER_CANNOT_MODIFY_SELF = 'USER_CANNOT_MODIFY_SELF',
 
+  // ---- Mục tiêu cân nặng → kcal → thực đơn ----
+  /** 400: thiếu hoặc sai dữ liệu mục tiêu cân nặng (cân nặng hiện tại/mục tiêu, thời gian, hướng mục tiêu). */
+  WEIGHT_GOAL_INVALID = 'WEIGHT_GOAL_INVALID',
+  /** 400: mục tiêu cân nặng không an toàn (tốc độ thay đổi quá nhanh, mức thay đổi quá lớn, hoặc không thể tính kcal an toàn). */
+  WEIGHT_GOAL_UNSAFE = 'WEIGHT_GOAL_UNSAFE',
+
   // ---- Gói Premium ----
   /** 404 */
   SUBSCRIPTION_TRANSACTION_NOT_FOUND = 'SUBSCRIPTION_TRANSACTION_NOT_FOUND',
@@ -81,6 +87,14 @@ export enum ErrorCode {
   // ---- Danh mục ----
   /** 404 */
   CATEGORY_NOT_FOUND = 'CATEGORY_NOT_FOUND',
+  /** 404: category_id không tồn tại trong bảng categories. */
+  CATEGORY_ID_NOT_FOUND = 'CATEGORY_ID_NOT_FOUND',
+  /** 400: category không thuộc loại gắn được cho công thức (recipe_type/food_type). */
+  CATEGORY_TYPE_INVALID = 'CATEGORY_TYPE_INVALID',
+  /** 409: tên danh mục đã tồn tại (đã chuẩn hoá không phân biệt hoa thường). */
+  CATEGORY_NAME_DUPLICATE = 'CATEGORY_NAME_DUPLICATE',
+  /** 409: danh mục đang được dùng, không thể xoá. */
+  CATEGORY_IN_USE = 'CATEGORY_IN_USE',
   // ---- Diễn đàn ----
   /** 404 */
   FORUM_POST_NOT_FOUND = 'FORUM_POST_NOT_FOUND',
@@ -104,6 +118,8 @@ export enum ErrorCode {
   // ---- Recipe / Nguyên liệu / Thực đơn ----
   /** 404 */
   RECIPE_NOT_FOUND = 'RECIPE_NOT_FOUND',
+  /** 409: tiêu đề công thức đã tồn tại (đã chuẩn hoá không phân biệt hoa thường). */
+  RECIPE_TITLE_DUPLICATE = 'RECIPE_TITLE_DUPLICATE',
   /** 404 */
   INGREDIENT_NOT_FOUND = 'INGREDIENT_NOT_FOUND',
   /** 409: tên nguyên liệu đã tồn tại. */
