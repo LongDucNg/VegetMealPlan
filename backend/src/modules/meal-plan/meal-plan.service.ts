@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, DataSource } from 'typeorm';
@@ -36,6 +37,7 @@ import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 
 import { User } from '../users/entities/user.entity';
 import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
+import { HealthGoal } from '../health-goal/entities/health-goal.entity';
 
 import { CreateMealPlanDto } from './dto/create-meal-plan.dto';
 import { SaveMealPlanDto } from './dto/save-meal-plan.dto';
@@ -44,6 +46,37 @@ import { ValidateMealPlanDto } from './dto/validate-meal-plan.dto';
 import { UpdateMealSlotDto } from './dto/update-meal-slot.dto';
 import { GenerateMealPlanDto } from './dto/generate-meal-plan.dto';
 import { IngredientService } from '../ingredient/ingredient.service';
+import {
+  assessWeightGoal,
+  assertCompleteProfile,
+  assertValidGoalInput,
+  CALORIE_FLOOR,
+  GoalAssessment,
+  ProfileMetrics,
+  resolveGoalPlan,
+  WeightGoalDirection,
+} from '../users/weight-goal.util';
+
+/**
+ * Tỉ lệ calo theo bữa dùng khi SOẠN THỰC ĐƠN (snack = phần còn lại).
+ * Riêng `GET /users/me/nutrition-summary` dùng MEAL_SPLIT ở nutrition-advice
+ * để không đổi hợp đồng response của API đó.
+ */
+const PLAN_MEAL_SPLIT = { breakfast: 0.22, lunch: 0.31, dinner: 0.31 };
+
+/** Tính kcal từng bữa từ tổng kcal mục tiêu (snack = phần còn lại). */
+function splitMealCalories(targetCalories: number): {
+  breakfast: number;
+  lunch: number;
+  dinner: number;
+  snack: number;
+} {
+  const breakfast = Math.round(targetCalories * PLAN_MEAL_SPLIT.breakfast);
+  const lunch = Math.round(targetCalories * PLAN_MEAL_SPLIT.lunch);
+  const dinner = Math.round(targetCalories * PLAN_MEAL_SPLIT.dinner);
+  const snack = Math.max(0, targetCalories - (breakfast + lunch + dinner));
+  return { breakfast, lunch, dinner, snack };
+}
 
 interface BudgetTracker {
   remaining: number;
@@ -100,6 +133,9 @@ export class MealPlanService {
     private readonly subscriptionService: SubscriptionService,
     private readonly ingredientService: IngredientService,
     private readonly dataSource: DataSource,
+    @Optional()
+    @InjectRepository(HealthGoal)
+    private readonly goalRepo?: Repository<HealthGoal>,
   ) { }
 
   // =========================================================
@@ -380,6 +416,7 @@ export class MealPlanService {
     for (let dayIndex = 0; dayIndex < dayCount; dayIndex++) {
       let dayCalories = 0;
       const globalDay = dayOffset + dayIndex;
+      const dayStartIndex = planned.length;
 
       for (let mealIndex = 0; mealIndex < mealEntries.length; mealIndex++) {
         const [mealType, baseCalories] = mealEntries[mealIndex];
@@ -413,13 +450,13 @@ export class MealPlanService {
         }
 
         // Đánh giá điểm độ phù hợp của món ăn:
-        // 1. So khớp calo sau khi tính tỷ lệ khẩu phần khả dĩ (0.6x - 3.0x tuỳ calo gốc).
+        // 1. So khớp calo sau khi tính tỷ lệ khẩu phần khả dĩ (0.4x - 3.0x tuỳ calo gốc).
         // 2. Phạt nhẹ các món đã dùng trước đó và món vừa ăn gần đây để luân phiên món.
         // 3. Ưu tiên cao việc khớp calo để tổng ngày không bị hụt mục tiêu dinh dưỡng.
         const score = (recipe: Recipe) => {
           const recipeCalories = Number(nutritionMap.get(recipe.recipe_id)?.calories ?? 0);
           const maxPortion = recipeCalories < 200 ? 3.0 : recipeCalories < 350 ? 2.5 : 1.8;
-          let testPortion = recipeCalories > 0 ? Math.min(maxPortion, Math.max(0.6, calories / recipeCalories)) : 1;
+          let testPortion = recipeCalories > 0 ? Math.min(maxPortion, Math.max(0.4, calories / recipeCalories)) : 1;
           testPortion = Math.round(testPortion * 10) / 10;
           const effectiveCalories = recipeCalories * testPortion;
           const calDiff = Math.abs(effectiveCalories - calories);
@@ -446,12 +483,12 @@ export class MealPlanService {
         usedCounts.set(selected.recipe_id, (usedCounts.get(selected.recipe_id) ?? 0) + 1);
         recentDays.set(selected.recipe_id, globalDay);
 
-        // Chỉnh khẩu phần (0.6x–3.0x) để calo bữa bám sát mục tiêu khi món calo thấp.
+        // Chỉnh khẩu phần (0.4x–3.0x) để calo bữa bám sát mục tiêu khi món calo thấp hoặc cao.
         const recipeCalories = Number(nutritionMap.get(selected.recipe_id)?.calories ?? 0);
         const maxPortion = recipeCalories < 200 ? 3.0 : recipeCalories < 350 ? 2.5 : 1.8;
         let portion =
           recipeCalories > 0
-            ? Math.min(maxPortion, Math.max(0.6, calories / recipeCalories))
+            ? Math.min(maxPortion, Math.max(0.4, calories / recipeCalories))
             : 1;
         const unitCost = costMap.get(selected.recipe_id) ?? 0;
 
@@ -461,7 +498,7 @@ export class MealPlanService {
           if (unitCost > 0) portion = Math.min(portion, maxCost / unitCost);
         }
         portion = Math.round(portion * 10) / 10;
-        if (portion <= 0) portion = 0.5;
+        if (portion <= 0) portion = 0.4;
 
         dayCalories += recipeCalories * portion;
 
@@ -471,6 +508,25 @@ export class MealPlanService {
         }
 
         planned.push({ dayIndex, mealType, calories, recipe: selected, portion });
+      }
+
+      // Hậu kiểm và vi chỉnh calo ngày:
+      // Đảm bảo tổng calo của ngày bám sát dayTarget (không vượt quá +150 kcal và không thiếu quá 100 kcal)
+      const dayMeals = planned.slice(dayStartIndex);
+      const totalDayKcal = dayMeals.reduce((sum, item) => {
+        const rc = Number(nutritionMap.get(item.recipe.recipe_id)?.calories ?? 0);
+        return sum + rc * item.portion;
+      }, 0);
+
+      const diff = totalDayKcal - dayTarget;
+      if (totalDayKcal > 0 && (diff > 150 || diff < -100)) {
+        const ratio = dayTarget / totalDayKcal;
+        for (const item of dayMeals) {
+          const adjustedPortion = Math.round(item.portion * ratio * 10) / 10;
+          if (adjustedPortion >= 0.4 && adjustedPortion <= 3.0) {
+            item.portion = adjustedPortion;
+          }
+        }
       }
     }
 
@@ -613,8 +669,13 @@ export class MealPlanService {
   // =========================================================
 
   // Kiểm tra bữa user tự chọn từ món yêu thích: ngày hợp lệ, món đã duyệt và nằm trong danh sách yêu thích.
+  // Nếu client gửi kèm mục tiêu cân nặng thì cũng kiểm tra mục tiêu đó có an toàn không.
   async validateMealPlan(user_id: number, dto: ValidateMealPlanDto) {
     const errors: string[] = [];
+
+    // ---- Kiểm tra mục tiêu cân nặng (nếu có) ----
+    const goalErrors = await this.validateGoalForMealPlan(user_id, dto);
+    errors.push(...goalErrors);
 
     const startDate = new Date(dto.start_date);
     const endDate = new Date(dto.end_date);
@@ -661,12 +722,235 @@ export class MealPlanService {
           errors.push(`Món "${recipe.title}" không nằm trong danh sách món yêu thích của bạn`);
         }
       }
+
+      // Món phải hợp chế độ ăn của user và không chứa nguyên liệu gây dị ứng.
+      const mealPlanUser = await this.userRepo.findOne({
+        where: { user_id },
+      });
+
+      for (const recipe of recipes) {
+        if (
+          mealPlanUser &&
+          !isRecipeDietCompatible(
+            mealPlanUser.diet_type,
+            recipe.diet_type,
+          )
+        ) {
+          errors.push(
+            `Món "${recipe.title}" không hợp với chế độ ăn của bạn.`,
+          );
+        }
+      }
+
+      const recipeById = new Map(recipes.map((r) => [r.recipe_id, r]));
+
+      try {
+        await this.assertNoAllergyConflict(
+          user_id,
+          recipeIds,
+          recipeById,
+        );
+      } catch (error) {
+        errors.push(
+          error instanceof Error
+            ? error.message
+            : 'Có công thức chứa nguyên liệu bạn bị dị ứng.',
+        );
+      }
     }
 
     return {
       valid: errors.length === 0,
       errors,
     };
+  }
+
+  /**
+   * Kiểm tra mục tiêu cân nặng kèm theo thực đơn.
+   *
+   * Trả về danh sách lỗi (rỗng nếu hợp lệ) thay vì ném exception, vì
+   * POST /meal-plans/validate có hợp đồng trả { valid, errors }.
+   * Chỉ kiểm tra khi client thực sự gửi mục tiêu cân nặng.
+   */
+  private async validateGoalForMealPlan(
+    user_id: number,
+    dto: ValidateMealPlanDto,
+  ): Promise<string[]> {
+    const errors: string[] = [];
+
+    const goal = (dto as ValidateMealPlanDto & {
+      current_weight_kg?: number;
+      target_weight_kg?: number;
+      duration_days?: number;
+      direction?: WeightGoalDirection;
+    });
+
+    const hasGoal =
+      goal.current_weight_kg !== undefined ||
+      goal.target_weight_kg !== undefined ||
+      goal.duration_days !== undefined;
+
+    if (!hasGoal) return errors;
+
+    // Phải nạp quan hệ `current_goal`: nếu không, `user.current_goal` luôn là
+    // null -> mục tiêu sức khoẻ đang lưu trong hồ sơ bị bỏ qua, và hệ thống
+    // rơi về "maintain" dù người dùng đã chọn tăng/giảm.
+    const user = await this.userRepo.findOne({
+      where: { user_id },
+      relations: ['current_goal'],
+    });
+    if (!user) {
+      errors.push('Không tìm thấy hồ sơ người dùng.');
+      return errors;
+    }
+
+    const clientExplicitDirection = goal.direction ?? null;
+    const clientHasWeights =
+      goal.current_weight_kg !== undefined && goal.target_weight_kg !== undefined;
+
+    // Chốt mục tiêu bằng quy tắc dùng chung (giống luồng sinh thực đơn).
+    const plan = resolveGoalPlan({
+      clientCurrentWeight: goal.current_weight_kg ?? null,
+      clientTargetWeight: goal.target_weight_kg ?? null,
+      clientDurationDays: goal.duration_days ?? null,
+      clientDirection: clientExplicitDirection,
+      profileCurrentWeight: user.weight_kg ?? null,
+      profileTargetWeight: user.target_weight_kg ?? null,
+      profileTargetDate: user.target_date ?? null,
+      profileHealthGoalName: user.current_goal?.name ?? null,
+    });
+
+    const direction = plan.direction;
+    const current = plan.current_weight_kg;
+    const target = plan.target_weight_kg;
+    const durationDays = plan.duration_days;
+
+    if (current == null || target == null || durationDays == null) {
+      errors.push(
+        'Thiếu dữ liệu mục tiêu cân nặng: cần cân nặng hiện tại, cân nặng mục tiêu và thời gian đạt mục tiêu.',
+      );
+      return errors;
+    }
+
+    // Chế độ duy trì đến từ hồ sơ -> bỏ qua cân nặng mục tiêu tồn đọng.
+    const maintainFromProfile =
+      direction === 'maintain' && !clientExplicitDirection && !clientHasWeights;
+    const effectiveTarget = maintainFromProfile ? current : target;
+
+    try {
+      assertValidGoalInput({
+        current_weight_kg: current,
+        target_weight_kg: effectiveTarget,
+        duration_days: durationDays,
+        direction,
+      });
+    } catch (e) {
+      errors.push(
+        e instanceof Error ? e.message : 'Dữ liệu mục tiêu cân nặng không hợp lệ.',
+      );
+      return errors;
+    }
+
+    try {
+      const assessment = assessWeightGoal(
+        { current_weight_kg: current, target_weight_kg: effectiveTarget, duration_days: durationDays, direction },
+        {
+          age: user.age!,
+          gender: user.gender!,
+          height_cm: user.height_cm!,
+          weight_kg: user.weight_kg!,
+          activity_level: user.activity_level!,
+        },
+      );
+
+      if (!assessment.valid) {
+        errors.push(assessment.message);
+        if (assessment.suggestion) errors.push(assessment.suggestion);
+      }
+    } catch (e) {
+      errors.push(
+        e instanceof Error
+          ? e.message
+          : 'Không thể đánh giá mục tiêu cân nặng.',
+      );
+    }
+
+    return errors;
+  }
+
+  // =========================================================
+  // HELPER: CHẶN MÓN CHỨA NGUYÊN LIỆU GÂY DỊ ỨNG
+  // =========================================================
+
+  /**
+   * Kiểm tra các công thức trong thực đơn có chứa nguyên liệu user bị dị ứng
+   * hay không.
+   *
+   * Dùng chung cho luồng lưu thực đơn (POST /meal-plans) và luồng validate
+   * thực đơn (POST /meal-plans/validate) để cả 2 báo lỗi giống nhau.
+   */
+  private async assertNoAllergyConflict(
+    user_id: number,
+    recipeIds: number[],
+    recipeById: Map<number, Recipe>,
+  ): Promise<void> {
+    if (recipeIds.length === 0) {
+      return;
+    }
+
+    const allergyRows = await this.allergyRepo.find({
+      where: { user_id },
+    });
+
+    if (allergyRows.length === 0) {
+      return;
+    }
+
+    const allergyIds = new Set(
+      allergyRows.map((row) => row.ingredient_id),
+    );
+
+    const recipeIngredients = await this.recipeIngredientRepo.find({
+      where: { recipe_id: In(recipeIds) },
+    });
+
+    const conflicting = recipeIngredients.filter((row) =>
+      allergyIds.has(row.ingredient_id),
+    );
+
+    if (conflicting.length === 0) {
+      return;
+    }
+
+    const ingredientNames = await this.ingredientService.findByIds(
+      [...new Set(conflicting.map((row) => row.ingredient_id))],
+    );
+
+    const nameMap = new Map(
+      ingredientNames.map((i) => [i.ingredient_id, i.ingredient_name]),
+    );
+
+    const allergenNames = [
+      ...new Set(
+        conflicting.map(
+          (row) =>
+            nameMap.get(row.ingredient_id) ?? `#${row.ingredient_id}`,
+        ),
+      ),
+    ].join(', ');
+
+    const recipeTitles = [
+      ...new Set(
+        conflicting.map((row) => {
+          const recipe = recipeById.get(row.recipe_id);
+          return recipe ? `"${recipe.title}"` : `#${row.recipe_id}`;
+        }),
+      ),
+    ].join(', ');
+
+    throw new BadRequestException(
+      `Công thức ${recipeTitles} chứa nguyên liệu bạn bị dị ứng: ${allergenNames}`,
+    );
   }
 
   // =========================================================
@@ -691,6 +975,8 @@ export class MealPlanService {
     }
 
     if (dto.target_calories_per_day !== undefined) {
+      // Chặn kcal mục tiêu không an toàn trước khi ghi.
+      this.assertSafeCalories(dto.target_calories_per_day);
       mealPlan.target_calories_per_day =
         dto.target_calories_per_day;
     }
@@ -884,12 +1170,25 @@ export class MealPlanService {
 
   // =========================================================
   // HELPER: CHUẨN BỊ DỮ LIỆU SINH THỰC ĐƠN CHO USER
-  // Dùng chung cho weekly và monthly: monthly chạy đúng công thức
-  // calo/bữa của weekly (Mifflin-St Jeor × hệ số hoạt động × hệ số mục tiêu,
-  // tối thiểu 1200 kcal, chia sáng 25% / trưa 35% / tối 40%).
+  // Dùng chung cho weekly và monthly.
+  //
+  // Thứ tự ưu tiên kcal mục tiêu:
+  //   1. Mục tiêu cân nặng client gửi kèm (current/target/duration) — có kiểm tra an toàn.
+  //   2. Mục tiêu cân nặng đã lưu trong hồ sơ (target_weight_kg + target_date) — có kiểm tra an toàn.
+  //   3. Công thức kcal theo mục tiêu sức khoẻ đang chọn (Mifflin-St Jeor × hệ số hoạt động × hệ số mục tiêu, sàn 1200 kcal).
+  //
+  // Nếu mục tiêu cân nặng KHÔNG an toàn -> ném lỗi, KHÔNG sinh thực đơn.
   // =========================================================
 
-  private async prepareUserGeneration(user_id: number) {
+  private async prepareUserGeneration(
+    user_id: number,
+    goalDto?: {
+      current_weight_kg?: number;
+      target_weight_kg?: number;
+      duration_days?: number;
+      direction?: WeightGoalDirection;
+    },
+  ) {
     const user = await this.userRepo.findOne({
       where: { user_id },
       relations: ['current_goal'],
@@ -913,25 +1212,202 @@ export class MealPlanService {
       );
     }
 
-    const targetCalories = this.calculateTargetCalories(
-      user.age!,
-      user.gender!,
-      user.height_cm!,
-      user.weight_kg!,
-      user.activity_level!,
-      user.current_goal?.name ?? 'maintain',
-    );
+    const assessment = await this.resolveGoalAssessment(user, goalDto);
+    const targetCalories = assessment
+      ? assessment.target_calories
+      : this.calculateTargetCalories(
+          user.age!,
+          user.gender!,
+          user.height_cm!,
+          user.weight_kg!,
+          user.activity_level!,
+          user.current_goal?.name ?? 'maintain',
+        );
 
     const safeRecipes = await this.getSafeRecipes(user_id, user.diet_type);
     const nutritionMap = await this.getNutritionMap(safeRecipes);
 
-    const mealTargets: Record<string, number> = {
-      breakfast: Math.round(targetCalories * 0.25),
-      lunch: Math.round(targetCalories * 0.35),
-      dinner: Math.round(targetCalories * 0.4),
+    // Chỉ giữ món CÓ dữ liệu dinh dưỡng để tính được kcal thực tế.
+    // Món không có nutrition_infos (calories = null) sẽ bị coi là 0 kcal
+    // -> thực đơn hụt calo so với mục tiêu mà người dùng không biết.
+    const recipesWithNutrition = safeRecipes.filter(
+      (recipe) => Number(nutritionMap.get(recipe.recipe_id)?.calories ?? 0) > 0,
+    );
+
+    if (recipesWithNutrition.length === 0) {
+      throw new NotFoundException(
+        'Không có công thức nào có dữ liệu dinh dưỡng để tính calo cho thực đơn.',
+      );
+    }
+
+    const mealTargets = splitMealCalories(targetCalories);
+
+    return {
+      user,
+      targetCalories,
+      safeRecipes: recipesWithNutrition,
+      nutritionMap,
+      mealTargets,
+      assessment,
+      // goal_id lưu kèm thực đơn phải KHỚP với hướng đã áp dụng. Nếu client gửi
+      // `direction` khác mục tiêu đang lưu trong hồ sơ thì lưu theo hồ sơ sẽ
+      // ghi sai (thực đơn tăng cân nhưng `goal_id` trỏ tới giảm cân).
+      goalId: await this.resolveGoalIdForDirection(
+        this.toWeightGoalDirection(assessment?.direction ?? user.current_goal?.name),
+        user.current_goal_id ?? null,
+      ),
+    };
+  }
+
+  /**
+   * Chuẩn hoá tên mục tiêu về `WeightGoalDirection`.
+   * Tên lạ / rỗng -> 'maintain' (không chặn, chỉ là mặc định an toàn).
+   */
+  private toWeightGoalDirection(name: string | null | undefined): WeightGoalDirection {
+    if (name === 'lose_weight' || name === 'gain_muscle' || name === 'maintain') {
+      return name;
+    }
+    return 'maintain';
+  }
+
+  /**
+   * Chọn `goal_id` lưu kèm thực đơn theo hướng đã áp dụng.
+   *
+   * - Nếu hồ sơ đang đặt đúng hướng đó -> giữ `current_goal_id`.
+   * - Nếu client gửi hướng KHÁC mục tiêu trong hồ sơ -> tìm (hoặc tự khởi
+   *   tạo) dòng `health_goals` tương ứng để thực đơn không bị gắn sai nhãn.
+   * - Không tìm được -> null (không chặn sinh thực đơn).
+   */
+  private async resolveGoalIdForDirection(
+    direction: WeightGoalDirection,
+    profileGoalId: number | null,
+  ): Promise<number | null> {
+    if (!this.goalRepo) return profileGoalId;
+
+    try {
+      const goals = await this.goalRepo.find();
+      if (goals.length === 0) return profileGoalId;
+
+      const match = goals.find((g) => g.name === direction);
+      if (match) {
+        // Hướng đã khớp -> giữ id hồ sơ nếu có, nếu không thì dùng id thật.
+        if (profileGoalId != null && goals.some((g) => g.goal_id === profileGoalId)) {
+          const profileGoal = goals.find((g) => g.goal_id === profileGoalId);
+          if (profileGoal?.name === direction) return profileGoalId;
+        }
+        return match.goal_id;
+      }
+    } catch {
+      // Không tra được master data -> giữ hành vi cũ, KHÔNG chặn sinh thực đơn.
+    }
+
+    return profileGoalId;
+  }
+
+  /**
+   * Xác định kcal mục tiêu từ mục tiêu cân nặng (nếu có) và kiểm tra an toàn.
+   * Trả về null nếu không có mục tiêu cân nặng nào để áp dụng.
+   * Ném BadRequestException nếu mục tiêu cân nặng không hợp lệ.
+   */
+  private async resolveGoalAssessment(
+    user: User,
+    goalDto?: {
+      current_weight_kg?: number;
+      target_weight_kg?: number;
+      duration_days?: number;
+      direction?: WeightGoalDirection;
+    },
+  ): Promise<GoalAssessment | null> {
+    // Client có gửi mục tiêu cân nặng không? Nếu có thì BẮT BUỘC phải đủ dữ liệu,
+    // không được âm thầm lùi về công thức theo mục tiêu sức khoẻ.
+    const clientProvidedGoal =
+      goalDto?.current_weight_kg !== undefined ||
+      goalDto?.target_weight_kg !== undefined ||
+      goalDto?.duration_days !== undefined;
+
+    const clientExplicitDirection = goalDto?.direction ?? null;
+    const clientHasWeights =
+      goalDto?.current_weight_kg !== undefined &&
+      goalDto?.target_weight_kg !== undefined;
+
+    // Chốt toàn bộ mục tiêu cân nặng từ client + hồ sơ bằng MỘT quy tắc
+    // dùng chung (giống hệt luồng POST /users/me/weight-goal/assess):
+    //   - `direction` client gửi thắng tuyệt đối.
+    //   - Cân nặng mục tiêu CŨ trong hồ sơ không được ghi đè lựa chọn mới.
+    const plan = resolveGoalPlan({
+      clientCurrentWeight: goalDto?.current_weight_kg ?? null,
+      clientTargetWeight: goalDto?.target_weight_kg ?? null,
+      clientDurationDays: goalDto?.duration_days ?? null,
+      clientDirection: clientExplicitDirection,
+      profileCurrentWeight: user.weight_kg ?? null,
+      profileTargetWeight: user.target_weight_kg ?? null,
+      profileTargetDate: user.target_date ?? null,
+      profileHealthGoalName: user.current_goal?.name ?? null,
+    });
+
+    const direction = plan.direction;
+    const current = plan.current_weight_kg;
+    const target = plan.target_weight_kg;
+    const durationDays = plan.duration_days;
+
+    // Chế độ duy trì đến từ hồ sơ (client không yêu cầu rõ) -> BỎ QUA cân
+    // nặng mục tiêu lưu sẵn trong hồ sơ. Cân nặng mục tiêu có thể còn sót lại
+    // từ lần chọn mục tiêu trước; nếu dùng nó thì hệ thống sẽ tự áp thâm hụt
+    // dù người dùng đang ở chế độ duy trì -> sai yêu cầu.
+    const maintainFromProfile =
+      direction === 'maintain' && !clientExplicitDirection && !clientHasWeights;
+
+    const effectiveTarget = maintainFromProfile ? current : target;
+
+    // Client gửi dữ liệu mục tiêu nhưng thiếu -> báo lỗi validation, KHÔNG
+    // âm thầm lùi về công thức theo mục tiêu sức khoẻ.
+    if (plan.clientDataIncomplete) {
+      throw new BadRequestException({
+        code: ErrorCode.WEIGHT_GOAL_INVALID,
+        message:
+          'Thiếu dữ liệu mục tiêu cân nặng: cần cân nặng hiện tại, cân nặng mục tiêu và thời gian đạt mục tiêu (số ngày).',
+      });
+    }
+
+    // Không có đủ dữ liệu mục tiêu cân nặng -> dùng công thức kcal theo mục tiêu sức khoẻ.
+    if (current == null || effectiveTarget == null || durationDays == null) {
+      return null;
+    }
+
+    assertValidGoalInput({
+      current_weight_kg: current,
+      target_weight_kg: effectiveTarget,
+      duration_days: durationDays,
+      direction,
+    });
+
+    const metrics: ProfileMetrics = {
+      age: user.age!,
+      gender: user.gender!,
+      height_cm: user.height_cm!,
+      weight_kg: user.weight_kg!,
+      activity_level: user.activity_level!,
     };
 
-    return { user, targetCalories, safeRecipes, nutritionMap, mealTargets };
+    const assessment = assessWeightGoal(
+      { current_weight_kg: current, target_weight_kg: effectiveTarget, duration_days: durationDays, direction },
+      metrics,
+    );
+
+    if (!assessment.valid) {
+      throw new BadRequestException({
+        code: ErrorCode.WEIGHT_GOAL_UNSAFE,
+        message: assessment.message,
+        suggestion: assessment.suggestion,
+      });
+    }
+
+    // Gắn cảnh báo từ quá trình chốt mục tiêu (vd. bỏ qua cân nặng mục tiêu cũ).
+    if (plan.warnings.length > 0) {
+      assessment.warnings = [...plan.warnings, ...assessment.warnings];
+    }
+
+    return assessment;
   }
 
   // =========================================================
@@ -942,8 +1418,8 @@ export class MealPlanService {
     user_id: number,
     dto: GenerateMealPlanDto = {},
   ) {
-    const { user, targetCalories, safeRecipes, nutritionMap, mealTargets } =
-      await this.prepareUserGeneration(user_id);
+    const { user, targetCalories, safeRecipes, nutritionMap, mealTargets, goalId, assessment } =
+      await this.prepareUserGeneration(user_id, dto);
 
     const hasBudget = dto.total_budget !== undefined;
 
@@ -962,7 +1438,7 @@ export class MealPlanService {
       recentUsedDays: new Map<number, number>(),
       dayOffset: 0,
       budget: hasBudget
-        ? { remaining: dto.total_budget!, slotsLeft: 21 }
+        ? { remaining: dto.total_budget!, slotsLeft: 7 * Object.keys(mealTargets).length }
         : undefined,
     });
 
@@ -982,7 +1458,7 @@ export class MealPlanService {
     const mealPlan = new MealPlan();
 
     mealPlan.user_id = user_id;
-    mealPlan.goal_id = user.current_goal_id ?? null;
+    mealPlan.goal_id = goalId ?? user.current_goal_id ?? null;
     mealPlan.bmi_snapshot = user.bmi ?? null;
     mealPlan.plan_type = PlanType.WEEKLY;
     mealPlan.start_date = monday;
@@ -1030,10 +1506,15 @@ export class MealPlanService {
       return savedMealPlan.meal_plan_id;
     });
 
-    return this.findMyMealPlanDetail(
+    const detail = await this.findMyMealPlanDetail(
       user_id,
       savedMealPlanId,
     );
+
+    // Trả kèm kết quả đánh giá mục tiêu (BMI/BMR/TDEE/kcal + cảnh báo) để
+    // client biết thực đơn dựa trên ước tính nào. Cảnh báo KHÔNG chặn —
+    // thực đơn vẫn được sinh, chỉ kèm thông tin để người dùng tự quyết định.
+    return { ...detail, goal_assessment: assessment };
   }
 
   // =========================================================
@@ -1076,6 +1557,24 @@ export class MealPlanService {
   // =========================================================
   // SAVE MEAL PLAN FROM FRONTEND
   // =========================================================
+
+  /**
+   * Chặn kcal mục tiêu không an toàn khi lưu/cập nhật thực đơn.
+   * Không cho phép kcal âm, bằng 0 hoặc thấp hơn sàn an toàn đã định.
+   */
+  private assertSafeCalories(calories: number): void {
+    if (!Number.isFinite(calories) || calories < CALORIE_FLOOR) {
+      throw new BadRequestException({
+        code: ErrorCode.WEIGHT_GOAL_UNSAFE,
+        message:
+          `Calo mục tiêu ${calories} không an toàn. ` +
+          `Mức tối thiểu là ${CALORIE_FLOOR} kcal/ngày.`,
+        suggestion:
+          'Hãy dùng kcal mục tiêu được hệ thống tính từ hồ sơ, ' +
+          'hoặc hỏi ý kiến chuyên gia dinh dưỡng.',
+      });
+    }
+  }
 
   async saveMealPlan(
     user_id: number,
@@ -1231,6 +1730,16 @@ export class MealPlanService {
       }
     }
 
+    // Món trong thực đơn không được chứa nguyên liệu user bị dị ứng.
+    // Trước đây luồng này chỉ kiểm tra "đã duyệt" + bữa ăn + chế độ ăn,
+    // nên user có thể lưu thực đơn chứa món có nguyên liệu gây dị ứng.
+    await this.assertNoAllergyConflict(user_id, recipeIds, recipeById);
+
+    // Calo mục tiêu phải an toàn (không âm, không 0, không thấp hơn sàn).
+    if (dto.target_calories_per_day !== undefined) {
+      this.assertSafeCalories(dto.target_calories_per_day);
+    }
+
     const mealPlan = new MealPlan();
 
     mealPlan.user_id = user_id;
@@ -1324,8 +1833,8 @@ export class MealPlanService {
     user_id: number,
     dto: GenerateMealPlanDto = {},
   ) {
-    const { user, targetCalories, safeRecipes, nutritionMap, mealTargets } =
-      await this.prepareUserGeneration(user_id);
+    const { user, targetCalories, safeRecipes, nutritionMap, mealTargets, goalId, assessment } =
+      await this.prepareUserGeneration(user_id, dto);
 
     const today = new Date();
 
@@ -1382,7 +1891,7 @@ export class MealPlanService {
 
     const totalDays = weeks.reduce((sum, week) => sum + week.days, 0);
     const budget: BudgetTracker | undefined = hasBudget
-      ? { remaining: dto.total_budget!, slotsLeft: totalDays * 3 }
+      ? { remaining: dto.total_budget!, slotsLeft: totalDays * Object.keys(mealTargets).length }
       : undefined;
 
     const usedRecipeCounts = new Map<number, number>();
@@ -1408,7 +1917,7 @@ export class MealPlanService {
     const mealPlan = new MealPlan();
 
     mealPlan.user_id = user_id;
-    mealPlan.goal_id = user.current_goal_id ?? null;
+    mealPlan.goal_id = goalId ?? user.current_goal_id ?? null;
     mealPlan.bmi_snapshot = user.bmi ?? null;
     mealPlan.plan_type = PlanType.MONTHLY;
     mealPlan.start_date = monthStart;
@@ -1460,10 +1969,13 @@ export class MealPlanService {
       return savedMealPlan.meal_plan_id;
     });
 
-    return this.findMyMealPlanDetail(
+    const detail = await this.findMyMealPlanDetail(
       user_id,
       savedMealPlanId,
     );
+
+    // Trả kèm kết quả đánh giá mục tiêu (BMI/BMR/TDEE/kcal + cảnh báo).
+    return { ...detail, goal_assessment: assessment };
   }
 
   // =========================================================
@@ -1604,24 +2116,31 @@ export class MealPlanService {
       ? await this.getRecipeCostMap(safeRecipes)
       : new Map<number, number>();
 
-    const mealTargets: Record<string, number> = {
-      breakfast: Math.round(targetCalories * 0.25),
-      lunch: Math.round(targetCalories * 0.35),
-      dinner: Math.round(targetCalories * 0.4),
-    };
+    // Chỉ giữ món CÓ dữ liệu dinh dưỡng (xem prepareUserGeneration).
+    const recipesWithNutrition = safeRecipes.filter(
+      (recipe) => Number(nutritionMap.get(recipe.recipe_id)?.calories ?? 0) > 0,
+    );
+
+    if (recipesWithNutrition.length === 0) {
+      throw new NotFoundException(
+        'Không có công thức nào có dữ liệu dinh dưỡng để tính calo cho thực đơn.',
+      );
+    }
+
+    const mealTargets = splitMealCalories(targetCalories);
 
     // Chọn món trước khi ghi DB; ném lỗi nếu không đủ ngân sách.
     const plannedMeals = this.planMeals({
       dayCount: 7,
       mealTargets,
-      recipes: safeRecipes,
+      recipes: recipesWithNutrition,
       nutritionMap,
       costMap,
       usedRecipeCounts: new Map<number, number>(),
       recentUsedDays: new Map<number, number>(),
       dayOffset: 0,
       budget: hasBudget
-        ? { remaining: dto.total_budget!, slotsLeft: 21 }
+        ? { remaining: dto.total_budget!, slotsLeft: 7 * Object.keys(mealTargets).length }
         : undefined,
     });
 
