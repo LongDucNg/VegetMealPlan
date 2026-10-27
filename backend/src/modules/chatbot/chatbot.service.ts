@@ -54,10 +54,10 @@ export class ChatbotService {
     private readonly safetyService: ChatbotSafetyService,
     @Inject('AI_PROVIDER')
     private readonly aiProvider: AiProvider,
-  ) { }
+  ) {}
 
   /**
-   * Giới hạn tốc độ chống lạm dụng (10 yêu cầu / phút per user hoặc per guest session).
+   * Gioi han toc do: 10 yeu cau/phut cho moi user hoac guest session.
    */
   private checkRateLimit(actorKey: string) {
     const now = Date.now();
@@ -71,20 +71,22 @@ export class ChatbotService {
     }
 
     entry.timestamps = entry.timestamps.filter((t) => now - t < windowMs);
+
     if (entry.timestamps.length >= maxRequests) {
       throw new HttpException(
         {
           code: ErrorCode.CHATBOT_RATE_LIMITED,
-          message: 'Bạn đang gửi yêu cầu quá nhanh, vui lòng thử lại sau 1 phút.',
+          message: 'Ban dang gui yeu cau qua nhanh, vui long thu lai sau 1 phut.',
         },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
+
     entry.timestamps.push(now);
   }
 
   /**
-   * Xử lý gửi tin nhắn chatbot AI chính (phục vụ POST /ai/chat và bí danh POST /chatbot/ask).
+   * Xu ly gui tin nhan chatbot AI.
    */
   async sendMessage(params: {
     message: string;
@@ -93,20 +95,20 @@ export class ChatbotService {
   }): Promise<ChatResponseData> {
     const { message, userId, sessionId } = params;
 
-    // 1. Kiểm tra session_id đối với khách chưa đăng nhập
+    // Khach chua dang nhap bat buoc phai co session_id.
     if (!userId && (!sessionId || !sessionId.trim())) {
       throw new BadRequestException({
         code: ErrorCode.CHATBOT_SESSION_REQUIRED,
-        message: 'Khách chưa đăng nhập bắt buộc phải gửi kèm session_id để hệ thống xác định phiên.',
+        message:
+          'Khach chua dang nhap bat buoc phai gui kem session_id de xac dinh phien.',
       });
     }
 
     const actorKey = userId ? `user_${userId}` : `guest_${sessionId}`;
 
-    // 2. Kiểm tra giới hạn tốc độ (10 req/phút)
     this.checkRateLimit(actorKey);
 
-    // 3. Phân nhóm người dùng & Giữ chỗ lượt (Atomic reservation)
+    // Gioi han luot chat.
     const guestLimit = Number(process.env.GUEST_CHATBOT_LIMIT) || 2;
     const freeLimit = Number(process.env.FREE_CHATBOT_LIMIT) || 5;
 
@@ -115,17 +117,16 @@ export class ChatbotService {
 
     if (userId) {
       const isPremium = await this.subscriptionService.isPremium(userId);
+
       if (!isPremium) {
         const quotaResult = await this.usageQuotaService.reserveQuota({
           user_id: userId,
           action_type: UsageActionType.CHATBOT_QUERY,
           limit: freeLimit,
         });
+
         remainingQueries = quotaResult.remaining;
         quotaReserved = true;
-      } else {
-        // Premium: không giới hạn lượt, remaining_queries = null
-        remainingQueries = null;
       }
     } else if (sessionId) {
       const quotaResult = await this.usageQuotaService.reserveQuota({
@@ -133,19 +134,25 @@ export class ChatbotService {
         action_type: UsageActionType.CHATBOT_QUERY,
         limit: guestLimit,
       });
+
       remainingQueries = quotaResult.remaining;
       quotaReserved = true;
     }
 
-    // 4. Xây dựng ngữ cảnh an toàn và tối thiểu
-    const { profilePrompt, allergyIngredientNames, allergyIngredientIds, dietType } =
-      await this.contextService.getUserProfileContext(userId);
-
-    const { recipesPrompt, suggestedRecipes } = await this.contextService.getRelevantRecipes({
-      question: message,
-      dietType,
+    // Lay thong tin ho so, truong phai an chay va di ung.
+    const {
+      profilePrompt,
+      allergyIngredientNames,
       allergyIngredientIds,
-    });
+      dietType,
+    } = await this.contextService.getUserProfileContext(userId);
+
+    const { recipesPrompt, suggestedRecipes } =
+      await this.contextService.getRelevantRecipes({
+        question: message,
+        dietType,
+        allergyIngredientIds,
+      });
 
     const systemInstruction = `${this.contextService.getSystemInstruction()}
 
@@ -154,10 +161,14 @@ ${profilePrompt}
 ${recipesPrompt}`;
 
     const historyTurnsLimit = Number(process.env.CHATBOT_HISTORY_TURNS) || 6;
-    const history = await this.contextService.getRecentTurns(userId, historyTurnsLimit);
+    const history = await this.contextService.getRecentTurns(
+      userId,
+      historyTurnsLimit,
+    );
 
-    // 5. Gọi dịch vụ AI (Gemini hoặc Mock)
+    // Goi AI provider.
     let rawAnswer: string;
+
     try {
       rawAnswer = await this.aiProvider.generateResponse({
         systemInstruction,
@@ -165,7 +176,6 @@ ${recipesPrompt}`;
         history,
       });
     } catch (aiError: any) {
-      // Nếu AI lỗi hoặc quá thời gian, hoàn lại lượt (giảm 1)
       if (quotaReserved) {
         await this.usageQuotaService.refundQuota({
           user_id: userId,
@@ -173,32 +183,39 @@ ${recipesPrompt}`;
           action_type: UsageActionType.CHATBOT_QUERY,
         });
       }
+
       throw aiError;
     }
 
-    // 6. Làm sạch định dạng văn bản (loại bỏ ký tự markdown ###, **, gạch đầu dòng hoa thị)
+    // Lam sach cau tra loi.
     const answer = cleanTextFormatting(rawAnswer);
 
-    // 7. Kiểm tra an toàn câu trả lời trước khi trả về client
-    const safetyCheck = this.safetyService.checkAnswer(answer, allergyIngredientNames);
+    // Kiem tra an toan va di ung.
+    const safetyCheck = this.safetyService.checkAnswer(
+      answer,
+      allergyIngredientNames,
+    );
 
     if (!safetyCheck.isSafe) {
-      this.logger.warn(`Câu trả lời AI bị chặn vì lý do an toàn: ${safetyCheck.reason}`);
-      // Vi phạm an toàn: hoàn lại lượt và không lưu câu trả lời không an toàn vào DB
+      this.logger.warn(
+        `Cau tra loi AI bi chan vi ly do an toan: ${safetyCheck.reason}`,
+      );
+
       if (quotaReserved) {
         await this.usageQuotaService.refundQuota({
           user_id: userId,
           session_id: sessionId,
           action_type: UsageActionType.CHATBOT_QUERY,
         });
+
         if (remainingQueries !== null) {
           remainingQueries += 1;
         }
       }
 
       const safeFallback =
-        'Câu trả lời từ trợ lý chưa đáp ứng tiêu chuẩn an toàn thực phẩm chay hoặc danh mục dị ứng của bạn. ' +
-        'Vui lòng thử hỏi lại với câu hỏi cụ thể hơn.';
+        'Cau tra loi tu tro ly chua dap ung tieu chuan an toan thuc pham chay hoac danh muc di ung cua ban. ' +
+        'Vui long thu hoi lai voi cau hoi cu the hon.';
 
       return mapChatResponse({
         conversation_id: 0,
@@ -208,16 +225,16 @@ ${recipesPrompt}`;
       });
     }
 
-    // 8. Lưu cuộc hội thoại thành công vào database
+    // Luu hoi thoai vao database.
     const conversation = this.conversationRepo.create({
       user_id: userId,
       session_id: sessionId,
       question: message,
       answer,
     });
+
     const saved = await this.conversationRepo.save(conversation);
 
-    // 9. Trả về kết quả qua hàm ánh xạ duy nhất
     return mapChatResponse({
       conversation_id: saved.conversation_id,
       answer,
@@ -227,12 +244,11 @@ ${recipesPrompt}`;
   }
 
   /**
-   * Lấy danh sách câu hỏi gợi ý:
-   * - Công khai, không gọi AI, không tốn lượt.
-   * - Khách nhận danh sách chung cố định.
-   * - Người đã đăng nhập nhận thêm câu hỏi gợi ý theo hồ sơ (dị ứng, mục tiêu sức khoẻ).
+   * Lay danh sach cau hoi goi y.
    */
-  async getSuggestions(userId?: number): Promise<ChatSuggestionsResponseData> {
+  async getSuggestions(
+    userId?: number,
+  ): Promise<ChatSuggestionsResponseData> {
     const suggestions: ChatSuggestionItem[] = [...DEFAULT_CHAT_SUGGESTIONS];
 
     if (userId) {
@@ -242,39 +258,46 @@ ${recipesPrompt}`;
           relations: ['current_goal'],
         });
 
-        // Gợi ý theo dị ứng
+        // Goi y theo di ung.
         const allergies = await this.usersService.getAllergies(userId);
+
         if (allergies.ingredients.length > 0) {
-          const names = allergies.ingredients.map((i) => i.ingredient_name).slice(0, 2);
+          const names = allergies.ingredients
+            .map((i) => i.ingredient_name)
+            .slice(0, 2);
+
           suggestions.unshift({
-            text: `Nguyên liệu nào thay thế an toàn cho ${names.join(', ')} trong món chay?`,
+            text: `Nguyen lieu nao thay the an toan cho ${names.join(', ')} trong mon chay?`,
             category: 'substitute',
           });
         }
 
-        // Gợi ý theo mục tiêu sức khoẻ
+        // Goi y theo muc tieu suc khoe.
         const goal = user?.current_goal?.name;
+
         if (goal === 'lose_weight') {
           suggestions.unshift({
-            text: 'Gợi ý các món chay dưới 400 kcal nhưng vẫn no lâu và đủ chất?',
+            text: 'Goi y cac mon chay duoi 400 kcal nhung van no lau va du chat?',
             category: 'dinner',
           });
         } else if (goal === 'gain_muscle') {
           suggestions.unshift({
-            text: 'Thực đơn chay giàu protein (trên 60g đạm/ngày) cho người tập luyện?',
+            text: 'Thuc don chay giau protein tren 60g dam/ngay cho nguoi tap luyen?',
             category: 'macros',
           });
         }
 
-        // Gợi ý theo trường phái ăn chay
+        // Goi y theo truong phai an chay.
         if (user?.diet_type === DietType.VEGAN) {
           suggestions.unshift({
-            text: 'Gợi ý thực đơn thuần chay (Vegan) đủ vitamin B12 và sắt tự nhiên?',
+            text: 'Goi y thuc don thuan chay Vegan du vitamin B12 va sat tu nhien?',
             category: 'general',
           });
         }
       } catch (err: any) {
-        this.logger.warn(`Không thể lấy hồ sơ cá nhân hóa cho gợi ý: ${err?.message}`);
+        this.logger.warn(
+          `Khong the lay ho so ca nhan hoa cho goi y: ${err?.message}`,
+        );
       }
     }
 
@@ -282,7 +305,7 @@ ${recipesPrompt}`;
   }
 
   /**
-   * Xem lịch sử chat của chính mình (chỉ dành cho user đã đăng nhập, có phân trang).
+   * Xem lich su chat cua user da dang nhap, co phan trang.
    */
   async getHistory(
     userId: number,
@@ -308,25 +331,33 @@ ${recipesPrompt}`;
   }
 
   /**
-   * Xóa toàn bộ lịch sử trò chuyện của chính mình (Giai đoạn 3).
-   * Xóa thật trong database vì là dữ liệu riêng tư cá nhân.
-   * Không ảnh hưởng đến số lượt đã truy vấn trong ngày trong bảng usage_quotas.
+   * Xoa toan bo lich su tro chuyen cua chinh minh (Giai doan 3).
+   * Khong thay doi so luot truy van trong usage_quotas.
    */
-  async clearHistory(userId: number): Promise<{ deleted_count: number }> {
-    const result = await this.conversationRepo.delete({ user_id: userId });
+  async clearHistory(
+    userId: number,
+  ): Promise<{ deleted_count: number }> {
+    const result = await this.conversationRepo.delete({
+      user_id: userId,
+    });
+
     return {
       deleted_count: result.affected || 0,
     };
   }
 
   /**
-   * Tương thích ngược với hàm ask() cũ trong codebase.
+   * Tuong thich nguoc voi ham ask() cu trong codebase.
    */
-  async ask(question: string, user_id?: number, session_id?: string): Promise<any> {
+  async ask(
+    question: string,
+    user_id?: number,
+    session_id?: string,
+  ): Promise<ChatResponseData> {
     return this.sendMessage({
       message: question,
       userId: user_id,
       sessionId: session_id,
     });
   }
-}
+}
