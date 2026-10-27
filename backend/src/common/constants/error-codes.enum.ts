@@ -51,6 +51,8 @@ export enum ErrorCode {
   AUTH_PASSWORD_NOT_SET = 'AUTH_PASSWORD_NOT_SET',
   /** 400: mật khẩu mới trùng mật khẩu hiện tại. */
   AUTH_PASSWORD_UNCHANGED = 'AUTH_PASSWORD_UNCHANGED',
+  /** 403: đúng mật khẩu nhưng email chưa xác thực. FE chuyển sang màn nhập OTP (server đã gửi mã mới). */
+  AUTH_EMAIL_NOT_VERIFIED = 'AUTH_EMAIL_NOT_VERIFIED',
 
   // ---- User / hồ sơ ----
   /** 404 */
