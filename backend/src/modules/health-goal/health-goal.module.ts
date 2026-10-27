@@ -1,12 +1,16 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HealthGoal } from './entities/health-goal.entity';
+import { HealthGoalService } from './health-goal.service';
+import { HealthGoalController } from './health-goal.controller';
 
-// TODO: thêm Service + Controller khi cần CRUD quản lý goal từ Admin.
-// Hiện tại module này chủ yếu export TypeOrmModule để UsersModule/MealPlanModule
-// dùng HealthGoal làm FK reference.
+// Module này export TypeOrmModule để UsersModule/MealPlanModule dùng HealthGoal
+// làm FK reference, cộng thêm Service (tự khởi tạo master data) + Controller
+// để frontend lấy danh sách mục tiêu sức khoẻ.
 @Module({
   imports: [TypeOrmModule.forFeature([HealthGoal])],
-  exports: [TypeOrmModule],
+  controllers: [HealthGoalController],
+  providers: [HealthGoalService],
+  exports: [TypeOrmModule, HealthGoalService],
 })
 export class HealthGoalModule {}

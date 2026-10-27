@@ -12,8 +12,6 @@
     "incremental": true,
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "skipLibCheck": true,
-    "strict": false,
-    "strictPropertyInitialization": false,
     "strictNullChecks": true,
     "noImplicitAny": true,
     "strictBindCallApply": false,

@@ -1,4 +1,5 @@
 import {
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEnum,
@@ -10,7 +11,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { DietType } from '../../users/entities/user.entity';
 import { Difficulty } from '../entities/recipe.entity';
 
@@ -35,8 +36,12 @@ export class CreateRecipeIngredientDto {
 }
 
 export class CreateRecipeDto {
+  // Tên món không được rỗng/khoảng trắng. @Transform trim TRƯỚC khi validate
+  // để "   " bị chặn (IsNotEmpty chỉ chặn chuỗi rỗng, không chặn khoảng trắng)
+  // và tên được lưu chuẩn hoá.
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'Tên món không được để trống.' })
   title: string;
 
   @IsOptional()
@@ -98,11 +103,15 @@ export class CreateRecipeDto {
   @Min(0)
   estimated_cost?: number;
 
-  @IsOptional()
+  // Công thức PHẢI có ít nhất 1 nguyên liệu. Không dùng @IsOptional() vì
+  // món không có nguyên liệu thì không tính được dinh dưỡng/chi phí -> sinh
+  // thực đơn hụt calo mà người dùng không biết. Import Excel cũng bắt buộc
+  // >= 1 nguyên liệu -> hai luồng phải giống nhau.
   @IsArray()
+  @ArrayMinSize(1, { message: 'Công thức phải có ít nhất 1 nguyên liệu.' })
   @ValidateNested({ each: true })
   @Type(() => CreateRecipeIngredientDto)
-  ingredients?: CreateRecipeIngredientDto[];
+  ingredients: CreateRecipeIngredientDto[];
 
   @IsOptional()
   @IsArray()
