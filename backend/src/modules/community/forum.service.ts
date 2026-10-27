@@ -9,13 +9,11 @@ import { ErrorCode } from '../../common/constants/error-codes.enum';
 import { AuthUser } from '../../common/decorators/current-user.decorator';
 import { ForumPostQueryDto } from './dto/forum-post-query.dto';
 import { CreateForumPostDto } from './dto/create-forum-post.dto';
-import { ForumCommentQueryDto } from './dto/forum-comment-query.dto';
-import { CreateForumCommentDto } from './dto/create-forum-comment.dto';
 
 /** Danh mục diễn đàn là các dòng trong bảng categories có category_type = 'forum'. */
 export const FORUM_CATEGORY_TYPE = 'forum';
 
-/** Comment có moderation_status thuộc nhóm này thì bị ẩn và không tính vào số comment. */
+/** Comment có moderation_status thuộc nhóm này thì không tính vào số comment. */
 const HIDDEN_COMMENT_STATUSES = ['rejected', 'removed'];
 
 const SORTS: Record<string, [string, 'ASC' | 'DESC']> = {
@@ -36,14 +34,6 @@ const POST_COLUMNS = [
   'user.full_name',
   'category.category_id',
   'category.category_name',
-];
-
-const COMMENT_COLUMNS = [
-  'c.comment_id',
-  'c.comment_text',
-  'c.created_at',
-  'user.user_id',
-  'user.full_name',
 ];
 
 type StatMap = Map<number, number>;
@@ -74,7 +64,8 @@ export class ForumService {
   // ---------- Danh sách bài ----------
 
   async listPosts(query: ForumPostQueryDto) {
-    const { page, limit } = this.normalizePaging(query.page, query.limit, 10);
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(query.limit) || 10));
 
     const qb = this.basePostQuery();
 
@@ -157,54 +148,6 @@ export class ForumService {
     };
   }
 
-  // ---------- Comment của bài ----------
-
-  async listComments(postId: number, query: ForumCommentQueryDto) {
-    await this.assertApprovedPost(postId);
-    const { page, limit } = this.normalizePaging(query.page, query.limit, 20);
-
-    const [rows, total] = await this.commentQuery()
-      .andWhere('c.content_id = :postId', { postId })
-      .orderBy('c.created_at', 'ASC')
-      .addOrderBy('c.comment_id', 'ASC')
-      .skip((page - 1) * limit)
-      .take(limit)
-      .getManyAndCount();
-
-    return {
-      data: rows.map((c) => this.toCommentView(c)),
-      pagination: { page, limit, total, total_pages: Math.ceil(total / limit) },
-    };
-  }
-
-  async createComment(user: AuthUser, postId: number, dto: CreateForumCommentDto) {
-    await this.assertApprovedPost(postId);
-
-    const text = dto.content.trim();
-    if (!text) {
-      throw new BadRequestException({
-        code: ErrorCode.VALIDATION_FAILED,
-        message: 'Nội dung bình luận không được để trống',
-      });
-    }
-
-    const saved = await this.commentRepo.save(
-      this.commentRepo.create({
-        user_id: user.user_id,
-        content_type: 'blog',
-        content_id: postId,
-        comment_text: text,
-        // Chưa có AI kiểm duyệt nên cho hiện luôn. Khi có AI quét, đổi thành 'pending' ở đây.
-        moderation_status: 'approved',
-      }),
-    );
-
-    const created = await this.commentQuery()
-      .andWhere('c.comment_id = :id', { id: saved.comment_id })
-      .getOne();
-    return this.toCommentView(created ?? saved);
-  }
-
   // ---------- Hàm phụ ----------
 
   /** Câu truy vấn chung: chỉ lấy bài đã duyệt, kèm tác giả và danh mục. */
@@ -215,38 +158,6 @@ export class ForumService {
       .leftJoin('blog.category', 'category')
       .select([...POST_COLUMNS, ...extraColumns])
       .where('blog.status = :status', { status: ContentStatus.APPROVED });
-  }
-
-  /** Câu truy vấn chung cho comment của bài viết: bỏ comment bị ẩn, kèm tác giả. */
-  private commentQuery() {
-    return this.commentRepo
-      .createQueryBuilder('c')
-      .leftJoin('c.user', 'user')
-      .select(COMMENT_COLUMNS)
-      .where('c.content_type = :type', { type: 'blog' })
-      .andWhere('(c.moderation_status IS NULL OR c.moderation_status NOT IN (:...hidden))', {
-        hidden: HIDDEN_COMMENT_STATUSES,
-      });
-  }
-
-  /** bảng comments không có khóa ngoại thật tới bài viết, nên phải tự kiểm tra bài tồn tại và đã duyệt. */
-  private async assertApprovedPost(postId: number) {
-    const exists = await this.blogRepo.exist({
-      where: { blog_id: postId, status: ContentStatus.APPROVED },
-    });
-    if (!exists) {
-      throw new NotFoundException({
-        code: ErrorCode.FORUM_POST_NOT_FOUND,
-        message: `Không tìm thấy bài viết #${postId}`,
-      });
-    }
-  }
-
-  private normalizePaging(page: number | undefined, limit: number | undefined, defaultLimit: number) {
-    return {
-      page: Math.max(1, Number(page) || 1),
-      limit: Math.min(50, Math.max(1, Number(limit) || defaultLimit)),
-    };
   }
 
   private async assertForumCategory(categoryId: number) {
@@ -305,7 +216,7 @@ export class ForumService {
     return { ratingMap, commentMap };
   }
 
-  /** Chỗ DUY NHẤT quyết định tên field của bài trả ra. Cần đổi theo doc FE thì sửa ở đây. */
+  /** Chỗ DUY NHẤT quyết định tên field trả ra. Cần đổi theo doc FE thì sửa ở đây. */
   private toPostView(post: Blog, ratingMap: StatMap, commentMap: StatMap, full: boolean) {
     const base = {
       blog_id: post.blog_id,
@@ -326,15 +237,5 @@ export class ForumService {
     }
     const excerpt = post.content.length > 200 ? `${post.content.slice(0, 200)}…` : post.content;
     return { ...base, excerpt };
-  }
-
-  /** Chỗ DUY NHẤT quyết định tên field của comment trả ra. Cần đổi theo doc FE thì sửa ở đây. */
-  private toCommentView(c: Comment) {
-    return {
-      comment_id: c.comment_id,
-      content: c.comment_text,
-      author: c.user ? { user_id: c.user.user_id, full_name: c.user.full_name } : null,
-      created_at: c.created_at,
-    };
   }
 }
