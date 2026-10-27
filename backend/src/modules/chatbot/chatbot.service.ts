@@ -1,4 +1,3 @@
-```typescript
 import {
   BadRequestException,
   HttpException,
@@ -361,5 +360,4 @@ ${recipesPrompt}`;
       sessionId: session_id,
     });
   }
-}
-```
+}
