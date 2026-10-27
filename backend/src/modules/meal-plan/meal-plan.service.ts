@@ -34,7 +34,8 @@ import { SubscriptionService } from '../subscription/subscription.service';
 import { FavoriteRecipe } from '../recipe/entities/favorite-recipe.entity';
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 
-import { User } from '../users/entities/user.entity';
+import { User, DietType } from '../users/entities/user.entity';
+import { ALLERGEN_GROUPS } from '../users/allergen-groups';
 import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
 
 import { CreateMealPlanDto } from './dto/create-meal-plan.dto';
@@ -56,6 +57,15 @@ interface PlannedMeal {
   calories: number;
   recipe: Recipe;
   portion: number;
+}
+
+/** Một dòng nguyên liệu của công thức (dùng cho response xem/in). */
+interface RecipeIngredientRow {
+  ingredient_id: number;
+  ingredient_name: string;
+  quantity: number;
+  unit: string;
+  is_optional: boolean;
 }
 
 @Injectable()
@@ -166,6 +176,57 @@ export class MealPlanService {
   }
 
   // =========================================================
+  // HELPER: XÁC ĐỊNH ĐỐI TƯỢNG ĐƯỢC LẬP THỰC ĐƠN
+  // =========================================================
+
+  /**
+   * Thực đơn có target_profile_id => lập cho hồ sơ người thân
+   * (meal_plan_profiles + profile_allergies).
+   * Thực đơn không có target_profile_id => lập cho chủ tài khoản
+   * (users.diet_type + user_allergies).
+   *
+   * Mọi thao tác đổi món / kiểm tra chế độ ăn trên một thực đơn đều phải
+   * theo đối tượng này, không theo chủ tài khoản.
+   */
+  private async resolvePlanTarget(
+    mealPlan: MealPlan,
+    user_id: number,
+  ): Promise<{ dietType?: string | null; allergyIngredientIds: number[] }> {
+    const profileId = mealPlan.target_profile_id;
+
+    if (profileId) {
+      const profile = await this.mealPlanProfileRepo.findOne({
+        where: { profile_id: profileId, user_id },
+      });
+
+      if (profile) {
+        const profileAllergies = await this.profileAllergyRepo.find({
+          where: { profile_id: profile.profile_id },
+        });
+
+        return {
+          dietType: profile.diet_type ?? null,
+          allergyIngredientIds: profileAllergies.map(
+            (row) => row.ingredient_id,
+          ),
+        };
+      }
+    }
+
+    const owner = await this.userRepo.findOne({ where: { user_id } });
+    const ownerAllergies = await this.allergyRepo.find({
+      where: { user_id },
+    });
+
+    return {
+      dietType: owner?.diet_type ?? null,
+      allergyIngredientIds: ownerAllergies.map(
+        (row) => row.ingredient_id,
+      ),
+    };
+  }
+
+  // =========================================================
   // HELPER: LẤY CÔNG THỨC PHÙ HỢP CHẾ ĐỘ ĂN VÀ DỊ ỨNG
   // =========================================================
 
@@ -272,6 +333,45 @@ export class MealPlanService {
     }
 
     return nutritionMap;
+  }
+
+  // =========================================================
+  // HELPER: LẤY DANH SÁCH NGUYÊN LIỆU CỦA CÁC CÔNG THỨC
+  // =========================================================
+
+  // Trả về map recipe_id -> danh sách nguyên liệu (kèm tên + đơn vị + số lượng)
+  // để frontend hiển thị/in được danh sách nguyên liệu của món.
+  private async getIngredientsMap(
+    recipeIds: number[],
+  ): Promise<Map<number, RecipeIngredientRow[]>> {
+    const uniqueIds = [...new Set(recipeIds)];
+
+    if (uniqueIds.length === 0) {
+      return new Map<number, RecipeIngredientRow[]>();
+    }
+
+    const rows = await this.recipeIngredientRepo.find({
+      where: { recipe_id: In(uniqueIds) },
+      relations: ['ingredient'],
+    });
+
+    const ingredientsMap = new Map<number, RecipeIngredientRow[]>();
+
+    for (const row of rows) {
+      const list = ingredientsMap.get(row.recipe_id) ?? [];
+
+      list.push({
+        ingredient_id: row.ingredient_id,
+        ingredient_name: row.ingredient?.ingredient_name ?? '',
+        quantity: Number(row.quantity ?? 0),
+        unit: row.unit,
+        is_optional: row.is_optional,
+      });
+
+      ingredientsMap.set(row.recipe_id, list);
+    }
+
+    return ingredientsMap;
   }
 
   // =========================================================
@@ -792,13 +892,12 @@ export class MealPlanService {
         );
       }
 
-      // Kiểm tra dị ứng với nguyên liệu trong công thức mới
-      const userAllergies = await this.allergyRepo.find({
-        where: { user_id },
-      });
-
+      // Kiểm tra dị ứng với nguyên liệu trong công thức mới.
+      // Thực đơn có target_profile_id thuộc về hồ sơ người thân, nên phải
+      // dùng dị ứng + chế độ ăn CỦA HỒ SƠ ĐÓ, không phải của chủ thực đơn.
+      const planTarget = await this.resolvePlanTarget(mealPlan, user_id);
       const allergyIngredientIds = new Set(
-        userAllergies.map((row) => row.ingredient_id),
+        planTarget.allergyIngredientIds,
       );
 
       if (allergyIngredientIds.size > 0) {
@@ -841,15 +940,11 @@ export class MealPlanService {
         );
       }
 
-      // Món phải hợp chế độ ăn của user.
-      const mealPlanOwner = await this.userRepo.findOne({
-        where: { user_id },
-      });
-
+      // Món phải hợp chế độ ăn của đối tượng được lập thực đơn
+      // (hồ sơ người thân nếu có, nếu không thì của chủ thực đơn).
       if (
-        mealPlanOwner &&
         !isRecipeDietCompatible(
-          mealPlanOwner.diet_type,
+          planTarget.dietType,
           recipe.diet_type,
         )
       ) {
@@ -1536,6 +1631,14 @@ export class MealPlanService {
   // GENERATE MEAL PLAN FOR SOMEONE
   // =========================================================
 
+  /**
+   * Sinh thực đơn cho người thân, KHÔNG lưu vào database.
+   *
+   * Mọi thông tin đối tượng đều lấy từ request (profile_name, diet_type,
+   * target_calories, allergy_ids) - không cần hồ sơ lưu trong DB.
+   * Thực đơn được chọn bằng đúng bộ sinh thực đơn hiện có (planMeals) rồi
+   * trả về response để frontend hiển thị/in.
+   */
   async generateMealPlanForSomeone(
     user_id: number,
     dto: GenerateForSomeoneDto,
@@ -1549,56 +1652,48 @@ export class MealPlanService {
       );
     }
 
-    const profile = await this.mealPlanProfileRepo.findOne({
-      where: {
-        profile_id: dto.profile_id,
-        user_id,
-      },
-    });
+    // Chế độ ăn: thiếu thì dùng thuần chay (nghiêm ngặt nhất) - không tự ý
+    // mặc định là "được dùng mọi món".
+    const dietType = dto.diet_type ?? DietType.VEGAN;
 
-    if (!profile) {
-      throw new NotFoundException(
-        'Không tìm thấy hồ sơ người thân hoặc bạn không có quyền sử dụng hồ sơ này',
+    // Calo mục tiêu: ưu tiên con số người dùng gửi lên; không gửi thì tính
+    // theo hồ sơ chủ tài khoản làm mốc (cùng công thức Mifflin-St Jeor).
+    const targetCalories =
+      dto.target_calories ??
+      (await this.resolveDefaultTargetCalories(user_id));
+
+    // Dị ứng: lấy đúng danh sách người thân gửi lên (rỗng = không dị ứng),
+    // KHÔNG dùng dị ứng của chủ tài khoản.
+    // Nhóm dị ứng (PEANUT, DAIRY...) được ánh xạ sang ingredient_id y như
+    // luồng PUT /users/me/allergies.
+    const allergyIngredientIds = [
+      ...new Set([
+        ...(dto.allergy_ids ?? []),
+        ...this.expandAllergenGroups(dto.allergen_groups),
+      ]),
+    ];
+
+    if (allergyIngredientIds.length > 0) {
+      const found = await this.ingredientService.findByIds(
+        allergyIngredientIds,
       );
+
+      if (found.length !== allergyIngredientIds.length) {
+        throw new BadRequestException(
+          'Có ingredient_id không tồn tại trong danh sách dị ứng',
+        );
+      }
     }
-
-    const missing: string[] = [];
-
-    if (profile.age == null) missing.push('age');
-    if (!profile.gender) missing.push('gender');
-    if (profile.height_cm == null) missing.push('height_cm');
-    if (profile.weight_kg == null) missing.push('weight_kg');
-    if (!profile.activity_level) missing.push('activity_level');
-
-    if (missing.length > 0) {
-      throw new BadRequestException(
-        `Cần cập nhật hồ sơ ${profile.full_name}: thiếu ${missing.join(', ')}`,
-      );
-    }
-
-    const targetCalories = this.calculateTargetCalories(
-      profile.age!,
-      profile.gender!,
-      profile.height_cm!,
-      profile.weight_kg!,
-      profile.activity_level!,
-    );
-
-    // Dị ứng lấy theo hồ sơ người thân, không phải của chủ tài khoản.
-    const profileAllergies = await this.profileAllergyRepo.find({
-      where: { profile_id: profile.profile_id },
-    });
 
     const safeRecipes = await this.getSafeRecipes(
       user_id,
-      profile.diet_type ?? undefined,
-      profileAllergies.map((row) => row.ingredient_id),
+      dietType,
+      allergyIngredientIds,
     );
 
     const hasBudget = dto.total_budget !== undefined;
 
-    const nutritionMap =
-      await this.getNutritionMap(safeRecipes);
+    const nutritionMap = await this.getNutritionMap(safeRecipes);
 
     const costMap = hasBudget
       ? await this.getRecipeCostMap(safeRecipes)
@@ -1610,7 +1705,7 @@ export class MealPlanService {
       dinner: Math.round(targetCalories * 0.4),
     };
 
-    // Chọn món trước khi ghi DB; ném lỗi nếu không đủ ngân sách.
+    // Chọn món trước; ném lỗi nếu không đủ ngân sách.
     const plannedMeals = this.planMeals({
       dayCount: 7,
       mealTargets,
@@ -1625,66 +1720,203 @@ export class MealPlanService {
         : undefined,
     });
 
-    const today = new Date();
-    const monday = new Date(today);
-    const dayOfWeek = monday.getDay();
+    const startDate = this.getWeekStart();
 
-    monday.setDate(
-      monday.getDate() +
-      (dayOfWeek === 0 ? -6 : 1 - dayOfWeek),
+    // Nguyên liệu của các món được chọn: cần cho màn hình hiển thị/in.
+    const ingredientsMap = await this.getIngredientsMap(
+      plannedMeals.map((meal) => meal.recipe.recipe_id),
     );
 
-    monday.setHours(0, 0, 0, 0);
+    return this.buildPreviewMealPlan({
+      profileName: dto.profile_name?.trim() || 'Người thân',
+      dietType,
+      targetCalories,
+      allergyIngredientIds,
+      startDate,
+      plannedMeals,
+      nutritionMap,
+      ingredientsMap,
+      hasBudget,
+      totalBudget: dto.total_budget,
+    });
+  }
 
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(0, 0, 0, 0);
-
-    const mealPlan = new MealPlan();
-
-    mealPlan.user_id = user_id;
-    mealPlan.target_profile_id = profile.profile_id;
-    mealPlan.goal_id = null;
-    mealPlan.bmi_snapshot = profile.bmi ?? null;
-    mealPlan.plan_type = PlanType.WEEKLY;
-    mealPlan.start_date = monday;
-    mealPlan.end_date = sunday;
-    mealPlan.has_budget = hasBudget;
-
-    if (hasBudget) {
-      mealPlan.total_budget = dto.total_budget!;
+  /**
+   * Ánh xạ mã nhóm dị ứng (PEANUT, DAIRY...) sang danh sách ingredient_id.
+   * Dùng chung bảng ALLERGEN_GROUPS với luồng dị ứng của tài khoản.
+   */
+  private expandAllergenGroups(codes?: string[]): number[] {
+    if (!codes || codes.length === 0) {
+      return [];
     }
 
-    mealPlan.target_calories_per_day = targetCalories;
-    mealPlan.status = MealPlanStatus.ACTIVE;
-    mealPlan.generated_by = 'AI';
+    const ids: number[] = [];
 
-    const savedMealPlan =
-      await this.mealPlanRepo.save(mealPlan);
+    for (const code of codes) {
+      const group = ALLERGEN_GROUPS.find(
+        (item) => item.code === code,
+      );
 
-    const weeklyPlan = new WeeklyPlan();
+      if (group) {
+        ids.push(...group.ingredient_ids);
+      }
+    }
 
-    weeklyPlan.meal_plan_id =
-      savedMealPlan.meal_plan_id;
-    weeklyPlan.week_number = 1;
-    weeklyPlan.start_date = monday;
-    weeklyPlan.end_date = sunday;
-    weeklyPlan.rollover_amount = 0;
-    weeklyPlan.week_calorie_target =
-      targetCalories * 7;
+    return ids;
+  }
 
-    const savedWeeklyPlan =
-      await this.weeklyPlanRepo.save(weeklyPlan);
+  /**
+   * Calo mục tiêu mặc định khi client không gửi target_calories.
+   * Dùng hồ sơ chủ tài khoản làm mốc để thực đơn người thân vẫn có mức
+   * calo hợp lý thay vì để trống.
+   */
+  private async resolveDefaultTargetCalories(
+    user_id: number,
+  ): Promise<number> {
+    const user = await this.userRepo.findOne({
+      where: { user_id },
+      relations: ['current_goal'],
+    });
 
-    await this.savePlannedMeals(
-      savedWeeklyPlan.weekly_plan_id,
-      monday,
+    if (!user) {
+      throw new NotFoundException(`Không tìm thấy người dùng #${user_id}`);
+    }
+
+    const missing: string[] = [];
+
+    if (user.age == null) missing.push('age');
+    if (!user.gender) missing.push('gender');
+    if (user.height_cm == null) missing.push('height_cm');
+    if (user.weight_kg == null) missing.push('weight_kg');
+    if (!user.activity_level) missing.push('activity_level');
+
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `Cần cập nhật hồ sơ trước: thiếu ${missing.join(', ')}`,
+      );
+    }
+
+    return this.calculateTargetCalories(
+      user.age!,
+      user.gender!,
+      user.height_cm!,
+      user.weight_kg!,
+      user.activity_level!,
+      user.current_goal?.name ?? 'maintain',
+    );
+  }
+
+  /** Ngày bắt đầu tuần (Thứ 2) của tuần hiện tại. */
+  private getWeekStart(): Date {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + diffToMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    return monday;
+  }
+
+  /**
+   * Gom kết quả thực đơn thành cấu trúc trả về cho frontend.
+   * Cùng hình dạng với thực đơn đã lưu (weekly_plans -> daily_meals ->
+   * meal_items -> recipe) để frontend dùng chung được component hiển thị/in.
+   */
+  private buildPreviewMealPlan(params: {
+    profileName: string;
+    dietType: string;
+    targetCalories: number;
+    allergyIngredientIds: number[];
+    startDate: Date;
+    plannedMeals: PlannedMeal[];
+    nutritionMap: Map<number, NutritionInfo>;
+    ingredientsMap: Map<number, RecipeIngredientRow[]>;
+    hasBudget: boolean;
+    totalBudget?: number;
+  }) {
+    const {
+      profileName,
+      dietType,
+      targetCalories,
+      allergyIngredientIds,
+      startDate,
       plannedMeals,
-    );
+      nutritionMap,
+      ingredientsMap,
+      hasBudget,
+      totalBudget,
+    } = params;
 
-    return this.findMyMealPlanDetail(
-      user_id,
-      savedMealPlan.meal_plan_id,
-    );
+    const days = new Map<number, PlannedMeal[]>();
+
+    for (const meal of plannedMeals) {
+      const list = days.get(meal.dayIndex) ?? [];
+      list.push(meal);
+      days.set(meal.dayIndex, list);
+    }
+
+    // Cùng cấu trúc với thực đơn đã lưu: MỖI bữa là 1 daily_meals, mỗi
+    // daily_meals có 1 meal_items và bên trong là đối tượng recipe đầy đủ.
+    // Nhờ vậy frontend dùng chung được đúng hàm đọc thực đơn đã lưu.
+    const dailyMeals: any[] = [];
+
+    for (const [dayIndex, meals] of [...days.entries()].sort(
+      (a, b) => a[0] - b[0],
+    )) {
+      const mealDate = new Date(startDate);
+      mealDate.setDate(startDate.getDate() + dayIndex);
+      mealDate.setHours(0, 0, 0, 0);
+
+      for (const meal of meals) {
+        dailyMeals.push({
+          meal_date: mealDate,
+          meal_type: meal.mealType,
+          target_calories: meal.calories,
+          meal_items: [
+            {
+              recipe_id: meal.recipe.recipe_id,
+              is_ai_suggested: true,
+              added_by_user: false,
+              portion_multiplier: meal.portion,
+              recipe: {
+                ...meal.recipe,
+                nutrition: nutritionMap.get(meal.recipe.recipe_id) ?? null,
+                ingredients:
+                  ingredientsMap.get(meal.recipe.recipe_id) ?? [],
+              },
+            },
+          ],
+        });
+      }
+    }
+
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+    endDate.setHours(0, 0, 0, 0);
+
+    return {
+      // Thực đơn này KHÔNG được lưu -> is_saved = false để frontend biết
+      // không có mục trong danh sách thực đơn của tôi.
+      is_saved: false,
+      profile_name: profileName,
+      diet_type: dietType,
+      target_calories_per_day: targetCalories,
+      allergy_ingredient_ids: allergyIngredientIds,
+      has_budget: hasBudget,
+      total_budget: hasBudget ? (totalBudget ?? null) : null,
+      start_date: startDate,
+      end_date: endDate,
+      weekly_plans: [
+        {
+          week_number: 1,
+          start_date: startDate,
+          end_date: endDate,
+          week_calorie_target: targetCalories * 7,
+          daily_meals: dailyMeals,
+        },
+      ],
+    };
   }
 }
