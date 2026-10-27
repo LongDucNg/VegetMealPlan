@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
 import { MODERATION_QUEUE, ModerationItem } from "@/features/admin";
+import { forumService, setAdminPostStatus } from "@/features/community";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -154,10 +155,25 @@ function ModerationCard({
 }
 
 function ModerationContent() {
-  const [items, setItems] = useState<ModerationItem[]>([...MODERATION_QUEUE]);
+  const [items, setItems] = useState<ModerationItem[]>([]);
   const [confirmModal, setConfirmModal] = useState<{ itemId: string; action: "Remove" | "Escalate" } | null>(null);
 
+  useEffect(() => {
+    forumService.getAdminModerationQueue().then((realQueue) => {
+      // Merge real forum pending posts with mock items (avoiding duplicates)
+      const existingIds = new Set(realQueue.map((r) => r.id));
+      const filteredMock = MODERATION_QUEUE.filter((m) => !existingIds.has(m.id));
+      setItems([...realQueue, ...filteredMock]);
+    });
+  }, []);
+
   const handleAction = (itemId: string, status: ModerationItem["status"]) => {
+    const item = items.find((m) => m.id === itemId);
+    if (item && item.contentId) {
+      const backendStatus = status === "Approved" ? "approved" : status === "Removed" ? "removed" : "pending_review";
+      setAdminPostStatus(item.contentId, backendStatus);
+    }
+
     setItems((prev) =>
       prev.map((m) => (m.id === itemId ? { ...m, status } : m))
     );

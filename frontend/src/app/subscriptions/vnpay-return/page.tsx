@@ -24,7 +24,6 @@ function VNPayReturnContent() {
       paramsObj[key] = value;
     });
 
-    const responseCode = searchParams.get("vnp_ResponseCode");
     const ref = searchParams.get("vnp_TxnRef");
     setTxnRef(ref);
 
@@ -32,7 +31,8 @@ function VNPayReturnContent() {
     subscriptionService
       .verifyVnpayReturn(paramsObj)
       .then((res) => {
-        if (res?.status === "success" || responseCode === "00") {
+        // Chỉ tin kết quả backend đã kiểm chữ ký; tự gõ vnp_ResponseCode=00 lên URL không được tính.
+        if (res?.status === "success") {
           setSuccess(true);
           setMessage("Giao dịch thanh toán Premium thành công! Tài khoản của bạn đã được kích hoạt.");
           subscriptionService.setPremiumActive(res?.premium_until, res?.txn_ref || ref);
@@ -46,15 +46,9 @@ function VNPayReturnContent() {
         }
       })
       .catch((err) => {
-        // Fallback: check VNPay response code directly if server return verification fails
-        if (responseCode === "00") {
-          setSuccess(true);
-          setMessage("Thanh toán thành công! Gói hội viên Premium đã được kích hoạt.");
-          subscriptionService.setPremiumActive(null, ref);
-        } else {
-          setSuccess(false);
-          setMessage(err?.message || "Không thể xác thực giao dịch thanh toán hoặc giao dịch bị hủy.");
-        }
+        // Backend lỗi thì KHÔNG coi là thành công; người dùng tải lại trang để xác nhận lại.
+        setSuccess(false);
+        setMessage(err?.message || "Không thể xác thực giao dịch thanh toán, vui lòng tải lại trang.");
       })
       .finally(() => {
         setLoading(false);

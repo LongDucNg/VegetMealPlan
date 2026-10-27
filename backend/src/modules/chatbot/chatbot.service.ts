@@ -54,7 +54,7 @@ export class ChatbotService {
     private readonly safetyService: ChatbotSafetyService,
     @Inject('AI_PROVIDER')
     private readonly aiProvider: AiProvider,
-  ) {}
+  ) { }
 
   /**
    * Giới hạn tốc độ chống lạm dụng (10 yêu cầu / phút per user hoặc per guest session).
