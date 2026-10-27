@@ -1,30 +1,34 @@
-export function formatForumDate(dateStr?: string | Date | null): string {
-  if (!dateStr) return "Vừa xong";
-  const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
-  if (isNaN(date.getTime())) return String(dateStr);
-
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSecs = Math.floor(diffMs / 1000);
-  const diffMins = Math.floor(diffSecs / 60);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffSecs < 60) return "Vừa xong";
-  if (diffMins < 60) return `${diffMins} phút trước`;
-  if (diffHours < 24) return `${diffHours} giờ trước`;
-  if (diffDays < 7) return `${diffDays} ngày trước`;
-
-  return date.toLocaleDateString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
 export function getInitials(name?: string | null): string {
-  if (!name || !name.trim()) return "U";
+  if (!name || !name.trim()) return "VG";
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+export function formatForumDate(dateStr?: string | null): string {
+  if (!dateStr) return "Vừa xong";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHours = Math.floor(diffMin / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays > 7) {
+      return d.toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    }
+    if (diffDays >= 1) return `${diffDays} ngày trước`;
+    if (diffHours >= 1) return `${diffHours} giờ trước`;
+    if (diffMin >= 1) return `${diffMin} phút trước`;
+    return "Vừa xong";
+  } catch {
+    return dateStr;
+  }
 }

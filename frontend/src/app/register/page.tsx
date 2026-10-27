@@ -50,13 +50,13 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      await register({
+      const res = await register({
         full_name: name.trim(),
         email: email.trim(),
         password,
       });
-      // Đăng ký tài khoản thành công -> chuyển hướng tới trang cá nhân để nhắc hoàn thiện hồ sơ
-      router.push("/me");
+      // Tài khoản chưa kích hoạt: chuyển sang màn nhập mã OTP vừa gửi tới email
+      router.push(`/verify-email?email=${encodeURIComponent(res?.email || email.trim())}&sent=1`);
     } catch (err: any) {
       if (err instanceof ApiError) {
         if (err.code === "AUTH_EMAIL_TAKEN") {

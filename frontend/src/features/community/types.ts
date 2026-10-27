@@ -121,7 +121,7 @@ export interface ForumPost {
   comments: CommentItem[];
   mediaUrl?: string;
   mediaType?: "image" | "video";
-  status?: string;
+  status?: "approved" | "pending_review" | "rejected" | string;
   views?: number;
   createdAt?: string;
   userId?: number;

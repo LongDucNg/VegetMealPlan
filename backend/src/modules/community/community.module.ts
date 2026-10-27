@@ -8,11 +8,22 @@ import { Category } from '../category/entities/category.entity';
 import { ForumController } from './forum.controller';
 import { AdminForumController } from './admin-forum.controller';
 import { ForumService } from './forum.service';
+import { VideoController } from './video.controller';
+import { VideoService } from './video.service';
+import { AdminModerationController } from './admin-moderation.controller';
+import { AdminContentController } from './admin-content.controller';
+import { NonVegetarianDetectorService } from '../../common/services/non-vegetarian-detector.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Blog, Video, Comment, Vote, Category])],
-  controllers: [ForumController, AdminForumController],
-  providers: [ForumService],
-  exports: [TypeOrmModule],
+  controllers: [
+    ForumController,
+    AdminForumController,
+    VideoController,
+    AdminModerationController,
+    AdminContentController,
+  ],
+  providers: [ForumService, VideoService, NonVegetarianDetectorService],
+  exports: [TypeOrmModule, VideoService, NonVegetarianDetectorService, ForumService],
 })
 export class CommunityModule {}

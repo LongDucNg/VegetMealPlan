@@ -34,7 +34,7 @@ interface ImportItemData {
   import_item_id?: number;
   row_number: number;
   recipe_title: string;
-  status: string;
+  status: "SUCCESS" | "FAILED";
   fail_reason?: string;
   fail_detail?: string;
   recipe_id?: number;
@@ -85,11 +85,9 @@ export function AdminImportModal({
   };
 
   const filteredItems = items.filter((item) => {
-    const status = (item.status || "").toLowerCase();
-    const isSuccess = status === "success";
     if (filterTab === "all") return true;
-    if (filterTab === "success") return isSuccess;
-    if (filterTab === "failed") return !isSuccess;
+    if (filterTab === "success") return item.status === "SUCCESS";
+    if (filterTab === "failed") return item.status === "FAILED";
     return true;
   });
 
@@ -246,18 +244,12 @@ export function AdminImportModal({
               {/* Detailed Item List */}
               <div className="border border-stone-200 rounded-2xl overflow-hidden divide-y divide-stone-100 text-xs">
                 {filteredItems.map((item, idx) => {
-                  const status = (item.status || "").toLowerCase();
-                  const isSuccess = status === "success";
-                  const isSkipped = status === "skipped";
+                  const isSuccess = item.status === "SUCCESS";
                   return (
                     <div
                       key={idx}
                       className={`p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-colors ${
-                        isSuccess
-                          ? "hover:bg-emerald-50/30"
-                          : isSkipped
-                          ? "bg-amber-50/30 hover:bg-amber-50/50"
-                          : "bg-red-50/30 hover:bg-red-50/50"
+                        isSuccess ? "hover:bg-emerald-50/30" : "bg-red-50/30 hover:bg-red-50/50"
                       }`}
                     >
                       <div className="min-w-0 flex-1 space-y-1">
@@ -278,18 +270,8 @@ export function AdminImportModal({
                         {/* Status & Detailed Error */}
                         {isSuccess ? (
                           <div className="flex items-center gap-1.5 text-emerald-700 font-semibold text-[11px]">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                            <span>Đã xác thực và lưu thành công vào cơ sở dữ liệu</span>
-                          </div>
-                        ) : isSkipped ? (
-                          <div className="p-2.5 rounded-xl bg-amber-100/70 border border-amber-200 text-amber-900 space-y-0.5 mt-1">
-                            <div className="flex items-center gap-1.5 font-bold text-amber-800 text-[11px]">
-                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                              <span>Bị bỏ qua (Trùng tiêu đề):</span>
-                            </div>
-                            <p className="text-[11px] leading-relaxed pl-5 font-medium">
-                              {item.fail_detail || item.fail_reason || "Đã có công thức trùng tiêu đề trong hệ thống."}
-                            </p>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Đã xác thực và lưu vào cơ sở dữ liệu thật</span>
                           </div>
                         ) : (
                           <div className="p-2.5 rounded-xl bg-red-100/70 border border-red-200 text-red-900 space-y-0.5 mt-1">
@@ -298,7 +280,7 @@ export function AdminImportModal({
                               <span>Lý do không thể nhập:</span>
                             </div>
                             <p className="text-[11px] leading-relaxed pl-5 font-medium">
-                              {item.fail_detail || item.fail_reason || "Dữ liệu dòng này không hợp lệ hoặc thiếu thông tin bắt buộc."}
+                              {item.fail_detail || item.fail_reason || "Dữ liệu không hợp lệ"}
                             </p>
                           </div>
                         )}
@@ -309,12 +291,10 @@ export function AdminImportModal({
                           className={`px-3 py-1 rounded-full text-[11px] font-bold ${
                             isSuccess
                               ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                              : isSkipped
-                              ? "bg-amber-100 text-amber-800 border border-amber-200"
                               : "bg-red-100 text-red-800 border border-red-200"
                           }`}
                         >
-                          {isSuccess ? "THÀNH CÔNG" : isSkipped ? "BỎ QUA" : "THẤT BÀI"}
+                          {isSuccess ? "THÀNH CÔNG" : "THẤT BÀI"}
                         </span>
                       </div>
                     </div>

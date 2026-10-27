@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 
@@ -8,7 +8,7 @@ import * as nodemailer from 'nodemailer';
  * luồng quên mật khẩu ở máy local mà không cần tài khoản SMTP.
  */
 @Injectable()
-export class MailService implements OnModuleInit {
+export class MailService {
   private readonly logger = new Logger(MailService.name);
   private readonly transporter: nodemailer.Transporter | null;
   private readonly from: string;
@@ -27,27 +27,6 @@ export class MailService implements OnModuleInit {
           auth: { user: config.get<string>('MAIL_USER'), pass: config.get<string>('MAIL_PASS') },
         })
       : null;
-  }
-
-  /**
-   * Báo ngay lúc khởi động server mail có gửi được không, để không phải đợi tới lúc bấm "Quên mật khẩu"
-   * mới biết: chưa cấu hình thì mail chỉ in ra console; cấu hình sai (sai app password...) thì báo lỗi đăng nhập SMTP.
-   */
-  onModuleInit() {
-    if (!this.transporter) {
-      this.logger.warn(
-        'Chưa cấu hình MAIL_HOST trong .env: mail (kèm mã OTP) sẽ chỉ in ra console này, KHÔNG gửi tới hộp thư thật.',
-      );
-      return;
-    }
-    this.transporter
-      .verify()
-      .then(() => this.logger.log(`Đã kết nối SMTP, mail sẽ gửi từ ${this.from}`))
-      .catch((err) =>
-        this.logger.error(
-          `Không đăng nhập được SMTP (${err?.message ?? err}). Kiểm tra MAIL_USER và MAIL_PASS (app password 16 ký tự của Gmail).`,
-        ),
-      );
   }
 
   async send(to: string, subject: string, html: string, text: string): Promise<void> {
@@ -70,6 +49,19 @@ export class MailService implements OnModuleInit {
         <p>Mã có hiệu lực trong ${ttlMinutes} phút và chỉ dùng được một lần. Không chia sẻ mã này cho ai.</p>
         <p>Nếu bạn không yêu cầu, hãy bỏ qua email này, mật khẩu của bạn vẫn giữ nguyên.</p>`),
       `Mã đặt lại mật khẩu VegetMealPlan: ${code}. Hiệu lực ${ttlMinutes} phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.`,
+    );
+  }
+
+  sendVerifyEmailOtp(to: string, code: string, ttlMinutes: number) {
+    return this.send(
+      to,
+      `Mã xác thực email VegetMealPlan: ${code}`,
+      layout(`
+        <p>Cảm ơn bạn đã đăng ký VegetMealPlan. Nhập mã dưới đây để xác thực email và kích hoạt tài khoản:</p>
+        <p style="font-size:28px;font-weight:700;letter-spacing:6px;margin:24px 0">${code}</p>
+        <p>Mã có hiệu lực trong ${ttlMinutes} phút và chỉ dùng được một lần. Không chia sẻ mã này cho ai.</p>
+        <p>Nếu bạn không đăng ký tài khoản, hãy bỏ qua email này.</p>`),
+      `Mã xác thực email VegetMealPlan: ${code}. Hiệu lực ${ttlMinutes} phút. Nếu bạn không đăng ký, hãy bỏ qua email này.`,
     );
   }
 
