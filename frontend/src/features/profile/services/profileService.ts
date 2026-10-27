@@ -15,16 +15,31 @@ import { DEFAULT_MOCK_PROFILE } from "../data/mockProfile";
 
 const ALLERGEN_MAP_TO_BACKEND: Record<string, string> = {
   peanut: "PEANUT",
+  PEANUT: "PEANUT",
   soy: "SOY",
+  SOY: "SOY",
   gluten: "GLUTEN",
+  GLUTEN: "GLUTEN",
   dairy: "DAIRY",
+  DAIRY: "DAIRY",
   treenut: "TREE_NUT",
+  tree_nut: "TREE_NUT",
+  nuts: "TREE_NUT",
+  TREE_NUT: "TREE_NUT",
   sesame: "SEED",
+  seed: "SEED",
+  SEED: "SEED",
   egg: "EGG",
+  EGG: "EGG",
   fungi: "FUNGI",
   mushroom: "FUNGI",
+  FUNGI: "FUNGI",
   allium: "ALLIUM",
+  ALLIUM: "ALLIUM",
   legume: "LEGUME",
+  LEGUME: "LEGUME",
+  corn: "CORN",
+  CORN: "CORN",
 };
 
 const ALLERGEN_MAP_FROM_BACKEND: Record<string, string> = {
@@ -38,6 +53,7 @@ const ALLERGEN_MAP_FROM_BACKEND: Record<string, string> = {
   FUNGI: "fungi",
   ALLIUM: "allium",
   LEGUME: "legume",
+  CORN: "corn",
 };
 
 function mapBackendDietToFrontend(diet?: string): VegetarianType {
@@ -71,11 +87,21 @@ function mapFrontendGoalToId(goal?: HealthGoal | ""): number {
   return 3; // maintain
 }
 
-function mapBackendProfileToUserProfile(backend: BackendProfile): UserProfile {
+function mapBackendProfileToUserProfile(
+  backend: BackendProfile,
+  existingCustomAllergies: string[] = []
+): UserProfile {
   const allergenGroups = backend.allergies?.allergen_groups || [];
   const mappedAllergies = allergenGroups.map(
     (code) => ALLERGEN_MAP_FROM_BACKEND[code] || code.toLowerCase()
   );
+
+  // Giữ lại các dị ứng tự do / nguyên liệu riêng lẻ không thuộc nhóm chuẩn
+  for (const custom of existingCustomAllergies) {
+    if (!mappedAllergies.some((m) => m.toLowerCase() === custom.toLowerCase())) {
+      mappedAllergies.push(custom);
+    }
+  }
 
   return {
     id: backend.user_id,
@@ -256,12 +282,34 @@ export const profileService = {
       const serverProfile = await apiClient.put<BackendProfile>("/users/me/profile", payload);
 
       // 2. Cập nhật dị ứng nếu có
+      const customAllergies: string[] = [];
       if (updates.allergies !== undefined) {
-        const allergenGroups = updates.allergies
-          .map((a) => ALLERGEN_MAP_TO_BACKEND[a] || a.toUpperCase())
-          .filter(Boolean);
+        const validGroupCodes = new Set([
+          "SOY", "TREE_NUT", "PEANUT", "SEED", "GLUTEN", "LEGUME", "EGG", "DAIRY", "FUNGI", "ALLIUM", "CORN"
+        ]);
 
-        // BE: User không dị ứng gì thì vẫn gọi PUT /users/me/allergies với {} để đánh dấu đã khai báo
+        const allergenGroups: string[] = [];
+
+        for (const raw of updates.allergies) {
+          const item = String(raw).trim();
+          if (!item) continue;
+          const mapped =
+            ALLERGEN_MAP_TO_BACKEND[item] ||
+            ALLERGEN_MAP_TO_BACKEND[item.toLowerCase()] ||
+            (validGroupCodes.has(item.toUpperCase()) ? item.toUpperCase() : null);
+
+          if (mapped && validGroupCodes.has(mapped)) {
+            if (!allergenGroups.includes(mapped)) {
+              allergenGroups.push(mapped);
+            }
+          } else {
+            if (!customAllergies.some((c) => c.toLowerCase() === item.toLowerCase())) {
+              customAllergies.push(item);
+            }
+          }
+        }
+
+        // BE: Chỉ gửi các allergen_groups hợp lệ (ngăn lỗi class-validator 400 nếu có dị ứng nhập tự do)
         await apiClient.put<AllergiesData>("/users/me/allergies", {
           allergen_groups: allergenGroups,
           ingredient_ids: [],
@@ -272,7 +320,7 @@ export const profileService = {
         serverProfile.allergies_declared = true;
       }
 
-      const mapped = mapBackendProfileToUserProfile(serverProfile);
+      const mapped = mapBackendProfileToUserProfile(serverProfile, customAllergies);
       storage.setItem(STORAGE_KEYS.USER_PROFILE, mapped);
       return mapped;
     } catch (err) {

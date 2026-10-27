@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   MessageSquare,
   Plus,
-  Search,
   Eye,
   Loader2,
   CheckCircle,
@@ -27,20 +26,27 @@ import {
   forumService,
   BackendForumCategory,
   ForumPost,
-  getUserSubmittedPosts,
+  ForumRightRail,
 } from "@/features/community";
 
-export default function ForumPage() {
+function ForumContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isGuest, role, user, isAdmin } = useRole();
+
+  const urlTag = searchParams.get("tag") || "";
+  const urlCategory = searchParams.get("category_id");
+  const urlQ = searchParams.get("q") || "";
 
   // State
   const [categories, setCategories] = useState<BackendForumCategory[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(
+    urlCategory ? Number(urlCategory) : undefined
+  );
   const [showMyPosts, setShowMyPosts] = useState(false);
   const [sort, setSort] = useState<"newest" | "oldest" | "most_viewed">("newest");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(urlTag ? `#${urlTag}` : urlQ);
+  const [debouncedQuery, setDebouncedQuery] = useState(urlTag ? `#${urlTag}` : urlQ);
 
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [myPostCount, setMyPostCount] = useState(0);
@@ -64,7 +70,7 @@ export default function ForumPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Load categories
+  // Load categories from real BE
   useEffect(() => {
     let mounted = true;
     forumService.listCategories().then((res) => {
@@ -77,44 +83,46 @@ export default function ForumPage() {
     };
   }, []);
 
-  // Fetch posts from API + user's posts
+  // Fetch posts from Backend API
   const fetchPosts = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await forumService.listPosts({
-        category_id: selectedCategoryId,
-        q: debouncedQuery,
-        sort,
-        page: 1,
-        limit: 30,
-        currentUserId: user?.user_id,
-        isMyPostsOnly: showMyPosts,
-        isAdmin,
-      });
-      setPosts(res.data);
+      if (showMyPosts) {
+        const myRes = await forumService.listMyPosts();
+        const activePosts = myRes.data.filter((p) => p.status !== "removed" && p.status !== "rejected");
+        setPosts(activePosts);
+        setMyPostCount(activePosts.length);
+      } else {
+        const res = await forumService.listPosts({
+          category_id: selectedCategoryId,
+          q: debouncedQuery,
+          sort,
+          page: 1,
+          limit: 30,
+          currentUserId: user?.user_id,
+        });
+        const activePosts = res.data.filter((p) => p.status !== "removed" && p.status !== "rejected");
+        setPosts(activePosts);
 
-      // Calculate my post count
-      const userPosts = getUserSubmittedPosts();
-      setMyPostCount(userPosts.length);
+        if (user?.user_id) {
+          forumService
+            .listMyPosts()
+            .then((myRes) => {
+              const count = myRes.data.filter((p) => p.status !== "removed" && p.status !== "rejected").length;
+              setMyPostCount(count);
+            })
+            .catch(() => {});
+        }
+      }
     } catch (err) {
       console.error("[ForumPage] Error fetching posts:", err);
     } finally {
       setLoading(false);
     }
-  }, [selectedCategoryId, debouncedQuery, sort, user?.user_id, showMyPosts, isAdmin]);
+  }, [selectedCategoryId, debouncedQuery, sort, user?.user_id, showMyPosts]);
 
   useEffect(() => {
     fetchPosts();
-
-    const handleStatusSync = () => {
-      fetchPosts();
-    };
-    window.addEventListener("storage", handleStatusSync);
-    window.addEventListener("forum_status_changed", handleStatusSync);
-    return () => {
-      window.removeEventListener("storage", handleStatusSync);
-      window.removeEventListener("forum_status_changed", handleStatusSync);
-    };
   }, [fetchPosts]);
 
   const resetForm = () => {
@@ -141,14 +149,11 @@ export default function ForumPage() {
         .map((t) => t.trim().replace(/^#/, ""))
         .filter(Boolean);
 
-      const categoryObj = categories.find((c) => c.category_id === newCategoryId);
-
       const res = await forumService.createPost(
         {
           title: newTitle.trim(),
           content: newContent.trim(),
           category_id: newCategoryId,
-          category_name: categoryObj?.category_name,
           tags: tagList.length > 0 ? tagList : undefined,
         },
         user || { full_name: "Tôi", role: role }
@@ -158,11 +163,10 @@ export default function ForumPage() {
         setSubmitSuccessMsg("Đăng bài viết thành công!");
       } else {
         setSubmitSuccessMsg(
-          "Bài viết đã được gửi thành công! Bài viết đã được lưu vào 'Bài viết của tôi' và đang chờ quản trị viên duyệt trước khi công khai rộng rãi."
+          "Bài viết đã được gửi thành công và đang chờ ban quản trị kiểm duyệt trước khi công khai rộng rãi."
         );
       }
 
-      // Re-fetch posts so the new post appears immediately in the feed
       fetchPosts();
 
       setTimeout(() => {
@@ -178,7 +182,16 @@ export default function ForumPage() {
   };
 
   return (
-    <AppShell>
+    <AppShell
+      rightRail={
+        <ForumRightRail
+          onSelectTag={(tag) => {
+            setShowMyPosts(false);
+            setSearchQuery(tag);
+          }}
+        />
+      }
+    >
       <div className="flex flex-col space-y-7">
         {/* Header */}
         <PageHeader
@@ -256,7 +269,7 @@ export default function ForumPage() {
               >
                 <span className="inline-flex items-center gap-1.5">
                   <UserCheck className="w-3.5 h-3.5" />
-                  <span>Bài viết của tôi ({myPostCount})</span>
+                  <span>Bài viết của tôi</span>
                 </span>
               </Chip>
             )}
@@ -282,7 +295,7 @@ export default function ForumPage() {
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-stone-400">
             <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
             <span className="text-sm font-medium text-stone-500">
-              Đang tải danh sách bài thảo luận…
+              Đang tải danh sách bài thảo luận từ máy chủ…
             </span>
           </div>
         )}
@@ -301,10 +314,14 @@ export default function ForumPage() {
                           {post.category}
                         </span>
 
-                        {/* Status Badge: Pending vs Approved */}
+                        {/* Status Badge: Pending vs Removed vs Approved */}
                         {post.status === "pending_review" ? (
                           <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
                             <span>⏳</span> Đang chờ duyệt
+                          </span>
+                        ) : post.status === "removed" || post.status === "rejected" ? (
+                          <span className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
+                            <span>✕</span> Đã bị gỡ
                           </span>
                         ) : (
                           <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
@@ -331,12 +348,18 @@ export default function ForumPage() {
                       <div className="mt-4 pt-3 border-t border-stone-100 flex flex-wrap items-center justify-between gap-3">
                         <div className="flex flex-wrap gap-1.5">
                           {post.tags.map((tag) => (
-                            <span
+                            <button
                               key={tag}
-                              className="text-xs font-medium text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md"
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setSearchQuery(tag);
+                              }}
+                              className="text-xs font-medium text-stone-600 bg-stone-100 hover:bg-emerald-50 hover:text-emerald-800 px-2 py-0.5 rounded-md transition-colors"
                             >
                               {tag}
-                            </span>
+                            </button>
                           ))}
                         </div>
 
@@ -376,15 +399,15 @@ export default function ForumPage() {
                   {showMyPosts
                     ? "Bạn chưa đăng bài viết nào"
                     : searchQuery.trim()
-                    ? "Không tìm thấy bài thảo luận phù hợp"
-                    : "Chưa có bài viết thảo luận nào"}
+                      ? "Không tìm thấy bài thảo luận phù hợp"
+                      : "Chưa có bài viết thảo luận nào"}
                 </p>
                 <p className="mt-1 text-sm text-stone-500 max-w-md mx-auto">
                   {showMyPosts
                     ? "Hãy bắt đầu chia sẻ kinh nghiệm hoặc công thức nấu ăn của bạn cùng cộng đồng Veggie!"
                     : searchQuery.trim()
-                    ? "Hãy thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc danh mục."
-                    : "Hãy là người đầu tiên bắt đầu một chủ đề chia sẻ hữu ích cùng cộng đồng Veggie!"}
+                      ? "Hãy thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc danh mục."
+                      : "Hãy là người đầu tiên bắt đầu một chủ đề chia sẻ hữu ích cùng cộng đồng Veggie!"}
                 </p>
                 {!isGuest && (
                   <button
@@ -457,11 +480,6 @@ export default function ForumPage() {
                 </option>
               ))}
             </select>
-            {categories.length === 0 && (
-              <span className="text-xs text-stone-400 mt-1 block">
-                Hệ thống chưa có danh mục diễn đàn, bạn có thể để trống.
-              </span>
-            )}
           </div>
 
           <div>
@@ -472,7 +490,7 @@ export default function ForumPage() {
               type="text"
               value={newTags}
               onChange={(e) => setNewTags(e.target.value)}
-              placeholder="đậu phụ, món chay, dinh dưỡng"
+              placeholder="monchay, dinhduong, nguoimoi"
               className="w-full h-11 px-4 rounded-xl border border-stone-200 text-base text-stone-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
             />
           </div>
@@ -513,5 +531,22 @@ export default function ForumPage() {
         </form>
       </Modal>
     </AppShell>
+  );
+}
+
+export default function ForumPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppShell>
+          <div className="flex flex-col items-center justify-center py-24 gap-3 text-stone-500">
+            <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+            <p className="text-sm font-medium">Đang tải diễn đàn…</p>
+          </div>
+        </AppShell>
+      }
+    >
+      <ForumContent />
+    </Suspense>
   );
 }
