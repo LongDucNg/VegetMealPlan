@@ -39,6 +39,10 @@ export interface ModerationItem {
   aiConfidence: number;
   reportedAt: string;
   status: "Pending" | "Approved" | "Removed" | "Escalated";
+  title?: string;
+  category?: string;
+  excerpt?: string;
+  tags?: string[];
 }
 
 export interface CategoryItem {
