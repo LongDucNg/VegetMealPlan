@@ -9,18 +9,26 @@ export interface ImportIngredientRow {
 // o controller/service khac - TODO, chua wiring viec doc file o day, ham nay
 // nhan vao mang object da parse san).
 export interface ImportRecipeRow {
+  // Bat buoc.
   title: string;
-  description?: string;
   instructions: string;
+  // Chi chap nhan: breakfast, lunch, snack (theo du lieu goc).
+  meal_type: string;
+  // Phai dung enum DietType.
+  diet_type: string;
+  // Toi thieu 1 nguyen lieu.
+  ingredients: ImportIngredientRow[];
+
+  // Khong bat buoc.
+  description?: string;
   prep_time?: number;
   cook_time?: number;
   servings?: number;
   difficulty?: string;
-  meal_type?: string;
-  diet_type?: string;
+  // Danh sách bữa ăn phù hợp, cách nhau dấu phẩy (vd. "lunch,dinner").
+  suitable_meals?: string;
   category_ids?: number[];
   // Lỗi đọc được khi controller parse dòng (VD: cột ingredients không phải JSON hợp lệ).
   // Dòng này sẽ được đánh dấu FAILED thay vì hủy toàn bộ lô import.
   row_error?: string;
-  ingredients: ImportIngredientRow[];
 }
