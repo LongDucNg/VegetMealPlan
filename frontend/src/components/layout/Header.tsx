@@ -50,9 +50,7 @@ export function Header() {
             placeholder="Tìm món ăn, bài viết, quán chay…"
             className="w-full bg-transparent text-base text-stone-900 placeholder:text-stone-400 outline-none"
           />
-          <kbd className="h-5 px-1.5 rounded-md bg-white border border-stone-200 text-[11px] font-medium text-stone-400 flex items-center justify-center shrink-0 shadow-xs select-none">
-            ↵ Enter
-          </kbd>
+
         </div>
       </div>
 
@@ -80,41 +78,41 @@ export function Header() {
               href="/me"
               className="flex items-center gap-3 p-1.5 pr-3 rounded-full hover:bg-stone-50 transition-colors group cursor-pointer"
             >
-            <Avatar
-              initials={
-                user?.full_name
-                  ? user.full_name
+              <Avatar
+                initials={
+                  user?.full_name
+                    ? user.full_name
                       .split(" ")
                       .map((n) => n[0])
                       .join("")
                       .slice(0, 2)
                       .toUpperCase()
-                  : role === "Admin"
-                  ? "AD"
-                  : "ME"
-              }
-              verified={true}
-            />
-            <div className="hidden sm:flex flex-col text-left">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-semibold text-stone-900 group-hover:text-emerald-700 transition-colors">
-                  {user?.full_name || (role === "Admin" ? "Admin User" : "Member")}
+                    : role === "Admin"
+                      ? "AD"
+                      : "ME"
+                }
+                verified={true}
+              />
+              <div className="hidden sm:flex flex-col text-left">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-semibold text-stone-900 group-hover:text-emerald-700 transition-colors">
+                    {user?.full_name || (role === "Admin" ? "Admin User" : "Member")}
+                  </span>
+                  <Badge
+                    variant={role === "Admin" ? "flagged" : "success"}
+                    className="text-[10px] px-1.5 py-0"
+                  >
+                    {role}
+                  </Badge>
+                </div>
+                <span className="text-xs text-stone-500">
+                  {user?.email || (role === "Admin" ? "System Operator" : "@member")}
                 </span>
-                <Badge
-                  variant={role === "Admin" ? "flagged" : "success"}
-                  className="text-[10px] px-1.5 py-0"
-                >
-                  {role}
-                </Badge>
               </div>
-              <span className="text-xs text-stone-500">
-                {user?.email || (role === "Admin" ? "System Operator" : "@member")}
-              </span>
-            </div>
-          </Link>
-        </>
-      )}
-    </div>
+            </Link>
+          </>
+        )}
+      </div>
     </header>
   );
 }

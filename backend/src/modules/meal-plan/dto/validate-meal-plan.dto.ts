@@ -10,6 +10,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { WeightGoalDto } from '../../users/dto/weight-goal.dto';
 
 export class ValidateMealItemDto {
   @IsInt({ message: 'ID công thức phải là số nguyên.' })
@@ -31,7 +32,7 @@ export class ValidateMealDayDto {
   meals: ValidateMealItemDto[];
 }
 
-export class ValidateMealPlanDto {
+export class ValidateMealPlanDto extends WeightGoalDto {
   @IsOptional()
   @IsString({ message: 'Tên thực đơn phải là chuỗi ký tự.' })
   plan_name?: string;
