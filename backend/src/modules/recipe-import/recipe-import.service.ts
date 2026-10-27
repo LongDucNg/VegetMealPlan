@@ -26,6 +26,7 @@ import { assertValidRecipeCategoryIds } from '../category/category-validation.ut
 
 import { IngredientService } from '../ingredient/ingredient.service';
 import { isBlockingConflict } from '../ingredient/ingredient-conflict.util';
+import { findDietIncompatibleIngredients } from '../../common/utils/diet-compat.util';
 import { Ingredient } from '../ingredient/entities/ingredient.entity';
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 import { calculateIngredientCost } from '../recipe/recipe-cost.util';
@@ -504,6 +505,8 @@ export class RecipeImportService {
     // 4. Tim nguyen lieu trong he thong.
     const resolved: {
       ingredient_id: number;
+      ingredient_name: string;
+      vegan_flag: boolean;
       row: ImportRecipeRow['ingredients'][number];
     }[] = [];
 
@@ -537,6 +540,8 @@ export class RecipeImportService {
       } else {
         resolved.push({
           ingredient_id: found.ingredient_id,
+          ingredient_name: found.ingredient_name,
+          vegan_flag: found.vegan_flag,
           row: ing,
         });
       }
@@ -561,6 +566,35 @@ export class RecipeImportService {
         recipe_title,
         ImportFailReason.INGREDIENT_CONFLICT,
         'Công thức có nguyên liệu bị lặp lại',
+      );
+    }
+
+    // 5b. Kiem tra tuong thich diet_type <-> nguyen lieu.
+    // Dung chung helper voi luong tao / cap nhat / duyet cong thuc de ca 4 luong
+    // bao loi giong nhau. Dong khong tuong thich -> FAILED (khong tao cong thuc),
+    // cac dong khac trong lot van duoc xu ly binh thuong.
+    const incompatible = findDietIncompatibleIngredients(
+      dietTypeValue,
+      resolved.map((item) => ({
+        ingredient_id: item.ingredient_id,
+        ingredient_name: item.ingredient_name,
+        vegan_flag: item.vegan_flag,
+      })),
+    );
+
+    if (incompatible.length > 0) {
+      const detail = incompatible
+        .map(
+          (item) =>
+            `"${item.ingredient_name}" (${item.reason})`,
+        )
+        .join(', ');
+
+      return this.createFailedItem(
+        row_number,
+        recipe_title,
+        ImportFailReason.DIET_INCOMPATIBLE,
+        `Nguyên liệu không phù hợp với chế độ ăn chay "${dietTypeValue}": ${detail}`,
       );
     }
 
