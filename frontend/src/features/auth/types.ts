@@ -82,6 +82,25 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface RegisterResponse {
+  message: string;
+  email: string;
+  verification_required: boolean;
+  expires_in_seconds?: number;
+  resend_after_seconds?: number;
+}
+
+export interface VerifyEmailPayload {
+  email: string;
+  code: string;
+}
+
+export interface ResendVerificationResponse {
+  message: string;
+  expires_in_seconds?: number;
+  resend_after_seconds?: number;
+}
+
 export interface ForgotPasswordPayload {
   email: string;
 }

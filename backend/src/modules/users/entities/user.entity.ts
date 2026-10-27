@@ -111,6 +111,11 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   allergies_declared_at: Date | null;
 
+  // null = chưa xác thực email (đăng ký bằng mật khẩu, chưa nhập OTP). Chưa xác thực thì không đăng nhập được.
+  // Tài khoản Google coi như đã xác thực vì Google đã xác minh email.
+  @Column({ type: 'timestamp', nullable: true })
+  email_verified_at: Date | null;
+
   // CACHED — null hoac da qua = free tier. Cap nhat khi co SUBSCRIPTION moi completed.
   @Column({ type: 'timestamp', nullable: true })
   premium_until: Date;

@@ -13,6 +13,8 @@ import {
   AuthUser,
   LoginPayload,
   RegisterPayload,
+  RegisterResponse,
+  VerifyEmailPayload,
   AuthResponse,
   ForgotPasswordPayload,
   ForgotPasswordResponse,
@@ -34,7 +36,8 @@ export interface AuthContextType {
   isAdmin: boolean;
   setRole: (role: UserRole) => void;
   login: (payload: LoginPayload) => Promise<AuthResponse>;
-  register: (payload: RegisterPayload) => Promise<AuthResponse>;
+  register: (payload: RegisterPayload) => Promise<RegisterResponse>;
+  verifyEmail: (payload: VerifyEmailPayload) => Promise<AuthResponse>;
   logout: () => Promise<void>;
   logoutAll: () => Promise<{ message: string; revoked_sessions: number }>;
   refreshMe: () => Promise<AuthUser | null>;
@@ -98,9 +101,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  // Đăng ký chưa đăng nhập ngay: backend chỉ gửi OTP, phải verifyEmail() mới có token.
   const register = useCallback(
-    async (payload: RegisterPayload): Promise<AuthResponse> => {
-      const res = await authService.register(payload);
+    async (payload: RegisterPayload): Promise<RegisterResponse> => {
+      return authService.register(payload);
+    },
+    []
+  );
+
+  const verifyEmail = useCallback(
+    async (payload: VerifyEmailPayload): Promise<AuthResponse> => {
+      const res = await authService.verifyEmail(payload);
       try {
         const me = await authService.getMe();
         setUser(me);
@@ -168,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRole,
         login,
         register,
+        verifyEmail,
         logout,
         logoutAll,
         refreshMe,
