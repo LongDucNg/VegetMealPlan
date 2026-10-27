@@ -20,3 +20,20 @@ export function isRecipeDietCompatible(
   if (!allowed) return true;
   return allowed.includes((recipeDiet ?? '').trim().toLowerCase());
 }
+
+/**
+ * Danh sách diet_type của công thức mà người dùng theo chế độ `userDiet` ăn được.
+ * Dùng cho lọc ở API duyệt công thức (GET /recipes) để lọc đúng như lúc sinh
+ * thực đơn, thay vì so sánh bằng đẳng thức (lacto chỉ thấy đúng món lacto).
+ *
+ * Trả null = không lọc (thiếu chế độ ăn, hoặc chế độ không nằm trong enum).
+ */
+export function getAllowedRecipeDiets(
+  userDiet?: string | null,
+): string[] | null {
+  const user = userDiet?.trim().toLowerCase();
+  if (!user) return null;
+  const allowed = ALLOWED_RECIPE_DIETS[user];
+  if (!allowed) return null;
+  return allowed;
+}
