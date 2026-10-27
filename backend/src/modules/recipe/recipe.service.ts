@@ -1,5 +1,6 @@
 import { ErrorCode } from '../../common/constants/error-codes.enum';
-import { isRecipeDietCompatible } from '../../common/utils/diet.util';
+import { isRecipeDietCompatible, getAllowedRecipeDiets } from '../../common/utils/diet.util';
+import { assertRecipeDietCompatible } from '../../common/utils/diet-compat.util';
 import {
   BadRequestException,
   ConflictException,
@@ -31,6 +32,7 @@ import { RecipeCategory } from './entities/recipe-category.entity';
 import { Category } from '../category/entities/category.entity';
 import { assertValidRecipeCategoryIds } from '../category/category-validation.util';
 import { calculateIngredientCost } from './recipe-cost.util';
+import { calculateNutritionPerServing } from './recipe-nutrition.util';
 import {
   isRecipeSuitableForMeal,
   deriveSuitableMeals,
@@ -39,6 +41,10 @@ import {
   isConsistentMealPair,
   VALID_MEAL_TYPES,
 } from './recipe-meals.util';
+import {
+  buildRecipeCsv,
+  RecipeExportRow,
+} from './recipe-export.util';
 
 export interface RecipeMatchResult {
   recipe: Recipe;
@@ -157,7 +163,7 @@ export class RecipeService {
   // GET ALL APPROVED RECIPES
   // =========================
 
-  async findAll(query: QueryRecipeDto) {
+  async findAll(query: QueryRecipeDto, options: { approvedOnly?: boolean } = {}) {
     const {
       q,
       mealType,
@@ -173,6 +179,10 @@ export class RecipeService {
       limit = 20,
     } = query;
 
+    // Mặc định (route công khai) chỉ trả món đã duyệt. Admin export được
+    // phép đặt approvedOnly = false để lọc theo mọi trạng thái.
+    const approvedOnly = options.approvedOnly ?? true;
+
     // Route công khai chỉ trả món đã duyệt. Xem trạng thái khác (draft, pending_review, rejected,
     // removed) dùng GET /admin/recipes?status=... (cần quyền admin).
     if (query.status?.trim()) {
@@ -182,7 +192,7 @@ export class RecipeService {
           `status phải là một trong: ${Object.values(RecipeStatus).join(', ')}`,
         );
       }
-      if (requested !== RecipeStatus.APPROVED) {
+      if (approvedOnly && requested !== RecipeStatus.APPROVED) {
         throw new ForbiddenException({
           code: ErrorCode.AUTH_FORBIDDEN,
           message: 'Chỉ admin mới xem được công thức chưa duyệt. Dùng GET /admin/recipes?status=...',
@@ -195,12 +205,12 @@ export class RecipeService {
     // Route công khai CHỈ trả món APPROVED, bất kể có truyền created_by hay không.
     // Trước đây khi có created_by và không truyền status thì nhánh đó bỏ qua
     // điều kiện status -> lộ công thức draft/pending_review/rejected ra API công khai.
-    qb.where('recipe.status = :status', {
-      status: RecipeStatus.APPROVED,
-    });
-
-    if (query.status?.trim()) {
-      qb.andWhere('recipe.status = :status', {
+    if (approvedOnly) {
+      qb.where('recipe.status = :status', {
+        status: RecipeStatus.APPROVED,
+      });
+    } else if (query.status?.trim()) {
+      qb.where('recipe.status = :status', {
         status: query.status.trim().toLowerCase(),
       });
     }
@@ -294,9 +304,17 @@ export class RecipeService {
       }
 
       // diet_type là cột enum Postgres: không dùng LOWER() được (dietType đã chuẩn hoá thường ở trên).
-      qb.andWhere('recipe.diet_type = :dietType', {
-        dietType,
-      });
+      // Lọc theo TẬP chế độ ăn tương thích, không so sánh bằng đẳng thức:
+      // người ăn lacto vẫn ăn được món vegan, người ăn ovo_lacto ăn được cả 4 loại.
+      // Nếu so sánh đẳng thức thì GET /recipes?diet_type=lacto chỉ trả về 30 món
+      // thay vì 405 món (375 vegan + 30 lacto) -> lệch với luồng sinh thực đơn.
+      const allowedDiets = getAllowedRecipeDiets(dietType);
+
+      if (allowedDiets && allowedDiets.length > 0) {
+        qb.andWhere('recipe.diet_type IN (:...allowedDiets)', {
+          allowedDiets,
+        });
+      }
     }
 
     // Lọc theo độ khó
@@ -406,6 +424,267 @@ export class RecipeService {
   }
 
   // =========================
+  // EXPORT CÔNG THỨC (CSV)
+  // =========================
+
+  /**
+   * Lấy danh sách công thức để export.
+   *
+   * - `ids` được ưu tiên: export đúng các món có ID trong danh sách.
+   *   ID trùng được loại bỏ; ID không tồn tại -> báo lỗi rõ ràng.
+   * - Không có `ids`: dùng bộ lọc hiện có (diet_type, status, q, meal_type...).
+   *   Tái sử dụng đúng logic lọc của GET /recipes nên không lệch hành vi.
+   *
+   * `approvedOnly = true` (mặc định, route công khai): chỉ export món đã duyệt.
+   * Admin có thể đặt `approvedOnly = false` để export mọi trạng thái.
+   */
+  async getRecipesForExport(
+    ids: string | undefined,
+    query: QueryRecipeDto,
+    options: { approvedOnly?: boolean; maxIds?: number } = {},
+  ): Promise<Recipe[]> {
+    const approvedOnly = options.approvedOnly ?? true;
+    const maxIds = options.maxIds ?? 200;
+
+    const parsedIds = this.parseRecipeIds(ids);
+
+    if (parsedIds !== null) {
+      if (parsedIds.length === 0) {
+        throw new BadRequestException(
+          'ids không hợp lệ. Ví dụ hợp lệ: 15 hoặc 15,20,35',
+        );
+      }
+
+      if (parsedIds.length > maxIds) {
+        throw new BadRequestException(
+          `Chỉ được export tối đa ${maxIds} công thức mỗi request (đang gửi ${parsedIds.length}).`,
+        );
+      }
+
+      // Chỉ lấy các món ĐÃ DUYỆT để export công khai không lộ công thức
+      // nháp / riêng tư / chưa duyệt.
+      const qb = this.recipeRepo
+        .createQueryBuilder('recipe')
+        .where('recipe.recipe_id IN (:...ids)', { ids: parsedIds });
+
+      if (approvedOnly) {
+        qb.andWhere('recipe.status = :status', {
+          status: RecipeStatus.APPROVED,
+        });
+      }
+
+      const recipes = await qb.getMany();
+
+      // Báo rõ ID nào không tồn tại (hoặc không được phép xem).
+      const foundIds = new Set(recipes.map((r) => r.recipe_id));
+      const missingIds = parsedIds.filter((id) => !foundIds.has(id));
+
+      if (missingIds.length > 0) {
+        throw new NotFoundException({
+          code: ErrorCode.RECIPE_NOT_FOUND,
+          message:
+            `Không tìm thấy công thức với ID: ${missingIds.join(', ')}` +
+            (approvedOnly
+              ? '. Chỉ export được công thức đã duyệt.'
+              : '.'),
+        });
+      }
+
+      // Giữ đúng thứ tự ID client gửi lên.
+      const byId = new Map(recipes.map((r) => [r.recipe_id, r]));
+      return parsedIds.map((id) => byId.get(id)!);
+    }
+
+    // Không có ids -> dùng bộ lọc hiện có. Tái sử dụng đúng logic của findAll.
+    const result = await this.findAll(
+      { ...query, page: 1, limit: 1000 },
+      { approvedOnly },
+    );
+
+    return result.data;
+  }
+
+  /**
+   * Parse chuỗi `ids` thành danh sách số nguyên dương, loại bỏ trùng lặp.
+   * Trả null nếu client không gửi `ids` (khi đó dùng bộ lọc).
+   */
+  private parseRecipeIds(ids?: string): number[] | null {
+    if (ids === undefined || ids === null) {
+      return null;
+    }
+
+    const parts = ids
+      .split(',')
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+
+    if (parts.length === 0) {
+      return [];
+    }
+
+    const parsed: number[] = [];
+
+    for (const part of parts) {
+      if (!/^\d+$/.test(part)) {
+        throw new BadRequestException(
+          `ID công thức không hợp lệ: "${part}". ID phải là số nguyên dương.`,
+        );
+      }
+
+      const id = Number(part);
+
+      if (!Number.isInteger(id) || id <= 0) {
+        throw new BadRequestException(
+          `ID công thức không hợp lệ: "${part}". ID phải là số nguyên dương.`,
+        );
+      }
+
+      // Loại bỏ ID trùng lặp, giữ thứ tự gốc.
+      if (!parsed.includes(id)) {
+        parsed.push(id);
+      }
+    }
+
+    return parsed;
+  }
+
+  /**
+   * Chuyển danh sách công thức thành các dòng dữ liệu cho file CSV export.
+   * Gộp nguyên liệu, dinh dưỡng và danh mục của từng công thức.
+   */
+  async buildRecipeExportRows(recipes: Recipe[]): Promise<RecipeExportRow[]> {
+    if (recipes.length === 0) {
+      return [];
+    }
+
+    const recipeIds = recipes.map((r) => r.recipe_id);
+
+    const [ingredientRows, nutritionRows, categoryRows] = await Promise.all([
+      this.recipeIngredientRepo.find({
+        where: { recipe_id: In(recipeIds) },
+        relations: ['ingredient'],
+      }),
+      this.nutritionRepo.find({
+        where: { recipe_id: In(recipeIds) },
+      }),
+      this.recipeCategoryRepo.find({
+        where: { recipe_id: In(recipeIds) },
+        relations: ['category'],
+      }),
+    ]);
+
+    const ingredientsByRecipe = new Map<number, RecipeIngredient[]>();
+    for (const row of ingredientRows) {
+      const list = ingredientsByRecipe.get(row.recipe_id) ?? [];
+      list.push(row);
+      ingredientsByRecipe.set(row.recipe_id, list);
+    }
+
+    const nutritionMap = new Map(
+      nutritionRows.map((n) => [n.recipe_id, n]),
+    );
+
+    const categoriesByRecipe = new Map<number, string[]>();
+    for (const row of categoryRows) {
+      const name = row.category?.category_name;
+      if (!name) continue;
+      const list = categoriesByRecipe.get(row.recipe_id) ?? [];
+      list.push(name);
+      categoriesByRecipe.set(row.recipe_id, list);
+    }
+
+    return recipes.map((recipe) => {
+      const ingredients = ingredientsByRecipe.get(recipe.recipe_id) ?? [];
+      const nutrition = nutritionMap.get(recipe.recipe_id);
+
+      return {
+        recipe_id: recipe.recipe_id,
+        title: recipe.title ?? '',
+        description: recipe.description ?? '',
+        diet_type: recipe.diet_type ?? '',
+        meal_type: recipe.meal_type ?? '',
+        suitable_meals: recipe.suitable_meals ?? '',
+        difficulty: recipe.difficulty ?? '',
+        servings: recipe.servings ?? null,
+        prep_time: recipe.prep_time ?? null,
+        cook_time: recipe.cook_time ?? null,
+        ingredient_count: ingredients.length,
+        ingredient_ids: ingredients
+          .map((i) => i.ingredient_id)
+          .join(', '),
+        ingredients: ingredients
+          .map(
+            (i) =>
+              `${i.ingredient?.ingredient_name ?? `#${i.ingredient_id}`} - ` +
+              `${i.quantity ?? 0}${i.unit ?? ''}` +
+              `${i.is_optional ? ' (tuỳ chọn)' : ''}` +
+              `${i.note ? ` - ${i.note}` : ''}`,
+          )
+          .join('; '),
+        calories: nutrition?.calories ?? null,
+        protein: nutrition?.protein ?? null,
+        carbs: nutrition?.carbs ?? null,
+        fat: nutrition?.fat ?? null,
+        fiber: nutrition?.fiber ?? null,
+        estimated_cost: recipe.estimated_cost ?? null,
+        categories: (categoriesByRecipe.get(recipe.recipe_id) ?? []).join(', '),
+        instructions: recipe.instructions ?? '',
+        image_url: recipe.image_url ?? '',
+        status: recipe.status ?? '',
+        created_by: recipe.created_by ?? null,
+        created_at: recipe.created_at
+          ? new Date(recipe.created_at).toISOString()
+          : '',
+      };
+    });
+  }
+
+  /**
+   * Sinh nội dung file CSV export công thức.
+   * Trả về { filename, content } - controller sẽ trả thẳng ra response.
+   */
+  async exportRecipesCsv(
+    ids: string | undefined,
+    query: QueryRecipeDto,
+    options: { approvedOnly?: boolean; maxIds?: number } = {},
+  ): Promise<{ filename: string; content: string }> {
+    const recipes = await this.getRecipesForExport(ids, query, options);
+
+    if (recipes.length === 0) {
+      throw new NotFoundException({
+        code: ErrorCode.RECIPE_NOT_FOUND,
+        message: 'Không có công thức nào khớp để export.',
+      });
+    }
+
+    const rows = await this.buildRecipeExportRows(recipes);
+    const content = buildRecipeCsv(rows);
+
+    return {
+      filename: this.buildExportFilename(ids, rows),
+      content,
+    };
+  }
+
+  /** Tên file export có thông tin ngữ cảnh (theo ID hoặc theo bộ lọc). */
+  private buildExportFilename(
+    ids: string | undefined,
+    rows: RecipeExportRow[],
+  ): string {
+    const stamp = new Date()
+      .toISOString()
+      .slice(0, 16)
+      .replace(/[:T]/g, '-');
+
+    if (ids !== undefined && ids.trim() !== '') {
+      const count = rows.length;
+      return `cong-thuc-${count}-mon-${stamp}.csv`;
+    }
+
+    return `cong-thuc-${rows.length}-mon-${stamp}.csv`;
+  }
+
+  // =========================
   // GET ONE APPROVED RECIPE
   // =========================
 
@@ -483,41 +762,14 @@ export class RecipeService {
       suitable_meals: dto.suitable_meals,
     });
 
-    // Kiểm tra quy tắc tương thích giữa chế độ ăn chay và nguyên liệu
-    if (dto.ingredients && dto.ingredients.length > 0 && dto.diet_type) {
-      const ingIds = dto.ingredients.map((i) => i.ingredient_id);
-      const dbIngredients = await Promise.all(
-        ingIds.map((id) => this.ingredientService.findOne(id).catch(() => null)),
-      );
-
-      for (const ing of dbIngredients) {
-        if (!ing) continue;
-        const name = (ing.ingredient_name || '').toLowerCase();
-        const isEgg = /trứng/i.test(name);
-        const isDairy =
-          /sữa tươi|sữa đặc|bơ lạt|phô mai|kem tươi|sữa chua|whey/i.test(name);
-
-        if (dto.diet_type === DietType.VEGAN) {
-          if (ing.vegan_flag === false || isEgg || isDairy) {
-            throw new BadRequestException(
-              `Món thuần chay (Vegan) không được chứa trứng, sữa hoặc nguyên liệu từ động vật: "${ing.ingredient_name}"`,
-            );
-          }
-        } else if (dto.diet_type === DietType.LACTO) {
-          if (isEgg) {
-            throw new BadRequestException(
-              `Chế độ ăn chay có sữa (Lacto) không được chứa trứng: "${ing.ingredient_name}"`,
-            );
-          }
-        } else if (dto.diet_type === DietType.OVO) {
-          if (isDairy) {
-            throw new BadRequestException(
-              `Chế độ ăn chay có trứng (Ovo) không được chứa sữa hoặc chế phẩm từ sữa: "${ing.ingredient_name}"`,
-            );
-          }
-        }
-      }
-    }
+    // Kiểm tra tương thích giữa chế độ ăn chay và nguyên liệu THỰC TẾ.
+    // Dùng chung helper với luồng cập nhật / import / duyệt để cả 4 luồng
+    // báo lỗi giống nhau. Trước đây chỉ luồng tạo có kiểm tra, và regex chỉ bắt
+    // trứng + 6 biến thể sữa nên thịt/cá vẫn lọt qua.
+    await this.assertRecipeDietCompatible(
+      dto.diet_type,
+      dto.ingredients,
+    );
 
     const status =
       userRole === 'admin'
@@ -679,49 +931,84 @@ export class RecipeService {
     }
   }
 
+  /**
+   * Kiểm tra tương thích giữa diet_type của công thức và nguyên liệu thực tế.
+   *
+   * Dùng chung cho cả 3 luồng trong recipe.service.ts (tạo / cập nhật / duyệt)
+   * để cùng một bộ quy tắc và cùng một mã lỗi RECIPE_DIET_INCOMPATIBLE.
+   * Thành phần quy tắc nằm trong common/utils/diet-compat.util.ts.
+   *
+   * @param dietType chế độ ăn của công thức (null = kiểm tra theo mức nghiêm ngặt nhất).
+   * @param ingredients danh sách nguyên liệu trong request (dạng { ingredient_id }).
+   */
+  private async assertRecipeDietCompatible(
+    dietType?: string | null,
+    ingredients?: { ingredient_id: number }[],
+  ): Promise<void> {
+    if (!ingredients || ingredients.length === 0) {
+      return;
+    }
+
+    const ids = [...new Set(ingredients.map((item) => Number(item.ingredient_id)))];
+
+    const dbIngredients = await this.ingredientService.findByIds(ids);
+
+    // Nguyên liệu không tồn tại đã bị validateIngredientIds() loại trước đó.
+    // Ở đây chỉ kiểm tra những cái tìm thấy được.
+    assertRecipeDietCompatible(
+      dietType,
+      dbIngredients.map((item) => ({
+        ingredient_id: item.ingredient_id,
+        ingredient_name: item.ingredient_name,
+        vegan_flag: item.vegan_flag,
+      })),
+    );
+  }
+
+  /**
+   * Lấy nguyên liệu thực tế đang gắn với một công thức trong DB.
+   * Dùng cho luồng duyệt công thức (admin) để kiểm tra lại trước khi duyệt.
+   */
+  private async getRecipeIngredientsForCheck(
+    recipeId: number,
+  ): Promise<
+    {
+      ingredient_id: number;
+      ingredient_name: string;
+      vegan_flag: boolean;
+    }[]
+  > {
+    const rows = await this.recipeIngredientRepo.find({
+      where: { recipe_id: recipeId },
+      relations: ['ingredient'],
+    });
+
+    return rows
+      .filter((row) => !!row.ingredient)
+      .map((row) => ({
+        ingredient_id: row.ingredient_id,
+        ingredient_name: row.ingredient.ingredient_name,
+        vegan_flag: row.ingredient.vegan_flag,
+      }));
+  }
+
   // =========================
   // CALCULATE NUTRITION
   // =========================
 
   // nutrition_infos lưu trên 1 KHẨU PHẦN (cùng quy ước với seed và bộ sinh thực đơn),
   // nên chia tổng của cả món cho số khẩu phần.
+  // Dùng CHUNG calculateNutritionPerServing với IngredientService để không
+  // có 2 chỗ tự tính lệch nhau.
   private calculateNutrition(ingredients: RecipeIngredient[], servings?: number | null) {
-    const nutrition = {
-      calories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-      fiber: 0,
-    };
-
-    for (const item of ingredients) {
-      if (item.is_optional) {
-        continue;
-      }
-
-      const ingredient = item.ingredient;
-      const ratio = Number(item.quantity || 0) / 100;
-
-      nutrition.calories +=
-        ratio * Number(ingredient?.calories_per_100g ?? 0);
-      nutrition.protein +=
-        ratio * Number(ingredient?.protein_per_100g ?? 0);
-      nutrition.carbs +=
-        ratio * Number(ingredient?.carb_per_100g ?? 0);
-      nutrition.fat +=
-        ratio * Number(ingredient?.fat_per_100g ?? 0);
-      nutrition.fiber +=
-        ratio * Number(ingredient?.fiber_per_100g ?? 0);
-    }
-
-    const divisor = servings && servings > 0 ? servings : 1;
-    return {
-      calories: nutrition.calories / divisor,
-      protein: nutrition.protein / divisor,
-      carbs: nutrition.carbs / divisor,
-      fat: nutrition.fat / divisor,
-      fiber: nutrition.fiber / divisor,
-    };
+    return calculateNutritionPerServing(
+      ingredients.map((item) => ({
+        quantity: Number(item.quantity || 0),
+        is_optional: item.is_optional,
+        ingredient: item.ingredient,
+      })),
+      servings,
+    );
   }
 
   // =========================
@@ -1352,6 +1639,33 @@ export class RecipeService {
     // Nguyên liệu phải tồn tại và không được lặp lại.
     await this.validateIngredientIds(dto.ingredients);
 
+    // Kiểm tra tương thích diet_type <-> nguyên liệu.
+    // Trước đây luồng cập nhật KHÔNG có bước này => user sở hữu công thức
+    // có thể thêm nguyên liệu mặn vào một món vegan đã tạo thành công.
+    //
+    // diet_type lấy theo giá trị MỚI nếu request có gửi, nếu không thì giữ
+    // giá trị đang lưu (để kiểm tra cả trường hợp chỉ đổi nguyên liệu).
+    //
+    // THỰC TẾ ĐANG LƯU cũng phải được kiểm tra khi request KHÔNG gửi
+    // ingredients: khi đó nguyên liệu cũ vẫn còn nguyên trong DB, nên nếu bỏ
+    // qua thì user có thể đổi diet_type từ 'lacto' (đang chứa sữa) sang
+    // 'vegan' mà không cần gửi lại ingredients => món "vegan" vẫn chứa sữa.
+    if (dto.ingredients !== undefined) {
+      await this.assertRecipeDietCompatible(
+        dto.diet_type ?? recipe.diet_type,
+        dto.ingredients,
+      );
+    } else {
+      const existingIngredients = await this.getRecipeIngredientsForCheck(
+        recipeId,
+      );
+
+      assertRecipeDietCompatible(
+        dto.diet_type ?? recipe.diet_type,
+        existingIngredients,
+      );
+    }
+
     // meal_type / suitable_meals phải hợp lệ và nhất quán với nhau.
     // Tính TRƯỚC khi mở transaction để lỗi validation không sinh thay đổi nào.
     //
@@ -1814,6 +2128,19 @@ export class RecipeService {
       throw new BadRequestException(
         'Vui lòng nhập lý do từ chối công thức',
       );
+    }
+
+    // Chỉ kiểm tra khi DUYỆT. Luồng từ chối giữ nguyên: công thức vẫn được
+    // lưu, chuyển sang trạng thái rejected và lưu lý do (review_reason).
+    //
+    // Kiểm tra lại tại thời điểm duyệt là bắt buộc vì nội dung công thức có
+    // thể đã bị sửa (hoặc dữ liệu cũ tồn tại từ trước khi có luồng kiểm tra).
+    if (status === RecipeReviewStatus.APPROVED) {
+      const recipeIngredients = await this.getRecipeIngredientsForCheck(
+        recipeId,
+      );
+
+      assertRecipeDietCompatible(recipe.diet_type, recipeIngredients);
     }
 
     recipe.status = status as unknown as RecipeStatus;
