@@ -21,6 +21,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let code: string = ErrorCode.INTERNAL_ERROR;
     let message = 'Lỗi hệ thống, vui lòng thử lại sau';
     let details: string[] | undefined;
+    let suggestion: string | undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -30,6 +31,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
         // Lỗi nghiệp vụ do service chủ động ném.
         code = body.code;
         message = body.message;
+        // Gợi ý bổ sung (vd. "hãy lùi ngày mục tiêu") đi kèm lỗi mục tiêu cân nặng.
+        if (typeof body.suggestion === 'string' && body.suggestion) {
+          suggestion = body.suggestion;
+        }
       } else if (body && typeof body === 'object' && Array.isArray(body.message)) {
         code = ErrorCode.VALIDATION_FAILED;
         message = 'Dữ liệu gửi lên không hợp lệ';
@@ -44,7 +49,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     res.status(status).json({
       success: false,
-      error: { code, message, ...(details ? { details } : {}) },
+      error: { code, message, ...(details ? { details } : {}), ...(suggestion ? { suggestion } : {}) },
     });
   }
 
