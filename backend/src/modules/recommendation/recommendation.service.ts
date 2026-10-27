@@ -7,6 +7,7 @@ import { UserIngredientService } from '../user-ingredient/user-ingredient.servic
 import { IngredientService } from '../ingredient/ingredient.service';
 import { RecipeService } from '../recipe/recipe.service';
 import { UsersService } from '../users/users.service';
+import { WeightGoalDto } from '../users/dto/weight-goal.dto';
 
 /**
  * Thuật toán gợi ý món ăn:
@@ -44,8 +45,35 @@ export class RecommendationService {
     ovo_lacto: 'Chay trứng-sữa (Ovo-Lacto)',
   };
 
-  async generateForUser(user_id: number): Promise<AiRecommendation[]> {
+  /**
+   * Đánh giá mục tiêu cân nặng nếu client gửi kèm.
+   * Trả null nếu client không gửi mục tiêu (giữ hành vi cũ).
+   * Ném BadRequestException nếu mục tiêu thiếu dữ liệu hoặc không an toàn.
+   */
+  private async assessGoalIfPresent(
+    user_id: number,
+    goalDto: WeightGoalDto,
+  ) {
+    const hasGoal =
+      goalDto.current_weight_kg !== undefined ||
+      goalDto.target_weight_kg !== undefined ||
+      goalDto.duration_days !== undefined ||
+      goalDto.direction !== undefined;
+
+    if (!hasGoal) return null;
+
+    return this.usersService.assessGoal(user_id, goalDto);
+  }
+
+  async generateForUser(
+    user_id: number,
+    goalDto: WeightGoalDto = {},
+  ): Promise<AiRecommendation[]> {
     const user = await this.usersService.findOne(user_id);
+
+    // Nếu client gửi mục tiêu cân nặng thì phải đánh giá an toàn TRƯỚC khi
+    // tạo gợi ý: mục tiêu cực đoan -> lỗi, không tạo và không lưu gì.
+    const assessment = await this.assessGoalIfPresent(user_id, goalDto);
 
     const availableIngredientIds =
       await this.userIngredientService.getAvailableIngredientIds(user_id);
@@ -76,6 +104,12 @@ export class RecommendationService {
 
     const saved: AiRecommendation[] = [];
 
+    // Khi có mục tiêu cân nặng hợp lệ, ghi kèm kcal mục tiêu vào lý do để
+    // người dùng thấy gợi ý này phục vụ cho mục tiêu cân nặng đó.
+    const calorieNote = assessment
+      ? ` Phù hợp mục tiêu ${assessment.target_calories} kcal/ngày.`
+      : '';
+
     for (const match of matches) {
       // Tạo lý do gợi ý rõ ràng, đề cập đến chế độ ăn nếu có
       let reason: string;
@@ -88,6 +122,7 @@ export class RecommendationService {
           ? `Phù hợp với chế độ ăn ${dietLabel}. Bạn có ${match.match_percentage}% nguyên liệu cần thiết, còn thiếu ${match.missing_ingredient_ids.length} nguyên liệu.`
           : `Bạn có ${match.match_percentage}% nguyên liệu cần thiết, còn thiếu ${match.missing_ingredient_ids.length} nguyên liệu.`;
       }
+      reason += calorieNote;
 
       const recommendation = this.recommendationRepo.create({
         user_id,
