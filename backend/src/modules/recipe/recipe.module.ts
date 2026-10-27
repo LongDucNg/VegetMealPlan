@@ -10,6 +10,7 @@ import { UserRecipePrice } from './entities/user-recipe-price.entity';
 
 import { RecipeService } from './recipe.service';
 import { RecipeController } from './recipe.controller';
+import { RecipeValidatorService } from './recipe-validator.service';
 import { UserFavoriteRecipeController } from './user-favorite-recipe.controller';
 import { UserRecipePriceController } from './user-recipe-price.controller';
 import { AdminRecipeController } from './admin-recipe.controller';
@@ -41,7 +42,7 @@ import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
     UserRecipePriceController,
     AdminRecipeController,
   ],
-  providers: [RecipeService],
-  exports: [RecipeService, TypeOrmModule],
+  providers: [RecipeService, RecipeValidatorService],
+  exports: [RecipeService, RecipeValidatorService, TypeOrmModule],
 })
 export class RecipeModule { }

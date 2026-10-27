@@ -23,8 +23,8 @@ export class Video {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ type: 'int', nullable: true })
-  category_id: number | null;
+  @Column({ nullable: true })
+  category_id: number;
 
   @ManyToOne(() => Category, { nullable: true })
   @JoinColumn({ name: 'category_id' })
@@ -33,38 +33,11 @@ export class Video {
   @Column()
   title: string;
 
-  @Column({ type: 'varchar', nullable: true })
-  thumbnail_url: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  description: string | null;
-
   @Column()
   video_url: string;
 
-  @Column({ type: 'varchar', nullable: true })
-  duration: string | null;
-
   @Column('text', { nullable: true })
-  transcript_summary: string | null;
-
-  @Column({ type: 'varchar', nullable: true })
-  cuisine: string | null;
-
-  @Column({ type: 'varchar', nullable: true })
-  difficulty: string | null;
-
-  @Column({ type: 'jsonb', default: () => "'[]'" })
-  ingredients: Array<{ name: string; amount: string }>;
-
-  @Column({ type: 'jsonb', default: () => "'[]'" })
-  steps: string[];
-
-  @Column({ type: 'int', nullable: true })
-  kcal: number | null;
-
-  @Column({ type: 'int', nullable: true, default: 1 })
-  servings: number;
+  transcript_summary: string;
 
   @Column('text', { array: true, default: () => "'{}'" })
   tags: string[];
@@ -75,30 +48,11 @@ export class Video {
   @Column({ type: 'enum', enum: ContentStatus, default: ContentStatus.DRAFT })
   status: ContentStatus;
 
-  @Column({ type: 'boolean', default: false })
-  is_flagged: boolean;
-
-  @Column({ type: 'text', nullable: true })
-  flag_reason: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  reject_reason: string | null;
-
-  @Column({ type: 'int', nullable: true })
-  reviewed_by: number | null;
-
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'reviewed_by' })
-  reviewer: User;
-
   @Column({ type: 'timestamp', nullable: true })
-  reviewed_at: Date | null;
+  approved_at: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
-  approved_at: Date | null;
-
-  @Column({ type: 'int', nullable: true })
-  approved_by: number | null;
+  @Column({ nullable: true })
+  approved_by: number;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'approved_by' })

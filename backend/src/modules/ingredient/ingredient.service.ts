@@ -9,6 +9,10 @@ import { Ingredient, IngredientStatus } from './entities/ingredient.entity';
 import { UserAllergy } from './entities/user-allergy.entity';
 import { IngredientConflict } from './entities/ingredient-conflict.entity';
 import { UserIngredientPrice } from './entities/user-ingredient-price.entity';
+import { Recipe } from '../recipe/entities/recipe.entity';
+import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
+import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
+import { calculateNutritionPerServing } from '../recipe/recipe-nutrition.util';
 
 
 
@@ -33,6 +37,16 @@ export class IngredientService {
     @InjectRepository(UserIngredientPrice)
     private readonly priceOverrideRepo: Repository<UserIngredientPrice>,
 
+    // Cần cho syncAffectedRecipes: sửa giá/dinh dưỡng nguyên liệu thì
+    // tính lại đúng các công thức chứa nguyên liệu đó.
+    @InjectRepository(Recipe)
+    private readonly recipeRepo: Repository<Recipe>,
+
+    @InjectRepository(RecipeIngredient)
+    private readonly recipeIngredientRepo: Repository<RecipeIngredient>,
+
+    @InjectRepository(NutritionInfo)
+    private readonly nutritionRepo: Repository<NutritionInfo>,
 
   ) { }
 
@@ -516,6 +530,112 @@ export class IngredientService {
         ingredient.status,
     });
 
-    return this.ingredientRepo.save(ingredient);
+    const saved = await this.ingredientRepo.save(ingredient);
+
+    // Sửa dinh dưỡng / giá của nguyên liệu -> tính lại dinh dưỡng của các
+    // công thức chứa nguyên liệu đó, nếu không nutrition_infos sẽ còn giá trị
+    // cũ (sai lệch so với dữ liệu nguyên liệu hiện tại).
+    await this.syncAffectedRecipes(ingredient_id);
+
+    return saved;
+  }
+
+  // =========================================================
+  // TÍNH LẠI DINH DƯỠNG CHO CÔNG THỨC BỊ ẢNH HƯỞNG
+  // =========================================================
+
+  /**
+   * Tính lại nutrition_infos cho mọi công thức chứa nguyên liệu đã cho.
+   *
+   * Quy tắc: nutrition_infos lưu THEO 1 KHẨU PHẦN -> tổng món chia cho servings.
+   * Dùng CHUNG calculateNutritionPerServing() với RecipeService và import
+   * công thức để không có 2 chỗ tự tính lệch nhau.
+   *
+   * Chỉ ghi đè record của đúng các recipe bị ảnh hưởng, không đụng tới
+   * công thức khác.
+   */
+  async syncAffectedRecipes(ingredient_id: number): Promise<number> {
+    const rows = await this.recipeIngredientRepo.find({
+      where: { ingredient_id },
+    });
+
+    if (rows.length === 0) {
+      return 0;
+    }
+
+    const recipeIds = [...new Set(rows.map((row) => row.recipe_id))];
+
+    const recipes = await this.recipeRepo.find({
+      where: { recipe_id: In(recipeIds) },
+    });
+
+    const recipeById = new Map(recipes.map((r) => [r.recipe_id, r]));
+
+    const allIngredients = await this.recipeIngredientRepo.find({
+      where: { recipe_id: In(recipeIds) },
+      relations: ['ingredient'],
+    });
+
+    const byRecipe = new Map<number, RecipeIngredient[]>();
+
+    for (const row of allIngredients) {
+      const list = byRecipe.get(row.recipe_id) ?? [];
+      list.push(row);
+      byRecipe.set(row.recipe_id, list);
+    }
+
+    const nutritionRows = await this.nutritionRepo.find({
+      where: { recipe_id: In(recipeIds) },
+    });
+
+    const nutritionByRecipe = new Map(
+      nutritionRows.map((n) => [n.recipe_id, n]),
+    );
+
+    let updated = 0;
+
+    for (const recipeId of recipeIds) {
+      const recipe = recipeById.get(recipeId);
+      const recipeIngredients = byRecipe.get(recipeId) ?? [];
+
+      if (!recipe || recipeIngredients.length === 0) {
+        continue;
+      }
+
+      const values = calculateNutritionPerServing(
+        recipeIngredients.map((row) => ({
+          quantity: Number(row.quantity ?? 0),
+          is_optional: row.is_optional,
+          ingredient: row.ingredient
+            ? {
+                calories_per_100g: row.ingredient.calories_per_100g,
+                protein_per_100g: row.ingredient.protein_per_100g,
+                carb_per_100g: row.ingredient.carb_per_100g,
+                fat_per_100g: row.ingredient.fat_per_100g,
+                fiber_per_100g: row.ingredient.fiber_per_100g,
+              }
+            : null,
+        })),
+        recipe.servings,
+      );
+
+      const existing = nutritionByRecipe.get(recipeId);
+
+      if (existing) {
+        Object.assign(existing, values);
+        await this.nutritionRepo.save(existing);
+      } else {
+        await this.nutritionRepo.save(
+          this.nutritionRepo.create({
+            recipe_id: recipeId,
+            ...values,
+          }),
+        );
+      }
+
+      updated++;
+    }
+
+    return updated;
   }
 }

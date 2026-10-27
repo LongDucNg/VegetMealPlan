@@ -41,9 +41,79 @@ export interface IngredientDietCategory {
   isDairy: boolean;
 }
 
-export function categorizeIngredient(ingredientName: string, veganFlag: boolean): IngredientDietCategory {
+/**
+ * Từ "chay" đứng riêng trong tên nguyên liệu (vd. "Thịt bò chay", "Cá chay").
+ */
+export const STANDALONE_CHAY_REGEX = /(?<![\p{L}\p{N}])chay(?![\p{L}\p{N}])/u;
+
+/**
+ * Tên nguyên liệu có phải sản phẩm "chay" (có từ riêng biệt "chay") không.
+ */
+export function hasStandaloneChayToken(ingredientName: string): boolean {
+  return STANDALONE_CHAY_REGEX.test(
+    (ingredientName ?? '').normalize('NFC').toLowerCase(),
+  );
+}
+
+/**
+ * Tách tên nguyên liệu thành các mệnh đề độc lập.
+ *
+ * Ngoại lệ "chay" chỉ áp dụng cho MỆNH ĐỀ có chứa từ "chay".
+ * Nếu áp dụng cho cả tên thì "Thịt bò chay và cá hồi" lọt qua dù có cá thật.
+ *
+ * Dùng lookaround Unicode ((?<![\p{L}\p{N}]) / (?![\p{L}\p{N}])) vì \b của JS
+ * chỉ coi là word char các ký tự ASCII -> "và" (có dấu) không khớp \bvà\b.
+ */
+export function splitIntoClauses(text: string): string[] {
+  return (text ?? '')
+    .split(
+      /[,;+/\n]|(?<![\p{L}\p{N}])(?:và|hoặc|hay|hay là|and|or)(?![\p{L}\p{N}])/giu,
+    )
+    .map((clause) => clause.trim())
+    .filter((clause) => clause.length > 0);
+}
+
+/**
+ * Phân loại nguyên liệu theo chế độ ăn chay.
+ *
+ * @param veganFlag cờ "thuần chay" do admin/admin quản lý trong DB.
+ * @param options.allowChayException nếu true, tên nguyên liệu có từ riêng biệt
+ *        "chay" sẽ KHÔNG bị coi là thịt/cá theo regex tên (vd. "Thịt bò chay",
+ *        "Nước mắm chay"). Lưu ý: cờ `vegan_flag` vẫn được kiểm tra độc lập
+ *        (vegan_flag = false => vẫn là thịt), và ngoại lệ này KHÔNG bỏ qua
+ *        kiểm tra thành phần trứng/sữa.
+ */
+export function categorizeIngredient(
+  ingredientName: string,
+  veganFlag: boolean,
+  options: { allowChayException?: boolean } = {},
+): IngredientDietCategory {
   const name = ingredientName ?? '';
-  const isMeat = !veganFlag || NON_VEGAN_MEAT_REGEX.test(name);
+
+  // vegan_flag = false luôn bị coi là thịt, kể cả khi tên có chữ "chay".
+  if (!veganFlag) {
+    return {
+      isMeat: true,
+      isEgg: EGG_REGEX.test(name),
+      isDairy: DAIRY_REGEX.test(name),
+    };
+  }
+
+  // Ngoại lệ "chay" chỉ áp dụng cho mệnh đề CHỨA từ "chay".
+  // VD: "Thịt bò chay" -> hợp lệ; "Thịt bò chay và cá hồi" -> "cá hồi" vẫn là cá.
+  const clauses =
+    options.allowChayException === true
+      ? splitIntoClauses(name)
+      : [name];
+
+  const effectiveName = clauses.length > 0 ? clauses : [name];
+
+  const isMeat = effectiveName.some(
+    (clause) =>
+      !hasStandaloneChayToken(clause) &&
+      NON_VEGAN_MEAT_REGEX.test(clause),
+  );
+
   const isEgg = EGG_REGEX.test(name);
   const isDairy = DAIRY_REGEX.test(name);
   return { isMeat, isEgg, isDairy };
@@ -53,11 +123,16 @@ export function checkIngredientDietViolation(
   ingredientName: string,
   veganFlag: boolean,
   userDiet: string | null | undefined,
+  options: { allowChayException?: boolean } = {},
 ): string | null {
   const diet = userDiet?.trim().toLowerCase();
   if (!diet) return null;
 
-  const { isMeat, isEgg, isDairy } = categorizeIngredient(ingredientName, veganFlag);
+  const { isMeat, isEgg, isDairy } = categorizeIngredient(
+    ingredientName,
+    veganFlag,
+    options,
+  );
 
   // Thit man / hai san: TAT CA che do an chay deu phai chan
   if (isMeat) {
