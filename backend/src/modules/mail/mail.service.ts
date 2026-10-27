@@ -52,6 +52,19 @@ export class MailService {
     );
   }
 
+  sendVerifyEmailOtp(to: string, code: string, ttlMinutes: number) {
+    return this.send(
+      to,
+      `Mã xác thực email VegetMealPlan: ${code}`,
+      layout(`
+        <p>Cảm ơn bạn đã đăng ký VegetMealPlan. Nhập mã dưới đây để xác thực email và kích hoạt tài khoản:</p>
+        <p style="font-size:28px;font-weight:700;letter-spacing:6px;margin:24px 0">${code}</p>
+        <p>Mã có hiệu lực trong ${ttlMinutes} phút và chỉ dùng được một lần. Không chia sẻ mã này cho ai.</p>
+        <p>Nếu bạn không đăng ký tài khoản, hãy bỏ qua email này.</p>`),
+      `Mã xác thực email VegetMealPlan: ${code}. Hiệu lực ${ttlMinutes} phút. Nếu bạn không đăng ký, hãy bỏ qua email này.`,
+    );
+  }
+
   sendPasswordChanged(to: string) {
     const time = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
     return this.send(

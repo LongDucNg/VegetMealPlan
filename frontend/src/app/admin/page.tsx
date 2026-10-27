@@ -8,7 +8,8 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
-import { ADMIN_STATS, AI_MODELS, MODERATION_QUEUE, adminService, AdminStat } from "@/features/admin";
+import { ADMIN_STATS, AI_MODELS, adminService, AdminStat } from "@/features/admin";
+import { forumService } from "@/features/community";
 import {
   Users,
   Video,
@@ -41,38 +42,21 @@ const RECENT_ACTIVITY = [
 
 function AdminContent() {
   const [stats, setStats] = useState<AdminStat[]>(ADMIN_STATS);
-  const pendingMod = MODERATION_QUEUE.filter((m) => m.status === "Pending");
+  const [pendingCount, setPendingCount] = useState<number>(0);
 
   useEffect(() => {
     adminService.fetchStats().then((data) => {
       if (data && data.length > 0) setStats(data);
     });
+    forumService.adminGetPendingCount().then((count) => {
+      setPendingCount(count);
+    });
   }, []);
 
   return (
     <div className="space-y-8">
-      {/* Flagged urgent banner */}
-      {pendingMod.length > 0 && (
-        <div className="flex items-center gap-4 bg-red-50 border border-red-200 rounded-[16px] px-5 py-4">
-          <div className="w-10 h-10 rounded-xl bg-red-100 text-red-700 flex items-center justify-center shrink-0">
-            <AlertTriangle className="w-5 h-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-red-900 text-sm">
-              {pendingMod.length} mục đang chờ quản trị viên xét duyệt
-            </p>
-            <p className="text-xs text-red-700 mt-0.5">
-              Nội dung do AI gắn cờ cần quản trị viên xem xét và phê duyệt trước khi áp dụng hành động.
-            </p>
-          </div>
-          <Link
-            href="/admin/moderation"
-            className="shrink-0 h-9 px-4 rounded-xl bg-red-700 text-white text-sm font-semibold hover:bg-red-800 transition-colors"
-          >
-            Hàng đợi kiểm duyệt →
-          </Link>
-        </div>
-      )}
+
+
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
