@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
 import { forumService } from "@/features/community";
 import { ForumPostDetailClient } from "./ForumPostDetailClient";
+
+export const dynamic = "force-dynamic";
 
 export default async function ForumPostPage({
   params,
@@ -8,11 +9,13 @@ export default async function ForumPostPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const post = forumService.getPostById(id);
+  let initialPost = null;
 
-  if (!post) {
-    notFound();
+  try {
+    initialPost = await forumService.getPostDetail(id);
+  } catch {
+    initialPost = null;
   }
 
-  return <ForumPostDetailClient post={post} />;
+  return <ForumPostDetailClient postId={id} initialPost={initialPost} />;
 }
