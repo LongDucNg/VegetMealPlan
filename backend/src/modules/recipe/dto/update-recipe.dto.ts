@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -35,8 +35,11 @@ export class UpdateRecipeIngredientDto {
 }
 
 export class UpdateRecipeDto {
+  // Khi có gửi title thì không được rỗng/khoảng trắng (đã trim trước khi validate).
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
+  @IsNotEmpty({ message: 'Tên món không được để trống.' })
   title?: string;
 
   @IsOptional()
