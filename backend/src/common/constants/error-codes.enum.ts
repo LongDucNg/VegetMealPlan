@@ -81,6 +81,14 @@ export enum ErrorCode {
   // ---- Danh mục ----
   /** 404 */
   CATEGORY_NOT_FOUND = 'CATEGORY_NOT_FOUND',
+  /** 400: category_id không tồn tại trong bảng categories. */
+  CATEGORY_ID_NOT_FOUND = 'CATEGORY_ID_NOT_FOUND',
+  /** 400: category_id không thuộc loại hợp lệ để gắn vào công thức. */
+  CATEGORY_TYPE_INVALID = 'CATEGORY_TYPE_INVALID',
+  /** 409: trùng tên danh mục trong cùng một category_type. */
+  CATEGORY_NAME_DUPLICATE = 'CATEGORY_NAME_DUPLICATE',
+  /** 409: danh mục đang được công thức/nội dung khác sử dụng nên không xoá/đổi loại được. */
+  CATEGORY_IN_USE = 'CATEGORY_IN_USE',
   // ---- Diễn đàn ----
   /** 404 */
   FORUM_POST_NOT_FOUND = 'FORUM_POST_NOT_FOUND',
