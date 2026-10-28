@@ -138,6 +138,8 @@ export enum ErrorCode {
   INGREDIENT_NAME_CONFLICT = 'INGREDIENT_NAME_CONFLICT',
   /** 400: tên nguyên liệu không được để trống. */
   INGREDIENT_NAME_EMPTY = 'INGREDIENT_NAME_EMPTY',
+  /** 400: công thức có nguyên liệu không tương thích với diet_type của công thức. */
+  RECIPE_DIET_INCOMPATIBLE = 'RECIPE_DIET_INCOMPATIBLE',
   /** 404 */
   MEAL_PLAN_NOT_FOUND = 'MEAL_PLAN_NOT_FOUND',
 

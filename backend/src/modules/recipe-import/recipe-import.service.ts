@@ -26,6 +26,7 @@ import { assertValidRecipeCategoryIds } from '../category/category-validation.ut
 
 import { IngredientService } from '../ingredient/ingredient.service';
 import { isBlockingConflict } from '../ingredient/ingredient-conflict.util';
+import { findDietIncompatibleIngredients } from '../../common/utils/diet-compat.util';
 import { Ingredient } from '../ingredient/entities/ingredient.entity';
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 import {
