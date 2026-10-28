@@ -97,10 +97,24 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
   }
 
   // Category
-  const category =
-    r.recipeCategories?.[0]?.category?.name ||
-    r.category ||
-    "Món chính";
+  const categoriesList: string[] = [];
+  if (Array.isArray(r.categories)) {
+    categoriesList.push(...r.categories.filter(Boolean));
+  }
+  if (Array.isArray(r.recipeCategories)) {
+    for (const rc of r.recipeCategories) {
+      const name = rc.category?.category_name || rc.category?.name || rc.category_name;
+      if (name && !categoriesList.includes(name)) {
+        categoriesList.push(name);
+      }
+    }
+  }
+  const rawCat = typeof r.category === "string" ? r.category : r.category?.category_name;
+  if (rawCat && !categoriesList.includes(rawCat)) {
+    categoriesList.push(rawCat);
+  }
+
+  const category = categoriesList.length > 0 ? categoriesList[0] : (rawCat || "Món chính");
 
   // Status
   const status: RecipeStatus = (
@@ -121,6 +135,7 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
       r.image ||
       "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop&q=80",
     category,
+    categories: categoriesList.length > 0 ? categoriesList : [category],
     mealType,
     vegetarianType,
     prepTime,

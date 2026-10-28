@@ -46,6 +46,7 @@ export interface Recipe {
   description: string;
   image: string;
   category: string;
+  categories?: string[];
   mealType: MealType;
   vegetarianType: VegetarianType;
   prepTime: number; // minutes
