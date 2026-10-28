@@ -13,8 +13,8 @@ import { UsageQuotaModule } from '../usage-quota/usage-quota.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
 import { UsersModule } from '../users/users.module';
 import { NonVegetarianDetectorService } from '../../common/services/non-vegetarian-detector.service';
-import { GeminiAiProvider } from './providers/gemini-ai.provider';
-import { OpenAiCompatibleAiProvider } from './providers/openai-compatible-ai.provider';
+import { GroqAiProvider } from './providers/groq-ai.provider';
+import { MockChatbotAiProvider } from './providers/mock-chatbot-ai.provider';
 
 @Module({
   imports: [
@@ -34,30 +34,21 @@ import { OpenAiCompatibleAiProvider } from './providers/openai-compatible-ai.pro
     ChatbotContextService,
     ChatbotSafetyService,
     NonVegetarianDetectorService,
-    GeminiAiProvider,
-    OpenAiCompatibleAiProvider,
+    GroqAiProvider,
+    MockChatbotAiProvider,
     {
       provide: 'AI_PROVIDER',
       useFactory: (
-        gemini: GeminiAiProvider,
-        openAiCompatible: OpenAiCompatibleAiProvider,
+        groq: GroqAiProvider,
+        mock: MockChatbotAiProvider,
       ) => {
-        const provider = (process.env.AI_PROVIDER || 'gemini').toLowerCase().trim();
-        if (
-          provider === 'grok' ||
-          provider === 'xai' ||
-          provider === 'openai' ||
-          provider === 'deepseek' ||
-          provider === 'openrouter' ||
-          provider === 'groq' ||
-          provider === 'custom' ||
-          process.env.AI_BASE_URL
-        ) {
-          return openAiCompatible;
+        const provider = (process.env.CHATBOT_AI_PROVIDER || 'groq').toLowerCase().trim();
+        if (provider === 'mock' && process.env.NODE_ENV !== 'production') {
+          return mock;
         }
-        return gemini;
+        return groq;
       },
-      inject: [GeminiAiProvider, OpenAiCompatibleAiProvider],
+      inject: [GroqAiProvider, MockChatbotAiProvider],
     },
   ],
   exports: [ChatbotService],

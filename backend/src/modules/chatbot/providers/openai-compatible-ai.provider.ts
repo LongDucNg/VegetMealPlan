@@ -44,7 +44,7 @@ export class OpenAiCompatibleAiProvider implements AiProvider {
       case 'openrouter':
         return 'openai/gpt-4o-mini';
       case 'groq':
-        return 'llama-3.3-70b-versatile';
+        return 'openai/gpt-oss-120b';
       case 'openai':
       default:
         return 'gpt-4o-mini';
