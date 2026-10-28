@@ -146,6 +146,18 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
     // UI States
     const [isSubmitting, setIsSubmitting] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
     const [errorMsg, setErrorMsg] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
+    // Khung báo lỗi nằm trên đầu form, còn nút gửi ở cuối trang: có lỗi thì cuộn lên để người dùng thấy
+    // (trước đây chỉ lỗi thiếu tên món mới cuộn, các lỗi khác như "0 bước" hay lỗi từ backend bị khuất).
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
+        "CreateRecipeClient.useEffect": ()=>{
+            if (errorMsg) window.scrollTo({
+                top: 0,
+                behavior: "smooth"
+            });
+        }
+    }["CreateRecipeClient.useEffect"], [
+        errorMsg
+    ]);
     const [successData, setSuccessData] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
     // Active searching ingredient dropdown
     const [activeSearchIndex, setActiveSearchIndex] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
@@ -425,10 +437,6 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
         setErrorMsg(null);
         if (!title.trim()) {
             setErrorMsg("Vui lòng nhập tên công thức món ăn.");
-            window.scrollTo({
-                top: 0,
-                behavior: "smooth"
-            });
             return;
         }
         const validIngredients = ingredients.filter((ing)=>ing.ingredient_id > 0 && Number(ing.quantity) > 0);
@@ -508,12 +516,12 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                 className: "w-9 h-9"
                             }, void 0, false, {
                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                lineNumber: 532,
+                                lineNumber: 537,
                                 columnNumber: 15
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                            lineNumber: 531,
+                            lineNumber: 536,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -524,7 +532,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                     children: isApproved ? "Đã duyệt công khai (APPROVED)" : "Đang chờ kiểm duyệt (Pending Review)"
                                 }, void 0, false, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 536,
+                                    lineNumber: 541,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
@@ -536,7 +544,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 539,
+                                    lineNumber: 544,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -544,13 +552,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                     children: isApproved ? "Bạn đã tạo công thức thành công với quyền Quản trị viên. Món ăn đã được tự động duyệt và đồng bộ ngay trên Thư viện công thức & Kế hoạch thực đơn!" : "Cảm ơn bạn đã đóng góp công thức món chay cho VeggieHub! Công thức đang được chuyển tới Ban quản trị để kiểm duyệt trước khi đưa lên Thư viện công thức."
                                 }, void 0, false, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 542,
+                                    lineNumber: 547,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                            lineNumber: 535,
+                            lineNumber: 540,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -564,7 +572,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                             children: "Mã công thức:"
                                         }, void 0, false, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 551,
+                                            lineNumber: 556,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -575,13 +583,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 552,
+                                            lineNumber: 557,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 550,
+                                    lineNumber: 555,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -592,7 +600,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                             children: "Trạng thái:"
                                         }, void 0, false, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 557,
+                                            lineNumber: 562,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -600,13 +608,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                             children: successData.status || (isApproved ? "APPROVED" : "pending_review")
                                         }, void 0, false, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 558,
+                                            lineNumber: 563,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 556,
+                                    lineNumber: 561,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -617,7 +625,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                             children: "Năng lượng ước tính:"
                                         }, void 0, false, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 567,
+                                            lineNumber: 572,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -630,13 +638,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 568,
+                                            lineNumber: 573,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 566,
+                                    lineNumber: 571,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -647,7 +655,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                             children: "Số nguyên liệu:"
                                         }, void 0, false, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 573,
+                                            lineNumber: 578,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -658,13 +666,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 574,
+                                            lineNumber: 579,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 572,
+                                    lineNumber: 577,
                                     columnNumber: 15
                                 }, this),
                                 estimatedCost > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -675,7 +683,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                             children: "Ước tính chi phí:"
                                         }, void 0, false, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 580,
+                                            lineNumber: 585,
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -686,19 +694,19 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 581,
+                                            lineNumber: 586,
                                             columnNumber: 19
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 579,
+                                    lineNumber: 584,
                                     columnNumber: 17
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                            lineNumber: 549,
+                            lineNumber: 554,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -710,7 +718,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                     children: "← Về Quản trị công thức"
                                 }, void 0, false, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 590,
+                                    lineNumber: 595,
                                     columnNumber: 17
                                 }, this) : null,
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
@@ -719,7 +727,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                     children: "Xem trên Thư viện công thức"
                                 }, void 0, false, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 598,
+                                    lineNumber: 603,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -732,29 +740,29 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                     children: "Tạo thêm công thức khác"
                                 }, void 0, false, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 605,
+                                    lineNumber: 610,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                            lineNumber: 588,
+                            lineNumber: 593,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                    lineNumber: 530,
+                    lineNumber: 535,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                lineNumber: 529,
+                lineNumber: 534,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-            lineNumber: 528,
+            lineNumber: 533,
             columnNumber: 7
         }, this);
     }
@@ -775,20 +783,20 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                     className: "w-4 h-4"
                                 }, void 0, false, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 631,
+                                    lineNumber: 636,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                     children: isActuallyAdmin ? "Quay lại Quản trị công thức" : "Quay lại Thư viện công thức"
                                 }, void 0, false, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 632,
+                                    lineNumber: 637,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                            lineNumber: 627,
+                            lineNumber: 632,
                             columnNumber: 11
                         }, this),
                         isAuthenticated ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -798,7 +806,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                     className: "w-2 h-2 rounded-full bg-emerald-500 animate-pulse"
                                 }, void 0, false, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 640,
+                                    lineNumber: 645,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -810,7 +818,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                             children: user?.full_name || user?.email || "Quản trị viên VeggieHub"
                                         }, void 0, false, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 643,
+                                            lineNumber: 648,
                                             columnNumber: 17
                                         }, this),
                                         " ",
@@ -820,13 +828,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 641,
+                                    lineNumber: 646,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                            lineNumber: 639,
+                            lineNumber: 644,
                             columnNumber: 13
                         }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                             className: "flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-xs",
@@ -835,7 +843,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                     className: "w-3.5 h-3.5 text-amber-600"
                                 }, void 0, false, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 651,
+                                    lineNumber: 656,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -848,25 +856,25 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                             children: "Đăng nhập ngay"
                                         }, void 0, false, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 654,
+                                            lineNumber: 659,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 652,
+                                    lineNumber: 657,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                            lineNumber: 650,
+                            lineNumber: 655,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                    lineNumber: 626,
+                    lineNumber: 631,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -877,7 +885,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                             children: isActuallyAdmin ? "QUẢN TRỊ CÔNG THỨC HỆ THỐNG" : "ĐÓNG GÓP CỘNG ĐỒNG"
                         }, void 0, false, {
                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                            lineNumber: 667,
+                            lineNumber: 672,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h1", {
@@ -885,7 +893,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                             children: "Đăng công thức món chay mới"
                         }, void 0, false, {
                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                            lineNumber: 670,
+                            lineNumber: 675,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -893,13 +901,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                             children: isActuallyAdmin ? "Thêm công thức chuẩn vào hệ thống VeggieHub. Công thức tạo bởi Quản trị viên sẽ được tự động kích hoạt trạng thái ĐÃ DUYỆT (APPROVED) và hiển thị trực tiếp trên Thư viện công thức và Kế hoạch thực đơn." : "Chia sẻ những món chay thơm ngon, tốt cho sức khoẻ và môi trường. Công thức sẽ được kiểm duyệt trước khi xuất hiện trên hệ thống VeggieHub."
                         }, void 0, false, {
                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                            lineNumber: 673,
+                            lineNumber: 678,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                    lineNumber: 666,
+                    lineNumber: 671,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -909,7 +917,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                             className: "w-4 h-4 text-emerald-700 shrink-0 mt-0.5"
                         }, void 0, false, {
                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                            lineNumber: 682,
+                            lineNumber: 687,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -920,7 +928,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                     children: "Quy trình kiểm duyệt công thức:"
                                 }, void 0, false, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 684,
+                                    lineNumber: 689,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -928,19 +936,19 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                     children: isActuallyAdmin ? "Tài khoản Quản trị viên: Công thức tạo bởi quản trị viên sẽ được tự động kích hoạt trạng thái APPROVED." : "Công thức của bạn sẽ được lưu ở trạng thái PENDING_REVIEW để ban quản trị kiểm tra tính an toàn dinh dưỡng và tiêu chuẩn chay. Sau khi được duyệt, món ăn sẽ hiển thị công khai trên toàn hệ thống."
                                 }, void 0, false, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 685,
+                                    lineNumber: 690,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                            lineNumber: 683,
+                            lineNumber: 688,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                    lineNumber: 681,
+                    lineNumber: 686,
                     columnNumber: 9
                 }, this),
                 errorMsg && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -950,7 +958,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                             className: "w-4 h-4 text-rose-600 shrink-0"
                         }, void 0, false, {
                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                            lineNumber: 696,
+                            lineNumber: 701,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -958,13 +966,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                             children: errorMsg
                         }, void 0, false, {
                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                            lineNumber: 697,
+                            lineNumber: 702,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                    lineNumber: 695,
+                    lineNumber: 700,
                     columnNumber: 11
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("form", {
@@ -987,7 +995,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             className: "w-5 h-5 text-emerald-700"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 709,
+                                                            lineNumber: 714,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
@@ -995,13 +1003,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             children: "1. Thông tin chung món ăn"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 710,
+                                                            lineNumber: 715,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 708,
+                                                    lineNumber: 713,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1014,26 +1022,26 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             className: "w-3.5 h-3.5"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 720,
+                                                            lineNumber: 725,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                             children: "Làm mới"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 721,
+                                                            lineNumber: 726,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 714,
+                                                    lineNumber: 719,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 707,
+                                            lineNumber: 712,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1048,13 +1056,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             children: "*"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 728,
+                                                            lineNumber: 733,
                                                             columnNumber: 40
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 727,
+                                                    lineNumber: 732,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -1066,13 +1074,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                     required: true
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 730,
+                                                    lineNumber: 735,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 726,
+                                            lineNumber: 731,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1083,7 +1091,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                     children: "Giới thiệu & Mẹo từ đầu bếp"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 742,
+                                                    lineNumber: 747,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("textarea", {
@@ -1094,13 +1102,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                     className: "w-full px-4 py-2.5 text-xs rounded-2xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:outline-hidden focus:border-emerald-600 transition-all font-medium text-stone-800 resize-none"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 745,
+                                                    lineNumber: 750,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 741,
+                                            lineNumber: 746,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1113,7 +1121,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             children: "Ảnh món ăn (URL)"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 757,
+                                                            lineNumber: 762,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1121,13 +1129,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             children: "Chọn nhanh ảnh mẫu bên dưới hoặc nhập link"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 758,
+                                                            lineNumber: 763,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 756,
+                                                    lineNumber: 761,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -1138,7 +1146,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                     className: "w-full px-4 py-2 text-xs rounded-2xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:outline-hidden focus:border-emerald-600 transition-all font-mono text-stone-600"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 762,
+                                                    lineNumber: 767,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1155,23 +1163,23 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                 className: "object-cover"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                lineNumber: 784,
+                                                                lineNumber: 789,
                                                                 columnNumber: 23
                                                             }, this)
                                                         }, idx, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 773,
+                                                            lineNumber: 778,
                                                             columnNumber: 21
                                                         }, this))
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 771,
+                                                    lineNumber: 776,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 755,
+                                            lineNumber: 760,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1185,7 +1193,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             children: "Bữa ăn phù hợp"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 799,
+                                                            lineNumber: 804,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
@@ -1198,7 +1206,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Bữa sáng (Breakfast)"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 807,
+                                                                    lineNumber: 812,
                                                                     columnNumber: 21
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1206,7 +1214,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Bữa trưa / tối (Trưa & Tối)"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 808,
+                                                                    lineNumber: 813,
                                                                     columnNumber: 21
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1214,19 +1222,19 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Bữa phụ / Ăn vặt (Snack)"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 809,
+                                                                    lineNumber: 814,
                                                                     columnNumber: 21
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 802,
+                                                            lineNumber: 807,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 798,
+                                                    lineNumber: 803,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1239,7 +1247,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Chế độ ăn chay"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 816,
+                                                                    lineNumber: 821,
                                                                     columnNumber: 21
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1247,13 +1255,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: dietType === "vegan" ? "Không trứng & sữa" : dietType === "lacto" ? "Có sữa" : dietType === "ovo" ? "Có trứng" : "Trứng & sữa"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 817,
+                                                                    lineNumber: 822,
                                                                     columnNumber: 21
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 815,
+                                                            lineNumber: 820,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
@@ -1266,7 +1274,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Thuần chay (Vegan — Không trứng & sữa)"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 826,
+                                                                    lineNumber: 831,
                                                                     columnNumber: 21
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1274,7 +1282,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Chay có sữa (Lacto — Dùng sữa, không trứng)"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 827,
+                                                                    lineNumber: 832,
                                                                     columnNumber: 21
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1282,7 +1290,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Chay có trứng (Ovo — Dùng trứng, không sữa)"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 828,
+                                                                    lineNumber: 833,
                                                                     columnNumber: 21
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1290,25 +1298,25 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Chay trứng & sữa (Lacto-Ovo)"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 829,
+                                                                    lineNumber: 834,
                                                                     columnNumber: 21
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 821,
+                                                            lineNumber: 826,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 814,
+                                                    lineNumber: 819,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 796,
+                                            lineNumber: 801,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1322,7 +1330,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             children: "Chuẩn bị (phút)"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 837,
+                                                            lineNumber: 842,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -1340,13 +1348,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             className: "w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:border-emerald-600 font-bold text-stone-800 text-center"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 840,
+                                                            lineNumber: 845,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 836,
+                                                    lineNumber: 841,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1357,7 +1365,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             children: "Nấu chín (phút)"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 857,
+                                                            lineNumber: 862,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -1375,13 +1383,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             className: "w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:border-emerald-600 font-bold text-stone-800 text-center"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 860,
+                                                            lineNumber: 865,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 856,
+                                                    lineNumber: 861,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1392,7 +1400,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             children: "Khẩu phần (người)"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 877,
+                                                            lineNumber: 882,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -1410,13 +1418,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             className: "w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:border-emerald-600 font-bold text-stone-800 text-center"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 880,
+                                                            lineNumber: 885,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 876,
+                                                    lineNumber: 881,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1427,7 +1435,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             children: "Độ khó"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 897,
+                                                            lineNumber: 902,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
@@ -1440,7 +1448,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Dễ"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 905,
+                                                                    lineNumber: 910,
                                                                     columnNumber: 21
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1448,7 +1456,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Vừa"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 906,
+                                                                    lineNumber: 911,
                                                                     columnNumber: 21
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1456,25 +1464,25 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Khó"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 907,
+                                                                    lineNumber: 912,
                                                                     columnNumber: 21
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 900,
+                                                            lineNumber: 905,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 896,
+                                                    lineNumber: 901,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 835,
+                                            lineNumber: 840,
                                             columnNumber: 15
                                         }, this),
                                         categories.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1488,7 +1496,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             children: "Danh mục món ăn"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 916,
+                                                            lineNumber: 921,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1496,13 +1504,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             children: selectedCategoryIds.length > 0 ? `Đã chọn: ${selectedCategoryIds.length} danh mục` : "Chưa chọn danh mục"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 917,
+                                                            lineNumber: 922,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 915,
+                                                    lineNumber: 920,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1516,31 +1524,31 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                 children: "Nhấn để chọn danh mục món ăn..."
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                lineNumber: 931,
+                                                                lineNumber: 936,
                                                                 columnNumber: 25
                                                             }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                                 children: selectedCategoryIds.map((id)=>categories.find((c)=>c.category_id === id)?.category_name).filter(Boolean).join(", ")
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                lineNumber: 933,
+                                                                lineNumber: 938,
                                                                 columnNumber: 25
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 929,
+                                                            lineNumber: 934,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevron$2d$down$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronDown$3e$__["ChevronDown"], {
                                                             className: `w-4 h-4 text-stone-400 transition-transform ${categoryDropdownOpen ? "rotate-180" : ""}`
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 941,
+                                                            lineNumber: 946,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 925,
+                                                    lineNumber: 930,
                                                     columnNumber: 19
                                                 }, this),
                                                 categoryDropdownOpen && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1557,20 +1565,20 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     className: "w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-stone-200 bg-stone-50/60 focus:bg-white focus:border-emerald-600 outline-none"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 953,
+                                                                    lineNumber: 958,
                                                                     columnNumber: 25
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$search$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Search$3e$__["Search"], {
                                                                     className: "w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 960,
+                                                                    lineNumber: 965,
                                                                     columnNumber: 25
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 952,
+                                                            lineNumber: 957,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1591,25 +1599,25 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                                         className: "w-3 h-3 stroke-[3]"
                                                                                     }, void 0, false, {
                                                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                                        lineNumber: 987,
+                                                                                        lineNumber: 992,
                                                                                         columnNumber: 52
                                                                                     }, this)
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                                    lineNumber: 980,
+                                                                                    lineNumber: 985,
                                                                                     columnNumber: 35
                                                                                 }, this),
                                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                                                     children: cat.category_name
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                                    lineNumber: 989,
+                                                                                    lineNumber: 994,
                                                                                     columnNumber: 35
                                                                                 }, this)
                                                                             ]
                                                                         }, void 0, true, {
                                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                            lineNumber: 979,
+                                                                            lineNumber: 984,
                                                                             columnNumber: 33
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1620,13 +1628,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                             ]
                                                                         }, void 0, true, {
                                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                            lineNumber: 991,
+                                                                            lineNumber: 996,
                                                                             columnNumber: 33
                                                                         }, this)
                                                                     ]
                                                                 }, cat.category_id, true, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 970,
+                                                                    lineNumber: 975,
                                                                     columnNumber: 31
                                                                 }, this);
                                                             }) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1634,12 +1642,12 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                 children: "Không tìm thấy danh mục phù hợp"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                lineNumber: 998,
+                                                                lineNumber: 1003,
                                                                 columnNumber: 27
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 964,
+                                                            lineNumber: 969,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1652,7 +1660,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Bỏ chọn tất cả"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1006,
+                                                                    lineNumber: 1011,
                                                                     columnNumber: 25
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1662,19 +1670,19 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Xong"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1013,
+                                                                    lineNumber: 1018,
                                                                     columnNumber: 25
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1005,
+                                                            lineNumber: 1010,
                                                             columnNumber: 23
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 950,
+                                                    lineNumber: 955,
                                                     columnNumber: 21
                                                 }, this),
                                                 selectedCategoryIds.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1689,7 +1697,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: cat.category_name
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1035,
+                                                                    lineNumber: 1040,
                                                                     columnNumber: 29
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1700,36 +1708,36 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                         className: "w-3 h-3"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                        lineNumber: 1041,
+                                                                        lineNumber: 1046,
                                                                         columnNumber: 31
                                                                     }, this)
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1036,
+                                                                    lineNumber: 1041,
                                                                     columnNumber: 29
                                                                 }, this)
                                                             ]
                                                         }, id, true, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1031,
+                                                            lineNumber: 1036,
                                                             columnNumber: 27
                                                         }, this);
                                                     })
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1026,
+                                                    lineNumber: 1031,
                                                     columnNumber: 21
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 914,
+                                            lineNumber: 919,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 706,
+                                    lineNumber: 711,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1745,7 +1753,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             className: "w-5 h-5 text-emerald-700"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1056,
+                                                            lineNumber: 1061,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
@@ -1753,13 +1761,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             children: "2. Thành phần nguyên liệu & Dinh dưỡng"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1057,
+                                                            lineNumber: 1062,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1055,
+                                                    lineNumber: 1060,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1772,7 +1780,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     className: "w-3.5 h-3.5 text-amber-500 fill-amber-500"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1063,
+                                                                    lineNumber: 1068,
                                                                     columnNumber: 21
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1782,13 +1790,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1064,
+                                                                    lineNumber: 1069,
                                                                     columnNumber: 21
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1062,
+                                                            lineNumber: 1067,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1799,19 +1807,19 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1066,
+                                                            lineNumber: 1071,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1061,
+                                                    lineNumber: 1066,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 1054,
+                                            lineNumber: 1059,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1823,19 +1831,19 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                         children: dietType
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1074,
+                                                        lineNumber: 1079,
                                                         columnNumber: 72
                                                     }, this),
                                                     " (thuần chay sẽ không có trứng & sữa)."
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                lineNumber: 1073,
+                                                lineNumber: 1078,
                                                 columnNumber: 17
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 1072,
+                                            lineNumber: 1077,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1846,14 +1854,14 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                     children: "STT"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1080,
+                                                    lineNumber: 1085,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                     children: "Tên nguyên liệu (Gợi ý DB)"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1081,
+                                                    lineNumber: 1086,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1861,7 +1869,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                     children: "Số lượng"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1082,
+                                                    lineNumber: 1087,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1869,7 +1877,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                     children: "Đơn vị"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1083,
+                                                    lineNumber: 1088,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1877,7 +1885,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                     children: "Năng lượng"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1084,
+                                                    lineNumber: 1089,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1885,7 +1893,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                     children: "Tùy chọn"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1085,
+                                                    lineNumber: 1090,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1893,13 +1901,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                     children: "Xóa"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1086,
+                                                    lineNumber: 1091,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 1079,
+                                            lineNumber: 1084,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1916,7 +1924,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             children: idx + 1
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1105,
+                                                            lineNumber: 1110,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1957,14 +1965,14 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     className: "w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 font-medium text-stone-800"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1111,
+                                                                    lineNumber: 1116,
                                                                     columnNumber: 25
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$search$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Search$3e$__["Search"], {
                                                                     className: "w-3.5 h-3.5 text-stone-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1145,
+                                                                    lineNumber: 1150,
                                                                     columnNumber: 25
                                                                 }, this),
                                                                 activeSearchIndex === idx && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1980,7 +1988,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                                             children: sug.ingredient_name
                                                                                         }, void 0, false, {
                                                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                                            lineNumber: 1158,
+                                                                                            lineNumber: 1163,
                                                                                             columnNumber: 37
                                                                                         }, this),
                                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1991,13 +1999,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                                             ]
                                                                                         }, void 0, true, {
                                                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                                            lineNumber: 1161,
+                                                                                            lineNumber: 1166,
                                                                                             columnNumber: 37
                                                                                         }, this)
                                                                                     ]
                                                                                 }, void 0, true, {
                                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                                    lineNumber: 1157,
+                                                                                    lineNumber: 1162,
                                                                                     columnNumber: 35
                                                                                 }, this),
                                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2011,7 +2019,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                                             ]
                                                                                         }, void 0, true, {
                                                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                                            lineNumber: 1166,
+                                                                                            lineNumber: 1171,
                                                                                             columnNumber: 37
                                                                                         }, this),
                                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2019,19 +2027,19 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                                             children: "Đơn vị: g"
                                                                                         }, void 0, false, {
                                                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                                            lineNumber: 1169,
+                                                                                            lineNumber: 1174,
                                                                                             columnNumber: 37
                                                                                         }, this)
                                                                                     ]
                                                                                 }, void 0, true, {
                                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                                    lineNumber: 1165,
+                                                                                    lineNumber: 1170,
                                                                                     columnNumber: 35
                                                                                 }, this)
                                                                             ]
                                                                         }, sug.ingredient_id, true, {
                                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                            lineNumber: 1152,
+                                                                            lineNumber: 1157,
                                                                             columnNumber: 33
                                                                         }, this)) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                                         className: "p-3 text-center text-xs text-stone-400",
@@ -2042,18 +2050,18 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                        lineNumber: 1174,
+                                                                        lineNumber: 1179,
                                                                         columnNumber: 31
                                                                     }, this)
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1149,
+                                                                    lineNumber: 1154,
                                                                     columnNumber: 27
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1110,
+                                                            lineNumber: 1115,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2093,12 +2101,12 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                 className: "w-full px-2 py-1.5 text-xs rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 font-bold text-stone-800 text-center"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                lineNumber: 1184,
+                                                                lineNumber: 1189,
                                                                 columnNumber: 25
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1183,
+                                                            lineNumber: 1188,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2106,7 +2114,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             children: "g"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1212,
+                                                            lineNumber: 1217,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2119,7 +2127,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                         className: "w-2.5 h-2.5 text-amber-600"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                        lineNumber: 1223,
+                                                                        lineNumber: 1228,
                                                                         columnNumber: 29
                                                                     }, this),
                                                                     rowKcal,
@@ -2127,19 +2135,19 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                lineNumber: 1219,
+                                                                lineNumber: 1224,
                                                                 columnNumber: 27
                                                             }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                                 className: "text-[10px] text-stone-400 font-mono",
                                                                 children: "0 kcal"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                lineNumber: 1227,
+                                                                lineNumber: 1232,
                                                                 columnNumber: 27
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1217,
+                                                            lineNumber: 1222,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2165,7 +2173,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     title: "Đánh dấu nguyên liệu tùy chọn"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1233,
+                                                                    lineNumber: 1238,
                                                                     columnNumber: 25
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2173,13 +2181,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Tùy chọn"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1247,
+                                                                    lineNumber: 1252,
                                                                     columnNumber: 25
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1232,
+                                                            lineNumber: 1237,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2193,29 +2201,29 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     className: "w-4 h-4"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1262,
+                                                                    lineNumber: 1267,
                                                                     columnNumber: 27
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                lineNumber: 1252,
+                                                                lineNumber: 1257,
                                                                 columnNumber: 25
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1251,
+                                                            lineNumber: 1256,
                                                             columnNumber: 23
                                                         }, this)
                                                     ]
                                                 }, item.keyId, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1100,
+                                                    lineNumber: 1105,
                                                     columnNumber: 21
                                                 }, this);
                                             })
                                         }, void 0, false, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 1090,
+                                            lineNumber: 1095,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2227,20 +2235,20 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                     className: "w-4 h-4"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1276,
+                                                    lineNumber: 1281,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                     children: "Thêm dòng nguyên liệu"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1277,
+                                                    lineNumber: 1282,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 1271,
+                                            lineNumber: 1276,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2256,7 +2264,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     className: "w-4 h-4 text-amber-600 fill-amber-600"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1284,
+                                                                    lineNumber: 1289,
                                                                     columnNumber: 21
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2264,13 +2272,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Dinh dưỡng & Năng lượng tính tự động"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1285,
+                                                                    lineNumber: 1290,
                                                                     columnNumber: 21
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1283,
+                                                            lineNumber: 1288,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2281,13 +2289,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1289,
+                                                            lineNumber: 1294,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1282,
+                                                    lineNumber: 1287,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2301,7 +2309,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Năng lượng / phần"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1296,
+                                                                    lineNumber: 1301,
                                                                     columnNumber: 21
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2314,19 +2322,19 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                             children: "kcal"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                            lineNumber: 1298,
+                                                                            lineNumber: 1303,
                                                                             columnNumber: 54
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1297,
+                                                                    lineNumber: 1302,
                                                                     columnNumber: 21
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1295,
+                                                            lineNumber: 1300,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2337,7 +2345,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Chất đạm (Protein)"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1303,
+                                                                    lineNumber: 1308,
                                                                     columnNumber: 21
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2350,19 +2358,19 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                             children: "g"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                            lineNumber: 1305,
+                                                                            lineNumber: 1310,
                                                                             columnNumber: 48
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1304,
+                                                                    lineNumber: 1309,
                                                                     columnNumber: 21
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1302,
+                                                            lineNumber: 1307,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2373,7 +2381,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Tinh bột (Carbs)"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1310,
+                                                                    lineNumber: 1315,
                                                                     columnNumber: 21
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2386,19 +2394,19 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                             children: "g"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                            lineNumber: 1312,
+                                                                            lineNumber: 1317,
                                                                             columnNumber: 46
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1311,
+                                                                    lineNumber: 1316,
                                                                     columnNumber: 21
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1309,
+                                                            lineNumber: 1314,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2409,7 +2417,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     children: "Chất béo (Fat)"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1317,
+                                                                    lineNumber: 1322,
                                                                     columnNumber: 21
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2422,25 +2430,25 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                             children: "g"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                            lineNumber: 1319,
+                                                                            lineNumber: 1324,
                                                                             columnNumber: 44
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                    lineNumber: 1318,
+                                                                    lineNumber: 1323,
                                                                     columnNumber: 21
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1316,
+                                                            lineNumber: 1321,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1294,
+                                                    lineNumber: 1299,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2448,19 +2456,19 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                     children: "* Lượng calo (kcal) và các chỉ số dinh dưỡng được tự động tính toán dựa trên khối lượng (g) nguyên liệu bạn chọn từ cơ sở dữ liệu VeggieHub."
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1324,
+                                                    lineNumber: 1329,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 1281,
+                                            lineNumber: 1286,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 1053,
+                                    lineNumber: 1058,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2476,7 +2484,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             className: "w-5 h-5 text-amber-500"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1334,
+                                                            lineNumber: 1339,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
@@ -2484,13 +2492,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             children: "3. Hướng dẫn chế biến (Từng bước)"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1335,
+                                                            lineNumber: 1340,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1333,
+                                                    lineNumber: 1338,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2501,13 +2509,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1339,
+                                                    lineNumber: 1344,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 1332,
+                                            lineNumber: 1337,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2520,7 +2528,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             children: idx + 1
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1347,
+                                                            lineNumber: 1352,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2533,12 +2541,12 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                 className: "w-full px-3.5 py-2 text-xs rounded-2xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:outline-hidden focus:border-emerald-600 transition-all font-medium text-stone-800 resize-none"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                lineNumber: 1351,
+                                                                lineNumber: 1356,
                                                                 columnNumber: 23
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1350,
+                                                            lineNumber: 1355,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2550,23 +2558,23 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                 className: "w-4 h-4"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                lineNumber: 1365,
+                                                                lineNumber: 1370,
                                                                 columnNumber: 23
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1359,
+                                                            lineNumber: 1364,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, idx, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1346,
+                                                    lineNumber: 1351,
                                                     columnNumber: 19
                                                 }, this))
                                         }, void 0, false, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 1344,
+                                            lineNumber: 1349,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2578,32 +2586,32 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                     className: "w-4 h-4"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1376,
+                                                    lineNumber: 1381,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                     children: "Thêm bước thực hiện"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1377,
+                                                    lineNumber: 1382,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                            lineNumber: 1371,
+                                            lineNumber: 1376,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                    lineNumber: 1331,
+                                    lineNumber: 1336,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                            lineNumber: 704,
+                            lineNumber: 709,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2621,14 +2629,14 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                         className: "w-3.5 h-3.5 text-amber-500"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1388,
+                                                        lineNumber: 1393,
                                                         columnNumber: 19
                                                     }, this),
                                                     " Xem trước hiển thị (Live Preview)"
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                lineNumber: 1387,
+                                                lineNumber: 1392,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2636,13 +2644,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                 children: isActuallyAdmin ? "Sẽ duyệt (APPROVED)" : "Chờ duyệt (PENDING)"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                lineNumber: 1390,
+                                                lineNumber: 1395,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                        lineNumber: 1386,
+                                        lineNumber: 1391,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2658,14 +2666,14 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                         className: "object-cover"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1399,
+                                                        lineNumber: 1404,
                                                         columnNumber: 21
                                                     }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                         className: "w-full h-full flex items-center justify-center text-stone-400 text-xs",
                                                         children: "Chưa có ảnh"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1406,
+                                                        lineNumber: 1411,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2676,7 +2684,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                 children: mealTypeDisplay
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                lineNumber: 1411,
+                                                                lineNumber: 1416,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2684,19 +2692,19 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                 children: dietType
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                lineNumber: 1414,
+                                                                lineNumber: 1419,
                                                                 columnNumber: 21
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1410,
+                                                        lineNumber: 1415,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                lineNumber: 1397,
+                                                lineNumber: 1402,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2707,7 +2715,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                         children: title || "Tên món ăn của bạn sẽ hiển thị ở đây"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1421,
+                                                        lineNumber: 1426,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2715,7 +2723,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                         children: description || "Giới thiệu ngắn gọn về hương vị và cách thưởng thức món chay này."
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1424,
+                                                        lineNumber: 1429,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2728,39 +2736,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                         className: "w-3.5 h-3.5 text-emerald-600"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                        lineNumber: 1430,
+                                                                        lineNumber: 1435,
                                                                         columnNumber: 23
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                                         children: [
                                                                             (Number(prepTime) || 0) + (Number(cookTime) || 0),
                                                                             " phút"
-                                                                        ]
-                                                                    }, void 0, true, {
-                                                                        fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                        lineNumber: 1431,
-                                                                        columnNumber: 23
-                                                                    }, this)
-                                                                ]
-                                                            }, void 0, true, {
-                                                                fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                lineNumber: 1429,
-                                                                columnNumber: 21
-                                                            }, this),
-                                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                                className: "flex items-center gap-1 text-stone-500",
-                                                                children: [
-                                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$users$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Users$3e$__["Users"], {
-                                                                        className: "w-3.5 h-3.5 text-violet-600"
-                                                                    }, void 0, false, {
-                                                                        fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                        lineNumber: 1435,
-                                                                        columnNumber: 23
-                                                                    }, this),
-                                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                                        children: [
-                                                                            Number(servings) || 0,
-                                                                            " người"
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
@@ -2774,10 +2756,10 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                                className: "flex items-center gap-1 font-bold text-amber-700",
+                                                                className: "flex items-center gap-1 text-stone-500",
                                                                 children: [
-                                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$flame$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Flame$3e$__["Flame"], {
-                                                                        className: "w-3.5 h-3.5 text-amber-500 fill-amber-500"
+                                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$users$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Users$3e$__["Users"], {
+                                                                        className: "w-3.5 h-3.5 text-violet-600"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
                                                                         lineNumber: 1440,
@@ -2785,8 +2767,8 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                                         children: [
-                                                                            nutrition.caloriesPerServing || 0,
-                                                                            " kcal"
+                                                                            Number(servings) || 0,
+                                                                            " người"
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
@@ -2800,29 +2782,55 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                                className: "flex items-center gap-1 font-bold text-amber-700",
+                                                                children: [
+                                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$flame$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Flame$3e$__["Flame"], {
+                                                                        className: "w-3.5 h-3.5 text-amber-500 fill-amber-500"
+                                                                    }, void 0, false, {
+                                                                        fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
+                                                                        lineNumber: 1445,
+                                                                        columnNumber: 23
+                                                                    }, this),
+                                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                                        children: [
+                                                                            nutrition.caloriesPerServing || 0,
+                                                                            " kcal"
+                                                                        ]
+                                                                    }, void 0, true, {
+                                                                        fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
+                                                                        lineNumber: 1446,
+                                                                        columnNumber: 23
+                                                                    }, this)
+                                                                ]
+                                                            }, void 0, true, {
+                                                                fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
+                                                                lineNumber: 1444,
+                                                                columnNumber: 21
+                                                            }, this),
+                                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                                 className: "font-bold text-emerald-800",
                                                                 children: estimatedCost > 0 ? `${estimatedCost.toLocaleString("vi-VN")} đ` : "0 đ"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                                lineNumber: 1444,
+                                                                lineNumber: 1449,
                                                                 columnNumber: 21
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1428,
+                                                        lineNumber: 1433,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                lineNumber: 1420,
+                                                lineNumber: 1425,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                        lineNumber: 1396,
+                                        lineNumber: 1401,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2835,7 +2843,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                         children: "Số nguyên liệu đã chọn:"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1454,
+                                                        lineNumber: 1459,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2846,13 +2854,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1455,
+                                                        lineNumber: 1460,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                lineNumber: 1453,
+                                                lineNumber: 1458,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2862,7 +2870,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                         children: "Số bước chế biến:"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1460,
+                                                        lineNumber: 1465,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2873,13 +2881,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1461,
+                                                        lineNumber: 1466,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                lineNumber: 1459,
+                                                lineNumber: 1464,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2889,7 +2897,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                         children: "Tổng năng lượng món ăn:"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1466,
+                                                        lineNumber: 1471,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2902,13 +2910,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1467,
+                                                        lineNumber: 1472,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                lineNumber: 1465,
+                                                lineNumber: 1470,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2918,7 +2926,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                         children: "Chỉ số dinh dưỡng:"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1472,
+                                                        lineNumber: 1477,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2933,13 +2941,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1473,
+                                                        lineNumber: 1478,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                lineNumber: 1471,
+                                                lineNumber: 1476,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2949,7 +2957,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                         children: "Chi phí nguyên liệu ước tính:"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1478,
+                                                        lineNumber: 1483,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2959,13 +2967,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                        lineNumber: 1479,
+                                                        lineNumber: 1484,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                lineNumber: 1477,
+                                                lineNumber: 1482,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2973,13 +2981,13 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                 children: "* Năng lượng (kcal) và chi phí được tính toán tự động dựa trên nguyên liệu và khối lượng bạn chọn từ hệ thống."
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                lineNumber: 1481,
+                                                lineNumber: 1486,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                        lineNumber: 1452,
+                                        lineNumber: 1457,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2993,7 +3001,7 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                     className: "w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1494,
+                                                    lineNumber: 1499,
                                                     columnNumber: 21
                                                 }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Fragment"], {
                                                     children: [
@@ -3001,25 +3009,25 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                             className: "w-4 h-4"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1497,
+                                                            lineNumber: 1502,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                             children: isActuallyAdmin ? "Tạo & Phê duyệt công thức ngay (Admin)" : "Gửi duyệt công thức (Member)"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                            lineNumber: 1498,
+                                                            lineNumber: 1503,
                                                             columnNumber: 23
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                    lineNumber: 1496,
+                                                    lineNumber: 1501,
                                                     columnNumber: 21
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                lineNumber: 1488,
+                                                lineNumber: 1493,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3027,45 +3035,45 @@ function CreateRecipeClient({ isAdminMode: propAdminMode } = {}) {
                                                 children: isActuallyAdmin ? "Công thức tạo bởi Quản trị viên sẽ được tự động kích hoạt trạng thái APPROVED." : "Nhấn gửi đồng nghĩa bạn đồng ý với tiêu chuẩn cộng đồng VeggieHub."
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                                lineNumber: 1503,
+                                                lineNumber: 1508,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                        lineNumber: 1487,
+                                        lineNumber: 1492,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                                lineNumber: 1385,
+                                lineNumber: 1390,
                                 columnNumber: 13
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                            lineNumber: 1383,
+                            lineNumber: 1388,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-                    lineNumber: 702,
+                    lineNumber: 707,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-            lineNumber: 624,
+            lineNumber: 629,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/src/app/recipes/create/CreateRecipeClient.tsx",
-        lineNumber: 623,
+        lineNumber: 628,
         columnNumber: 5
     }, this);
 }
-_s(CreateRecipeClient, "8Nv1pPpBsQHb4Fh3z1BwzVnQWTA=", false, function() {
+_s(CreateRecipeClient, "XLHoojaipnkKAlCtjlcHjQZqzZ8=", false, function() {
     return [
         __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRouter"],
         __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["usePathname"],
