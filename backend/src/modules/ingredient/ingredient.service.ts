@@ -14,6 +14,12 @@ import { Recipe } from '../recipe/entities/recipe.entity';
 import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 import { calculateNutritionPerServing } from '../recipe/recipe-nutrition.util';
+import {
+  checkIngredientNameKeyword,
+  EGG_NAME_EXCEPTIONS,
+  PLANT_NAME_EXCEPTIONS,
+} from '../../common/services/non-vegetarian-detector.service';
+import { DAIRY_REGEX, EGG_REGEX, hasStandaloneChayToken } from '../../common/utils/diet.util';
 
 
 
@@ -406,6 +412,8 @@ export class IngredientService {
   ): Promise<Ingredient> {
     const trimmedName = dto.ingredient_name.trim();
 
+    assertIngredientNameVegetarian(trimmedName);
+
     const existing = await this.findByName(
       trimmedName,
     );
@@ -418,7 +426,9 @@ export class IngredientService {
       ingredient_name: trimmedName,
       unit: dto.unit,
       description: dto.description,
-      vegan_flag: dto.vegan_flag ?? true,
+      // Không gửi vegan_flag thì suy theo tên: trứng/sữa là "chay nhưng không thuần chay".
+    // Trước đây mặc định luôn true nên "Trứng gà" thêm mới thành nguyên liệu thuần chay.
+    vegan_flag: dto.vegan_flag ?? defaultVeganFlag(trimmedName),
       avg_price_per_unit:
         dto.avg_price_per_unit,
       calories_per_100g:
@@ -465,6 +475,8 @@ export class IngredientService {
       if (!trimmedName) {
         throw new BadRequestException({ code: ErrorCode.INGREDIENT_NAME_EMPTY, message: 'Tên nguyên liệu không được để trống.' });
       }
+
+      assertIngredientNameVegetarian(trimmedName);
 
       const existing =
         await this.findByName(
@@ -641,3 +653,32 @@ export class IngredientService {
     return updated;
   }
 }
+
+/**
+ * Hệ thống chỉ có nguyên liệu chay: tên có từ khoá mặn (thịt, gà, cá, tôm, mắm...) mà không có chữ
+ * "chay" thì không cho thêm/sửa. Dùng cùng bộ từ khoá và ngoại lệ với kiểm tra công thức
+ * ("Nấm đùi gà", "Đậu gà", "Trứng gà", "Nước mắm chay" vẫn hợp lệ).
+ */
+function assertIngredientNameVegetarian(name: string): void {
+  const result = checkIngredientNameKeyword(name, {
+    extraExceptions: [...PLANT_NAME_EXCEPTIONS, ...EGG_NAME_EXCEPTIONS],
+  });
+  if (result.isClean) return;
+  throw new BadRequestException({
+    code: ErrorCode.INGREDIENT_NON_VEGETARIAN,
+    message:
+      `Nguyên liệu "${name}" chứa từ khóa mặn: ${result.violations.join(', ')}. ` +
+      `Hệ thống chỉ nhận nguyên liệu chay; nếu là sản phẩm chay, hãy đặt tên kèm chữ "chay" (vd. "${name} chay").`,
+  });
+}
+
+/** vegan_flag mặc định khi admin không gửi: trứng hoặc sữa động vật -> false, còn lại -> true. */
+function defaultVeganFlag(name: string): boolean {
+  const lower = name.normalize('NFC').toLowerCase();
+  if (hasStandaloneChayToken(lower)) return true;
+  // Sữa thực vật (sữa hạt, sữa đậu nành, sữa dừa...) là thuần chay dù có chữ "sữa".
+  if (PLANT_MILK_REGEX.test(lower)) return true;
+  return !(EGG_REGEX.test(lower) || DAIRY_REGEX.test(lower));
+}
+
+const PLANT_MILK_REGEX = /sữa\s*(hạt|đậu|dừa|hạnh\s*nhân|yến\s*mạch|gạo|óc\s*chó|mè|bắp|ngô)/;

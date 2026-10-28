@@ -172,6 +172,12 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
   // UI States
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Khung báo lỗi nằm trên đầu form, còn nút gửi ở cuối trang: có lỗi thì cuộn lên để người dùng thấy
+  // (trước đây chỉ lỗi thiếu tên món mới cuộn, các lỗi khác như "0 bước" hay lỗi từ backend bị khuất).
+  useEffect(() => {
+    if (errorMsg) window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [errorMsg]);
   const [successData, setSuccessData] = useState<any | null>(null);
 
   // Active searching ingredient dropdown
@@ -443,7 +449,6 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
 
     if (!title.trim()) {
       setErrorMsg("Vui lòng nhập tên công thức món ăn.");
-      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
