@@ -89,12 +89,79 @@ export function buildCsv<T>(rows: T[], columns: CsvColumn<T>[]): string {
 }
 
 /**
- * Các cột của file export công thức.
- * Thứ tự cột cố định để file xuất ra nhất quán giữa các lần export.
+ * Tự động xác định 1 trong 10 danh mục chuẩn khi công thức chưa có liên kết trong DB
+ */
+export function deriveCategoryFromTitle(title?: string, mealType?: string): string {
+  const t = (title ?? '').toLowerCase();
+  if (
+    t.includes('mì') ||
+    t.includes('bún') ||
+    t.includes('phở') ||
+    t.includes('hủ tiếu') ||
+    t.includes('miến') ||
+    t.includes('nui')
+  ) {
+    return 'Mì, Bún & Phở';
+  }
+  if (t.includes('cơm') || t.includes('xôi') || t.includes('cháo')) {
+    return 'Cơm, Xôi & Cháo';
+  }
+  if (t.includes('canh') || t.includes('súp') || t.includes('lẩu')) {
+    return 'Canh & Súp';
+  }
+  if (t.includes('kho') || t.includes('rim')) {
+    return 'Món kho & Rim';
+  }
+  if (
+    t.includes('xào') ||
+    t.includes('chiên') ||
+    t.includes('rán') ||
+    t.includes('sốt')
+  ) {
+    return 'Xào & Chiên';
+  }
+  if (t.includes('luộc') || t.includes('hấp')) {
+    return 'Luộc & Hấp';
+  }
+  if (
+    t.includes('cuốn') ||
+    t.includes('gỏi') ||
+    t.includes('salad') ||
+    t.includes('sa lát') ||
+    t.includes('nộm')
+  ) {
+    return 'Cuốn, Gỏi & Sa lát';
+  }
+  if (
+    t.includes('bánh') ||
+    t.includes('nem') ||
+    t.includes('chả giò') ||
+    t.includes('ăn vặt')
+  ) {
+    return 'Bánh, Bánh bột & Ăn vặt';
+  }
+  if (
+    t.includes('chè') ||
+    t.includes('trà') ||
+    t.includes('nước') ||
+    t.includes('sinh tố') ||
+    t.includes('sữa') ||
+    t.includes('thạch')
+  ) {
+    return 'Tráng miệng & Đồ uống';
+  }
+  return 'Món đủ bữa';
+}
+
+/**
+ * Các cột của file export công thức theo thứ tự khoa học:
+ * Tên món -> Danh mục -> Chế độ ăn -> Nguyên liệu -> Hướng dẫn -> Dinh dưỡng & Chi phí
  */
 export const RECIPE_CSV_COLUMNS: CsvColumn<RecipeExportRow>[] = [
+  // 1. Nhóm thông tin cơ bản & phân loại
   { label: 'ID', value: (row) => row.recipe_id },
   { label: 'Tên công thức', value: (row) => row.title },
+  { label: 'Danh mục', value: (row) => row.categories },
   { label: 'Mô tả', value: (row) => row.description },
   { label: 'Chế độ ăn', value: (row) => row.diet_type },
   { label: 'Loại bữa', value: (row) => row.meal_type },
@@ -106,12 +173,20 @@ export const RECIPE_CSV_COLUMNS: CsvColumn<RecipeExportRow>[] = [
     value: (row) => row.prep_time,
   },
   { label: 'Thời gian nấu (phút)', value: (row) => row.cook_time },
+
+  // 2. Nhóm nguyên liệu & chế biến
   {
     label: 'Số lượng nguyên liệu',
     value: (row) => row.ingredient_count,
   },
   { label: 'Nguyên liệu', value: (row) => row.ingredients },
   { label: 'ID nguyên liệu', value: (row) => row.ingredient_ids },
+  {
+    label: 'Hướng dẫn thực hiện',
+    value: (row) => row.instructions,
+  },
+
+  // 3. Nhóm dinh dưỡng & chi phí
   {
     label: 'Calo (kcal/khẩu phần)',
     value: (row) => row.calories,
@@ -124,11 +199,8 @@ export const RECIPE_CSV_COLUMNS: CsvColumn<RecipeExportRow>[] = [
     label: 'Chi phí ước tính/khẩu phần',
     value: (row) => row.estimated_cost,
   },
-  { label: 'Danh mục', value: (row) => row.categories },
-  {
-    label: 'Hướng dẫn thực hiện',
-    value: (row) => row.instructions,
-  },
+
+  // 4. Nhóm hệ thống
   { label: 'Hình ảnh', value: (row) => row.image_url },
   { label: 'Trạng thái', value: (row) => row.status },
   { label: 'Người tạo (user_id)', value: (row) => row.created_by },
