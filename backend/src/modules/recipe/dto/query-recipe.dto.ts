@@ -74,6 +74,12 @@ export class QueryRecipeDto {
   @IsInt()
   @Min(1)
   limit?: number;
+
+  // Danh sách ID công thức cần export, cách nhau bằng dấu phẩy (vd. "15,20,35").
+  // Chỉ dùng cho endpoint export: GET /recipes/export?ids=15,20,35
+  @IsOptional()
+  @IsString()
+  ids?: string;
 }
 
 export class RecommendationQueryDto {

@@ -49,6 +49,68 @@ const INGREDIENTS: Record<string, any> = {
     avg_price_per_unit: 30000,
     vegan_flag: true,
   },
+  // Nguyên liệu KHÔNG thuần chay (lấy đúng dữ liệu seed hiện tại).
+  'trứng gà': {
+    ingredient_id: 185,
+    ingredient_name: 'Trứng gà',
+    unit: 'g',
+    calories_per_100g: 143,
+    protein_per_100g: 12.6,
+    carb_per_100g: 0.7,
+    fat_per_100g: 9.5,
+    fiber_per_100g: 0,
+    avg_price_per_unit: 70000,
+    vegan_flag: false,
+  },
+  'sữa tươi': {
+    ingredient_id: 179,
+    ingredient_name: 'Sữa tươi',
+    unit: 'g',
+    calories_per_100g: 61,
+    protein_per_100g: 3.2,
+    carb_per_100g: 4.8,
+    fat_per_100g: 3.3,
+    fiber_per_100g: 0,
+    avg_price_per_unit: 38000,
+    vegan_flag: false,
+  },
+  'mật ong': {
+    ingredient_id: 157,
+    ingredient_name: 'Mật ong',
+    unit: 'g',
+    calories_per_100g: 304,
+    protein_per_100g: 0.3,
+    carb_per_100g: 82.4,
+    fat_per_100g: 0,
+    fiber_per_100g: 0.2,
+    avg_price_per_unit: 120000,
+    vegan_flag: false,
+  },
+  // Nguyên liệu mặn do Admin tự thêm (chưa có trong seed).
+  'thịt bò': {
+    ingredient_id: 9001,
+    ingredient_name: 'Thịt bò',
+    unit: 'g',
+    calories_per_100g: 250,
+    protein_per_100g: 26,
+    carb_per_100g: 0,
+    fat_per_100g: 15,
+    fiber_per_100g: 0,
+    avg_price_per_unit: 300000,
+    vegan_flag: false,
+  },
+  'cá hồi': {
+    ingredient_id: 9002,
+    ingredient_name: 'Cá hồi',
+    unit: 'g',
+    calories_per_100g: 208,
+    protein_per_100g: 20,
+    carb_per_100g: 0,
+    fat_per_100g: 13,
+    fiber_per_100g: 0,
+    avg_price_per_unit: 250000,
+    vegan_flag: false,
+  },
 };
 
 interface Ctx {
@@ -614,6 +676,201 @@ describe('RecipeImportService - validation field bắt buộc', () => {
       'lunch',
       'snack',
     ]);
+  });
+});
+
+describe('RecipeImportService - kiem tra tuong thiep chu do an chay', () => {
+  it('món vegan chi dung nguyen lieu chay -> import thanh cong, van cho duyet', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd1.xlsx', [
+      row('Món Chay Thuần', { diet_type: 'vegan' }),
+    ] as any);
+
+    expect(res.data.summary.success).toBe(1);
+    expect(res.data.summary.failed).toBe(0);
+    expect(ctx.savedRecipes.length).toBe(1);
+    // Vẫn ở trạng thái chờ duyệt như luồng import hiện có.
+    expect(ctx.savedRecipes[0].status).toBe('pending_review');
+  });
+
+  it('món vegan chứa thịt bò -> dòng FAILED, KHÔNG tạo công thức', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd2.xlsx', [
+      row('Bún Riêu Chay', {
+        diet_type: 'vegan',
+        ingredients: [ing('Yến mạch'), ing('Thịt bò')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.success).toBe(0);
+    expect(res.data.summary.failed).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(0);
+    expect(res.data.details[0].status).toBe('failed');
+    expect(res.data.details[0].reason).toContain('Thịt bò');
+  });
+
+  it('món vegan chứa cá -> dòng FAILED, KHÔNG tạo công thức', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd3.xlsx', [
+      row('Món Cá Chay', {
+        diet_type: 'vegan',
+        ingredients: [ing('Cá hồi')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(0);
+    expect(res.data.details[0].reason).toContain('Cá hồi');
+  });
+
+  it('món vegan chứa trứng -> dòng FAILED', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd4.xlsx', [
+      row('Món Trứng', {
+        diet_type: 'vegan',
+        ingredients: [ing('Trứng gà')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(0);
+    expect(res.data.details[0].reason).toContain('Trứng gà');
+  });
+
+  it('lý do lỗi là DIET_INCOMPATIBLE (đúng enum ImportFailReason)', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd5.xlsx', [
+      row('Món Thịt', {
+        diet_type: 'vegan',
+        ingredients: [ing('Thịt bò')],
+      }),
+    ] as any);
+
+    const item = ctx.savedItems[0];
+    expect(item.status).toBe('failed');
+    expect(item.fail_reason).toBe('DIET_INCOMPATIBLE');
+  });
+
+  it('món lacto chứa sữa -> import thành công (theo dữ liệu seed)', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd6.xlsx', [
+      row('Súp Sữa', {
+        diet_type: 'lacto',
+        ingredients: [ing('Yến mạch'), ing('Sữa tươi')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.success).toBe(1);
+    expect(res.data.summary.failed).toBe(0);
+    expect(ctx.savedRecipes.length).toBe(1);
+  });
+
+  it('món lacto chứa trứng -> dòng FAILED', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd7.xlsx', [
+      row('Món Trứng Sữa', {
+        diet_type: 'lacto',
+        ingredients: [ing('Trứng gà')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('món ovo chứa trứng -> import thành công (theo dữ liệu seed)', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd8.xlsx', [
+      row('Món Trứng Chay', {
+        diet_type: 'ovo',
+        ingredients: [ing('Trứng gà')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.success).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(1);
+  });
+
+  it('món ovo chứa sữa -> dòng FAILED', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd9.xlsx', [
+      row('Món Sữa', {
+        diet_type: 'ovo',
+        ingredients: [ing('Sữa tươi')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('món ovo_lacto chứa cả trứng và sữa -> import thành công', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd10.xlsx', [
+      row('Món Trứng Sữa', {
+        diet_type: 'ovo_lacto',
+        ingredients: [ing('Trứng gà'), ing('Sữa tươi')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.success).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(1);
+  });
+
+  it('món ovo_lacto chứa thịt -> dòng FAILED', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd11.xlsx', [
+      row('Món Thịt Trứng Sữa', {
+        diet_type: 'ovo_lacto',
+        ingredients: [ing('Thịt bò')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('dòng lỗi không làm hỏng các dòng hợp lệ cùng lô', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd12.xlsx', [
+      row('Món Chay Hợp Lệ'),
+      row('Món Thịt', {
+        diet_type: 'vegan',
+        ingredients: [ing('Thịt bò')],
+      }),
+      row('Món Chay Hợp Lệ 2'),
+    ] as any);
+
+    expect(res.data.summary.success).toBe(2);
+    expect(res.data.summary.failed).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(2);
+    expect(ctx.savedRecipes.every((r) => r.status === 'pending_review')).toBe(
+      true,
+    );
   });
 });
 
