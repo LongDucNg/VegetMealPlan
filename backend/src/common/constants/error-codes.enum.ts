@@ -150,4 +150,23 @@ export enum ErrorCode {
   CHATBOT_AI_NOT_CONFIGURED = 'CHATBOT_AI_NOT_CONFIGURED',
   /** 503: dịch vụ AI tạm thời không khả dụng, quá thời gian hoặc lỗi mạng. */
   CHATBOT_SERVICE_UNAVAILABLE = 'CHATBOT_SERVICE_UNAVAILABLE',
+
+  // ---- Scan ảnh nguyên liệu AI ----
+  /** 403: tính năng quét ảnh chỉ dành cho người dùng gói Premium. */
+  PHOTO_SCAN_PREMIUM_REQUIRED = 'PHOTO_SCAN_PREMIUM_REQUIRED',
+  /** 429: hết hạn mức lượt quét ảnh nguyên liệu trong ngày. */
+  PHOTO_SCAN_QUOTA_EXCEEDED = 'PHOTO_SCAN_QUOTA_EXCEEDED',
+  /** 429: gửi yêu cầu quét ảnh quá nhanh (vượt quá 5 req/phút). */
+  PHOTO_SCAN_RATE_LIMITED = 'PHOTO_SCAN_RATE_LIMITED',
+  /** 400: file không phải ảnh hợp lệ hoặc file bị hỏng. */
+  PHOTO_SCAN_IMAGE_INVALID = 'PHOTO_SCAN_IMAGE_INVALID',
+  /** 413: file ảnh vượt quá dung lượng tối đa (mặc định 5 MB). */
+  PHOTO_SCAN_IMAGE_TOO_LARGE = 'PHOTO_SCAN_IMAGE_TOO_LARGE',
+  /** 422: ảnh bị từ chối xử lý hoặc vi phạm bộ lọc an toàn. */
+  PHOTO_SCAN_IMAGE_UNPROCESSABLE = 'PHOTO_SCAN_IMAGE_UNPROCESSABLE',
+  /** 503: server chưa cấu hình GEMINI_API_KEY hoặc GEMINI_MODEL. */
+  PHOTO_SCAN_AI_NOT_CONFIGURED = 'PHOTO_SCAN_AI_NOT_CONFIGURED',
+  /** 503: dịch vụ AI Gemini tạm thời không khả dụng, quá thời gian hoặc lỗi mạng. */
+  PHOTO_SCAN_SERVICE_UNAVAILABLE = 'PHOTO_SCAN_SERVICE_UNAVAILABLE',
 }
+
