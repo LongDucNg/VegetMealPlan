@@ -159,7 +159,7 @@ export function AdminImportModal({
                     : "Nhấn để tải lên tệp Excel (.xlsx)"}
                 </p>
                 <p className="text-xs text-stone-500 mt-0.5">
-                  Hỗ trợ tiêu đề tiếng Việt chuẩn: Tên món, Mô tả, Hướng dẫn, Bữa ăn, Chế độ ăn chay, Nguyên liệu
+                  Hỗ trợ tiêu đề tiếng Việt chuẩn: Tên món, Mô tả, Hướng dẫn, Bữa ăn, Chế độ ăn chay, Nguyên liệu, Danh mục (1 nhóm món + 1 loại món)
                 </p>
               </div>
             </label>
