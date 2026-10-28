@@ -1,0 +1,26 @@
+(globalThis["TURBOPACK"] || (globalThis["TURBOPACK"] = [])).push([typeof document === "object" ? document.currentScript : undefined,
+"[project]/src/features/admin/services/adminRecipeApiService.ts [app-client] (ecmascript, async loader)", ((__turbopack_context__) => {
+
+__turbopack_context__.v((parentImport) => {
+    return Promise.resolve().then(() => {
+        return parentImport("[project]/src/features/admin/services/adminRecipeApiService.ts [app-client] (ecmascript)");
+    });
+});
+}),
+"[project]/src/features/recipes/services/ingredientApiService.ts [app-client] (ecmascript, async loader)", ((__turbopack_context__) => {
+
+__turbopack_context__.v((parentImport) => {
+    return Promise.resolve().then(() => {
+        return parentImport("[project]/src/features/recipes/services/ingredientApiService.ts [app-client] (ecmascript)");
+    });
+});
+}),
+"[project]/src/lib/apiClient.ts [app-client] (ecmascript, async loader)", ((__turbopack_context__) => {
+
+__turbopack_context__.v((parentImport) => {
+    return Promise.resolve().then(() => {
+        return parentImport("[project]/src/lib/apiClient.ts [app-client] (ecmascript)");
+    });
+});
+}),
+]);
