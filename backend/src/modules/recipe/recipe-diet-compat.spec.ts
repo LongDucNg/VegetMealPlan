@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BadRequestException } from '@nestjs/common';
 import { RecipeService } from './recipe.service';
+import { RecipeValidatorService } from './recipe-validator.service';
 import { Recipe, RecipeStatus } from './entities/recipe.entity';
 import { RecipeIngredient } from './entities/recipe-ingredient.entity';
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
@@ -109,6 +110,17 @@ function buildService(ctx: Ctx): RecipeService {
       return saved;
     },
     create: (o: any) => o,
+    // Kiểm tra trùng món khi đổi tên: DB giả không có món nào trùng.
+    createQueryBuilder: () => {
+      const qb: any = {
+        select: () => qb,
+        addSelect: () => qb,
+        where: () => qb,
+        andWhere: () => qb,
+        getRawMany: async () => [],
+      };
+      return qb;
+    },
   };
 
   const recipeIngredientRepo: any = {
@@ -181,6 +193,7 @@ function buildService(ctx: Ctx): RecipeService {
     nutritionRepo as any,
     recipeCategoryRepo as any,
     categoryRepo as any,
+    new RecipeValidatorService(ingredientService),
     dataSource,
   );
 
