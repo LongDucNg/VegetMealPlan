@@ -9,7 +9,9 @@ import {
   Query,
   UseGuards,
   Req,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { RecipeService } from './recipe.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeDto } from './dto/update-recipe.dto';
@@ -18,8 +20,10 @@ import {
   RecommendationQueryDto,
 } from './dto/query-recipe.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiProduces } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
 
 @ApiTags('recipes')
@@ -54,6 +58,43 @@ export class RecipeController {
   findMyRecipes(@Req() req: any) {
     const userId = req.user.user_id;
     return this.recipeService.findMyRecipes(userId);
+  }
+
+  // =========================
+  // EXPORT CÔNG THỨC (CSV)
+  // =========================
+
+  /**
+   * Export công thức ra file CSV (UTF-8 có BOM để Excel đọc đúng tiếng Việt).
+   *
+   * 3 cách chọn công thức:
+   *  1. `?ids=15`           -> export 1 công thức.
+   *  2. `?ids=15,20,35`     -> export nhiều công thức trong 1 file.
+   *  3. bộ lọc hiện có      -> `?diet_type=vegan&status=approved`.
+   *
+   * Chỉ export công thức đã duyệt (approved) - không lộ món nháp/riêng tư.
+   * Dùng @Res() để trả thẳng file, ResponseInterceptor không bọc JSON.
+   *
+   * PHÂN QUYỀN: chỉ Admin đã đăng nhập mới export được.
+   * - Bỏ @Public() => JwtAuthGuard (global) chặn người chưa đăng nhập (401).
+   * - @Roles(UserRole.ADMIN) => RolesGuard (global) chặn user thường (403).
+   */
+  @Get('export')
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Export công thức ra file CSV (Admin)' })
+  @ApiProduces('text/csv')
+  async exportRecipes(@Query() query: QueryRecipeDto, @Res() res: Response) {
+    const { filename, content } = await this.recipeService.exportRecipesCsv(
+      query.ids,
+      query,
+      { approvedOnly: true },
+    );
+
+    // BOM UTF-8 đã nằm trong content (buildRecipeCsv thêm sẵn).
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(content);
   }
 
   // Yêu thích và giá tự đặt nằm ở /users/me/favorites/recipes và /users/me/recipe-prices
