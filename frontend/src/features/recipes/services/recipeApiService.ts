@@ -126,4 +126,12 @@ export const recipeApiService = {
   reviewRecipe(id: number | string, status: "approved" | "rejected", reason?: string) {
     return apiClient.put<any>(`/admin/recipes/${id}/status`, { status, reason });
   },
+
+  // API Export: GET /recipes/export - Xuất dữ liệu công thức ra file CSV
+  exportRecipes(params?: import("@/features/admin/services/adminRecipeApiService").RecipeExportParams) {
+    return import("@/features/admin/services/adminRecipeApiService").then((m) =>
+      m.adminRecipeApiService.exportRecipes(params)
+    );
+  },
 };
+
