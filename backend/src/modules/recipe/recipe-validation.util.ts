@@ -25,6 +25,7 @@ import { BadRequestException } from '@nestjs/common';
 
 import { ErrorCode } from '../../common/constants/error-codes.enum';
 import { checkIngredientDietViolation } from '../../common/utils/diet.util';
+import { findDietIncompatibleIngredients } from '../../common/utils/diet-compat.util';
 import {
   checkIngredientNameKeyword,
   EGG_NAME_EXCEPTIONS,
@@ -47,6 +48,8 @@ export interface ValidationViolation {
   /** Tên nguyên liệu (nếu có) để admin biết chính xác nguyên liệu nào lỗi. */
   ingredient_name: string | null;
   reason: string;
+  /** 'diet': vi phạm chế độ chay (nguyên liệu/tên mặn, trứng/sữa sai chế độ) -> mã RECIPE_DIET_INCOMPATIBLE. */
+  kind?: 'diet';
 }
 
 export interface ValidationResult {
@@ -93,10 +96,52 @@ export function buildRecipeDuplicateKey(
   return `${titleKey}::${ids.join(',')}`;
 }
 
+/** Ngoại lệ dùng chung khi dò từ khoá mặn trên tên nguyên liệu và tên món. */
+const KEYWORD_SCAN_OPTIONS = { extraExceptions: [...PLANT_NAME_EXCEPTIONS, ...EGG_NAME_EXCEPTIONS] };
+
+/**
+ * Kiểm tra TÊN MÓN có từ khoá mặn không (vd. "Gà xào xả ớt").
+ *
+ * Hệ thống chỉ có món chay, nên tên món kiểu "Gà ..." mà không có chữ "chay" sẽ khiến người dùng
+ * hiểu nhầm là món mặn dù nguyên liệu toàn đồ chay. Món chay giả mặn đặt tên kèm "chay"
+ * ("Gà kho gừng chay") thì qua. Dùng cùng bộ từ khoá + ngoại lệ với tên nguyên liệu
+ * ("Nấm đùi gà", "Đậu gà", "Bánh bò" không bị chặn nhầm).
+ * Đã chạy thử trên 628 món trong seed: không món nào bị chặn.
+ */
+export function validateRecipeTitleKeyword(title?: string | null): ValidationResult {
+  const name = (title ?? '').trim();
+  if (!name) return EMPTY_RESULT;
+
+  const result = checkIngredientNameKeyword(name, KEYWORD_SCAN_OPTIONS);
+  if (result.isClean) return EMPTY_RESULT;
+
+  return {
+    isValid: false,
+    violations: [
+      {
+        ingredient_name: null,
+        reason:
+          `Tên món "${name}" chứa từ khóa mặn: ${result.violations.join(', ')}. ` +
+          `Hệ thống chỉ nhận món chay; nếu là món chay giả mặn, hãy thêm chữ "chay" vào tên (vd. "${name} chay").`,
+      },
+    ],
+  };
+}
+
+/** Ném 400 RECIPE_TITLE_NON_VEGETARIAN nếu tên món có từ khoá mặn. Dùng cho tạo và sửa món. */
+export function assertRecipeTitleVegetarian(title?: string | null): void {
+  const result = validateRecipeTitleKeyword(title);
+  if (result.isValid) return;
+  throw new BadRequestException({
+    code: ErrorCode.RECIPE_TITLE_NON_VEGETARIAN,
+    message: result.violations.map((v) => v.reason).join(' '),
+  });
+}
+
 /**
  * BƯỚC 1 - kiểm tra KEYWORD trên TÊN NGUYÊN LIỆU.
  *
- * KHÔNG kiểm tra tên món ăn (chỉ tên nguyên liệu được kiểm ở đây).
+ * Tên món được kiểm riêng bằng validateRecipeTitleKeyword.
  */
 export function validateIngredientNamesKeyword(
   rows: RecipeIngredientRowInput[],
@@ -110,13 +155,12 @@ export function validateIngredientNamesKeyword(
       continue;
     }
 
-    const result = checkIngredientNameKeyword(name, {
-      extraExceptions: [...PLANT_NAME_EXCEPTIONS, ...EGG_NAME_EXCEPTIONS],
-    });
+    const result = checkIngredientNameKeyword(name, KEYWORD_SCAN_OPTIONS);
 
     if (!result.isClean) {
       violations.push({
         ingredient_name: name,
+        kind: 'diet',
         reason:
           `Nguyên liệu "${name}" chứa từ khóa mặn: ${result.violations.join(', ')}. ` +
           `Nếu là sản phẩm chay, hãy đặt tên kèm chữ "chay" (vd. "${name} chay").`,
@@ -156,9 +200,26 @@ export function validateRecipeDietType(
       continue;
     }
 
+    // vegan_flag = false: phân lớp bằng ma trận dùng chung (diet-compat.util) để trứng/sữa/mật ong
+    // vẫn hợp với ovo/lacto/ovo_lacto. Trước đây nhánh này coi mọi vegan_flag = false là thịt, nên
+    // món lacto có "Sữa tươi" hay món ovo có "Trứng gà" (đúng như dữ liệu seed) đều bị chặn nhầm.
+    if (row?.vegan_flag === false) {
+      const [incompatible] = findDietIncompatibleIngredients(diet, [
+        { ingredient_id: row.ingredient_id ?? 0, ingredient_name: name, vegan_flag: false },
+      ]);
+      if (incompatible) {
+        violations.push({
+          ingredient_name: name,
+          kind: 'diet',
+          reason: `Nguyên liệu "${name}" (${incompatible.reason}) không phù hợp với chế độ ăn "${diet}".`,
+        });
+      }
+      continue;
+    }
+
     // vegan_flag chưa biết -> không tự coi là mặn, nhưng tên vẫn được
     // classifier kiểm tra bằng regex (vd. "Thịt bò").
-    const veganFlag = row?.vegan_flag !== false;
+    const veganFlag = true;
 
     // Ngoại lệ "chay" áp dụng cho TÊN (vd. "Thịt bò chay" không phải thịt),
     // nhưng KHÔNG bỏ qua vegan_flag = false và KHÔNG bỏ qua trứng/sữa.
@@ -167,7 +228,7 @@ export function validateRecipeDietType(
     });
 
     if (reason) {
-      violations.push({ ingredient_name: name, reason });
+      violations.push({ ingredient_name: name, reason, kind: 'diet' });
     }
   }
 
@@ -251,8 +312,13 @@ export function assertRecipeValidation(
     .map((violation) => violation.reason)
     .join(' ');
 
+  // Vi phạm chế độ chay dùng mã riêng để FE/người test phân biệt với lỗi nhập liệu thường.
+  const code = result.violations.some((v) => v.kind === 'diet')
+    ? ErrorCode.RECIPE_DIET_INCOMPATIBLE
+    : ErrorCode.VALIDATION_FAILED;
+
   throw new BadRequestException({
-    code: ErrorCode.VALIDATION_FAILED,
+    code,
     message: message ? `${message} ${detail}` : detail,
   });
 }

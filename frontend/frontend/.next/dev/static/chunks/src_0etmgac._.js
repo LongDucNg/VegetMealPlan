@@ -4847,7 +4847,9 @@ __turbopack_context__.s([
     "getNutritionGoal",
     ()=>getNutritionGoal,
     "isProfileComplete",
-    ()=>isProfileComplete
+    ()=>isProfileComplete,
+    "withCalorieTarget",
+    ()=>withCalorieTarget
 ]);
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$nutrition$2f$utils$2f$bmi$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/features/nutrition/utils/bmi.ts [app-client] (ecmascript)");
 ;
@@ -5044,6 +5046,29 @@ function calculateDailyCalorieTarget(profile) {
             fatPct: Math.round(fatPct * 100)
         },
         mealTargets
+    };
+}
+function withCalorieTarget(result, dailyCalorieTarget) {
+    const { proteinPct, carbsPct, fatPct } = result.macros;
+    const breakfast = Math.round(dailyCalorieTarget * 0.22);
+    const lunch = Math.round(dailyCalorieTarget * 0.31);
+    const dinner = Math.round(dailyCalorieTarget * 0.31);
+    const snack = dailyCalorieTarget - (breakfast + lunch + dinner);
+    return {
+        ...result,
+        dailyCalorieTarget,
+        macros: {
+            ...result.macros,
+            proteinGrams: Math.round(dailyCalorieTarget * proteinPct / 100 / 4),
+            carbsGrams: Math.round(dailyCalorieTarget * carbsPct / 100 / 4),
+            fatGrams: Math.round(dailyCalorieTarget * fatPct / 100 / 9)
+        },
+        mealTargets: {
+            breakfast,
+            lunch,
+            dinner,
+            snack: Math.max(200, snack)
+        }
     };
 }
 function calculateDailyNutrition(profile) {
