@@ -48,22 +48,25 @@ import { UpdateMealSlotDto } from './dto/update-meal-slot.dto';
 import { GenerateMealPlanDto } from './dto/generate-meal-plan.dto';
 import { IngredientService } from '../ingredient/ingredient.service';
 import {
+  ACTIVITY_FACTOR,
   assessWeightGoal,
-  assertCompleteProfile,
   assertValidGoalInput,
   CALORIE_FLOOR,
+  ClientWeightGoal,
+  computeEnergy,
   GoalAssessment,
-  ProfileMetrics,
+  healthGoalCalorieTarget,
+  MEAL_SPLIT,
   resolveGoalPlan,
+  resolveWeightGoalAssessment,
   WeightGoalDirection,
 } from '../users/weight-goal.util';
 
 /**
  * Tỉ lệ calo theo bữa dùng khi SOẠN THỰC ĐƠN (snack = phần còn lại).
- * Riêng `GET /users/me/nutrition-summary` dùng MEAL_SPLIT ở nutrition-advice
- * để không đổi hợp đồng response của API đó.
+ * Lấy từ MEAL_SPLIT chung (users/weight-goal.util), cùng tỉ lệ với GET /users/me/nutrition-summary.
  */
-const PLAN_MEAL_SPLIT = { breakfast: 0.22, lunch: 0.31, dinner: 0.31 };
+const PLAN_MEAL_SPLIT = { breakfast: MEAL_SPLIT.breakfast, lunch: MEAL_SPLIT.lunch, dinner: MEAL_SPLIT.dinner };
 
 /** Tính kcal từng bữa từ tổng kcal mục tiêu (snack = phần còn lại). */
 function splitMealCalories(targetCalories: number): {
@@ -166,6 +169,11 @@ export class MealPlanService {
   // HELPER: TÍNH CALO MỤC TIÊU
   // =========================================================
 
+  /**
+   * kcal mục tiêu theo mục tiêu sức khoẻ (khi không có mục tiêu cân nặng).
+   * Dùng hàm chung computeEnergy + healthGoalCalorieTarget (users/weight-goal.util) để trang hồ sơ
+   * và thực đơn luôn ra cùng một con số.
+   */
   private calculateTargetCalories(
     age: number,
     gender: string,
@@ -174,41 +182,21 @@ export class MealPlanService {
     activityLevel: string,
     goalName = 'maintain',
   ): number {
-    const sexOffset =
-      gender === 'male' ? 5 : gender === 'female' ? -161 : -78;
-
-    const bmr =
-      10 * weight +
-      6.25 * height -
-      5 * age +
-      sexOffset;
-
-    const activityFactor: Record<string, number> = {
-      sedentary: 1.2,
-      light: 1.375,
-      moderate: 1.55,
-      active: 1.725,
-    };
-
-    const activity = activityFactor[activityLevel];
-
-    if (!activity) {
+    if (!ACTIVITY_FACTOR[activityLevel]) {
       throw new BadRequestException(
         'Activity level không hợp lệ',
       );
     }
 
-    const goalFactor =
-      goalName === 'lose_weight'
-        ? 0.85
-        : goalName === 'gain_muscle'
-          ? 1.1
-          : 1;
+    const { tdee } = computeEnergy({
+      age,
+      gender,
+      height_cm: height,
+      weight_kg: weight,
+      activity_level: activityLevel,
+    });
 
-    return Math.max(
-      Math.round(bmr * activity * goalFactor),
-      1200,
-    );
+    return healthGoalCalorieTarget(tdee, goalName).target_calories;
   }
 
   // =========================================================
@@ -1406,103 +1394,23 @@ export class MealPlanService {
    */
   private async resolveGoalAssessment(
     user: User,
-    goalDto?: {
-      current_weight_kg?: number;
-      target_weight_kg?: number;
-      duration_days?: number;
-      direction?: WeightGoalDirection;
-    },
+    goalDto?: ClientWeightGoal,
   ): Promise<GoalAssessment | null> {
-    // Client có gửi mục tiêu cân nặng không? Nếu có thì BẮT BUỘC phải đủ dữ liệu,
-    // không được âm thầm lùi về công thức theo mục tiêu sức khoẻ.
-    const clientProvidedGoal =
-      goalDto?.current_weight_kg !== undefined ||
-      goalDto?.target_weight_kg !== undefined ||
-      goalDto?.duration_days !== undefined;
-
-    const clientExplicitDirection = goalDto?.direction ?? null;
-    const clientHasWeights =
-      goalDto?.current_weight_kg !== undefined &&
-      goalDto?.target_weight_kg !== undefined;
-
-    // Chốt toàn bộ mục tiêu cân nặng từ client + hồ sơ bằng MỘT quy tắc
-    // dùng chung (giống hệt luồng POST /users/me/weight-goal/assess):
-    //   - `direction` client gửi thắng tuyệt đối.
-    //   - Cân nặng mục tiêu CŨ trong hồ sơ không được ghi đè lựa chọn mới.
-    const plan = resolveGoalPlan({
-      clientCurrentWeight: goalDto?.current_weight_kg ?? null,
-      clientTargetWeight: goalDto?.target_weight_kg ?? null,
-      clientDurationDays: goalDto?.duration_days ?? null,
-      clientDirection: clientExplicitDirection,
-      profileCurrentWeight: user.weight_kg ?? null,
-      profileTargetWeight: user.target_weight_kg ?? null,
-      profileTargetDate: user.target_date ?? null,
-      profileHealthGoalName: user.current_goal?.name ?? null,
-    });
-
-    const direction = plan.direction;
-    const current = plan.current_weight_kg;
-    const target = plan.target_weight_kg;
-    const durationDays = plan.duration_days;
-
-    // Chế độ duy trì đến từ hồ sơ (client không yêu cầu rõ) -> BỎ QUA cân
-    // nặng mục tiêu lưu sẵn trong hồ sơ. Cân nặng mục tiêu có thể còn sót lại
-    // từ lần chọn mục tiêu trước; nếu dùng nó thì hệ thống sẽ tự áp thâm hụt
-    // dù người dùng đang ở chế độ duy trì -> sai yêu cầu.
-    const maintainFromProfile =
-      direction === 'maintain' && !clientExplicitDirection && !clientHasWeights;
-
-    const effectiveTarget = maintainFromProfile ? current : target;
-
-    // Client gửi dữ liệu mục tiêu nhưng thiếu -> báo lỗi validation, KHÔNG
-    // âm thầm lùi về công thức theo mục tiêu sức khoẻ.
-    if (plan.clientDataIncomplete) {
-      throw new BadRequestException({
-        code: ErrorCode.WEIGHT_GOAL_INVALID,
-        message:
-          'Thiếu dữ liệu mục tiêu cân nặng: cần cân nặng hiện tại, cân nặng mục tiêu và thời gian đạt mục tiêu (số ngày).',
-      });
-    }
-
-    // Không có đủ dữ liệu mục tiêu cân nặng -> dùng công thức kcal theo mục tiêu sức khoẻ.
-    if (current == null || effectiveTarget == null || durationDays == null) {
-      return null;
-    }
-
-    assertValidGoalInput({
-      current_weight_kg: current,
-      target_weight_kg: effectiveTarget,
-      duration_days: durationDays,
-      direction,
-    });
-
-    const metrics: ProfileMetrics = {
-      age: user.age!,
-      gender: user.gender!,
-      height_cm: user.height_cm!,
-      weight_kg: user.weight_kg!,
-      activity_level: user.activity_level!,
-    };
-
-    const assessment = assessWeightGoal(
-      { current_weight_kg: current, target_weight_kg: effectiveTarget, duration_days: durationDays, direction },
-      metrics,
+    // Logic chốt mục tiêu cân nặng nằm ở users/weight-goal.util (resolveWeightGoalAssessment),
+    // dùng chung với GET /users/me/nutrition-summary để hồ sơ và thực đơn ra cùng kcal.
+    return resolveWeightGoalAssessment(
+      {
+        age: user.age!,
+        gender: user.gender!,
+        height_cm: user.height_cm!,
+        weight_kg: user.weight_kg!,
+        activity_level: user.activity_level!,
+        target_weight_kg: user.target_weight_kg ?? null,
+        target_date: user.target_date ?? null,
+        current_goal_name: user.current_goal?.name ?? null,
+      },
+      goalDto,
     );
-
-    if (!assessment.valid) {
-      throw new BadRequestException({
-        code: ErrorCode.WEIGHT_GOAL_UNSAFE,
-        message: assessment.message,
-        suggestion: assessment.suggestion,
-      });
-    }
-
-    // Gắn cảnh báo từ quá trình chốt mục tiêu (vd. bỏ qua cân nặng mục tiêu cũ).
-    if (plan.warnings.length > 0) {
-      assessment.warnings = [...plan.warnings, ...assessment.warnings];
-    }
-
-    return assessment;
   }
 
   // =========================================================
