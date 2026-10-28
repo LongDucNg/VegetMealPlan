@@ -292,6 +292,33 @@ export function calculateDailyCalorieTarget(
 }
 
 /**
+ * Thay kcal mục tiêu bằng con số backend trả về (GET /users/me/nutrition-summary) rồi tính lại
+ * gram macro và kcal từng bữa theo đúng tỉ lệ cũ. Backend là nguồn chuẩn (cùng hàm với lúc lập thực đơn),
+ * công thức FE ở trên chỉ còn dùng khi chưa đăng nhập hoặc lập thực đơn cho người khác.
+ */
+export function withCalorieTarget(
+  result: CalorieCalculationResult,
+  dailyCalorieTarget: number
+): CalorieCalculationResult {
+  const { proteinPct, carbsPct, fatPct } = result.macros;
+  const breakfast = Math.round(dailyCalorieTarget * 0.22);
+  const lunch = Math.round(dailyCalorieTarget * 0.31);
+  const dinner = Math.round(dailyCalorieTarget * 0.31);
+  const snack = dailyCalorieTarget - (breakfast + lunch + dinner);
+  return {
+    ...result,
+    dailyCalorieTarget,
+    macros: {
+      ...result.macros,
+      proteinGrams: Math.round((dailyCalorieTarget * proteinPct) / 100 / 4),
+      carbsGrams: Math.round((dailyCalorieTarget * carbsPct) / 100 / 4),
+      fatGrams: Math.round((dailyCalorieTarget * fatPct) / 100 / 9),
+    },
+    mealTargets: { breakfast, lunch, dinner, snack: Math.max(200, snack) },
+  };
+}
+
+/**
  * Backward-compatible helper for existing consumers
  */
 export function calculateDailyNutrition(profile: UserProfile): CalorieCalculationResult {

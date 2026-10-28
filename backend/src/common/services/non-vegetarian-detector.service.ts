@@ -58,6 +58,8 @@ export const NON_VEG_EXCEPTIONS = [
   'trứng vịt',
   'trứng cút',
   'hoa móng bò',
+  // "Bánh bò" là bánh bột gạo lên men (seed có "Bánh bò nướng", "Bánh bò hấp"), không có thịt bò.
+  'bánh bò',
 ];
 
 /**

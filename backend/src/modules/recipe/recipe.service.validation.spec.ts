@@ -332,3 +332,40 @@ describe('RecipeService.updateRecipe - chống trùng theo tên + tập nguyên 
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
+
+describe('Tên món phải là tên món chay (mục 2 - chặn món mặn)', () => {
+  const titleError = expect.objectContaining({
+    response: expect.objectContaining({ code: 'RECIPE_TITLE_NON_VEGETARIAN' }),
+  });
+
+  it('tạo món tên mặn ("Gà xào xả ớt") bị chặn dù nguyên liệu toàn đồ chay', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    await expect(svc.createRecipe(1, 'admin', createDto('Gà xào xả ớt', [ing(1)]))).rejects.toEqual(titleError);
+    await expect(svc.createRecipe(1, 'admin', createDto('Canh cá chua', [ing(2)]))).rejects.toEqual(titleError);
+    expect(ctx.savedRecipes).toHaveLength(0);
+  });
+
+  it('món chay giả mặn có chữ "chay" và tên cây trùng chữ mặn vẫn tạo được', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    for (const title of ['Gà kho gừng chay', 'Nấm đùi gà xào sả', 'Đậu gà hầm rau củ', 'Bánh bò hấp']) {
+      await svc.createRecipe(1, 'admin', createDto(title, [ing(1)]));
+    }
+    expect(ctx.savedRecipes.map((r) => r.title)).toEqual([
+      'Gà kho gừng chay',
+      'Nấm đùi gà xào sả',
+      'Đậu gà hầm rau củ',
+      'Bánh bò hấp',
+    ]);
+  });
+
+  it('đổi tên món thành tên mặn bị chặn', async () => {
+    const ctx = newCtx([{ recipe_id: 20, title: 'Đậu hũ sốt cà', ingredientIds: [1] }]);
+    const svc = buildService(ctx);
+
+    await expect(svc.updateRecipe(20, 1, 'admin', updateDto('Sườn non rim mặn'))).rejects.toEqual(titleError);
+  });
+});

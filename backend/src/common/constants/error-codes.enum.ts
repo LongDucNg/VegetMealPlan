@@ -93,6 +93,8 @@ export enum ErrorCode {
   CATEGORY_ID_NOT_FOUND = 'CATEGORY_ID_NOT_FOUND',
   /** 400: category_id không thuộc loại hợp lệ để gắn vào công thức. */
   CATEGORY_TYPE_INVALID = 'CATEGORY_TYPE_INVALID',
+  /** 400: danh mục đã bị admin tắt (inactive), không gắn thêm công thức mới được. */
+  CATEGORY_INACTIVE = 'CATEGORY_INACTIVE',
   /** 409: trùng tên danh mục trong cùng một category_type. */
   CATEGORY_NAME_DUPLICATE = 'CATEGORY_NAME_DUPLICATE',
   /** 409: danh mục đang được công thức/nội dung khác sử dụng nên không xoá/đổi loại được. */
@@ -138,6 +140,10 @@ export enum ErrorCode {
   INGREDIENT_NAME_CONFLICT = 'INGREDIENT_NAME_CONFLICT',
   /** 400: tên nguyên liệu không được để trống. */
   INGREDIENT_NAME_EMPTY = 'INGREDIENT_NAME_EMPTY',
+  /** 400: tên nguyên liệu có từ khoá mặn (thịt, cá, gà...) mà không có chữ "chay". Hệ thống chỉ nhận nguyên liệu chay. */
+  INGREDIENT_NON_VEGETARIAN = 'INGREDIENT_NON_VEGETARIAN',
+  /** 400: tên món có từ khoá mặn mà không có chữ "chay". */
+  RECIPE_TITLE_NON_VEGETARIAN = 'RECIPE_TITLE_NON_VEGETARIAN',
   /** 400: công thức có nguyên liệu không tương thích với diet_type của công thức. */
   RECIPE_DIET_INCOMPATIBLE = 'RECIPE_DIET_INCOMPATIBLE',
   /** 404 */
