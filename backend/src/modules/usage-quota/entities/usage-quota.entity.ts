@@ -3,6 +3,7 @@ import { Entity, PrimaryGeneratedColumn, Column, UpdateDateColumn } from 'typeor
 export enum UsageActionType {
   CHATBOT_QUERY = 'CHATBOT_QUERY',
   MEAL_PLAN_CREATE = 'MEAL_PLAN_CREATE',
+  PHOTO_SCAN = 'PHOTO_SCAN',
 }
 
 /**
