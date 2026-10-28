@@ -26,6 +26,8 @@ export interface ServerNutritionSummary {
   bmr: number;
   tdee: number;
   goal: string;
+  /** weight_goal: tính theo cân nặng mục tiêu + ngày đạt; health_goal: theo hệ số mục tiêu sức khoẻ. */
+  target_source?: "weight_goal" | "health_goal";
   target_calories: number;
   macros: {
     protein_g: number;
