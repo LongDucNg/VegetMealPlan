@@ -77,6 +77,16 @@ export class UsageQuotaService {
       }
 
       if (quota.usage_count >= limit) {
+        if (action_type === UsageActionType.PHOTO_SCAN) {
+          throw new HttpException(
+            {
+              code: ErrorCode.PHOTO_SCAN_QUOTA_EXCEEDED,
+              message: `Bạn đã dùng hết hạn mức ${limit} lượt quét ảnh nguyên liệu trong ngày. Vui lòng quay lại vào ngày mai (sau 00:00).`,
+            },
+            HttpStatus.TOO_MANY_REQUESTS,
+          );
+        }
+
         const message = user_id
           ? `Bạn đã dùng hết ${limit} lượt trò chuyện miễn phí hôm nay. Vui lòng nâng cấp gói Premium để trò chuyện không giới hạn, hoặc quay lại vào ngày mai (sau 00:00).`
           : `Bạn đã dùng hết ${limit} lượt dùng thử cho khách trong ngày. Vui lòng đăng ký hoặc đăng nhập để tiếp tục sử dụng.`;

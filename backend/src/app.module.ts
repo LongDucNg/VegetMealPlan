@@ -28,6 +28,7 @@ import { UsageQuotaModule } from './modules/usage-quota/usage-quota.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { RecipeImportModule } from './modules/recipe-import/recipe-import.module';
+import { PhotoScanModule } from './modules/photo-scan/photo-scan.module';
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import { RecipeImportModule } from './modules/recipe-import/recipe-import.module
     NotificationModule,
     SubscriptionModule,
     RecipeImportModule,
+    PhotoScanModule,
   ],
   providers: [
     // Thứ tự quan trọng: đăng nhập trước, phân quyền sau. Route công khai gắn @Public().
