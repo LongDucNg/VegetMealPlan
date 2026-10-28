@@ -54,7 +54,7 @@ const svcOf = (r: any[] = [], i: any[] = [], n: any[] = [], c: any[] = []) =>
   new RecipeService(
     repoOf(r) as any, repoOf(i) as any, repoOf() as any, repoOf() as any,
     repoOf() as any, repoOf() as any, {} as any, repoOf() as any,
-    repoOf(n) as any, repoOf(c) as any, repoOf() as any, {} as any,
+    repoOf(n) as any, repoOf(c) as any, repoOf() as any, {} as any, {} as any,
   );
 
 const RECIPE: any = {
