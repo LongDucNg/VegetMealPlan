@@ -5,5 +5,6 @@ export * from "./recipes/components/AdminRecipeManagement";
 export * from "./recipes/components/AdminRecipeModal";
 export * from "./recipes/components/AdminRecipeDetailModal";
 export * from "./recipes/components/AdminImportModal";
+export * from "./recipes/components/AdminExportModal";
 export * from "./recipes/services/excelImportService";
 export * from "./services/adminRecipeApiService";
