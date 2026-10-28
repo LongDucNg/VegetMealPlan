@@ -5308,6 +5308,9 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$meal$2d$planner$2f$services$2f$mealPlannerService$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/features/meal-planner/services/mealPlannerService.ts [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$profile$2f$hooks$2f$useProfile$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/features/profile/hooks/useProfile.ts [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$nutrition$2f$utils$2f$calorieCalculator$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/features/nutrition/utils/calorieCalculator.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$nutrition$2f$services$2f$nutritionService$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/features/nutrition/services/nutritionService.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$tokenStorage$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/lib/tokenStorage.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$apiClient$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/lib/apiClient.ts [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$utils$2f$storage$2f$storage$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/utils/storage/storage.ts [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$recipes$2f$services$2f$favoriteService$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/features/recipes/services/favoriteService.ts [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$recipes$2f$services$2f$recipeService$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/features/recipes/services/recipeService.ts [app-client] (ecmascript)");
@@ -5315,6 +5318,9 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$meal$2d$p
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$profile$2f$services$2f$profileService$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/features/profile/services/profileService.ts [app-client] (ecmascript)");
 var _s = __turbopack_context__.k.signature();
 "use client";
+;
+;
+;
 ;
 ;
 ;
@@ -5416,14 +5422,47 @@ function useMealPlanner() {
             return unsubscribe;
         }
     }["useMealPlanner.useEffect"], []);
+    // kcal mục tiêu của chính mình lấy từ backend (cùng hàm tính với lúc backend lập thực đơn),
+    // để con số trên trang planner khớp với thực đơn nhận về. Chỉ lập cho người khác hoặc chưa đăng nhập
+    // mới dùng công thức FE.
+    const [serverCalorieTarget, setServerCalorieTarget] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
+        "useMealPlanner.useEffect": ()=>{
+            if (isPlanForSomeoneElse || !__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$tokenStorage$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["tokenStorage"].getToken()) {
+                setServerCalorieTarget(null);
+                return;
+            }
+            let cancelled = false;
+            __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$nutrition$2f$services$2f$nutritionService$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["nutritionService"].getServerNutritionSummary().then({
+                "useMealPlanner.useEffect": (summary)=>{
+                    if (!cancelled) setServerCalorieTarget(summary?.target_calories ?? null);
+                }
+            }["useMealPlanner.useEffect"]).catch({
+                "useMealPlanner.useEffect": ()=>{
+                    if (!cancelled) setServerCalorieTarget(null);
+                }
+            }["useMealPlanner.useEffect"]);
+            return ({
+                "useMealPlanner.useEffect": ()=>{
+                    cancelled = true;
+                }
+            })["useMealPlanner.useEffect"];
+        }
+    }["useMealPlanner.useEffect"], [
+        activeProfile,
+        isPlanForSomeoneElse,
+        syncVersion
+    ]);
     const nutritionSummary = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useMemo"])({
         "useMealPlanner.useMemo[nutritionSummary]": ()=>{
             void syncVersion;
-            return (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$nutrition$2f$utils$2f$calorieCalculator$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["calculateDailyCalorieTarget"])(activeProfile);
+            const local = (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$nutrition$2f$utils$2f$calorieCalculator$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["calculateDailyCalorieTarget"])(activeProfile);
+            return serverCalorieTarget ? (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$nutrition$2f$utils$2f$calorieCalculator$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["withCalorieTarget"])(local, serverCalorieTarget) : local;
         }
     }["useMealPlanner.useMemo[nutritionSummary]"], [
         activeProfile,
-        syncVersion
+        syncVersion,
+        serverCalorieTarget
     ]);
     // Current active day meal plan
     const activeDay = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useMemo"])({
@@ -5472,6 +5511,9 @@ function useMealPlanner() {
                             plan = __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$meal$2d$planner$2f$services$2f$mealPlannerService$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["mealPlannerService"].convertBackendWeeklyPlan(apiRes, activeProfile);
                         }
                     } catch (apiErr) {
+                        // Lỗi nghiệp vụ từ backend (mục tiêu cân nặng không an toàn, hồ sơ thiếu, dị ứng...) phải báo cho
+                        // người dùng, không được lặng lẽ lùi về engine FE với công thức calo khác.
+                        if (isBusinessError(apiErr)) throw apiErr;
                         console.warn("Backend generateWeekly failed, falling back to local engine with real DB recipes:", apiErr);
                     }
                 }
@@ -5504,10 +5546,10 @@ function useMealPlanner() {
             } catch (err) {
                 console.error("Lỗi khi sinh thực đơn tuần:", err);
                 setIsGenerating(false);
-                setGenerationFeedback("Có lỗi khi sinh thực đơn");
+                setGenerationFeedback(isBusinessError(err) ? err.message : "Có lỗi khi sinh thực đơn");
                 setTimeout({
                     "useMealPlanner.useCallback[generateWeekly]": ()=>setGenerationFeedback(null)
-                }["useMealPlanner.useCallback[generateWeekly]"], 3000);
+                }["useMealPlanner.useCallback[generateWeekly]"], isBusinessError(err) ? 8000 : 3000);
             }
         }
     }["useMealPlanner.useCallback[generateWeekly]"], [
@@ -5538,6 +5580,7 @@ function useMealPlanner() {
                             plan = __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$meal$2d$planner$2f$services$2f$mealPlannerService$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["mealPlannerService"].convertBackendMonthlyPlan(apiRes, activeProfile, year, month);
                         }
                     } catch (apiErr) {
+                        if (isBusinessError(apiErr)) throw apiErr;
                         console.warn("Backend generateMonthly failed, falling back to local engine with real DB recipes:", apiErr);
                     }
                 }
@@ -5571,10 +5614,10 @@ function useMealPlanner() {
             } catch (err) {
                 console.error("Lỗi khi sinh thực đơn tháng:", err);
                 setIsGenerating(false);
-                setGenerationFeedback("Có lỗi khi sinh thực đơn tháng");
+                setGenerationFeedback(isBusinessError(err) ? err.message : "Có lỗi khi sinh thực đơn tháng");
                 setTimeout({
                     "useMealPlanner.useCallback[generateMonthly]": ()=>setGenerationFeedback(null)
-                }["useMealPlanner.useCallback[generateMonthly]"], 3000);
+                }["useMealPlanner.useCallback[generateMonthly]"], isBusinessError(err) ? 8000 : 3000);
             }
         }
     }["useMealPlanner.useCallback[generateMonthly]"], [
@@ -5589,7 +5632,8 @@ function useMealPlanner() {
    */ const replaceMeal = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
         "useMealPlanner.useCallback[replaceMeal]": (dayIdx, mealSlot, newRecipe)=>{
             const userId = String(activeProfile.id || "");
-            const targetCalories = nutritionSummary.dailyCalorieTarget;
+            // Đổi món thì tính lại theo kcal mục tiêu của chính thực đơn đang xem (backend trả về lúc lập).
+            const targetCalories = (planType === "weekly" ? weeklyPlan?.targetCalories : monthlyPlan?.targetCalories) ?? nutritionSummary.dailyCalorieTarget;
             if (planType === "weekly" && weeklyPlan) {
                 const updatedDays = [
                     ...weeklyPlan.days
@@ -5880,11 +5924,14 @@ function useMealPlanner() {
         applyFavoriteDayPlan
     };
 }
-_s(useMealPlanner, "2KYzHF4bmXaEnxTsayat7rFpPUk=", false, function() {
+_s(useMealPlanner, "PAXKgzjNHT6vZ9w0IV3fveJouXA=", false, function() {
     return [
         __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$profile$2f$hooks$2f$useProfile$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useProfile"]
     ];
 });
+/** Lỗi 4xx có mã từ backend (trừ 401 hết phiên): là lỗi nghiệp vụ cần hiện cho người dùng. */ function isBusinessError(err) {
+    return err instanceof __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$apiClient$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ApiError"] && err.status >= 400 && err.status < 500 && err.status !== 401;
+}
 if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
     __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
 }

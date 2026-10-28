@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { Category, RECIPE_CATEGORY_TYPES } from './entities/category.entity';
+import { Category, CategoryStatus, RECIPE_CATEGORY_TYPES } from './entities/category.entity';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
 
 /**
@@ -11,7 +11,8 @@ import { ErrorCode } from '../../common/constants/error-codes.enum';
  *
  * Hàm này ném BadRequestException nếu:
  *   - có id không tồn tại trong bảng categories;
- *   - có id thuộc loại không hợp lệ để gắn cho công thức.
+ *   - có id thuộc loại không hợp lệ để gắn cho công thức;
+ *   - có danh mục đã ngừng sử dụng (status = inactive).
  *
  * Dùng chung cho: POST /recipes, PUT /recipes/:id và import công thức, để cả 3
  * luồng báo lỗi giống nhau thay vì âm thầm bỏ qua danh mục không hợp lệ.
@@ -39,6 +40,17 @@ export function assertValidRecipeCategoryIds(
       message:
         `Danh mục không thể gắn cho công thức (chỉ nhận recipe_type hoặc food_type): ` +
         wrongType.map((c) => `#${c.category_id} ${c.category_name}`).join(', '),
+    });
+  }
+
+  // Danh mục admin đã tắt thì không gắn thêm món mới vào.
+  const inactive = foundCategories.filter((c) => c.status === CategoryStatus.INACTIVE);
+  if (inactive.length > 0) {
+    throw new BadRequestException({
+      code: ErrorCode.CATEGORY_INACTIVE,
+      message:
+        `Danh mục đã ngừng sử dụng: ` +
+        inactive.map((c) => `#${c.category_id} ${c.category_name}`).join(', '),
     });
   }
 }

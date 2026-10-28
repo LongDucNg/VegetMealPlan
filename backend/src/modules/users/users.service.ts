@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository, DataSource } from 'typeorm';
-import { ActivityLevel, BmiCategory, User, UserRole, UserStatus } from './entities/user.entity';
+import { BmiCategory, User, UserRole, UserStatus } from './entities/user.entity';
 import { HealthGoal } from '../health-goal/entities/health-goal.entity';
 import { HEALTH_GOAL_DEFINITIONS } from '../health-goal/health-goal.service';
 import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
@@ -13,34 +13,27 @@ import { ALLERGEN_GROUPS } from './allergen-groups';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
 import { bmiGoalWarnings, ExplanationStep, fmt, goalLabel, goalProgress, NutritionWarning } from './nutrition-advice';
 import {
+  ACTIVITY_LABEL,
   assessWeightGoal,
   assertCompleteProfile,
   assertValidGoalInput,
+  CALORIE_FLOOR,
+  computeEnergy,
+  DailyCalorieTarget,
   GoalAssessment,
+  healthGoalCalorieTarget,
+  MAX_DEFICIT_RATIO,
+  MAX_SURPLUS_RATIO,
+  MEAL_SPLIT,
   ProfileMetrics,
+  resolveDailyCalorieTarget,
   resolveGoalPlan,
   WeightGoalDirection,
 } from './weight-goal.util';
 import { WeightGoalDto } from './dto/weight-goal.dto';
 
-const ACTIVITY_FACTOR: Record<ActivityLevel, number> = {
-  [ActivityLevel.SEDENTARY]: 1.2,
-  [ActivityLevel.LIGHT]: 1.375,
-  [ActivityLevel.MODERATE]: 1.55,
-  [ActivityLevel.ACTIVE]: 1.725,
-};
-
-const ACTIVITY_LABEL: Record<ActivityLevel, string> = {
-  [ActivityLevel.SEDENTARY]: 'ít vận động',
-  [ActivityLevel.LIGHT]: 'vận động nhẹ',
-  [ActivityLevel.MODERATE]: 'vận động vừa',
-  [ActivityLevel.ACTIVE]: 'vận động nhiều',
-};
-
-// Tỉ lệ calo theo bữa (tổng = 1)
-const MEAL_SPLIT = { breakfast: 0.25, lunch: 0.35, dinner: 0.3, snack: 0.1 };
-
-const CALORIE_FLOOR = 1200;
+// Hệ số vận động, tỉ lệ bữa, sàn calo và công thức BMR/TDEE/kcal mục tiêu dùng chung từ weight-goal.util,
+// để trang hồ sơ và lập thực đơn không còn mỗi nơi một bản công thức.
 
 /** Các trường hồ sơ bắt buộc để tính dinh dưỡng; thiếu thì FE nhắc "hãy cập nhật hồ sơ". */
 const REQUIRED_PROFILE_FIELDS = ['age', 'gender', 'height_cm', 'weight_kg', 'activity_level'] as const;
@@ -256,16 +249,40 @@ export class UsersService {
       });
     }
 
-    const sexOffset = u.gender === 'male' ? 5 : u.gender === 'female' ? -161 : -78; // 'other': trung bình
-    const bmr = 10 * u.weight_kg + 6.25 * u.height_cm - 5 * u.age + sexOffset;
-    const activityFactor = ACTIVITY_FACTOR[u.activity_level];
-    const tdee = bmr * activityFactor;
+    // CÙNG một hàm với lập thực đơn (resolveDailyCalorieTarget), nên con số ở trang hồ sơ
+    // luôn khớp với kcal mục tiêu của thực đơn được tạo ra.
+    const metrics: ProfileMetrics = {
+      age: u.age,
+      gender: u.gender,
+      height_cm: u.height_cm,
+      weight_kg: u.weight_kg,
+      activity_level: u.activity_level,
+    };
+    let calorie: DailyCalorieTarget;
+    let weightGoalError: string | null = null;
+    try {
+      calorie = resolveDailyCalorieTarget({
+        ...metrics,
+        target_weight_kg: u.target_weight_kg,
+        target_date: u.target_date,
+        current_goal_name: u.current_goal?.name ?? null,
+      });
+    } catch (err) {
+      // Cân nặng mục tiêu + ngày đạt trong hồ sơ không hợp lệ/không an toàn: trang hồ sơ vẫn hiện số theo
+      // mục tiêu sức khoẻ kèm cảnh báo (lập thực đơn sẽ báo đúng lỗi này cho tới khi người dùng sửa).
+      const response = (err as { response?: { message?: string; suggestion?: string } })?.response;
+      weightGoalError = [response?.message, response?.suggestion].filter(Boolean).join(' ') || 'Mục tiêu cân nặng chưa hợp lệ.';
+      const energy = computeEnergy(metrics);
+      const healthGoal = healthGoalCalorieTarget(energy.tdee, u.current_goal?.name);
+      calorie = { target_calories: healthGoal.target_calories, source: 'health_goal', energy, assessment: null, health_goal: healthGoal };
+    }
 
-    const goalName = u.current_goal?.name ?? 'maintain';
-    const factor = goalName === 'lose_weight' ? 0.85 : goalName === 'gain_muscle' ? 1.1 : 1;
+    const { sexOffset, bmr, activityFactor, tdee } = calorie.energy;
+    const assessment = calorie.assessment;
+    const goalName = assessment?.direction ?? calorie.health_goal!.goal;
     const proteinPerKg = goalName === 'lose_weight' ? 1.6 : goalName === 'gain_muscle' ? 1.8 : 1.2;
-    const rawTarget = Math.round(tdee * factor);
-    const target = Math.max(rawTarget, CALORIE_FLOOR); // sàn an toàn
+    const target = calorie.target_calories;
+    const rawTarget = assessment ? assessment.raw_target_calories : calorie.health_goal!.raw_target_calories;
     const floorApplied = rawTarget < CALORIE_FLOOR;
 
     const protein_g = Math.round(proteinPerKg * u.weight_kg);
@@ -294,13 +311,14 @@ export class UsersService {
       },
       {
         step: 'Calo mục tiêu',
-        formula:
-          factor === 1
-            ? `TDEE × 1 (duy trì: ăn bằng mức tiêu hao)`
-            : `TDEE × ${fmt(factor, 2)} (${goalLabel(goalName)}: ${factor < 1 ? `ăn ít hơn ${Math.round((1 - factor) * 100)}%` : `ăn dư ${Math.round((factor - 1) * 100)}%`} so với mức tiêu hao)`,
+        formula: assessment
+          ? weightGoalFormula(assessment, tdee)
+          : healthGoalFormula(calorie.health_goal!.factor, goalName),
         result: target,
         unit: 'kcal/ngày',
-        note: floorApplied
+        note: assessment?.target_inferred || assessment?.duration_defaulted
+          ? inferredGoalNote(assessment, floorApplied ? rawTarget : null)
+          : floorApplied
           ? `Kết quả tính ra ${fmt(rawTarget)} kcal, thấp hơn mức sàn an toàn ${fmt(CALORIE_FLOOR)} kcal nên được nâng lên ${fmt(CALORIE_FLOOR)} kcal.`
           : undefined,
       },
@@ -324,13 +342,23 @@ export class UsersService {
       },
       {
         step: 'Chia calo theo bữa',
-        formula: 'Sáng 25% · Trưa 35% · Tối 30% · Phụ 10%',
+        formula: `Sáng ${Math.round(MEAL_SPLIT.breakfast * 100)}% · Trưa ${Math.round(MEAL_SPLIT.lunch * 100)}% · Tối ${Math.round(MEAL_SPLIT.dinner * 100)}% · Phụ ${Math.round(MEAL_SPLIT.snack * 100)}% (giống lúc lập thực đơn)`,
         result: target,
         unit: 'kcal/ngày',
       },
     ];
 
     const warnings: NutritionWarning[] = [...bmiGoalWarnings(u.bmi, u.bmi_category, goalName)];
+    if (weightGoalError) {
+      warnings.push({
+        code: 'WEIGHT_GOAL_INVALID',
+        message: `Mục tiêu cân nặng trong hồ sơ chưa dùng được: ${weightGoalError} Calo đang tính theo mục tiêu sức khoẻ; hãy sửa cân nặng mục tiêu hoặc ngày đạt để lập thực đơn.`,
+      });
+    }
+    // Cảnh báo của đánh giá mục tiêu cân nặng (tốc độ quá nhanh...), bỏ BMI_GOAL_CONFLICT vì bmiGoalWarnings đã có.
+    for (const w of assessment?.warnings ?? []) {
+      if (w.code !== 'BMI_GOAL_CONFLICT' && !warnings.some((x) => x.code === w.code)) warnings.push(w);
+    }
     if (floorApplied) {
       warnings.push({
         code: 'CALORIE_FLOOR_APPLIED',
@@ -346,6 +374,8 @@ export class UsersService {
       bmr: Math.round(bmr),
       tdee: Math.round(tdee),
       goal: goalName,
+      // weight_goal: theo cân nặng mục tiêu + ngày đạt trong hồ sơ; health_goal: theo hệ số mục tiêu sức khoẻ.
+      target_source: calorie.source,
       target_calories: target,
       macros: { protein_g, carbs_g, fat_g },
       meal_calories,
@@ -619,4 +649,44 @@ function toMember(user: User) {
 /** Ngày hôm nay theo giờ Việt Nam, dạng YYYY-MM-DD (để so với cột date). */
 function todayIso() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+}
+
+/** Dòng giải thích "Calo mục tiêu" khi tính theo hệ số mục tiêu sức khoẻ. */
+function healthGoalFormula(factor: number, goalName: string): string {
+  if (factor === 1) return 'TDEE × 1 (duy trì: ăn bằng mức tiêu hao)';
+  const diff = factor < 1 ? `ăn ít hơn ${Math.round((1 - factor) * 100)}%` : `ăn dư ${Math.round((factor - 1) * 100)}%`;
+  return `TDEE × ${fmt(factor, 2)} (${goalLabel(goalName)}: ${diff} so với mức tiêu hao)`;
+}
+
+/** Dòng giải thích "Calo mục tiêu" khi tính theo cân nặng mục tiêu + số ngày. */
+function weightGoalFormula(a: GoalAssessment, tdee: number): string {
+  if (a.direction === 'maintain') {
+    return `TDEE (duy trì cân nặng ${fmt(a.current_weight_kg, 1)} kg: ăn bằng mức tiêu hao)`;
+  }
+  const delta = Math.round(Math.abs(a.raw_target_calories - tdee));
+  const lose = a.direction === 'lose_weight';
+  const cap = Math.round((lose ? MAX_DEFICIT_RATIO : MAX_SURPLUS_RATIO) * 100);
+  return (
+    `TDEE ${lose ? '−' : '+'} ${fmt(delta)} kcal (${lose ? 'giảm' : 'tăng'} ${fmt(Math.abs(a.change_kg), 1)} kg ` +
+    `trong ${a.duration_days} ngày ≈ ${fmt(Math.abs(a.weekly_change_kg), 2)} kg/tuần; 1 kg ≈ 7.700 kcal, ` +
+    `${lose ? 'thâm hụt' : 'thặng dư'} tối đa ${cap}% TDEE)`
+  );
+}
+
+/** Ghi chú khi hệ thống tự giả định cân nặng mục tiêu / số ngày (người dùng chưa đặt trong hồ sơ). */
+function inferredGoalNote(a: GoalAssessment, flooredFrom: number | null): string {
+  const parts: string[] = [];
+  if (a.target_inferred) {
+    parts.push(
+      `Bạn chưa đặt cân nặng mục tiêu nên hệ thống tạm lấy ${a.direction === 'lose_weight' ? 'giảm' : 'tăng'} 5% cân nặng hiện tại (${fmt(a.target_weight_kg, 1)} kg).`,
+    );
+  }
+  if (a.duration_defaulted) {
+    parts.push(`Chưa đặt ngày đạt mục tiêu nên tạm tính trong ${a.duration_days} ngày (${Math.round(a.duration_days / 7)} tuần).`);
+  }
+  parts.push('Đặt cân nặng mục tiêu và ngày đạt trong hồ sơ để con số sát với mong muốn của bạn.');
+  if (flooredFrom != null) {
+    parts.push(`Kết quả tính ra ${fmt(flooredFrom)} kcal, thấp hơn mức sàn an toàn ${fmt(CALORIE_FLOOR)} kcal nên được nâng lên ${fmt(CALORIE_FLOOR)} kcal.`);
+  }
+  return parts.join(' ');
 }

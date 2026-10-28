@@ -45,6 +45,7 @@ describe('RecipeService.findAll - lọc diet_type', () => {
       { find: async () => [], findOne: async () => null } as any,
       { find: async () => [], findOne: async () => null } as any,
       { find: async () => [], findOne: async () => null } as any,
+      {} as any, // recipeValidator (không dùng khi lọc danh sách)
       { transaction: async (cb: any) => cb({}) } as any,
     );
 

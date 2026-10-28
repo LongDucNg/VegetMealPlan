@@ -28,6 +28,8 @@ export interface ImportRecipeRow {
   // Danh sách bữa ăn phù hợp, cách nhau dấu phẩy (vd. "lunch,dinner").
   suitable_meals?: string;
   category_ids?: number[];
+  // Ô "Danh mục" ghi bằng TÊN (vd. "Canh & Súp, Canh/súp"); service đổi sang id.
+  category_raw?: string;
   // Lỗi đọc được khi controller parse dòng (VD: cột ingredients không phải JSON hợp lệ).
   // Dòng này sẽ được đánh dấu FAILED thay vì hủy toàn bộ lô import.
   row_error?: string;

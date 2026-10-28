@@ -11,7 +11,10 @@ import {
 } from "../types";
 import { mealPlannerService } from "../services/mealPlannerService";
 import { useProfile } from "@/features/profile/hooks/useProfile";
-import { calculateDailyCalorieTarget } from "@/features/nutrition/utils/calorieCalculator";
+import { calculateDailyCalorieTarget, withCalorieTarget } from "@/features/nutrition/utils/calorieCalculator";
+import { nutritionService } from "@/features/nutrition/services/nutritionService";
+import { tokenStorage } from "@/lib/tokenStorage";
+import { ApiError } from "@/lib/apiClient";
 import { storage, STORAGE_KEYS } from "@/utils/storage/storage";
 import { Recipe } from "@/features/recipes/types";
 import { UserProfile } from "@/features/profile/types";
@@ -108,10 +111,34 @@ export function useMealPlanner() {
     return unsubscribe;
   }, []);
 
+  // kcal mục tiêu của chính mình lấy từ backend (cùng hàm tính với lúc backend lập thực đơn),
+  // để con số trên trang planner khớp với thực đơn nhận về. Chỉ lập cho người khác hoặc chưa đăng nhập
+  // mới dùng công thức FE.
+  const [serverCalorieTarget, setServerCalorieTarget] = useState<number | null>(null);
+  useEffect(() => {
+    if (isPlanForSomeoneElse || !tokenStorage.getToken()) {
+      setServerCalorieTarget(null);
+      return;
+    }
+    let cancelled = false;
+    nutritionService
+      .getServerNutritionSummary()
+      .then((summary) => {
+        if (!cancelled) setServerCalorieTarget(summary?.target_calories ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setServerCalorieTarget(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProfile, isPlanForSomeoneElse, syncVersion]);
+
   const nutritionSummary = useMemo(() => {
     void syncVersion;
-    return calculateDailyCalorieTarget(activeProfile);
-  }, [activeProfile, syncVersion]);
+    const local = calculateDailyCalorieTarget(activeProfile);
+    return serverCalorieTarget ? withCalorieTarget(local, serverCalorieTarget) : local;
+  }, [activeProfile, syncVersion, serverCalorieTarget]);
 
   // Current active day meal plan
   const activeDay: DayMealPlan | null = useMemo(() => {
@@ -160,6 +187,9 @@ export function useMealPlanner() {
               plan = mealPlannerService.convertBackendWeeklyPlan(apiRes, activeProfile);
             }
           } catch (apiErr) {
+            // Lỗi nghiệp vụ từ backend (mục tiêu cân nặng không an toàn, hồ sơ thiếu, dị ứng...) phải báo cho
+            // người dùng, không được lặng lẽ lùi về engine FE với công thức calo khác.
+            if (isBusinessError(apiErr)) throw apiErr;
             console.warn("Backend generateWeekly failed, falling back to local engine with real DB recipes:", apiErr);
           }
         }
@@ -192,8 +222,8 @@ export function useMealPlanner() {
       } catch (err) {
         console.error("Lỗi khi sinh thực đơn tuần:", err);
         setIsGenerating(false);
-        setGenerationFeedback("Có lỗi khi sinh thực đơn");
-        setTimeout(() => setGenerationFeedback(null), 3000);
+        setGenerationFeedback(isBusinessError(err) ? err.message : "Có lỗi khi sinh thực đơn");
+        setTimeout(() => setGenerationFeedback(null), isBusinessError(err) ? 8000 : 3000);
       }
     },
     [activeProfile, budgetLimit, isPlanForSomeoneElse]
@@ -230,6 +260,7 @@ export function useMealPlanner() {
               plan = mealPlannerService.convertBackendMonthlyPlan(apiRes, activeProfile, year, month);
             }
           } catch (apiErr) {
+            if (isBusinessError(apiErr)) throw apiErr;
             console.warn("Backend generateMonthly failed, falling back to local engine with real DB recipes:", apiErr);
           }
         }
@@ -263,8 +294,8 @@ export function useMealPlanner() {
       } catch (err) {
         console.error("Lỗi khi sinh thực đơn tháng:", err);
         setIsGenerating(false);
-        setGenerationFeedback("Có lỗi khi sinh thực đơn tháng");
-        setTimeout(() => setGenerationFeedback(null), 3000);
+        setGenerationFeedback(isBusinessError(err) ? err.message : "Có lỗi khi sinh thực đơn tháng");
+        setTimeout(() => setGenerationFeedback(null), isBusinessError(err) ? 8000 : 3000);
       }
     },
     [activeProfile, selectedMonth, selectedYear, budgetLimit, isPlanForSomeoneElse]
@@ -280,7 +311,10 @@ export function useMealPlanner() {
       newRecipe: Recipe
     ) => {
       const userId = String(activeProfile.id || "");
-      const targetCalories = nutritionSummary.dailyCalorieTarget;
+      // Đổi món thì tính lại theo kcal mục tiêu của chính thực đơn đang xem (backend trả về lúc lập).
+      const targetCalories =
+        (planType === "weekly" ? weeklyPlan?.targetCalories : monthlyPlan?.targetCalories) ??
+        nutritionSummary.dailyCalorieTarget;
 
       if (planType === "weekly" && weeklyPlan) {
         const updatedDays = [...weeklyPlan.days];
@@ -563,4 +597,9 @@ export function useMealPlanner() {
     loadSavedPlan,
     applyFavoriteDayPlan,
   };
+}
+
+/** Lỗi 4xx có mã từ backend (trừ 401 hết phiên): là lỗi nghiệp vụ cần hiện cho người dùng. */
+function isBusinessError(err: unknown): err is ApiError {
+  return err instanceof ApiError && err.status >= 400 && err.status < 500 && err.status !== 401;
 }
