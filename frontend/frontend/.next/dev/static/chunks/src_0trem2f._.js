@@ -5567,7 +5567,9 @@ __turbopack_context__.s([
     "getNutritionGoal",
     ()=>getNutritionGoal,
     "isProfileComplete",
-    ()=>isProfileComplete
+    ()=>isProfileComplete,
+    "withCalorieTarget",
+    ()=>withCalorieTarget
 ]);
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$nutrition$2f$utils$2f$bmi$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/features/nutrition/utils/bmi.ts [app-client] (ecmascript)");
 ;
@@ -5764,6 +5766,29 @@ function calculateDailyCalorieTarget(profile) {
             fatPct: Math.round(fatPct * 100)
         },
         mealTargets
+    };
+}
+function withCalorieTarget(result, dailyCalorieTarget) {
+    const { proteinPct, carbsPct, fatPct } = result.macros;
+    const breakfast = Math.round(dailyCalorieTarget * 0.22);
+    const lunch = Math.round(dailyCalorieTarget * 0.31);
+    const dinner = Math.round(dailyCalorieTarget * 0.31);
+    const snack = dailyCalorieTarget - (breakfast + lunch + dinner);
+    return {
+        ...result,
+        dailyCalorieTarget,
+        macros: {
+            ...result.macros,
+            proteinGrams: Math.round(dailyCalorieTarget * proteinPct / 100 / 4),
+            carbsGrams: Math.round(dailyCalorieTarget * carbsPct / 100 / 4),
+            fatGrams: Math.round(dailyCalorieTarget * fatPct / 100 / 9)
+        },
+        mealTargets: {
+            breakfast,
+            lunch,
+            dinner,
+            snack: Math.max(200, snack)
+        }
     };
 }
 function calculateDailyNutrition(profile) {
@@ -6107,7 +6132,6 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$nutrition
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$nutrition$2f$services$2f$nutritionService$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/features/nutrition/services/nutritionService.ts [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$nutrition$2f$components$2f$NutritionWarnings$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/features/nutrition/components/NutritionWarnings.tsx [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$nutrition$2f$components$2f$CalorieExplanationSection$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/features/nutrition/components/CalorieExplanationSection.tsx [app-client] (ecmascript)");
-var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$nutrition$2f$utils$2f$calorieCalculator$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/features/nutrition/utils/calorieCalculator.ts [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Modal$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/components/ui/Modal.tsx [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$circle$2d$check$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__CheckCircle2$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/circle-check.mjs [app-client] (ecmascript) <export default as CheckCircle2>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$rotate$2d$ccw$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__RotateCcw$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/rotate-ccw.mjs [app-client] (ecmascript) <export default as RotateCcw>");
@@ -6612,16 +6636,13 @@ function ProfileEditor() {
         if (!cat) return "Chưa đủ chỉ số";
         return BMI_LABEL_MAP[cat] || cat;
     };
-    // Tính toán dinh dưỡng trực tiếp theo thời gian thực (Real-time live calculations)
-    const liveNutrition = hasPhysicalMetrics ? (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$nutrition$2f$utils$2f$calorieCalculator$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["calculateDailyCalorieTarget"])(liveProfile) : null;
     const displayBmi = bmiInfo ? bmiInfo.formattedBMI : hasPhysicalMetrics && serverSummary?.bmi ? serverSummary.bmi : "—";
     const displayCategory = bmiInfo ? bmiInfo.category : hasPhysicalMetrics && serverSummary?.bmi_category ? serverSummary.bmi_category : undefined;
-    const displayCalories = liveNutrition ? `~${liveNutrition.dailyCalorieTarget.toLocaleString("vi-VN")} kcal/ngày` : hasPhysicalMetrics && serverSummary?.target_calories ? `~${serverSummary.target_calories.toLocaleString()} kcal/ngày` : "—";
-    const displayMacros = liveNutrition ? {
-        protein_g: liveNutrition.macros.proteinGrams,
-        carbs_g: liveNutrition.macros.carbsGrams,
-        fat_g: liveNutrition.macros.fatGrams
-    } : serverSummary?.macros;
+    // Calo và macro LẤY TỪ BACKEND (GET /users/me/nutrition-summary), cùng một hàm tính với lúc lập thực đơn,
+    // nên số trên trang hồ sơ khớp với thực đơn. Trước đây FE tự tính bằng công thức riêng (sàn 1350 kcal)
+    // nên cùng một người có thể thấy hai con số khác nhau. Số mới cập nhật sau khi bấm Lưu.
+    const displayCalories = hasPhysicalMetrics && serverSummary?.target_calories ? `~${serverSummary.target_calories.toLocaleString("vi-VN")} kcal/ngày` : "—";
+    const displayMacros = serverSummary?.macros;
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
         className: "space-y-6",
         children: [
@@ -6629,7 +6650,7 @@ function ProfileEditor() {
                 warnings: serverSummary.warnings
             }, void 0, false, {
                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                lineNumber: 623,
+                lineNumber: 617,
                 columnNumber: 9
             }, this),
             hasPhysicalMetrics && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$features$2f$nutrition$2f$components$2f$CalorieExplanationSection$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CalorieExplanationSection"], {
@@ -6638,7 +6659,7 @@ function ProfileEditor() {
                 targetCalories: serverSummary?.target_calories
             }, void 0, false, {
                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                lineNumber: 628,
+                lineNumber: 622,
                 columnNumber: 9
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("form", {
@@ -6656,7 +6677,7 @@ function ProfileEditor() {
                                         children: "CHỈ SỐ TRAO ĐỔI CHẤT & MỤC TIÊU NĂNG LƯỢNG"
                                     }, void 0, false, {
                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                        lineNumber: 641,
+                                        lineNumber: 635,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -6669,7 +6690,7 @@ function ProfileEditor() {
                                                         children: "BMI: "
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 646,
+                                                        lineNumber: 640,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -6677,7 +6698,7 @@ function ProfileEditor() {
                                                         children: displayBmi
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 647,
+                                                        lineNumber: 641,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -6685,13 +6706,13 @@ function ProfileEditor() {
                                                         children: getBmiCategoryLabel(displayCategory)
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 650,
+                                                        lineNumber: 644,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 645,
+                                                lineNumber: 639,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -6701,7 +6722,7 @@ function ProfileEditor() {
                                                         children: "Mục tiêu calo: "
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 655,
+                                                        lineNumber: 649,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -6709,19 +6730,19 @@ function ProfileEditor() {
                                                         children: displayCalories
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 656,
+                                                        lineNumber: 650,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 654,
+                                                lineNumber: 648,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                        lineNumber: 644,
+                                        lineNumber: 638,
                                         columnNumber: 15
                                     }, this),
                                     hasPhysicalMetrics && displayMacros ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -6737,7 +6758,7 @@ function ProfileEditor() {
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 665,
+                                                lineNumber: 659,
                                                 columnNumber: 19
                                             }, this),
                                             ",",
@@ -6750,7 +6771,7 @@ function ProfileEditor() {
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 666,
+                                                lineNumber: 660,
                                                 columnNumber: 19
                                             }, this),
                                             ",",
@@ -6763,36 +6784,36 @@ function ProfileEditor() {
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 667,
+                                                lineNumber: 661,
                                                 columnNumber: 19
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                        lineNumber: 663,
+                                        lineNumber: 657,
                                         columnNumber: 17
                                     }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                         className: "text-xs text-emerald-200/90 mt-2 italic",
                                         children: "Vui lòng nhập chiều cao, cân nặng và các mục tiêu bên dưới để hệ thống tính toán chỉ số dinh dưỡng."
                                     }, void 0, false, {
                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                        lineNumber: 670,
+                                        lineNumber: 664,
                                         columnNumber: 17
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                lineNumber: 640,
+                                lineNumber: 634,
                                 columnNumber: 13
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                            lineNumber: 639,
+                            lineNumber: 633,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                        lineNumber: 638,
+                        lineNumber: 632,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -6808,14 +6829,14 @@ function ProfileEditor() {
                                                 className: "w-4 h-4 text-emerald-600"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 682,
+                                                lineNumber: 676,
                                                 columnNumber: 15
                                             }, this),
                                             "1. Chỉ số thể trạng cá nhân"
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                        lineNumber: 681,
+                                        lineNumber: 675,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -6829,7 +6850,7 @@ function ProfileEditor() {
                                                         children: "Tên hiển thị"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 688,
+                                                        lineNumber: 682,
                                                         columnNumber: 17
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -6840,13 +6861,13 @@ function ProfileEditor() {
                                                         className: "w-full h-10 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm focus:bg-white focus:border-emerald-600 outline-none"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 691,
+                                                        lineNumber: 685,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 687,
+                                                lineNumber: 681,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -6856,7 +6877,7 @@ function ProfileEditor() {
                                                         children: "Tuổi (10 - 120 năm) *"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 701,
+                                                        lineNumber: 695,
                                                         columnNumber: 17
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -6870,13 +6891,13 @@ function ProfileEditor() {
                                                         className: "w-full h-10 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm focus:bg-white focus:border-emerald-600 outline-none"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 704,
+                                                        lineNumber: 698,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 700,
+                                                lineNumber: 694,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -6886,7 +6907,7 @@ function ProfileEditor() {
                                                         children: "Giới tính *"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 717,
+                                                        lineNumber: 711,
                                                         columnNumber: 17
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
@@ -6900,7 +6921,7 @@ function ProfileEditor() {
                                                                 children: "-- Chọn giới tính --"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 726,
+                                                                lineNumber: 720,
                                                                 columnNumber: 19
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -6908,7 +6929,7 @@ function ProfileEditor() {
                                                                 children: "Nam (Sàn 1.500 kcal)"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 727,
+                                                                lineNumber: 721,
                                                                 columnNumber: 19
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -6916,7 +6937,7 @@ function ProfileEditor() {
                                                                 children: "Nữ (Sàn 1.200 kcal)"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 728,
+                                                                lineNumber: 722,
                                                                 columnNumber: 19
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -6924,19 +6945,19 @@ function ProfileEditor() {
                                                                 children: "Khác"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 729,
+                                                                lineNumber: 723,
                                                                 columnNumber: 19
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 720,
+                                                        lineNumber: 714,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 716,
+                                                lineNumber: 710,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -6946,7 +6967,7 @@ function ProfileEditor() {
                                                         children: "Chiều cao (50 - 250 cm) *"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 734,
+                                                        lineNumber: 728,
                                                         columnNumber: 17
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -6960,13 +6981,13 @@ function ProfileEditor() {
                                                         className: "w-full h-10 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm focus:bg-white focus:border-emerald-600 outline-none"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 737,
+                                                        lineNumber: 731,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 733,
+                                                lineNumber: 727,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -6976,7 +6997,7 @@ function ProfileEditor() {
                                                         children: "Cân nặng hiện tại (20 - 300 kg) *"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 750,
+                                                        lineNumber: 744,
                                                         columnNumber: 17
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -6991,19 +7012,19 @@ function ProfileEditor() {
                                                         className: "w-full h-10 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm focus:bg-white focus:border-emerald-600 outline-none"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 753,
+                                                        lineNumber: 747,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 749,
+                                                lineNumber: 743,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                        lineNumber: 686,
+                                        lineNumber: 680,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7013,7 +7034,7 @@ function ProfileEditor() {
                                                 children: "Mức độ vận động *"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 768,
+                                                lineNumber: 762,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7030,7 +7051,7 @@ function ProfileEditor() {
                                                                 className: "mt-1 accent-emerald-600"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 780,
+                                                                lineNumber: 774,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7040,7 +7061,7 @@ function ProfileEditor() {
                                                                         children: lvl.label
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                        lineNumber: 789,
+                                                                        lineNumber: 783,
                                                                         columnNumber: 23
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -7048,36 +7069,36 @@ function ProfileEditor() {
                                                                         children: lvl.desc
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                        lineNumber: 790,
+                                                                        lineNumber: 784,
                                                                         columnNumber: 23
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 788,
+                                                                lineNumber: 782,
                                                                 columnNumber: 21
                                                             }, this)
                                                         ]
                                                     }, lvl.id, true, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 773,
+                                                        lineNumber: 767,
                                                         columnNumber: 19
                                                     }, this))
                                             }, void 0, false, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 771,
+                                                lineNumber: 765,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                        lineNumber: 767,
+                                        lineNumber: 761,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                lineNumber: 680,
+                                lineNumber: 674,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7090,14 +7111,14 @@ function ProfileEditor() {
                                                 className: "w-4 h-4 text-emerald-600"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 801,
+                                                lineNumber: 795,
                                                 columnNumber: 15
                                             }, this),
                                             "2. Mục tiêu & Chế độ ăn uống"
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                        lineNumber: 800,
+                                        lineNumber: 794,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7107,7 +7128,7 @@ function ProfileEditor() {
                                                 children: "Mục tiêu sức khỏe *"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 807,
+                                                lineNumber: 801,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7128,7 +7149,7 @@ function ProfileEditor() {
                                                                         children: g.label
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                        lineNumber: 830,
+                                                                        lineNumber: 824,
                                                                         columnNumber: 25
                                                                     }, this),
                                                                     isLoseWeightDisabled && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -7136,7 +7157,7 @@ function ProfileEditor() {
                                                                         children: "Nguy hiểm"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                        lineNumber: 832,
+                                                                        lineNumber: 826,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     !isSevereUnderweight && isUnderweight && g.id === "lose_weight" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -7144,7 +7165,7 @@ function ProfileEditor() {
                                                                         children: "Không khuyên dùng"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                        lineNumber: 837,
+                                                                        lineNumber: 831,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     isUnderweight && g.id === "gain_weight" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -7152,13 +7173,13 @@ function ProfileEditor() {
                                                                         children: "Khuyên dùng"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                        lineNumber: 842,
+                                                                        lineNumber: 836,
                                                                         columnNumber: 27
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 829,
+                                                                lineNumber: 823,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -7166,25 +7187,25 @@ function ProfileEditor() {
                                                                 children: g.desc
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 847,
+                                                                lineNumber: 841,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, g.id, true, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 816,
+                                                        lineNumber: 810,
                                                         columnNumber: 21
                                                     }, this);
                                                 })
                                             }, void 0, false, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 810,
+                                                lineNumber: 804,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                        lineNumber: 806,
+                                        lineNumber: 800,
                                         columnNumber: 13
                                     }, this),
                                     bmiInfo && (()=>{
@@ -7201,7 +7222,7 @@ function ProfileEditor() {
                                                             className: "w-5 h-5 text-red-600 shrink-0 mt-0.5"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                            lineNumber: 867,
+                                                            lineNumber: 861,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7216,7 +7237,7 @@ function ProfileEditor() {
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                    lineNumber: 869,
+                                                                    lineNumber: 863,
                                                                     columnNumber: 25
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -7227,7 +7248,7 @@ function ProfileEditor() {
                                                                             children: bmiInfo.formattedBMI
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                            lineNumber: 873,
+                                                                            lineNumber: 867,
                                                                             columnNumber: 58
                                                                         }, this),
                                                                         " (Mức suy dinh dưỡng nặng, dưới ngưỡng an toàn 18.5 rất nhiều). Việc nạp thâm hụt calo để ",
@@ -7235,31 +7256,31 @@ function ProfileEditor() {
                                                                             children: "Giảm cân"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                            lineNumber: 873,
+                                                                            lineNumber: 867,
                                                                             columnNumber: 187
                                                                         }, this),
                                                                         " lúc này sẽ làm suy kiệt cơ bắp, rối loạn trao đổi chất và suy giảm miễn dịch nghiêm trọng. Hệ thống yêu cầu bạn chọn chế độ dinh dưỡng an toàn hơn để bảo vệ sức khỏe."
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                    lineNumber: 872,
+                                                                    lineNumber: 866,
                                                                     columnNumber: 25
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                            lineNumber: 868,
+                                                            lineNumber: 862,
                                                             columnNumber: 23
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                    lineNumber: 866,
+                                                    lineNumber: 860,
                                                     columnNumber: 21
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 865,
+                                                lineNumber: 859,
                                                 columnNumber: 19
                                             }, this);
                                         }
@@ -7275,7 +7296,7 @@ function ProfileEditor() {
                                                                 className: "w-4 h-4 text-amber-600 shrink-0 mt-0.5"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 888,
+                                                                lineNumber: 882,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7286,7 +7307,7 @@ function ProfileEditor() {
                                                                         children: "Cảnh báo dinh dưỡng: Đang thiếu cân nhưng chọn Giảm cân"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                        lineNumber: 890,
+                                                                        lineNumber: 884,
                                                                         columnNumber: 25
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -7297,7 +7318,7 @@ function ProfileEditor() {
                                                                                 children: bmiInfo.formattedBMI
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                                lineNumber: 894,
+                                                                                lineNumber: 888,
                                                                                 columnNumber: 58
                                                                             }, this),
                                                                             " (Thiếu cân). Thâm hụt calo trong lúc thiếu cân có thể gây mệt mỏi, suy nhược và thiếu hụt vi chất. Khuyến nghị bạn nên chuyển sang mục tiêu ",
@@ -7305,7 +7326,7 @@ function ProfileEditor() {
                                                                                 children: "Tăng cân"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                                lineNumber: 894,
+                                                                                lineNumber: 888,
                                                                                 columnNumber: 238
                                                                             }, this),
                                                                             " hoặc ",
@@ -7313,26 +7334,26 @@ function ProfileEditor() {
                                                                                 children: "Duy trì"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                                lineNumber: 894,
+                                                                                lineNumber: 888,
                                                                                 columnNumber: 269
                                                                             }, this),
                                                                             " để đạt thể trạng cân đối trước."
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                        lineNumber: 893,
+                                                                        lineNumber: 887,
                                                                         columnNumber: 25
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 889,
+                                                                lineNumber: 883,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 887,
+                                                        lineNumber: 881,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7343,7 +7364,7 @@ function ProfileEditor() {
                                                                 children: "Giải pháp gợi ý:"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 900,
+                                                                lineNumber: 894,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -7353,7 +7374,7 @@ function ProfileEditor() {
                                                                 children: "Chuyển sang: Tăng cân (+400 kcal)"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 901,
+                                                                lineNumber: 895,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -7363,19 +7384,19 @@ function ProfileEditor() {
                                                                 children: "Chuyển sang: Duy trì vóc dáng"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 908,
+                                                                lineNumber: 902,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 899,
+                                                        lineNumber: 893,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 886,
+                                                lineNumber: 880,
                                                 columnNumber: 19
                                             }, this);
                                         }
@@ -7391,7 +7412,7 @@ function ProfileEditor() {
                                                                 className: "w-4 h-4 text-amber-600 shrink-0 mt-0.5"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 925,
+                                                                lineNumber: 919,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7402,7 +7423,7 @@ function ProfileEditor() {
                                                                         children: "Cảnh báo dinh dưỡng: Thể trạng thừa cân nhưng chọn Tăng cân"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                        lineNumber: 927,
+                                                                        lineNumber: 921,
                                                                         columnNumber: 25
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -7413,26 +7434,26 @@ function ProfileEditor() {
                                                                                 children: bmiInfo.formattedBMI
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                                lineNumber: 931,
+                                                                                lineNumber: 925,
                                                                                 columnNumber: 58
                                                                             }, this),
                                                                             " (Thừa cân / Béo phì). Việc nạp calo thặng dư để tăng cân có thể gia tăng mỡ nội tạng và áp lực lên tim mạch."
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                        lineNumber: 930,
+                                                                        lineNumber: 924,
                                                                         columnNumber: 25
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 926,
+                                                                lineNumber: 920,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 924,
+                                                        lineNumber: 918,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7443,7 +7464,7 @@ function ProfileEditor() {
                                                                 children: "Giải pháp gợi ý:"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 937,
+                                                                lineNumber: 931,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -7453,7 +7474,7 @@ function ProfileEditor() {
                                                                 children: "Chuyển sang: Giảm cân lành mạnh"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 938,
+                                                                lineNumber: 932,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -7463,19 +7484,19 @@ function ProfileEditor() {
                                                                 children: "Chuyển sang: Duy trì vóc dáng"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 945,
+                                                                lineNumber: 939,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 936,
+                                                        lineNumber: 930,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 923,
+                                                lineNumber: 917,
                                                 columnNumber: 19
                                             }, this);
                                         }
@@ -7491,7 +7512,7 @@ function ProfileEditor() {
                                                                 className: "w-4 h-4 text-amber-600 shrink-0"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 962,
+                                                                lineNumber: 956,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -7499,13 +7520,13 @@ function ProfileEditor() {
                                                                 children: targetWeightConflictInfo.title
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 963,
+                                                                lineNumber: 957,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 961,
+                                                        lineNumber: 955,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -7513,13 +7534,13 @@ function ProfileEditor() {
                                                         children: targetWeightConflictInfo.message
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 967,
+                                                        lineNumber: 961,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 960,
+                                                lineNumber: 954,
                                                 columnNumber: 19
                                             }, this);
                                         }
@@ -7535,7 +7556,7 @@ function ProfileEditor() {
                                                         className: "w-4 h-4 text-emerald-700"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 980,
+                                                        lineNumber: 974,
                                                         columnNumber: 17
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -7543,13 +7564,13 @@ function ProfileEditor() {
                                                         children: "Mục tiêu cân nặng cụ thể (Tuỳ chọn)"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 981,
+                                                        lineNumber: 975,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 979,
+                                                lineNumber: 973,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -7557,7 +7578,7 @@ function ProfileEditor() {
                                                 children: "Nhập số cân nặng mục tiêu và ngày bạn muốn đạt được. Để trống nếu muốn xoá mục tiêu."
                                             }, void 0, false, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 985,
+                                                lineNumber: 979,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7570,7 +7591,7 @@ function ProfileEditor() {
                                                                 children: "Cân nặng mục tiêu (20 - 300 kg)"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 991,
+                                                                lineNumber: 985,
                                                                 columnNumber: 19
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -7584,13 +7605,13 @@ function ProfileEditor() {
                                                                 className: "w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-xs focus:border-emerald-600 outline-none"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 994,
+                                                                lineNumber: 988,
                                                                 columnNumber: 19
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 990,
+                                                        lineNumber: 984,
                                                         columnNumber: 17
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7600,7 +7621,7 @@ function ProfileEditor() {
                                                                 children: "Thời hạn dự kiến (sau hôm nay)"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 1007,
+                                                                lineNumber: 1001,
                                                                 columnNumber: 19
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -7611,25 +7632,25 @@ function ProfileEditor() {
                                                                 className: "w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-xs focus:border-emerald-600 outline-none"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 1010,
+                                                                lineNumber: 1004,
                                                                 columnNumber: 19
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 1006,
+                                                        lineNumber: 1000,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 989,
+                                                lineNumber: 983,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                        lineNumber: 978,
+                                        lineNumber: 972,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7639,7 +7660,7 @@ function ProfileEditor() {
                                                 children: "Trường phái ăn chay *"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 1023,
+                                                lineNumber: 1017,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7663,7 +7684,7 @@ function ProfileEditor() {
                                                                         children: v.label
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                        lineNumber: 1047,
+                                                                        lineNumber: 1041,
                                                                         columnNumber: 25
                                                                     }, this),
                                                                     isDisabled && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -7671,13 +7692,13 @@ function ProfileEditor() {
                                                                         children: "Khóa do dị ứng"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                        lineNumber: 1049,
+                                                                        lineNumber: 1043,
                                                                         columnNumber: 27
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 1046,
+                                                                lineNumber: 1040,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -7685,19 +7706,19 @@ function ProfileEditor() {
                                                                 children: v.desc
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 1054,
+                                                                lineNumber: 1048,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, v.id, true, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 1033,
+                                                        lineNumber: 1027,
                                                         columnNumber: 21
                                                     }, this);
                                                 })
                                             }, void 0, false, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 1026,
+                                                lineNumber: 1020,
                                                 columnNumber: 15
                                             }, this),
                                             vegetarianConflict && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7709,7 +7730,7 @@ function ProfileEditor() {
                                                             className: "w-4 h-4 text-amber-600 shrink-0 mt-0.5"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                            lineNumber: 1064,
+                                                            lineNumber: 1058,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7720,7 +7741,7 @@ function ProfileEditor() {
                                                                     children: vegetarianConflict.title
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                    lineNumber: 1066,
+                                                                    lineNumber: 1060,
                                                                     columnNumber: 23
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -7728,30 +7749,30 @@ function ProfileEditor() {
                                                                     children: vegetarianConflict.description
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                    lineNumber: 1069,
+                                                                    lineNumber: 1063,
                                                                     columnNumber: 23
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                            lineNumber: 1065,
+                                                            lineNumber: 1059,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                    lineNumber: 1063,
+                                                    lineNumber: 1057,
                                                     columnNumber: 19
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 1062,
+                                                lineNumber: 1056,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                        lineNumber: 1022,
+                                        lineNumber: 1016,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7764,7 +7785,7 @@ function ProfileEditor() {
                                                         children: "Dị ứng thực phẩm / Cần tránh"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 1081,
+                                                        lineNumber: 1075,
                                                         columnNumber: 17
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -7774,13 +7795,13 @@ function ProfileEditor() {
                                                         children: "Tôi không dị ứng gì"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 1084,
+                                                        lineNumber: 1078,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 1080,
+                                                lineNumber: 1074,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -7788,7 +7809,7 @@ function ProfileEditor() {
                                                 children: "Chọn các nhóm có sẵn hoặc nhập tự do nguyên liệu bạn dị ứng để AI tự động loại trừ."
                                             }, void 0, false, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 1092,
+                                                lineNumber: 1086,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7806,13 +7827,13 @@ function ProfileEditor() {
                                                         children: isDisabled ? `${item.label} (Không khả dụng)` : isSelected ? `⚠ ${item.label}` : item.label
                                                     }, item.id, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 1106,
+                                                        lineNumber: 1100,
                                                         columnNumber: 21
                                                     }, this);
                                                 })
                                             }, void 0, false, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 1097,
+                                                lineNumber: 1091,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7832,7 +7853,7 @@ function ProfileEditor() {
                                                                 className: "flex-1 h-9 rounded-xl border border-stone-200 bg-stone-50 px-3 text-xs focus:bg-white focus:border-emerald-600 outline-none"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 1128,
+                                                                lineNumber: 1122,
                                                                 columnNumber: 19
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -7844,20 +7865,20 @@ function ProfileEditor() {
                                                                         className: "w-3.5 h-3.5"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                        lineNumber: 1143,
+                                                                        lineNumber: 1137,
                                                                         columnNumber: 21
                                                                     }, this),
                                                                     "Thêm"
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 1138,
+                                                                lineNumber: 1132,
                                                                 columnNumber: 19
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 1127,
+                                                        lineNumber: 1121,
                                                         columnNumber: 17
                                                     }, this),
                                                     customAllergyError && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -7867,14 +7888,14 @@ function ProfileEditor() {
                                                                 className: "w-3 h-3"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 1150,
+                                                                lineNumber: 1144,
                                                                 columnNumber: 21
                                                             }, this),
                                                             customAllergyError
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 1149,
+                                                        lineNumber: 1143,
                                                         columnNumber: 19
                                                     }, this),
                                                     allergies.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7885,7 +7906,7 @@ function ProfileEditor() {
                                                                 children: "Đã chọn:"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                lineNumber: 1158,
+                                                                lineNumber: 1152,
                                                                 columnNumber: 21
                                                             }, this),
                                                             allergies.map((item)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -7901,48 +7922,48 @@ function ProfileEditor() {
                                                                                 className: "w-3 h-3"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                                lineNumber: 1170,
+                                                                                lineNumber: 1164,
                                                                                 columnNumber: 27
                                                                             }, this)
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                            lineNumber: 1165,
+                                                                            lineNumber: 1159,
                                                                             columnNumber: 25
                                                                         }, this)
                                                                     ]
                                                                 }, item, true, {
                                                                     fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                                    lineNumber: 1160,
+                                                                    lineNumber: 1154,
                                                                     columnNumber: 23
                                                                 }, this))
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 1157,
+                                                        lineNumber: 1151,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 1126,
+                                                lineNumber: 1120,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                        lineNumber: 1079,
+                                        lineNumber: 1073,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                lineNumber: 799,
+                                lineNumber: 793,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                        lineNumber: 678,
+                        lineNumber: 672,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7957,14 +7978,14 @@ function ProfileEditor() {
                                         className: "w-3.5 h-3.5"
                                     }, void 0, false, {
                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                        lineNumber: 1188,
+                                        lineNumber: 1182,
                                         columnNumber: 13
                                     }, this),
                                     "Làm trống để nhập lại"
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                lineNumber: 1183,
+                                lineNumber: 1177,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7979,25 +8000,25 @@ function ProfileEditor() {
                                                         className: "w-3.5 h-3.5 shrink-0 mt-0.5"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 1197,
+                                                        lineNumber: 1191,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                         children: err
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                        lineNumber: 1198,
+                                                        lineNumber: 1192,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, idx, true, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 1196,
+                                                lineNumber: 1190,
                                                 columnNumber: 19
                                             }, this))
                                     }, void 0, false, {
                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                        lineNumber: 1194,
+                                        lineNumber: 1188,
                                         columnNumber: 15
                                     }, this),
                                     saved && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -8007,14 +8028,14 @@ function ProfileEditor() {
                                                 className: "w-4 h-4"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                lineNumber: 1205,
+                                                lineNumber: 1199,
                                                 columnNumber: 17
                                             }, this),
                                             "Đã cập nhật hồ sơ & tính toán lại dinh dưỡng!"
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                        lineNumber: 1204,
+                                        lineNumber: 1198,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -8024,19 +8045,19 @@ function ProfileEditor() {
                                         children: isSaving ? "Đang lưu thay đổi..." : "Lưu hồ sơ & Cập nhật kế hoạch"
                                     }, void 0, false, {
                                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                        lineNumber: 1209,
+                                        lineNumber: 1203,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                lineNumber: 1192,
+                                lineNumber: 1186,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                        lineNumber: 1182,
+                        lineNumber: 1176,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Modal$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Modal"], {
@@ -8053,7 +8074,7 @@ function ProfileEditor() {
                                             className: "w-5 h-5 text-amber-600 shrink-0 mt-0.5"
                                         }, void 0, false, {
                                             fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                            lineNumber: 1227,
+                                            lineNumber: 1221,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8063,7 +8084,7 @@ function ProfileEditor() {
                                                     children: "Bạn có chắc chắn muốn làm trống các chỉ số thể trạng?"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                    lineNumber: 1229,
+                                                    lineNumber: 1223,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -8071,19 +8092,19 @@ function ProfileEditor() {
                                                     children: "Tất cả các thông số như độ tuổi, giới tính, chiều cao, cân nặng, mức vận động, mục tiêu và dị ứng sẽ được xóa trống để bạn nhập lại từ đầu."
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                                    lineNumber: 1232,
+                                                    lineNumber: 1226,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                            lineNumber: 1228,
+                                            lineNumber: 1222,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                    lineNumber: 1226,
+                                    lineNumber: 1220,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8096,7 +8117,7 @@ function ProfileEditor() {
                                             children: "Hủy"
                                         }, void 0, false, {
                                             fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                            lineNumber: 1239,
+                                            lineNumber: 1233,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -8106,36 +8127,36 @@ function ProfileEditor() {
                                             children: "Xác nhận làm trống"
                                         }, void 0, false, {
                                             fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                            lineNumber: 1246,
+                                            lineNumber: 1240,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                                    lineNumber: 1238,
+                                    lineNumber: 1232,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                            lineNumber: 1225,
+                            lineNumber: 1219,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                        lineNumber: 1220,
+                        lineNumber: 1214,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-                lineNumber: 636,
+                lineNumber: 630,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/src/features/profile/components/ProfileEditor.tsx",
-        lineNumber: 620,
+        lineNumber: 614,
         columnNumber: 5
     }, this);
 }

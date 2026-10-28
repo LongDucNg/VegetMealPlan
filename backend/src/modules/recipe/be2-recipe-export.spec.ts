@@ -65,10 +65,14 @@ const RECIPE: any = {
   estimated_cost: 45000, status: 'approved', created_by: 7,
   created_at: new Date('2026-01-02T03:04:05Z'),
 };
-const ING: any = { recipe_id: 15, ingredient_id: 3, quantity: 200, unit: 'g',
-  note: null, is_optional: false, ingredient: { ingredient_name: 'Nam rom' } };
-const NUT: any = { recipe_id: 15, calories: 320, protein: 12.5,
-  carbs: 40, fat: 8, fiber: 5 };
+const ING: any = {
+  recipe_id: 15, ingredient_id: 3, quantity: 200, unit: 'g',
+  note: null, is_optional: false, ingredient: { ingredient_name: 'Nam rom' }
+};
+const NUT: any = {
+  recipe_id: 15, calories: 320, protein: 12.5,
+  carbs: 40, fat: 8, fiber: 5
+};
 
 describe('BE2 - Export cong thuc (CSV)', () => {
   it('escapeCsvValue: boc nhay kep, nhan doi nhay kep, giu gia tri thuong', () => {

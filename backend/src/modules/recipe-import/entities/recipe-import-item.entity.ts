@@ -15,6 +15,8 @@ export enum ImportFailReason {
   DUPLICATE_TITLE = 'DUPLICATE_TITLE',
   /** Nguyên liệu không tương thích với diet_type của công thức. */
   DIET_INCOMPATIBLE = 'DIET_INCOMPATIBLE',
+  /** Danh mục không tồn tại, sai loại, đã tắt hoặc chọn quá 1 nhóm/loại món. */
+  INVALID_CATEGORY = 'INVALID_CATEGORY',
 }
 
 @Entity('recipe_import_items')
