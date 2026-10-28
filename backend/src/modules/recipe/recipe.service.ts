@@ -50,6 +50,7 @@ import {
 import {
   buildRecipeCsv,
   RecipeExportRow,
+  deriveCategoryFromTitle,
 } from './recipe-export.util';
 
 export interface RecipeMatchResult {
@@ -274,35 +275,53 @@ export class RecipeService {
       });
     }
 
-    // Lọc theo danh mục
+    // Lọc theo danh mục (hỗ trợ cả category ID và tên danh mục)
     if (category?.trim()) {
-      const categoryId = Number(category.trim());
+      const rawCat = category.trim();
+      let categoryId = Number(rawCat);
 
       if (!Number.isInteger(categoryId) || categoryId <= 0) {
-        throw new BadRequestException(
-          'category must be a positive category ID',
-        );
+        const found = await this.categoryRepo
+          .createQueryBuilder('cat')
+          .where('LOWER(cat.category_name) = LOWER(:name) OR LOWER(cat.description) = LOWER(:name)', { name: rawCat })
+          .getOne();
+        if (found) {
+          categoryId = found.category_id;
+        } else {
+          const foundLike = await this.categoryRepo
+            .createQueryBuilder('cat')
+            .where('LOWER(cat.category_name) LIKE LOWER(:name) OR LOWER(cat.description) LIKE LOWER(:name)', { name: `%${rawCat}%` })
+            .getOne();
+          if (foundLike) {
+            categoryId = foundLike.category_id;
+          }
+        }
       }
 
-      const categorySubQuery = this.recipeRepo.manager
-        .createQueryBuilder()
-        .select('rc.recipe_id')
-        .from('recipe_categories', 'rc')
-        .where('rc.category_id = :categoryId');
+      if (Number.isInteger(categoryId) && categoryId > 0) {
+        const categorySubQuery = this.recipeRepo.manager
+          .createQueryBuilder()
+          .select('rc.recipe_id')
+          .from('recipe_categories', 'rc')
+          .where('rc.category_id = :categoryId');
 
-      qb.andWhere(
-        `recipe.recipe_id IN (${categorySubQuery.getQuery()})`,
-      ).setParameters({
-        ...categorySubQuery.getParameters(),
-        categoryId,
-      });
+        qb.andWhere(
+          `recipe.recipe_id IN (${categorySubQuery.getQuery()})`,
+        ).setParameters({
+          ...categorySubQuery.getParameters(),
+          categoryId,
+        });
+      }
     }
 
     // Lọc theo chế độ ăn
     const selectedDiet = vegetarianType || diet_type;
 
     if (selectedDiet?.trim()) {
-      const dietType = selectedDiet.trim().toLowerCase();
+      let dietType = selectedDiet.trim().toLowerCase();
+      if (dietType === 'lacto_vegetarian') dietType = 'lacto';
+      if (dietType === 'ovo_vegetarian') dietType = 'ovo';
+      if (dietType === 'lacto_ovo_vegetarian') dietType = 'ovo_lacto';
       const validDietTypes = ['vegan', 'lacto', 'ovo', 'ovo_lacto'];
 
       if (!validDietTypes.includes(dietType)) {
@@ -623,10 +642,10 @@ export class RecipeService {
         ingredients: ingredients
           .map(
             (i) =>
-              `${i.ingredient?.ingredient_name ?? `#${i.ingredient_id}`} - ` +
-              `${i.quantity ?? 0}${i.unit ?? ''}` +
-              `${i.is_optional ? ' (tuỳ chọn)' : ''}` +
-              `${i.note ? ` - ${i.note}` : ''}`,
+              `${i.ingredient?.ingredient_name ?? `#${i.ingredient_id}`} ` +
+              `(${i.quantity ?? 0}${i.unit ?? ''}` +
+              `${i.is_optional ? ', tuỳ chọn' : ''}` +
+              `${i.note ? `, ${i.note}` : ''})`,
           )
           .join('; '),
         calories: nutrition?.calories ?? null,
@@ -635,7 +654,11 @@ export class RecipeService {
         fat: nutrition?.fat ?? null,
         fiber: nutrition?.fiber ?? null,
         estimated_cost: recipe.estimated_cost ?? null,
-        categories: (categoriesByRecipe.get(recipe.recipe_id) ?? []).join(', '),
+        categories:
+          (categoriesByRecipe.get(recipe.recipe_id) &&
+            categoriesByRecipe.get(recipe.recipe_id)!.length > 0)
+            ? categoriesByRecipe.get(recipe.recipe_id)!.join(', ')
+            : deriveCategoryFromTitle(recipe.title, recipe.meal_type),
         instructions: recipe.instructions ?? '',
         image_url: recipe.image_url ?? '',
         status: recipe.status ?? '',
@@ -2249,12 +2272,37 @@ export class RecipeService {
 
     if (recipes.length > 0) {
       const ids = recipes.map((r) => r.recipe_id);
-      const nutritions = await this.nutritionRepo.find({
-        where: { recipe_id: In(ids) },
-      });
+      const [nutritions, rcRecords] = await Promise.all([
+        this.nutritionRepo.find({
+          where: { recipe_id: In(ids) },
+        }),
+        this.recipeCategoryRepo.find({
+          where: { recipe_id: In(ids) },
+          relations: ['category'],
+        }),
+      ]);
+
       const nutritionMap = new Map(nutritions.map((n) => [n.recipe_id, n]));
+      const categoriesByRecipe = new Map<number, string[]>();
+      const rcByRecipe = new Map<number, any[]>();
+      for (const rc of rcRecords) {
+        const catName = rc.category?.category_name;
+        if (!catName) continue;
+        const list = categoriesByRecipe.get(rc.recipe_id) ?? [];
+        list.push(catName);
+        categoriesByRecipe.set(rc.recipe_id, list);
+
+        const rcs = rcByRecipe.get(rc.recipe_id) ?? [];
+        rcs.push(rc);
+        rcByRecipe.set(rc.recipe_id, rcs);
+      }
+
       for (const recipe of recipes as any[]) {
         recipe.nutrition = nutritionMap.get(recipe.recipe_id) || null;
+        const cats = categoriesByRecipe.get(recipe.recipe_id) || [];
+        recipe.category = cats.length > 0 ? cats[0] : null;
+        recipe.categories = cats;
+        recipe.recipeCategories = rcByRecipe.get(recipe.recipe_id) || [];
       }
     }
 
@@ -2299,14 +2347,7 @@ export class RecipeService {
 
     const reason = dto.reason?.trim();
 
-    if (
-      status === RecipeReviewStatus.REJECTED &&
-      !reason
-    ) {
-      throw new BadRequestException(
-        'Vui lòng nhập lý do từ chối công thức',
-      );
-    }
+    // Lý do từ chối là tùy chọn (không bắt buộc)
 
     // Chỉ kiểm tra khi DUYỆT. Luồng từ chối giữ nguyên: công thức vẫn được
     // lưu, chuyển sang trạng thái rejected và lưu lý do (review_reason).
