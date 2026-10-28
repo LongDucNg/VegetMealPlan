@@ -15,7 +15,6 @@ import {
   ServerNutritionSummary,
   NutritionWarnings,
   CalorieExplanationSection,
-  calculateDailyCalorieTarget,
 } from "@/features/nutrition";
 import { Modal } from "@/components/ui/Modal";
 import {
@@ -598,23 +597,18 @@ export function ProfileEditor() {
     return BMI_LABEL_MAP[cat] || cat;
   };
 
-  // Tính toán dinh dưỡng trực tiếp theo thời gian thực (Real-time live calculations)
-  const liveNutrition = hasPhysicalMetrics ? calculateDailyCalorieTarget(liveProfile) : null;
-
   const displayBmi = bmiInfo ? bmiInfo.formattedBMI : (hasPhysicalMetrics && serverSummary?.bmi ? serverSummary.bmi : "—");
   const displayCategory = bmiInfo ? bmiInfo.category : (hasPhysicalMetrics && serverSummary?.bmi_category ? serverSummary.bmi_category : undefined);
 
-  const displayCalories = liveNutrition
-    ? `~${liveNutrition.dailyCalorieTarget.toLocaleString("vi-VN")} kcal/ngày`
-    : (hasPhysicalMetrics && serverSummary?.target_calories ? `~${serverSummary.target_calories.toLocaleString()} kcal/ngày` : "—");
+  // Calo và macro LẤY TỪ BACKEND (GET /users/me/nutrition-summary), cùng một hàm tính với lúc lập thực đơn,
+  // nên số trên trang hồ sơ khớp với thực đơn. Trước đây FE tự tính bằng công thức riêng (sàn 1350 kcal)
+  // nên cùng một người có thể thấy hai con số khác nhau. Số mới cập nhật sau khi bấm Lưu.
+  const displayCalories =
+    hasPhysicalMetrics && serverSummary?.target_calories
+      ? `~${serverSummary.target_calories.toLocaleString("vi-VN")} kcal/ngày`
+      : "—";
 
-  const displayMacros = liveNutrition
-    ? {
-      protein_g: liveNutrition.macros.proteinGrams,
-      carbs_g: liveNutrition.macros.carbsGrams,
-      fat_g: liveNutrition.macros.fatGrams,
-    }
-    : serverSummary?.macros;
+  const displayMacros = serverSummary?.macros;
 
   return (
     <div className="space-y-6">

@@ -23,6 +23,8 @@ import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
 import { RecipeCategory } from '../recipe/entities/recipe-category.entity';
 import { Category } from '../category/entities/category.entity';
 import { assertValidRecipeCategoryIds } from '../category/category-validation.util';
+import { resolveCategoryText, validateImportCategories } from './import-category.util';
+import { validateRecipeTitleKeyword } from '../recipe/recipe-validation.util';
 
 import { IngredientService } from '../ingredient/ingredient.service';
 import { isBlockingConflict } from '../ingredient/ingredient-conflict.util';
@@ -162,6 +164,11 @@ export class RecipeImportService {
     // (value = { row_number, title } de thong bao nen ten mon + so dong Excel goc.)
     const importedInBatch = new Map<string, { row_number: number; title: string }>();
 
+    // Bảng categories chỉ đọc một lần cho cả lô, và chỉ khi có dòng ghi danh mục.
+    let categoriesCache: Promise<Category[]> | null = null;
+    const loadCategories = () =>
+      (categoriesCache ??= this.dataSource.getRepository(Category).find());
+
     const items: RecipeImportItem[] = [];
     let success_count = 0;
     let skipped_count = 0;
@@ -183,6 +190,7 @@ export class RecipeImportService {
           admin_user_id,
           existingDbIndex,
           importedInBatch,
+          loadCategories,
         );
 
         items.push(result);
@@ -373,6 +381,8 @@ export class RecipeImportService {
     adminUserId: number,
     existingDbIndex: Map<string, Set<string>>,
     importedInBatch: Map<string, { row_number: number; title: string }>,
+    loadCategories: () => Promise<Category[]> = () =>
+      this.dataSource.getRepository(Category).find(),
   ): Promise<RecipeImportItem> {
     // 1. Kiem tra row.
     if (!row || typeof row !== 'object' || Array.isArray(row)) {
@@ -553,6 +563,18 @@ export class RecipeImportService {
       }
     }
 
+    // 2g. Ten mon co tu khoa man (vd. "Ga xao xa ot") ma khong co chu "chay" -> FAILED,
+    // cung quy tac voi POST /recipes va PUT /recipes/:id.
+    const titleCheck = validateRecipeTitleKeyword(row.title);
+    if (!titleCheck.isValid) {
+      return this.createFailedItem(
+        row_number,
+        recipe_title,
+        ImportFailReason.DIET_INCOMPATIBLE,
+        titleCheck.violations.map((v) => v.reason).join(' '),
+      );
+    }
+
     // 3. Tim + KIEM TRA nguyen lieu trong he thong.
     // Validator DUNG CHUNG voi create/update: nguyen lieu ton tai + active,
     // khong trung lap, quantity > 0, don vi "g" cho nguyen lieu bat buoc,
@@ -674,45 +696,64 @@ export class RecipeImportService {
       );
     }
 
-    // 6c. Validate category_ids TRƯỚC khi mở transaction.
-    // Mục tiêu: dòng lỗi phải bị đánh dấu FAILED chứ không được làm hỏng cả lô.
-    // (Việc kiểm tra loại danh mục hợp lệ - recipe_type/food_type - vẫn do
-    // assertValidRecipeCategoryIds đảm nhiệm trong transaction bên dưới.)
-    if (row.category_ids !== undefined && row.category_ids !== null) {
-      if (!Array.isArray(row.category_ids)) {
+    // 6c. Danh mục: đọc tên/id, kiểm tồn tại, đúng loại, còn hoạt động, tối đa 1 nhóm + 1 loại món.
+    // Làm TRƯỚC khi mở transaction để dòng sai bị đánh dấu FAILED (INVALID_CATEGORY)
+    // kèm danh sách danh mục hợp lệ cho admin chọn lại, không làm hỏng cả lô.
+    const hasCategoryText =
+      typeof row.category_raw === 'string' && row.category_raw.trim() !== '';
+    const hasCategoryIds =
+      Array.isArray(row.category_ids) && row.category_ids.length > 0;
+
+    if (row.category_ids !== undefined && row.category_ids !== null && !Array.isArray(row.category_ids)) {
+      return this.createFailedItem(
+        row_number,
+        recipe_title,
+        ImportFailReason.INVALID_CATEGORY,
+        'Danh mục (category_ids) phải là một danh sách ID',
+      );
+    }
+
+    if (hasCategoryText || hasCategoryIds) {
+      const allCategories = await loadCategories();
+      let categoryIds = hasCategoryIds ? [...row.category_ids!] : [];
+
+      if (hasCategoryText) {
+        const resolved = resolveCategoryText(row.category_raw!, allCategories);
+        if (resolved.error) {
+          return this.createFailedItem(
+            row_number,
+            recipe_title,
+            ImportFailReason.INVALID_CATEGORY,
+            resolved.error,
+          );
+        }
+        categoryIds = [...categoryIds, ...(resolved.ids ?? [])];
+      }
+
+      const invalidIds = categoryIds.filter((id) => !Number.isInteger(id) || id <= 0);
+      if (invalidIds.length > 0) {
         return this.createFailedItem(
           row_number,
           recipe_title,
-          ImportFailReason.MISSING_REQUIRED_FIELD,
-          'Danh mục (category_ids) phải là một danh sách ID',
+          ImportFailReason.INVALID_CATEGORY,
+          'Danh mục chứa ID không hợp lệ (phải là số nguyên dương)',
         );
       }
-      if (row.category_ids.length > 0) {
-        const uniqueIds = [...new Set(row.category_ids)];
-        const invalidIds = uniqueIds.filter(
-          (id) => !Number.isInteger(id) || id <= 0,
+
+      const categoryError = validateImportCategories(categoryIds, allCategories);
+      if (categoryError) {
+        return this.createFailedItem(
+          row_number,
+          recipe_title,
+          ImportFailReason.INVALID_CATEGORY,
+          categoryError,
         );
-        if (invalidIds.length > 0) {
-          return this.createFailedItem(
-            row_number,
-            recipe_title,
-            ImportFailReason.MISSING_REQUIRED_FIELD,
-            'Danh mục chứa ID không hợp lệ (phải là số nguyên dương)',
-          );
-        }
-        const foundCategoryCount = await this.dataSource.getRepository(Category).count({
-          where: { category_id: In(uniqueIds) },
-        });
-        if (foundCategoryCount !== uniqueIds.length) {
-          return this.createFailedItem(
-            row_number,
-            recipe_title,
-            ImportFailReason.MISSING_REQUIRED_FIELD,
-            'Một hoặc nhiều ID danh mục không tồn tại trong hệ thống',
-          );
-        }
       }
+
+      // Bước tạo công thức bên dưới đọc row.category_ids.
+      row = { ...row, category_ids: [...new Set(categoryIds)], category_raw: undefined };
     }
+
     // 7. Tao Recipe, RecipeIngredient va NutritionInfo.
     // Transaction rieng cho tung dong: mot dong loi khong lam anh huong dong khac.
     const recipeId = await this.dataSource.transaction(async (manager) => {

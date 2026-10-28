@@ -35,6 +35,7 @@ import { calculateIngredientCost } from './recipe-cost.util';
 import { calculateNutritionPerServing } from './recipe-nutrition.util';
 import { RecipeValidatorService } from './recipe-validator.service';
 import {
+  assertRecipeTitleVegetarian,
   assertRecipeValidation,
   buildRecipeDuplicateKey,
   normalizeRecipeTitle,
@@ -760,6 +761,9 @@ export class RecipeService {
         message: 'Tên món không được để trống.',
       });
     }
+
+    // Hệ thống chỉ có món chay: tên kiểu "Gà xào xả ớt" (không có chữ "chay") bị chặn.
+    assertRecipeTitleVegetarian(title);
 
     // Công thức PHẢI có ít nhất 1 nguyên liệu. DTO đã chặn sẵn, nhưng service
     // cũng có thể được gọi trực tiếp (test/script) -> kiểm tra lại ở đây.
@@ -1738,6 +1742,11 @@ export class RecipeService {
         code: ErrorCode.VALIDATION_FAILED,
         message: 'Tên món không được để trống.',
       });
+    }
+
+    // Đổi tên thì tên mới cũng phải là tên món chay (cùng quy tắc với tạo món và import).
+    if (nextTitle !== undefined) {
+      assertRecipeTitleVegetarian(nextTitle);
     }
 
     // Validator DÙNG CHUNG với create + import.
