@@ -24,6 +24,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { RecipeImportService } from './recipe-import.service';
+import { isCategoryIdList } from './import-category.util';
 import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
 import {
   ImportRecipeRow,
@@ -237,7 +238,16 @@ export class RecipeImportController {
 
         // Cột category_ids (tuỳ chọn). Giá trị sai -> đánh dấu dòng FAILED
         // thay vì âm thầm bỏ qua (tạo công thức không có danh mục).
-        const categoryIds = this.toCategoryIds(row.category_ids);
+        // Ô ghi bằng tên danh mục ("Canh & Súp, Canh/súp") để service đối chiếu với bảng categories;
+        // ô chỉ gồm số thì đọc như danh sách id như trước.
+        const categoryCell = row.category_ids;
+        const categoryText =
+          typeof categoryCell === 'string' ? categoryCell.trim() : '';
+        const categoryByName =
+          categoryText !== '' && !isCategoryIdList(categoryText);
+        const categoryIds = categoryByName
+          ? {}
+          : this.toCategoryIds(categoryCell);
 
         if (categoryIds.error) {
           row_error = row_error
@@ -266,6 +276,7 @@ export class RecipeImportController {
             : undefined,
           diet_type: this.normalizeDietType(row.diet_type),
           category_ids: categoryIds.ids,
+          category_raw: categoryByName ? categoryText : undefined,
           row_error,
           row_number: rowNumber,
           ingredients: ingredients.map((ingredient) => ({
@@ -411,13 +422,19 @@ export class RecipeImportController {
   }
 
   // Chuẩn hoá tên cột tiếng Việt và tiếng Anh về tên trường chuẩn
+  // Thứ tự kiểm quan trọng: cột cụ thể xét trước cột chung, vì "category_ids" sau khi chuẩn hoá
+  // thành "category ids", "suitable_meals" chứa chữ "meal", "Cách nấu" chứa chữ "nấu".
   private canonicalColumnName(raw: string): string {
     const clean = raw.toLowerCase().trim().replace(/[\s\-_()]+/g, ' ');
+    if (/danh mục|category|categories|nhóm món|loại món/i.test(clean)) return 'category_ids';
     if (/tên món|tên công thức|tiêu đề|recipe name|title/i.test(clean)) return 'title';
     if (/mô tả|giới thiệu|description|desc/i.test(clean)) return 'description';
-    if (/hướng dẫn|cách làm|các bước|công thức|instructions|steps/i.test(clean)) return 'instructions';
+    if (/suitable|bữa phù hợp|bữa ăn phù hợp/i.test(clean)) return 'suitable_meals';
+    // Cột thời gian xét trước cột hướng dẫn: "Thời gian chế biến" là số phút, không phải các bước.
     if (/chuẩn bị|prep/i.test(clean)) return 'prep_time';
-    if (/thời gian nấu|nấu|cook/i.test(clean)) return 'cook_time';
+    if (/thời gian|cook/i.test(clean)) return 'cook_time';
+    if (/hướng dẫn|cách làm|cách nấu|cách chế biến|chế biến|các bước|công thức|instructions|steps/i.test(clean)) return 'instructions';
+    if (/^nấu$/i.test(clean)) return 'cook_time';
     if (/khẩu phần|số người|phần ăn|servings|serving/i.test(clean)) return 'servings';
     if (/độ khó|difficulty/i.test(clean)) return 'difficulty';
     if (/bữa ăn|bữa|loại bữa|meal/i.test(clean)) return 'meal_type';
