@@ -101,6 +101,12 @@ export const recipeApiService = {
     return apiClient.put<any>(`/recipes/${id}`, data);
   },
 
+  // POST /recipes/:id/image - Tải ảnh món lên Cloudinary (chủ món hoặc admin; JPG/PNG/WEBP, tối đa 5 MB).
+  // Gọi SAU khi tạo/sửa món thành công; backend ghi luôn image_url mới vào món.
+  uploadRecipeImage(id: number | string, file: File) {
+    return apiClient.upload<{ recipe_id: number; image_url: string }>(`/recipes/${id}/image`, file, "image");
+  },
+
   // API #8: DELETE /recipes/:id - Đổi status thành removed (soft delete)
   deleteRecipe(id: number | string) {
     return apiClient.delete<any>(`/recipes/${id}`);
