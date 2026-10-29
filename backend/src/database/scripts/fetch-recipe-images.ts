@@ -1,223 +1,274 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readFileSync } from 'fs';
 import { config as loadEnv } from 'dotenv';
+import { DataSource } from 'typeorm';
+import { dataSourceOptions } from '../../config/typeorm.config';
+import {
+  configuredSources,
+  ImageCandidate,
+  ImageSource,
+  isAcceptable,
+  RateLimitReached,
+  SearchLang,
+} from './recipe-image-sources';
+import { analyzeTitle, avoidFor, containsPhrase } from './recipe-image-keywords';
+import {
+  DbRecipe,
+  hasImage,
+  ImageMap,
+  ImageMatch,
+  isSeedImageUrl,
+  loadDbRecipes,
+  loadMap,
+  RecipeImageEntry,
+  saveMap,
+  sleep,
+} from './recipe-image-map';
 
 loadEnv();
 
 /**
- * Tìm ảnh minh hoạ cho các món trong seed bằng Pexels API (ảnh dùng miễn phí theo giấy phép Pexels).
+ * BƯỚC 1/4: tìm ảnh cho các món đang có trong DB (món chưa có ảnh, hoặc đang dùng ảnh seed) bằng API ảnh
+ * miễn phí bản quyền (Pixabay / Pexels), ghi vào src/database/seeds/data/recipe-images.json.
  *
- * Kết quả ghi vào src/database/seeds/data/recipe-images.json (commit file này lên git), nên chỉ MỘT người
- * cần API key và chạy script; cả nhóm chỉ cần `npm run images:apply` để gắn ảnh vào DB máy mình.
+ * Ảnh chỉ được nhận khi tags KHỚP món (xem recipe-image-keywords.ts) và không dính đồ mặn.
+ * Không khớp thì để món không có ảnh, an toàn hơn gắn ảnh sai.
  *
- * Chạy:  npm run images:fetch                 (bỏ qua món đã có trong file)
- *        npm run images:fetch -- --retry-missing   (thử lại các món lần trước không tìm được ảnh)
- *        npm run images:fetch -- --limit 50        (chỉ xử lý 50 món, để thử)
+ * Chạy (viết tham số KHÔNG có dấu "--" để chạy đúng cả trên PowerShell):
+ *   npm run images:fetch                         bỏ qua món đã có trong file
+ *   npm run images:fetch limit=20                thử 20 món trước
+ *   npm run images:fetch fresh                   bỏ kết quả cũ, tìm lại từ đầu
+ *   npm run images:fetch retry-missing           thử lại món lần trước không tìm được ảnh
+ *   npm run images:fetch retry-missing share     ...và cho phép nhiều món dùng chung ảnh minh hoạ chung
+ *   npm run images:fetch reject=recipe-images-reject.txt
+ *       loại ảnh sai đã đánh dấu ở trang images:review rồi tìm ảnh khác cho các món đó
  *
- * Pexels giới hạn 200 request/giờ: hết lượt thì script tự lưu và dừng, chạy lại sau là làm tiếp.
+ * Hết lượt gọi API thì script tự lưu và dừng; chạy lại lệnh là làm tiếp từ chỗ dừng.
  */
 
-const DATA_DIR = join(__dirname, '..', 'seeds', 'data');
-const RECIPES_FILE = join(DATA_DIR, 'recipes.json');
-const INGREDIENTS_FILE = join(DATA_DIR, 'ingredients.json');
-const OUTPUT_FILE = join(DATA_DIR, 'recipe-images.json');
+/** Pixabay cho 100 request/phút: giãn cách để không bị chặn. */
+const PIXABAY_DELAY_MS = 700;
 
-const PEXELS_SEARCH = 'https://api.pexels.com/v1/search';
-const PER_PAGE = 15;
-
-// Ảnh có mô tả (alt) chứa đồ mặn thì bỏ: tìm "Nấm đùi gà" rất dễ ra ảnh thịt gà.
-const NON_VEG_ALT = /\b(chicken|beef|pork|meat|meatball|steak|bacon|ham|sausage|salami|fish|salmon|tuna|shrimp|prawn|crab|lobster|seafood|squid|octopus|lamb|mutton|duck|turkey|oyster|clam|mussel|anchov\w*)\b/i;
-// Món thuần chay (vegan) thì bỏ thêm ảnh có trứng, sữa, phô mai.
-const ANIMAL_PRODUCT_ALT = /\b(egg|eggs|cheese|milk|yogurt|yoghurt|butter|cream)\b/i;
-
-interface SeedRecipe {
-  title: string;
-  diet_type: string;
-  ingredients: { ingredient_id: number; quantity: number; is_optional?: boolean }[];
+/** Đọc tham số dạng "limit=20" / "fresh" (và cả "--limit 20" khi chạy ngoài PowerShell). */
+export function parseArgs(argv: string[]) {
+  const opts: Record<string, string | true> = {};
+  for (let i = 0; i < argv.length; i++) {
+    const raw = argv[i].replace(/^--/, '');
+    const eq = raw.indexOf('=');
+    if (eq > 0) opts[raw.slice(0, eq)] = raw.slice(eq + 1);
+    else if (argv[i].startsWith('--') && argv[i + 1] && !argv[i + 1].startsWith('-') && !argv[i + 1].includes('=')) {
+      opts[raw] = argv[++i];
+    } else opts[raw] = true;
+  }
+  return opts;
 }
 
-interface SeedIngredient {
-  ingredient_id: number;
-  ingredient_name: string;
-}
-
-export interface RecipeImageEntry {
-  url: string;
-  photographer: string;
-  photographer_url: string;
-  source_url: string;
-  alt: string;
+export interface Attempt {
+  match: ImageMatch;
+  lang: SearchLang;
   query: string;
+  /** Ảnh được nhận khi tags chứa ít nhất một cụm trong MỖI nhóm... */
+  required: string[][];
+  /** ...và không chứa cụm nào ở đây. */
+  avoid: string[];
 }
 
-/** null = đã tìm nhưng không có ảnh phù hợp (chạy lại với --retry-missing để thử lại). */
-type ImageMap = Record<string, RecipeImageEntry | null>;
+/** Các lượt tìm cho một món, từ khớp nhất đến chung nhất. */
+export function buildAttempts(title: string, mainIngredientName: string | null): Attempt[] {
+  const { dish, ingredient, method } = analyzeTitle(title);
+  const avoid = avoidFor(dish, title);
+  const attempts: Omit<Attempt, 'avoid'>[] = [];
+  const titleNoChay = title.replace(/(?<![\p{L}\p{N}])chay(?![\p{L}\p{N}])/giu, '').replace(/\s+/g, ' ').trim();
 
-interface PexelsPhoto {
-  id: number;
-  url: string;
-  alt: string;
-  photographer: string;
-  photographer_url: string;
-  src: { large: string; landscape: string; medium: string };
-}
+  // 1. Tên tiếng Việt: tags (tiếng Việt) phải có đúng loại món. Loại món một chữ dễ trùng ("xôi", "cháo",
+  //    "nước") thì phải có thêm nguyên liệu chính. Tên mở đầu bằng nguyên liệu thì chỉ tính là gần đúng.
+  const ingredientVi = ingredient ? [ingredient.vi, ...(ingredient.viAlt ?? [])] : null;
+  const required: string[][] = dish ? [[dish.vi]] : [ingredientVi ?? [titleNoChay]];
+  if (dish && !dish.vi.includes(' ') && ingredientVi) required.push(ingredientVi);
+  attempts.push({ match: dish ? 'exact' : 'similar', lang: 'vi', query: title, required });
 
-class RateLimitReached extends Error {
-  constructor(public readonly resetAt: Date | null) {
-    super('Hết lượt gọi Pexels trong giờ này');
+  // 2. Tiếng Anh "loại món + nguyên liệu" hoặc "cách nấu + nguyên liệu".
+  if (dish && ingredient) {
+    attempts.push({ match: 'similar', lang: 'en', query: `${ingredient.en} ${dish.en}`, required: [dish.must, ingredient.must] });
+  } else if (!dish && ingredient && method) {
+    attempts.push({ match: 'similar', lang: 'en', query: `${method} ${ingredient.en}`, required: [ingredient.must] });
   }
-}
 
-async function searchPexels(apiKey: string, query: string): Promise<PexelsPhoto[]> {
-  const url = `${PEXELS_SEARCH}?${new URLSearchParams({ query, per_page: String(PER_PAGE), locale: 'vi-VN' })}`;
-  const res = await fetch(url, { headers: { Authorization: apiKey } });
-
-  const remaining = Number(res.headers.get('x-ratelimit-remaining'));
-  const reset = Number(res.headers.get('x-ratelimit-reset'));
-  const resetAt = Number.isFinite(reset) && reset > 0 ? new Date(reset * 1000) : null;
-
-  if (res.status === 429) throw new RateLimitReached(resetAt);
-  if (res.status === 401 || res.status === 403) {
-    throw new Error('PEXELS_API_KEY không hợp lệ (Pexels trả ' + res.status + ')');
+  // 3. Chung: chỉ loại món, hoặc chỉ nguyên liệu chính (từ tên món, hoặc nguyên liệu nhiều nhất trong công thức).
+  if (dish) {
+    attempts.push({ match: 'generic', lang: 'en', query: `${dish.en} vegetarian`, required: [dish.must] });
+  } else if (ingredient) {
+    attempts.push({ match: 'generic', lang: 'en', query: `${ingredient.en} vegetarian dish`, required: [ingredient.must] });
+  } else if (mainIngredientName) {
+    const main = analyzeTitle(mainIngredientName).ingredient;
+    if (main) attempts.push({ match: 'generic', lang: 'en', query: `${main.en} vegetarian dish`, required: [main.must] });
   }
-  if (!res.ok) throw new Error(`Pexels trả lỗi ${res.status} cho "${query}"`);
-
-  const body = (await res.json()) as { photos?: PexelsPhoto[] };
-  // Còn đúng 0 lượt: request này vẫn có kết quả, nhưng request sau chắc chắn bị 429.
-  if (Number.isFinite(remaining) && remaining <= 0) {
-    const photos = body.photos ?? [];
-    throw Object.assign(new RateLimitReached(resetAt), { photos });
-  }
-  return body.photos ?? [];
+  return attempts.map((a) => ({ ...a, avoid }));
 }
 
-function pickPhoto(photos: PexelsPhoto[], dietType: string, usedIds: Set<number>): PexelsPhoto | null {
-  const acceptable = photos.filter((p) => {
-    const alt = p.alt ?? '';
-    if (NON_VEG_ALT.test(alt)) return false;
-    if (dietType === 'vegan' && ANIMAL_PRODUCT_ALT.test(alt)) return false;
-    return true;
-  });
-  // Ưu tiên ảnh chưa món nào dùng, để hai món khác nhau không trùng ảnh.
-  return acceptable.find((p) => !usedIds.has(p.id)) ?? acceptable[0] ?? null;
-}
-
-function toEntry(photo: PexelsPhoto, query: string): RecipeImageEntry {
-  return {
-    url: photo.src.large,
-    photographer: photo.photographer,
-    photographer_url: photo.photographer_url,
-    source_url: photo.url,
-    alt: photo.alt ?? '',
-    query,
-  };
-}
-
-function photoIdFromUrl(url: string): number | null {
-  const m = url.match(/\/photos\/(\d+)\//);
-  return m ? Number(m[1]) : null;
-}
-
-function save(recipes: SeedRecipe[], map: ImageMap) {
-  // Ghi theo đúng thứ tự món trong recipes.json để diff trên git dễ đọc.
-  const ordered: ImageMap = {};
-  for (const r of recipes) if (r.title in map) ordered[r.title] = map[r.title];
-  writeFileSync(OUTPUT_FILE, JSON.stringify(ordered, null, 2) + '\n', 'utf8');
-}
+export const isRelevant = (c: ImageCandidate, attempt: Pick<Attempt, 'required' | 'avoid'>) =>
+  attempt.required.every((group) => group.some((phrase) => containsPhrase(c.description, phrase))) &&
+  !attempt.avoid.some((phrase) => containsPhrase(c.description, phrase));
 
 async function main() {
-  const apiKey = process.env.PEXELS_API_KEY;
-  if (!apiKey) {
-    console.error('Thiếu PEXELS_API_KEY trong backend/.env (đăng ký miễn phí tại https://www.pexels.com/api/).');
+  const sources = configuredSources(process.env);
+  if (sources.length === 0) {
+    console.error(
+      'Chưa có khoá API ảnh. Thêm ít nhất một khoá vào backend/.env:\n' +
+        '  PIXABAY_API_KEY=...  (khuyên dùng, miễn phí tại https://pixabay.com/api/docs/)\n' +
+        '  PEXELS_API_KEY=...   (miễn phí tại https://www.pexels.com/api/)',
+    );
     process.exit(1);
   }
 
-  const args = process.argv.slice(2);
-  const retryMissing = args.includes('--retry-missing');
-  const limitIdx = args.indexOf('--limit');
-  const limit = limitIdx >= 0 ? Number(args[limitIdx + 1]) : Infinity;
+  const opts = parseArgs(process.argv.slice(2));
+  const limit = typeof opts.limit === 'string' ? Number(opts.limit) : Infinity;
+  const retryMissing = !!opts['retry-missing'];
+  // Cho phép ảnh minh hoạ chung (bát cháo, bát bún...) dùng lại cho nhiều món khi kho ảnh đã hết ảnh mới.
+  const share = !!opts.share;
+  const rejectFile = typeof opts.reject === 'string' ? opts.reject : undefined;
 
-  const recipes: SeedRecipe[] = JSON.parse(readFileSync(RECIPES_FILE, 'utf8'));
-  const ingredients: SeedIngredient[] = JSON.parse(readFileSync(INGREDIENTS_FILE, 'utf8'));
-  const ingredientName = new Map(ingredients.map((i) => [i.ingredient_id, i.ingredient_name]));
-  const map: ImageMap = existsSync(OUTPUT_FILE) ? JSON.parse(readFileSync(OUTPUT_FILE, 'utf8')) : {};
+  const dataSource = new DataSource(dataSourceOptions);
+  await dataSource.initialize();
+  let recipes: DbRecipe[];
+  try {
+    recipes = await loadDbRecipes(dataSource);
+  } finally {
+    await dataSource.destroy();
+  }
+  const order = recipes.map((r) => r.title);
+  const map: ImageMap = opts.fresh ? {} : loadMap();
+  if (opts.fresh) console.log('Chế độ fresh: bỏ toàn bộ kết quả cũ, tìm lại từ đầu.');
 
-  const usedIds = new Set<number>();
-  for (const entry of Object.values(map)) {
-    const id = entry ? photoIdFromUrl(entry.url) : null;
-    if (id) usedIds.add(id);
+  // Loại ảnh sai: nhớ id ảnh bị loại, đưa món về trạng thái chưa có ảnh để tìm lại.
+  const rejectedNow = new Set<string>();
+  if (rejectFile) {
+    if (!existsSync(rejectFile)) {
+      console.error(`Không thấy file ${rejectFile}`);
+      process.exit(1);
+    }
+    const titles = readFileSync(rejectFile, 'utf8')
+      .split(/\r?\n/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    for (const title of titles) {
+      const entry = map[title];
+      if (!hasImage(entry)) {
+        console.warn(`! Bỏ qua "${title}": không có trong recipe-images.json hoặc chưa có ảnh`);
+        continue;
+      }
+      map[title] = { url: null, rejected: [...(entry.rejected ?? []), entry.candidate_id] };
+      rejectedNow.add(title);
+    }
+    saveMap(map, order);
+    console.log(`Đã loại ${rejectedNow.size} ảnh, giờ tìm ảnh khác cho các món đó.`);
   }
 
-  const todo = recipes.filter((r) => !(r.title in map) || (retryMissing && map[r.title] === null));
-  console.log(`Có ${recipes.length} món, ${todo.length} món cần tìm ảnh.`);
+  const usedIds = new Set(Object.values(map).filter(hasImage).map((e) => e.candidate_id));
+  // Món đã có ảnh do admin/người dùng tự chọn (không phải ảnh seed) thì không đụng tới.
+  const eligible = recipes.filter((r) => !r.image_url?.trim() || isSeedImageUrl(r.image_url));
+  const todo = eligible.filter((r) => {
+    const entry = map[r.title];
+    if (!entry) return true;
+    return !entry.url && (retryMissing || rejectedNow.has(r.title));
+  });
+  console.log(
+    `DB có ${recipes.length} món, ${eligible.length} món chưa có ảnh riêng, ${todo.length} món cần tìm ảnh. ` +
+      `Nguồn: ${sources.map((s) => s.provider).join(', ')}.`,
+  );
 
-  let found = 0;
-  let missing = 0;
+  const active: ImageSource[] = [...sources];
+  const stats: Record<ImageMatch | 'missing' | 'shared', number> = { exact: 0, similar: 0, generic: 0, missing: 0, shared: 0 };
   let processed = 0;
+  let stoppedBy: RateLimitReached | null = null;
 
   try {
-    for (const recipe of todo) {
-      if (processed >= limit) break;
-      processed++;
+    outer: for (const recipe of todo) {
+      if (processed >= limit || active.length === 0) break;
 
-      // Lần 1: tìm theo tên món. Lần 2: tìm theo nguyên liệu chính (khối lượng lớn nhất, không tuỳ chọn).
-      const main = [...recipe.ingredients]
-        .filter((i) => !i.is_optional)
-        .sort((a, b) => b.quantity - a.quantity)[0];
-      const queries = [recipe.title, main ? ingredientName.get(main.ingredient_id) : undefined].filter(
-        (q): q is string => !!q,
-      );
+      const rejected = new Set(map[recipe.title]?.rejected ?? []);
+      let chosen: { candidate: ImageCandidate; attempt: Attempt } | null = null;
 
-      let entry: RecipeImageEntry | null = null;
-      for (const query of queries) {
-        let photos: PexelsPhoto[];
-        try {
-          photos = await searchPexels(apiKey, query);
-        } catch (err) {
-          if (err instanceof RateLimitReached) {
-            const last = (err as RateLimitReached & { photos?: PexelsPhoto[] }).photos;
-            const photo = last ? pickPhoto(last, recipe.diet_type, usedIds) : null;
-            if (photo) {
-              map[recipe.title] = toEntry(photo, query);
-              usedIds.add(photo.id);
-              found++;
+      attempts: for (const attempt of buildAttempts(recipe.title, recipe.main_ingredient)) {
+        for (const source of [...active]) {
+          // Pexels luôn trả mô tả tiếng Anh: không dùng cho lượt tìm tiếng Việt (không kiểm được độ khớp).
+          if (attempt.lang === 'vi' && !source.localizedTags) continue;
+          let candidates: ImageCandidate[];
+          try {
+            candidates = await source.search(attempt.query, attempt.lang);
+            if (source.provider === 'pixabay') await sleep(PIXABAY_DELAY_MS);
+          } catch (err) {
+            if (err instanceof RateLimitReached) {
+              active.splice(active.indexOf(source), 1);
+              stoppedBy = err;
+              console.log(`  (hết lượt ${source.provider}${active.length ? ', chuyển nguồn khác' : ''})`);
+              if (active.length === 0) break outer; // món này chưa tìm xong, lần sau làm lại
+              continue;
             }
+            throw err;
           }
-          throw err;
-        }
-        const photo = pickPhoto(photos, recipe.diet_type, usedIds);
-        if (photo) {
-          entry = toEntry(photo, query);
-          usedIds.add(photo.id);
-          break;
+          const ok = candidates.filter(
+            (c) => !rejected.has(c.id) && isAcceptable(c, recipe.diet_type) && isRelevant(c, attempt),
+          );
+          // Ưu tiên ảnh chưa món nào dùng. Hết ảnh mới: món đúng tên được dùng lại; ảnh minh hoạ chung chỉ dùng lại khi bật share.
+          const fresh = ok.find((c) => !usedIds.has(c.id));
+          const reuse = attempt.match === 'exact' || (share && attempt.match === 'generic') ? ok[0] : undefined;
+          const candidate = fresh ?? reuse;
+          if (candidate) {
+            chosen = { candidate, attempt };
+            break attempts;
+          }
         }
       }
 
-      map[recipe.title] = entry;
-      if (entry) found++;
-      else missing++;
-
-      console.log(`${entry ? '✓' : '✗'} ${recipe.title}${entry ? `  ←  "${entry.query}"` : ''}`);
-      if (processed % 10 === 0) save(recipes, map);
+      processed++;
+      if (chosen) {
+        const { candidate: c, attempt } = chosen;
+        const entry: RecipeImageEntry = {
+          url: c.url,
+          original_url: c.url,
+          candidate_id: c.id,
+          provider: c.provider,
+          source_url: c.source_url,
+          author: c.author,
+          author_url: c.author_url,
+          description: c.description,
+          query: attempt.query,
+          match: attempt.match,
+          ...(usedIds.has(c.id) && attempt.match === 'generic' ? { shared: true } : {}),
+          ...(rejected.size ? { rejected: [...rejected] } : {}),
+        };
+        map[recipe.title] = entry;
+        usedIds.add(c.id);
+        stats[attempt.match]++;
+        if (entry.shared) stats.shared++;
+        console.log(`✓ [${attempt.match}${entry.shared ? ', dùng chung' : ''}] ${recipe.title}  ←  "${attempt.query}"`);
+      } else {
+        map[recipe.title] = { url: null, ...(rejected.size ? { rejected: [...rejected] } : {}) };
+        stats.missing++;
+        console.log(`✗ ${recipe.title}`);
+      }
+      if (processed % 10 === 0) saveMap(map, order);
     }
-  } catch (err) {
-    save(recipes, map);
-    if (err instanceof RateLimitReached) {
-      const when = err.resetAt ? err.resetAt.toLocaleTimeString('vi-VN') : 'khoảng 1 giờ nữa';
-      console.log(`\nHết lượt gọi Pexels (200 request/giờ). Đã lưu tiến độ, chạy lại lệnh sau ${when} để làm tiếp.`);
-      console.log(`Lần này: ${found} món có ảnh, ${missing} món không tìm được.`);
-      return;
-    }
-    throw err;
+  } finally {
+    // Lỗi giữa chừng (mất mạng lâu, khoá API sai...) vẫn giữ được tiến độ đã tìm.
+    saveMap(map, order);
   }
-
-  save(recipes, map);
-  const total = Object.values(map).filter(Boolean).length;
-  console.log(`\nXong: lần này ${found} món có ảnh, ${missing} món không tìm được. Tổng ${total}/${recipes.length} món có ảnh.`);
-  console.log('Tiếp theo: kiểm tra lại recipe-images.json rồi chạy `npm run images:apply` để gắn ảnh vào DB.');
+  const total = Object.values(map).filter(hasImage).length;
+  console.log(
+    `\nLần này: ${stats.exact} đúng món, ${stats.similar} gần đúng, ${stats.generic} minh hoạ chung (${stats.shared} dùng chung), ${stats.missing} không có ảnh phù hợp.` +
+      ` Tổng ${total}/${eligible.length} món có ảnh.`,
+  );
+  if (active.length === 0 && stoppedBy) {
+    const when = stoppedBy.resetAt ? stoppedBy.resetAt.toLocaleTimeString('vi-VN') : 'một lúc nữa';
+    console.log(`Hết lượt gọi API. Đã lưu tiến độ, chạy lại lệnh sau ${when} để làm tiếp.`);
+  } else {
+    console.log('Tiếp theo: `npm run images:review` để xem lại ảnh trước khi đưa lên Cloudinary.');
+  }
 }
 
-main().catch((err) => {
-  console.error('Lấy ảnh thất bại:', err instanceof Error ? err.message : err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('Lấy ảnh thất bại:', err instanceof Error ? err.message : err);
+    process.exit(1);
+  });
+}

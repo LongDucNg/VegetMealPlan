@@ -11,6 +11,8 @@ import { UserRecipePrice } from './entities/user-recipe-price.entity';
 import { RecipeService } from './recipe.service';
 import { RecipeController } from './recipe.controller';
 import { RecipeValidatorService } from './recipe-validator.service';
+import { RecipeImageService } from './recipe-image.service';
+import { MediaModule } from '../media/media.module';
 import { UserFavoriteRecipeController } from './user-favorite-recipe.controller';
 import { UserRecipePriceController } from './user-recipe-price.controller';
 import { AdminRecipeController } from './admin-recipe.controller';
@@ -35,6 +37,7 @@ import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
       NutritionInfo
     ]),
     IngredientModule,
+    MediaModule,
   ],
   controllers: [
     RecipeController,
@@ -42,7 +45,7 @@ import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
     UserRecipePriceController,
     AdminRecipeController,
   ],
-  providers: [RecipeService, RecipeValidatorService],
+  providers: [RecipeService, RecipeValidatorService, RecipeImageService],
   exports: [RecipeService, RecipeValidatorService, TypeOrmModule],
 })
-export class RecipeModule { }
+export class RecipeModule { }

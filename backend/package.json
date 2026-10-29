@@ -21,6 +21,8 @@
     "migration:revert": "npm run typeorm -- -d src/config/typeorm.config.ts migration:revert",
     "seed": "ts-node src/database/seeds/run-seed.ts",
     "images:fetch": "ts-node src/database/scripts/fetch-recipe-images.ts",
+    "images:review": "ts-node src/database/scripts/review-recipe-images.ts",
+    "images:cloudinary": "ts-node src/database/scripts/upload-recipe-images.ts",
     "images:apply": "ts-node src/database/scripts/apply-recipe-images.ts"
   },
   "dependencies": {
