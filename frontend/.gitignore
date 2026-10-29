@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# build lo chay nham trong thu muc frontend/frontend (da tung bi commit 2 lan)
+/frontend/
