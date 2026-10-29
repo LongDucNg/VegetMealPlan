@@ -1,11 +1,12 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, Put, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CategoryService } from './category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
-import { PositiveIntPipe } from './dto/validators/positive-int.pipe';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
+import { ErrorCode } from '../../common/constants/error-codes.enum';
 import { UserRole } from '../users/entities/user.entity';
 
 // Quản lý danh mục cho Admin (hợp đồng API: /admin/categories). Đọc công khai vẫn ở GET /categories.
@@ -32,7 +33,10 @@ export class AdminCategoryController {
   @ApiOperation({ summary: 'Admin: cập nhật danh mục' })
   update(@Param('id', PositiveIntPipe) id: number, @Body() dto: UpdateCategoryDto) {
     if (!dto || Object.keys(dto).length === 0) {
-      throw new BadRequestException('Vui lòng cung cấp thông tin cần cập nhật');
+      throw new BadRequestException({
+        code: ErrorCode.VALIDATION_FAILED,
+        message: 'Vui lòng cung cấp thông tin cần cập nhật',
+      });
     }
     return this.categoryService.update(id, dto);
   }

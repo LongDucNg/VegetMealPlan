@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { BmiCategory } from './entities/user.entity';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
 import { BODY_LIMITS } from './body-limits';
 import { SAFE_GAIN_PER_WEEK, SAFE_LOSS_PER_WEEK } from './nutrition-advice';
@@ -380,12 +381,13 @@ export interface GoalAssessment {
   duration_defaulted?: boolean;
 }
 
-const BMI_CATEGORY = (bmi: number) => {
-  if (bmi < 18.5) return 'underweight';
-  if (bmi < 25) return 'normal';
-  if (bmi < 30) return 'overweight';
-  return 'obese';
-};
+/** Phân loại BMI theo WHO (dùng chung cho hồ sơ và đánh giá mục tiêu). */
+export function classifyBmi(bmi: number): BmiCategory {
+  if (bmi < 18.5) return BmiCategory.UNDERWEIGHT;
+  if (bmi < 25) return BmiCategory.NORMAL;
+  if (bmi < 30) return BmiCategory.OVERWEIGHT;
+  return BmiCategory.OBESE;
+}
 
 const isFiniteNumber = (v: unknown): v is number =>
   typeof v === 'number' && Number.isFinite(v);
@@ -497,7 +499,7 @@ export function assessWeightGoal(
 
   const m = profile.height_cm / 100;
   const bmi = Number((current / (m * m)).toFixed(2));
-  const bmi_category = BMI_CATEGORY(bmi);
+  const bmi_category = classifyBmi(bmi);
 
   const change_kg = Number((target - current).toFixed(2));
   const weeks = durationDays / 7;
