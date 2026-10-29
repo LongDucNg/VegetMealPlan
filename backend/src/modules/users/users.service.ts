@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository, DataSource } from 'typeorm';
-import { BmiCategory, User, UserRole, UserStatus } from './entities/user.entity';
+import { User, UserRole, UserStatus } from './entities/user.entity';
 import { HealthGoal } from '../health-goal/entities/health-goal.entity';
 import { HEALTH_GOAL_DEFINITIONS } from '../health-goal/health-goal.service';
 import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
@@ -14,10 +14,9 @@ import { ErrorCode } from '../../common/constants/error-codes.enum';
 import { bmiGoalWarnings, ExplanationStep, fmt, goalLabel, goalProgress, NutritionWarning } from './nutrition-advice';
 import {
   ACTIVITY_LABEL,
-  assessWeightGoal,
   assertCompleteProfile,
-  assertValidGoalInput,
   CALORIE_FLOOR,
+  classifyBmi,
   computeEnergy,
   DailyCalorieTarget,
   GoalAssessment,
@@ -27,8 +26,7 @@ import {
   MEAL_SPLIT,
   ProfileMetrics,
   resolveDailyCalorieTarget,
-  resolveGoalPlan,
-  WeightGoalDirection,
+  resolveWeightGoalAssessment,
 } from './weight-goal.util';
 import { WeightGoalDto } from './dto/weight-goal.dto';
 
@@ -190,7 +188,7 @@ export class UsersService {
       user.weight_kg = weight;
       const m = height / 100;
       user.bmi = Number((weight / (m * m)).toFixed(2));
-      user.bmi_category = this.classifyBmi(user.bmi);
+      user.bmi_category = classifyBmi(user.bmi);
       user.bmi_updated_at = new Date();
     }
 
@@ -386,13 +384,6 @@ export class UsersService {
     };
   }
 
-  classifyBmi(bmi: number): BmiCategory {
-    if (bmi < 18.5) return BmiCategory.UNDERWEIGHT;
-    if (bmi < 25) return BmiCategory.NORMAL;
-    if (bmi < 30) return BmiCategory.OVERWEIGHT;
-    return BmiCategory.OBESE;
-  }
-
   // =========================================================
   // MỤC TIÊU CÂN NẶNG → TÍNH KCAL → ĐÁNH GIÁ AN TOÀN
   // =========================================================
@@ -430,75 +421,23 @@ export class UsersService {
    */
   async assessGoal(user_id: number, dto: WeightGoalDto): Promise<GoalAssessment> {
     const user = await this.findOne(user_id);
-
-    const clientExplicitDirection = dto.direction ?? null;
-    const clientHasWeights =
-      dto.current_weight_kg !== undefined && dto.target_weight_kg !== undefined;
-
-    // Chốt mục tiêu cân nặng bằng quy tắc dùng chung với luồng sinh thực đơn:
-    //   - `direction` client gửi thắng tuyệt đối.
-    //   - Cân nặng mục tiêu CŨ trong hồ sơ không ghi đè lựa chọn mới.
-    const plan = resolveGoalPlan({
-      clientCurrentWeight: dto.current_weight_kg ?? null,
-      clientTargetWeight: dto.target_weight_kg ?? null,
-      clientDurationDays: dto.duration_days ?? null,
-      clientDirection: clientExplicitDirection,
-      profileCurrentWeight: user.weight_kg ?? null,
-      profileTargetWeight: user.target_weight_kg ?? null,
-      profileTargetDate: user.target_date ?? null,
-      profileHealthGoalName: user.current_goal?.name ?? null,
-    });
-
-    const direction = plan.direction;
-    const current = plan.current_weight_kg;
-    const target = plan.target_weight_kg;
-    const durationDays = plan.duration_days;
-
-    // Chế độ duy trì đến từ hồ sơ -> bỏ qua cân nặng mục tiêu tồn đọng,
-    // dùng chính cân nặng hiện tại làm "mục tiêu" (không thâm hụt/thặng dư).
-    const maintainFromProfile =
-      direction === 'maintain' && !clientExplicitDirection && !clientHasWeights;
-    const effectiveTarget = maintainFromProfile ? current : target;
-
-    if (current == null || effectiveTarget == null || durationDays == null) {
+    // Chung một hàm với lập thực đơn (resolveWeightGoalAssessment) để hai nơi không lệch nhau.
+    const assessment = resolveWeightGoalAssessment(
+      {
+        ...this.profileMetrics(user),
+        target_weight_kg: user.target_weight_kg ?? null,
+        target_date: user.target_date ?? null,
+        current_goal_name: user.current_goal?.name ?? null,
+      },
+      dto,
+    );
+    if (!assessment) {
       throw new BadRequestException({
         code: ErrorCode.WEIGHT_GOAL_INVALID,
         message:
           'Thiếu dữ liệu mục tiêu cân nặng: cần cân nặng hiện tại, cân nặng mục tiêu và thời gian đạt mục tiêu (số ngày).',
       });
     }
-
-    assertValidGoalInput({
-      current_weight_kg: current,
-      target_weight_kg: effectiveTarget,
-      duration_days: durationDays,
-      direction: direction as WeightGoalDirection,
-    });
-
-    const metrics = this.profileMetrics(user);
-    const assessment = assessWeightGoal(
-      {
-        current_weight_kg: current!,
-        target_weight_kg: effectiveTarget!,
-        duration_days: durationDays!,
-        direction: direction as WeightGoalDirection,
-      },
-      metrics,
-    );
-
-    if (!assessment.valid) {
-      throw new BadRequestException({
-        code: ErrorCode.WEIGHT_GOAL_UNSAFE,
-        message: assessment.message,
-        suggestion: assessment.suggestion,
-      });
-    }
-
-    // Gắn cảnh báo từ quá trình chốt mục tiêu (vd. bỏ qua cân nặng mục tiêu cũ).
-    if (plan.warnings.length > 0) {
-      assessment.warnings = [...plan.warnings, ...assessment.warnings];
-    }
-
     return assessment;
   }
 
@@ -553,12 +492,7 @@ export class UsersService {
    * Xóa sạch các dữ liệu liên quan trong transaction để không bị vi phạm ràng buộc Foreign Key.
    */
   async deleteMember(adminId: number, targetUserId: number) {
-    if (adminId === targetUserId) {
-      throw new BadRequestException({
-        code: ErrorCode.USER_CANNOT_MODIFY_SELF,
-        message: 'Không thể tự xóa tài khoản của chính mình',
-      });
-    }
+    this.assertNotSelf(adminId, targetUserId, 'Không thể tự xóa tài khoản của chính mình');
     const user = await this.findOne(targetUserId);
 
     await this.dataSource.transaction(async (manager) => {
@@ -629,12 +563,13 @@ export class UsersService {
   }
 
   /** Không cho admin tự khóa hoặc tự hạ quyền chính mình (tránh hệ thống không còn admin nào). */
-  private assertNotSelf(adminId: number, targetId: number) {
+  private assertNotSelf(
+    adminId: number,
+    targetId: number,
+    message = 'Không thể tự thay đổi trạng thái hoặc vai trò của chính mình',
+  ) {
     if (adminId === targetId) {
-      throw new BadRequestException({
-        code: ErrorCode.USER_CANNOT_MODIFY_SELF,
-        message: 'Không thể tự thay đổi trạng thái hoặc vai trò của chính mình',
-      });
+      throw new BadRequestException({ code: ErrorCode.USER_CANNOT_MODIFY_SELF, message });
     }
   }
 

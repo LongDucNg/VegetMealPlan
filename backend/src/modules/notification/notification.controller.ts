@@ -1,21 +1,21 @@
 import { ApiBearerAuth } from '@nestjs/swagger';
-import { Controller, Get, Param, Patch, Req, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Controller, Get, Param, Patch } from '@nestjs/common';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
 import { NotificationService } from './notification.service';
 
-@UseGuards(AuthGuard('jwt'))
 @ApiBearerAuth()
 @Controller('notifications')
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
   @Get()
-  list(@Req() req: any) {
-    return this.notificationService.listForUser(req.user.user_id);
+  list(@CurrentUser('user_id') userId: number) {
+    return this.notificationService.listForUser(userId);
   }
 
   @Patch(':id/read')
-  markRead(@Param('id') id: string) {
-    return this.notificationService.markRead(Number(id));
+  markRead(@CurrentUser('user_id') userId: number, @Param('id', PositiveIntPipe) id: number) {
+    return this.notificationService.markRead(userId, id);
   }
 }

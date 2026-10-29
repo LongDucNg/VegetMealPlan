@@ -1,13 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { UsageQuota, UsageActionType } from './entities/usage-quota.entity';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
-
-function startOfCurrentMonth(): Date {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1);
-}
 
 /**
  * Tính thời điểm bắt đầu ngày hiện tại theo múi giờ Việt Nam (UTC+7, 00:00).
@@ -25,15 +19,28 @@ export function startOfCurrentDayVN(): Date {
 
 @Injectable()
 export class UsageQuotaService {
-  constructor(
-    @InjectRepository(UsageQuota)
-    private readonly quotaRepo: Repository<UsageQuota>,
-    private readonly dataSource: DataSource,
-  ) {}
+  constructor(private readonly dataSource: DataSource) {}
+
+  /**
+   * Khoá advisory theo (actor, action) trong giao dịch hiện tại rồi đọc dòng hạn mức.
+   * reserveQuota và refundQuota dùng chung để 2 request đồng thời không cùng đọc một số lượt.
+   */
+  private async lockAndFind(
+    manager: EntityManager,
+    actor: { user_id?: number; session_id?: string },
+    action_type: UsageActionType,
+  ): Promise<UsageQuota | null> {
+    const actorKey = actor.user_id ? `u_${actor.user_id}` : `s_${actor.session_id}`;
+    await manager.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`quota_${actorKey}_${action_type}`]);
+    const where = actor.user_id
+      ? { user_id: actor.user_id, action_type }
+      : { session_id: actor.session_id, action_type };
+    return manager.findOne(UsageQuota, { where });
+  }
 
   /**
    * Giữ chỗ lượt nguyên tử cho 1 actor (user_id XOR session_id).
-   * Dùng khoá PostgreSQL advisory lock theo lockKey để đảm bảo 2 request gửi đồng thời
+   * Dùng khoá PostgreSQL advisory lock theo (actor, action) để đảm bảo 2 request gửi đồng thời
    * ở lượt cuối chỉ có 1 request thành công, chống race condition.
    * Thất bại ném 429 CHATBOT_QUOTA_EXCEEDED.
    */
@@ -49,18 +56,9 @@ export class UsageQuotaService {
     }
 
     const currentPeriod = startOfCurrentDayVN();
-    const actorKey = user_id ? `u_${user_id}` : `s_${session_id}`;
-    const lockKey = `quota_${actorKey}_${action_type}`;
 
     return await this.dataSource.transaction(async (manager) => {
-      // Khoá mức giao dịch qua advisory lock của PostgreSQL
-      await manager.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [lockKey]);
-
-      const where = user_id
-        ? { user_id, action_type }
-        : { session_id, action_type };
-
-      let quota = await manager.findOne(UsageQuota, { where });
+      let quota = await this.lockAndFind(manager, { user_id, session_id }, action_type);
 
       if (!quota) {
         quota = manager.create(UsageQuota, {
@@ -122,91 +120,12 @@ export class UsageQuotaService {
     const { user_id, session_id, action_type } = params;
     if (!user_id && !session_id) return;
 
-    const actorKey = user_id ? `u_${user_id}` : `s_${session_id}`;
-    const lockKey = `quota_${actorKey}_${action_type}`;
-
     await this.dataSource.transaction(async (manager) => {
-      await manager.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [lockKey]);
-
-      const where = user_id
-        ? { user_id, action_type }
-        : { session_id, action_type };
-
-      const quota = await manager.findOne(UsageQuota, { where });
+      const quota = await this.lockAndFind(manager, { user_id, session_id }, action_type);
       if (quota && quota.usage_count > 0) {
         quota.usage_count -= 1;
         await manager.save(UsageQuota, quota);
       }
     });
-  }
-
-  /**
-   * Lấy số lượt còn lại của actor trong ngày hiện tại.
-   */
-  async getRemainingQuota(params: {
-    user_id?: number;
-    session_id?: string;
-    action_type: UsageActionType;
-    limit: number;
-  }): Promise<number> {
-    const { user_id, session_id, action_type, limit } = params;
-    if (!user_id && !session_id) return 0;
-
-    const where = user_id
-      ? { user_id, action_type }
-      : { session_id, action_type };
-
-    const quota = await this.quotaRepo.findOne({ where });
-    const currentPeriod = startOfCurrentDayVN();
-    if (!quota || quota.period_start.getTime() < currentPeriod.getTime()) {
-      return limit;
-    }
-    return Math.max(0, limit - quota.usage_count);
-  }
-
-  /**
-   * Phương thức cũ (giữ tương thích ngược với các module khác nếu có dùng chu kỳ tháng).
-   */
-  async checkAndIncrement(params: {
-    user_id?: number;
-    session_id?: string;
-    action_type: UsageActionType;
-    limit: number;
-  }): Promise<void> {
-    const { user_id, session_id, action_type, limit } = params;
-    if (!user_id && !session_id) {
-      throw new Error('checkAndIncrement cần user_id hoặc session_id');
-    }
-
-    const where = user_id ? { user_id, action_type } : { session_id, action_type };
-    let quota = await this.quotaRepo.findOne({ where });
-
-    const currentPeriod = startOfCurrentMonth();
-    if (!quota) {
-      quota = this.quotaRepo.create({
-        user_id,
-        session_id,
-        action_type,
-        usage_count: 0,
-        period_start: currentPeriod,
-      });
-    } else if (quota.period_start.getTime() < currentPeriod.getTime()) {
-      quota.usage_count = 0;
-      quota.period_start = currentPeriod;
-    }
-
-    if (quota.usage_count >= limit) {
-      throw new HttpException(
-        {
-          code: ErrorCode.CHATBOT_QUOTA_EXCEEDED,
-          message:
-            'Bạn đã dùng hết lượt trong chu kỳ này. Nâng cấp gói Premium để dùng không giới hạn.',
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
-    quota.usage_count += 1;
-    await this.quotaRepo.save(quota);
   }
 }
