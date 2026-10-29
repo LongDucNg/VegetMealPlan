@@ -20,6 +20,11 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'images.pexels.com',
       },
+      {
+        // Ảnh món ăn người dùng/admin tải lên (backend: POST /recipes/:id/image)
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      },
     ],
   },
 };
