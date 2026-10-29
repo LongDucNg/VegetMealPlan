@@ -13,7 +13,6 @@ import { PAYMENT_LINK_TTL_MINUTES, VnpayService } from './vnpay.service';
 
 const PLAN_TYPE = 'monthly';
 const PLAN_DURATION_DAYS = 30;
-const EXPIRING_SOON_DAYS = 3;
 
 /** Mã phản hồi IPN theo tài liệu VNPay. VNPay chỉ ngừng gọi lại khi nhận 00 hoặc 02. */
 export const IPN = {
@@ -69,12 +68,12 @@ export class SubscriptionService {
 
   /** User đang có gói premium còn hiệu lực không (dùng ở chatbot, thực đơn cho người thân...). */
   async isPremium(user_id: number): Promise<boolean> {
-    const user = await this.userRepo.findOne({ where: { user_id } });
-    return !!user?.premium_until && user.premium_until.getTime() > Date.now();
+    return (await this.premiumStatus(user_id)).isPremium;
   }
 
+  /** Premium tính theo users.premium_until (gói mua một lần, cộng dồn), chỉ đọc đúng cột cần. */
   async premiumStatus(user_id: number) {
-    const user = await this.userRepo.findOne({ where: { user_id } });
+    const user = await this.userRepo.findOne({ where: { user_id }, select: { user_id: true, premium_until: true } });
     const premium_until = user?.premium_until ?? null;
     return { isPremium: !!premium_until && premium_until.getTime() > Date.now(), premium_until };
   }
@@ -238,60 +237,5 @@ export class SubscriptionService {
       ref_id: subscription.subscription_id,
     });
     return saved;
-  }
-
-  /**
-   * Chạy định kỳ (cron, TODO gắn @nestjs/schedule): báo trước EXPIRING_SOON_DAYS ngày, không báo lặp lại.
-   */
-  async notifyExpiringSoon(): Promise<void> {
-    const threshold = new Date();
-    threshold.setDate(threshold.getDate() + EXPIRING_SOON_DAYS);
-
-    const expiringSoon = await this.subscriptionRepo
-      .createQueryBuilder('s')
-      .where('s.status = :status', { status: SubscriptionStatus.ACTIVE })
-      .andWhere('s.end_date <= :threshold', { threshold })
-      .getMany();
-
-    for (const sub of expiringSoon) {
-      const alreadyNotified = await this.notificationService.existsFor(
-        'subscription',
-        sub.subscription_id,
-        NotificationType.SUBSCRIPTION_EXPIRING,
-      );
-      if (alreadyNotified) continue;
-
-      await this.notificationService.create({
-        user_id: sub.user_id,
-        type: NotificationType.SUBSCRIPTION_EXPIRING,
-        title: 'Gói Premium sắp hết hạn',
-        message: `Gói của bạn hết hạn ngày ${new Date(sub.end_date).toLocaleDateString('vi-VN')}. Hệ thống KHÔNG tự động gia hạn.`,
-        ref_type: 'subscription',
-        ref_id: sub.subscription_id,
-      });
-    }
-  }
-
-  /** Chạy định kỳ: chuyển subscription quá hạn thành 'expired' và báo cho user. */
-  async expireOverdueSubscriptions(): Promise<void> {
-    const overdue = await this.subscriptionRepo
-      .createQueryBuilder('s')
-      .where('s.status = :status', { status: SubscriptionStatus.ACTIVE })
-      .andWhere('s.end_date < :now', { now: new Date() })
-      .getMany();
-
-    for (const sub of overdue) {
-      sub.status = SubscriptionStatus.EXPIRED;
-      await this.subscriptionRepo.save(sub);
-
-      await this.notificationService.create({
-        user_id: sub.user_id,
-        type: NotificationType.SUBSCRIPTION_EXPIRED,
-        title: 'Gói Premium đã hết hạn',
-        message: 'Bạn vẫn xem được dữ liệu cũ nhưng không tạo mới được nữa. Gia hạn để tiếp tục dùng Premium.',
-        ref_type: 'subscription',
-        ref_id: sub.subscription_id,
-      });
-    }
   }
 }

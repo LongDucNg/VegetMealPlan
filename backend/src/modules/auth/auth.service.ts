@@ -103,9 +103,7 @@ export class AuthService {
 
     // Kiểm tra khoá SAU khi đúng mật khẩu: người không biết mật khẩu không dò được tài khoản nào đang bị khoá.
 
-    if (user.status === UserStatus.LOCKED) {
-      throw new UnauthorizedException({ code: ErrorCode.AUTH_ACCOUNT_LOCKED, message: 'Tài khoản đã bị khóa' });
-    }
+    assertNotLocked(user);
 
     // Cũng kiểm SAU khi đúng mật khẩu, vì cùng lý do trên. Gửi luôn mã mới để FE chuyển thẳng sang màn nhập OTP.
     if (!user.email_verified_at) {
@@ -131,9 +129,7 @@ export class AuthService {
 
     const user = await this.findByEmail(email);
     if (!user) throw new BadRequestException({ code: ErrorCode.AUTH_OTP_INVALID, message: 'Mã xác minh không đúng' });
-    if (user.status === UserStatus.LOCKED) {
-      throw new UnauthorizedException({ code: ErrorCode.AUTH_ACCOUNT_LOCKED, message: 'Tài khoản đã bị khóa' });
-    }
+    assertNotLocked(user);
 
     if (!user.email_verified_at) {
       user.email_verified_at = new Date();
@@ -221,9 +217,7 @@ export class AuthService {
       }
     }
 
-    if (user.status === UserStatus.LOCKED) {
-      throw new UnauthorizedException({ code: ErrorCode.AUTH_ACCOUNT_LOCKED, message: 'Tài khoản đã bị khóa' });
-    }
+    assertNotLocked(user);
 
     return this.googleCodes.issue(user.user_id, isNewUser);
   }
@@ -236,9 +230,7 @@ export class AuthService {
 
     const user = await this.userRepo.findOne({ where: { user_id: pending.userId } });
     if (!user) throw new UnauthorizedException(invalid);
-    if (user.status === UserStatus.LOCKED) {
-      throw new UnauthorizedException({ code: ErrorCode.AUTH_ACCOUNT_LOCKED, message: 'Tài khoản đã bị khóa' });
-    }
+    assertNotLocked(user);
 
     return { ...(await this.issueTokens(user, meta)), is_new_user: pending.isNewUser };
   }
@@ -382,4 +374,11 @@ export class AuthService {
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+/** Tài khoản bị admin khoá thì không đăng nhập/làm mới token/xác thực được. */
+function assertNotLocked(user: Pick<User, 'status'>): void {
+  if (user.status === UserStatus.LOCKED) {
+    throw new UnauthorizedException({ code: ErrorCode.AUTH_ACCOUNT_LOCKED, message: 'Tài khoản đã bị khóa' });
+  }
 }
