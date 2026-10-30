@@ -136,25 +136,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState(SAMPLE_PRESET_IMAGES[0].url);
   const [videoUrl, setVideoUrl] = useState("");
-  const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      setUploadingImage(true);
-      const res = await recipeApiService.uploadMedia(file);
-      const fullUrl = (res as any)?.data?.url || res?.url;
-      if (fullUrl) {
-        setImageUrl(fullUrl);
-      }
-    } catch (err: any) {
-      alert("Lỗi khi tải ảnh: " + (err.message || "Không thể tải file lên"));
-    } finally {
-      setUploadingImage(false);
-    }
-  };
 
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -173,6 +155,37 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
     }
   };
 
+  // Ảnh chọn từ máy: tải lên Cloudinary SAU khi tạo món (POST /recipes/:id/image), imageUrl lúc đó chỉ để xem trước.
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageWarning, setImageWarning] = useState("");
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const clearImageFile = () => {
+    setImageFile(null);
+    if (imageUrl.startsWith("blob:")) URL.revokeObjectURL(imageUrl);
+  };
+
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setErrorMsg("Ảnh món chỉ nhận JPG, PNG hoặc WEBP.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg("Ảnh món tối đa 5 MB.");
+      return;
+    }
+    clearImageFile();
+    setImageFile(file);
+    setImageUrl(URL.createObjectURL(file));
+  };
+
+  const pickImageUrl = (url: string) => {
+    clearImageFile();
+    setImageUrl(url);
+  };
 
   // Gộp trưa/tối thành 1 lựa chọn "any" (Trưa & Tối)
   const [mealType, setMealType] = useState<string>("any");
@@ -549,7 +562,8 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
       title: title.trim(),
       description: description.trim() || undefined,
       instructions: instructionsText,
-      image_url: imageUrl.trim() || undefined,
+      // Ảnh từ máy được tải lên riêng sau khi tạo món, không gửi link blob: tạm của trình duyệt.
+      image_url: imageFile ? undefined : imageUrl.trim() || undefined,
       video_url: videoUrl.trim() || undefined,
       prep_time: Math.max(0, Number(prepTime) || 0),
       cook_time: Math.max(0, Number(cookTime) || 0),
@@ -572,6 +586,18 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
     try {
       const res = await recipeApiService.createRecipe(payload);
       const data = res?.data || res;
+      const newId = data?.recipe_id ?? data?.id;
+      if (imageFile && newId) {
+        try {
+          const uploaded: any = await recipeApiService.uploadRecipeImage(newId, imageFile);
+          data.image_url = uploaded?.data?.image_url ?? uploaded?.image_url ?? data.image_url;
+        } catch (uploadErr: any) {
+          // Món đã tạo xong, chỉ ảnh lỗi: báo để người dùng đổi ảnh sau, không coi cả lần tạo là thất bại.
+          setImageWarning(
+            `Công thức đã tạo nhưng chưa tải được ảnh: ${uploadErr?.message || "lỗi không xác định"}. Bạn có thể đổi ảnh sau.`,
+          );
+        }
+      }
       setSuccessData(data);
     } catch (err: any) {
       const msg =
@@ -615,6 +641,13 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                   : "Cảm ơn bạn đã đóng góp công thức món chay cho VeggieHub! Công thức đang được chuyển tới Ban quản trị để kiểm duyệt trước khi đưa lên Thư viện công thức."}
               </p>
             </div>
+
+            {imageWarning && (
+              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-800 text-left flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{imageWarning}</span>
+              </div>
+            )}
 
             <div className="p-4 rounded-2xl bg-stone-50 border border-stone-100 text-xs text-stone-600 space-y-2 text-left max-w-md mx-auto">
               <div className="flex justify-between">
@@ -821,33 +854,57 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                 />
               </div>
 
-              {/* Image & Video Upload Section */}
+              {/* Image URL & Presets & Cloudinary Upload */}
               <div className="space-y-4">
-                {/* Image Section */}
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-stone-700">
-                      Ảnh món ăn
-                    </label>
-                    <label className={`text-xs px-3 py-1.5 rounded-xl border border-emerald-600 bg-emerald-50 text-emerald-800 font-bold hover:bg-emerald-100 cursor-pointer flex items-center gap-1.5 transition-all ${uploadingImage ? "opacity-50 pointer-events-none" : ""}`}>
-                      {uploadingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                      <span>{uploadingImage ? "Đang tải..." : "Tải ảnh từ máy"}</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-
+                  <label className="text-xs font-bold text-stone-700 flex items-center justify-between">
+                    <span>Ảnh món ăn (URL)</span>
+                    <span className="text-[11px] font-normal text-stone-400">
+                      Chọn nhanh ảnh mẫu bên dưới hoặc nhập link
+                    </span>
+                  </label>
                   <input
-                    type="text"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
+                    type="url"
+                    value={imageFile ? "" : imageUrl}
+                    disabled={!!imageFile}
+                    onChange={(e) => pickImageUrl(e.target.value)}
                     placeholder="https://images.unsplash.com/photo-..."
                     className="w-full px-4 py-2 text-xs rounded-2xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:outline-hidden focus:border-emerald-600 transition-all font-mono text-stone-600"
                   />
+
+                  {/* Tải ảnh từ máy lên Cloudinary */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={handleImageFileChange}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => imageInputRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-emerald-600 text-emerald-700 hover:bg-emerald-50 transition-colors"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      Tải ảnh từ máy
+                    </button>
+                    {imageFile ? (
+                      <span className="flex items-center gap-1.5 text-[11px] text-stone-600 min-w-0">
+                        <span className="truncate max-w-[180px]">{imageFile.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => pickImageUrl(SAMPLE_PRESET_IMAGES[0].url)}
+                          className="text-stone-400 hover:text-red-600"
+                          title="Bỏ ảnh đã chọn"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-stone-400">JPG, PNG, WEBP · tối đa 5 MB</span>
+                    )}
+                  </div>
 
                   {/* Preset image thumbnails */}
                   <div className="flex items-center gap-2 overflow-x-auto py-1">
@@ -855,7 +912,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                       <button
                         type="button"
                         key={idx}
-                        onClick={() => setImageUrl(preset.url)}
+                        onClick={() => pickImageUrl(preset.url)}
                         className={`relative w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
                           imageUrl === preset.url
                             ? "border-emerald-600 ring-2 ring-emerald-600/30"
@@ -1535,6 +1592,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                       src={imageUrl}
                       alt={title || "Công thức món"}
                       fill
+                      unoptimized={imageUrl.startsWith("blob:")}
                       className="object-cover"
                     />
                   ) : (
