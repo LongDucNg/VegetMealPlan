@@ -2,40 +2,136 @@ import { profileService } from "@/features/profile/services/profileService";
 import { formatVegetarianType, formatAllergies } from "@/features/profile/types";
 import { nutritionService } from "@/features/nutrition/services/nutritionService";
 import { recipeService } from "@/features/recipes/services/recipeService";
+import { checkRecipeAllergy } from "@/features/allergy/utils/checkRecipeAllergy";
 import { ChatbotMessage } from "../types";
 import { STATIC_KNOWLEDGE_BASE } from "../data/mockChatResponses";
 import { apiClient } from "@/lib/apiClient";
+import { tokenStorage } from "@/lib/tokenStorage";
+
+export function cleanChatText(text: string): string {
+  if (!text) return "";
+  return text
+    // Bỏ tất cả emoji và biểu tượng icon Unicode
+    .replace(
+      /[\u{1F300}-\u{1FAFF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1F1E6}-\u{1F1FF}\u{200D}]/gu,
+      ""
+    )
+    // Bỏ các ký tự heading markdown ở đầu dòng: ###, ##, #
+    .replace(/^#{1,6}\s+/gm, "")
+    // Bỏ dấu gạch ngang ngăn cách thừa: --- ở đầu/cuối khối
+    .replace(/^[-*_]{3,}\s*$/gm, "")
+    // Chuyển dấu hoa thị gạch đầu dòng thành dấu gạch ngang: * item -> - item
+    .replace(/^(\s*)\*\s+/gm, (_match, p1) => `${p1}- `)
+    // Bỏ toàn bộ dấu sao * còn lại (bao gồm cả ** và *)
+    .replace(/\*/g, "")
+    // Chuyển dấu gạch đứng | thành dấu phẩy
+    .replace(/\s*\|\s*/g, ", ")
+    // Chuyển ký tự bullet • thành gạch đầu dòng -
+    .replace(/^\s*•\s*/gm, "- ")
+    .replace(/•/g, "")
+    // Chuẩn hóa dấu phẩy thừa và khoảng trắng
+    .replace(/\s+,/g, ",")
+    .replace(/,\s*,/g, ",")
+    .split("\n")
+    .map((line) => line.trim())
+    .join("\n")
+    // Chuẩn hóa tối đa 2 dòng ngắt liên tiếp
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function getOrCreateSessionId(): string {
+  if (typeof window === "undefined") return "guest-session";
+  let sId = localStorage.getItem("veggiehub_chatbot_session_id");
+  if (!sId) {
+    sId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    localStorage.setItem("veggiehub_chatbot_session_id", sId);
+  }
+  return sId;
+}
 
 export const chatbotService = {
   async processUserMessage(userText: string): Promise<ChatbotMessage> {
-    // 0. Try calling Backend AI Chatbot API
+    const sessionId = getOrCreateSessionId();
+
+    // 0. Gọi Backend AI Chatbot API (POST /api/v1/ai/chat)
     try {
-      const res = await apiClient.post<{ answer?: string; reply?: string; message?: string }>(
-        "/chatbot/ask",
-        { question: userText }
-      );
-      const aiText = res?.answer || res?.reply || res?.message;
+      const res = await apiClient.post<any>("/ai/chat", {
+        message: userText,
+        session_id: sessionId,
+      });
+
+      const data = res?.data || res;
+      const aiText = data?.answer || data?.reply || data?.message;
+
       if (aiText && !aiText.includes("AI dang tam thoi khong phan hoi")) {
         return {
           id: `ai-${Date.now()}`,
           sender: "ai",
           timestamp: "Vừa xong",
-          text: aiText,
+          text: cleanChatText(aiText),
+          remaining_queries: data?.remaining_queries ?? null,
+          suggested_recipes: data?.suggested_recipes || [],
         };
       }
-    } catch {
-      // Backend AI unavailable or unauthenticated -> fall through to intelligent local nutritionist engine
+    } catch (err: any) {
+      // Nếu lỗi 401 do token hết hạn, xóa token và thử lại ngay với tư cách khách
+      if (err?.status === 401) {
+        tokenStorage.removeToken();
+        try {
+          const retryRes = await apiClient.post<any>("/ai/chat", {
+            message: userText,
+            session_id: sessionId,
+          });
+          const retryData = retryRes?.data || retryRes;
+          const retryText = retryData?.answer || retryData?.reply || retryData?.message;
+          if (retryText && !retryText.includes("AI dang tam thoi khong phan hoi")) {
+            return {
+              id: `ai-${Date.now()}`,
+              sender: "ai",
+              timestamp: "Vừa xong",
+              text: cleanChatText(retryText),
+              remaining_queries: retryData?.remaining_queries ?? null,
+              suggested_recipes: retryData?.suggested_recipes || [],
+            };
+          }
+        } catch (retryErr) {
+          console.warn("[chatbotService] Thử lại như khách gặp lỗi:", retryErr);
+        }
+      }
+
+      // Nếu hết lượt hoặc gặp lỗi từ backend
+      const errMsg = err?.message || err?.details?.[0];
+      if (err?.status === 429 || (errMsg && (errMsg.includes("hết") || errMsg.includes("lượt")))) {
+        return {
+          id: `ai-${Date.now()}`,
+          sender: "ai",
+          timestamp: "Vừa xong",
+          text: cleanChatText(
+            errMsg ||
+              "Bạn đã dùng hết lượt câu hỏi hôm nay. Vui lòng quay lại vào ngày mai hoặc nâng cấp tài khoản Premium để hỏi không giới hạn!"
+          ),
+        };
+      }
+      console.warn("[chatbotService] Backend AI không khả dụng, chuyển sang chế độ tư vấn tích hợp:", err);
     }
 
-    // Simulate slight AI thinking latency
-    await new Promise((res) => setTimeout(res, 400));
+    // Tự động phân tích theo hồ sơ người dùng nếu Backend AI tạm gián đoạn
+    await new Promise((res) => setTimeout(res, 350));
 
     const normalized = userText.toLowerCase().trim();
     const profile = profileService.getProfile();
     const nutrition = nutritionService.getNutritionSummary(profile);
 
-    // 1. Check for Dinner / Meal recommendation requests
+    // Phát hiện yêu cầu giới hạn calo từ câu hỏi (vd: "dưới 500 kcal", "không quá 400 calo", "< 600", "500 calo")
+    const maxCalMatch =
+      normalized.match(/(?:dưới|<|không quá|nhỏ hơn|dưới mức|chỉ)\s*(\d{2,4})\s*(?:kcal|calo|cal)?/i) ||
+      normalized.match(/(\d{3,4})\s*(?:kcal|calo|calories)/i);
+    const requestedMaxCal = maxCalMatch ? parseInt(maxCalMatch[1], 10) : null;
+
+    // 1. Gợi ý bữa ăn
     if (
+      requestedMaxCal !== null ||
       normalized.includes("dinner") ||
       normalized.includes("eat for dinner") ||
       normalized.includes("tối nay ăn gì") ||
@@ -51,30 +147,68 @@ export const chatbotService = {
 
       const mealLabel = mealType === "breakfast" ? "bữa sáng" : mealType === "lunch" ? "bữa trưa" : "bữa tối";
 
-      const recommendations = recipeService.getRecommendations(
-        profile,
-        nutrition.mealTargets[mealType],
-        mealType
-      );
+      // Lọc danh sách món an toàn cho chế độ ăn và dị ứng
+      const safeForUser = recipeService.getRecipes().filter((r) => {
+        if (!recipeService.isDietCompatible(r.vegetarianType, profile.vegetarianType)) {
+          return false;
+        }
+        return !checkRecipeAllergy(r, profile).hasAllergy;
+      });
 
-      const topPick = recommendations[0];
+      let topPick: any = null;
+      if (requestedMaxCal && requestedMaxCal > 0) {
+        // Tìm các món <= requestedMaxCal
+        const underCal = safeForUser.filter((r) => r.calories <= requestedMaxCal);
+        if (underCal.length > 0) {
+          // Ưu tiên món gần requestedMaxCal nhất nhưng không vượt quá
+          underCal.sort((a, b) => Math.abs(a.calories - requestedMaxCal) - Math.abs(b.calories - requestedMaxCal));
+          topPick = underCal[0];
+        } else {
+          // Nếu không có món nào hoàn toàn <= requestedMaxCal, lấy món có lượng calo thấp nhất
+          const sortedAsc = [...safeForUser].sort((a, b) => a.calories - b.calories);
+          topPick = sortedAsc[0];
+        }
+      } else {
+        const recommendations = recipeService.getRecommendations(
+          profile,
+          nutrition.mealTargets[mealType],
+          mealType
+        );
+        topPick = recommendations[0];
+      }
+
       const allergyNote =
         profile.allergies.length > 0
           ? `Đã lọc để tránh các thành phần dị ứng của bạn (${formatAllergies(profile.allergies)}).`
           : "Phù hợp với chế độ ăn chay của bạn.";
 
       if (topPick) {
+        const calDescription = requestedMaxCal
+          ? `mục tiêu dưới ${requestedMaxCal} kcal`
+          : `mục tiêu khoảng ${nutrition.mealTargets[mealType]} kcal cho ${mealLabel}`;
+
+        const calNote = requestedMaxCal
+          ? `- Năng lượng: ${topPick.calories} kcal (${
+              topPick.calories <= requestedMaxCal
+                ? `phù hợp với mức dưới ${requestedMaxCal} kcal bạn yêu cầu`
+                : `đây là món có lượng calo thấp nhất hiện có`
+            })`
+          : `- Năng lượng: ${topPick.calories} kcal`;
+
+        const rawText = `Dựa trên yêu cầu của bạn (${formatVegetarianType(profile.vegetarianType)}, ${calDescription}):\n\nMón ăn gợi ý: ${topPick.title}\n${calNote}\n- Dinh dưỡng: Chất đạm ${topPick.protein}g, Tinh bột ${topPick.carbs}g, Chất béo ${topPick.fat}g\n- Thời gian chuẩn bị và nấu: ${topPick.prepTime + topPick.cookTime} phút\n\n${topPick.description}\n\n${allergyNote}`;
+
         return {
           id: `ai-${Math.random().toString(36).substring(2, 9)}`,
           sender: "ai",
           timestamp: "Vừa xong",
-          text: `Dựa trên hồ sơ của bạn (${formatVegetarianType(profile.vegetarianType)}, mục tiêu ~${nutrition.mealTargets[mealType]} kcal cho ${mealLabel}):\n\n🍽️ **Món ăn gợi ý: ${topPick.title}**\n• Năng lượng: **${topPick.calories} kcal**\n• Chất đạm: **${topPick.protein}g** | Tinh bột: **${topPick.carbs}g** | Chất béo: **${topPick.fat}g**\n• Thời gian chuẩn bị/nấu: **${topPick.prepTime + topPick.cookTime} phút**\n\n${topPick.description}\n\n✅ *${allergyNote}*`,
+          text: cleanChatText(rawText),
           suggestedRecipeId: topPick.id,
+          suggested_recipes: [{ recipe_id: Number(topPick.id.replace(/\D/g, "")) || 1, title: topPick.title }],
         };
       }
     }
 
-    // 2. Check for BMI / Body metrics
+    // 2. Chỉ số BMI
     if (
       normalized.includes("bmi") ||
       normalized.includes("body mass") ||
@@ -87,18 +221,20 @@ export const chatbotService = {
           id: `ai-${Math.random().toString(36).substring(2, 9)}`,
           sender: "ai",
           timestamp: "Vừa xong",
-          text: `Vui lòng cập nhật chiều cao và cân nặng trong hồ sơ để tính chỉ số BMI và khoảng cân nặng lý tưởng.`,
+          text: "Vui lòng cập nhật chiều cao và cân nặng trong hồ sơ để tính chỉ số BMI và khoảng cân nặng lý tưởng.",
         };
       }
+      const rawText = `Phân tích chỉ số BMI cá nhân hóa từ hồ sơ của bạn:\n- Chiều cao: ${profile.height} cm, Cân nặng: ${profile.weight} kg\n- Chỉ số BMI: ${bmiInfo.formattedBMI} (${bmiInfo.category})\n- Cân nặng lý tưởng: ${bmiInfo.healthyWeightRange.min} kg đến ${bmiInfo.healthyWeightRange.max} kg\n\n${bmiInfo.description}`;
+
       return {
         id: `ai-${Math.random().toString(36).substring(2, 9)}`,
         sender: "ai",
         timestamp: "Vừa xong",
-        text: `Phân tích chỉ số BMI cá nhân hóa từ hồ sơ của bạn:\n\n• **Chiều cao:** ${profile.height} cm | **Cân nặng:** ${profile.weight} kg\n• **Chỉ số BMI:** **${bmiInfo.formattedBMI}** (${bmiInfo.category})\n• **Cân nặng lý tưởng:** **${bmiInfo.healthyWeightRange.min} kg – ${bmiInfo.healthyWeightRange.max} kg**\n\n💡 *${bmiInfo.description}*`,
+        text: cleanChatText(rawText),
       };
     }
 
-    // 3. Check for Calorie / Macro inquiries
+    // 3. Calo / Macro
     if (
       normalized.includes("calorie") ||
       normalized.includes("calories") ||
@@ -107,15 +243,17 @@ export const chatbotService = {
       normalized.includes("tdee") ||
       normalized.includes("bmr")
     ) {
+      const rawText = `Các chỉ số chuyển hóa năng lượng hàng ngày của bạn:\n- Chuyển hóa cơ bản (BMR): ${nutrition.bmr} kcal/ngày\n- Tổng tiêu hao năng lượng (TDEE): ${nutrition.tdee} kcal/ngày (mức độ vận động: ${profile.activityLevel})\n- Mục tiêu calo (${nutrition.goalTitle}): khoảng ${nutrition.dailyCalorieTarget.toLocaleString()} kcal/ngày\n\nKhuyến nghị dinh dưỡng hàng ngày:\n- Chất đạm: ${nutrition.macros.proteinGrams}g (~${nutrition.macros.proteinPct}%)\n- Tinh bột: ${nutrition.macros.carbsGrams}g (~${nutrition.macros.carbsPct}%)\n- Chất béo: ${nutrition.macros.fatGrams}g (~${nutrition.macros.fatPct}%)`;
+
       return {
         id: `ai-${Math.random().toString(36).substring(2, 9)}`,
         sender: "ai",
         timestamp: "Vừa xong",
-        text: `Các chỉ số chuyển hóa năng lượng hàng ngày của bạn (theo công thức Mifflin-St Jeor):\n\n• **Chuyển hóa cơ bản (BMR):** **${nutrition.bmr} kcal/ngày**\n• **Tổng tiêu hao năng lượng (TDEE):** **${nutrition.tdee} kcal/ngày** (Mức độ vận động: ${profile.activityLevel})\n• **Mục tiêu calo (${nutrition.goalTitle}):** **~${nutrition.dailyCalorieTarget.toLocaleString()} kcal/ngày**\n\n🎯 **Khuyến nghị dinh dưỡng hàng ngày:**\n• Chất đạm: **${nutrition.macros.proteinGrams}g** (~${nutrition.macros.proteinPct}%)\n• Tinh bột: **${nutrition.macros.carbsGrams}g** (~${nutrition.macros.carbsPct}%)\n• Chất béo: **${nutrition.macros.fatGrams}g** (~${nutrition.macros.fatPct}%)`,
+        text: cleanChatText(rawText),
       };
     }
 
-    // 4. Check for Allergy inquiries
+    // 4. Dị ứng
     if (
       normalized.includes("allergy") ||
       normalized.includes("allergies") ||
@@ -125,41 +263,63 @@ export const chatbotService = {
     ) {
       const userAllergies = profile.allergies;
       if (userAllergies.length > 0) {
+        const rawText = `Hồ sơ của bạn hiện ghi nhận dị ứng với: ${userAllergies.join(", ")}.\n\nTất cả công thức được gợi ý trong kế hoạch thực đơn sẽ tự động loại trừ các nguyên liệu này. Khi bạn xem công thức, hệ thống sẽ cảnh báo nếu món có thành phần chứa ${userAllergies.join(" hoặc ")} để bảo vệ an toàn cho bạn.`;
+
         return {
           id: `ai-${Math.random().toString(36).substring(2, 9)}`,
           sender: "ai",
           timestamp: "Vừa xong",
-          text: `Hồ sơ của bạn hiện ghi nhận dị ứng với: **${userAllergies.join(", ")}**.\n\nTất cả công thức được gợi ý trong Kế hoạch Thực đơn sẽ tự động loại trừ các nguyên liệu này. Khi bạn xem video hoặc công thức, bất kỳ món nào chứa ${userAllergies.join(" hoặc ")} sẽ hiển thị huy hiệu cảnh báo ⚠ **Dị ứng thực phẩm** để bảo vệ an toàn cho bạn.`,
+          text: cleanChatText(rawText),
         };
       } else {
         return {
           id: `ai-${Math.random().toString(36).substring(2, 9)}`,
           sender: "ai",
           timestamp: "Vừa xong",
-          text: `Hiện bạn chưa lưu thông tin dị ứng thực phẩm nào trong hồ sơ. Bạn có thể cập nhật dị ứng bất cứ lúc nào trong trang **Hồ sơ cá nhân** hoặc cài đặt.`,
+          text: "Hiện bạn chưa lưu thông tin dị ứng thực phẩm nào trong hồ sơ. Bạn có thể cập nhật thông tin dị ứng bất cứ lúc nào trong trang Hồ sơ cá nhân hoặc cài đặt.",
         };
       }
     }
 
-    // 5. Check Static Knowledge Base
+    // 5. Static Knowledge Base
     for (const [key, value] of Object.entries(STATIC_KNOWLEDGE_BASE)) {
       if (normalized.includes(key)) {
         return {
           id: `ai-${Math.random().toString(36).substring(2, 9)}`,
           sender: "ai",
           timestamp: "Vừa xong",
-          text: value.text,
+          text: cleanChatText(value.text),
           substitution: value.substitution,
         };
       }
     }
 
-    // 6. Contextual Default
+    // 6. Mặc định
+    const defaultRaw = `Chào bạn! Tôi là Chuyên gia Dinh dưỡng Chay AI của VeggieHub:\n- Chế độ ăn: ${formatVegetarianType(profile.vegetarianType)}\n- Mục tiêu: ${nutrition.goalTitle} (~${nutrition.dailyCalorieTarget} kcal/ngày)\n- Dị ứng: ${profile.allergies.length ? formatAllergies(profile.allergies) : "Không có"}\n\nBạn có thể hỏi tôi bất kỳ câu hỏi nào về ẩm thực chay, công thức món ăn, tính lượng calo hoặc cách bổ sung dinh dưỡng!`;
+
     return {
       id: `ai-${Math.random().toString(36).substring(2, 9)}`,
       sender: "ai",
       timestamp: "Vừa xong",
-      text: `Chào bạn! Với vai trò là Chuyên gia Dinh dưỡng Chay AI, tôi luôn ghi nhớ hồ sơ của bạn:\n• Chế độ ăn: **${formatVegetarianType(profile.vegetarianType)}**\n• Mục tiêu sức khỏe: **${nutrition.goalTitle}** (~${nutrition.dailyCalorieTarget} kcal/ngày)\n• Dị ứng thực phẩm: **${profile.allergies.length ? formatAllergies(profile.allergies) : "Không có"}**\n\nBạn có thể hỏi tôi:\n1. *"Tối nay ăn gì?"*\n2. *"Giải thích chỉ số BMI và thể trạng của tôi"*\n3. *"Tôi nên nạp bao nhiêu calo mỗi ngày?"*\n4. *"Nguyên liệu thay thế trứng khi làm bánh"* hoặc *"Cách bổ sung B12 cho người ăn chay tại Việt Nam"*.`,
+      text: cleanChatText(defaultRaw),
     };
+  },
+
+  async getSuggestions(): Promise<string[]> {
+    try {
+      const res = await apiClient.get<any>("/ai/chat/suggestions");
+      const list = res?.suggestions || res?.data?.suggestions;
+      if (Array.isArray(list) && list.length > 0) {
+        return list.map((item: any) => typeof item === "string" ? item : item.question || item.text);
+      }
+    } catch {
+      // Bỏ qua lỗi
+    }
+    return [
+      "Hôm nay ăn gì thuần chay dưới 500 kcal?",
+      "Cách tính calo và BMR cho người ăn chay?",
+      "Thực phẩm chay nào giàu protein nhất?",
+      "Cách bổ sung vitamin B12 và sắt cho người ăn chay?",
+    ];
   },
 };

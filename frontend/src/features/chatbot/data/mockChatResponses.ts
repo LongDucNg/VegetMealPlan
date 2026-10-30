@@ -35,8 +35,8 @@ export const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
   {
     id: "m1",
     sender: "ai",
-    text: "Hello! I'm your VeggieHub AI Nutritionist. Ask me about ingredient swaps, macro balancing, daily B12 requirements, or how to personalize your meal plan for optimal plant nutrition.",
-    timestamp: "Just now",
+    text: "Xin chào! Tôi là Trợ lý Dinh dưỡng AI của VeggieHub. Hãy đặt câu hỏi cho tôi về gợi ý món ăn, thay thế nguyên liệu, cân đối calo hay dinh dưỡng thuần chay.",
+    timestamp: "Vừa xong",
   },
 ];
 

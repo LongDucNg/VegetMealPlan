@@ -215,20 +215,39 @@ export const subscriptionService = {
   /**
    * Kích hoạt Demo / Test khi cổng thanh toán chưa được cấu hình
    */
-  purchasePlan(planId: SubscriptionTier = "premium"): UserSubscription {
-    const now = new Date();
-    const expires = new Date();
-    expires.setDate(now.getDate() + 30);
+  /**
+   * Kích hoạt gói Premium trực tiếp (không qua thanh toán VNPay)
+   * Đồng bộ lên server database và cập nhật local cache.
+   */
+  async purchasePlan(planId: SubscriptionTier = "premium"): Promise<UserSubscription> {
+    const token = tokenStorage.getToken();
+    let backendUntil: string | null = null;
+
+    if (token) {
+      try {
+        const res = await apiClient.post<any>("/subscriptions/activate-free");
+        if (res?.premium_until) {
+          backendUntil = res.premium_until;
+        }
+      } catch (err) {
+        console.warn("[subscriptionService] activate-free API error, falling back locally:", err);
+      }
+    }
+
+    const expires = backendUntil
+      ? new Date(backendUntil)
+      : new Date(Date.now() + 30 * 86_400_000);
+
     return this.setPremiumActive(expires.toISOString());
   },
 
-  upgradeToPremium(): UserSubscription {
+  async upgradeToPremium(): Promise<UserSubscription> {
     return this.purchasePlan("premium");
   },
 
   /**
-   * Hủy gói Premium:
-   * DELETE /subscriptions/:id
+   * Chuyển về gói Miễn phí (hoặc Hủy gói Premium):
+   * Đồng bộ reset trên server và local cache.
    */
   async cancelSubscription(id: number = 1): Promise<UserSubscription> {
     if (typeof window !== "undefined") {
@@ -253,19 +272,23 @@ export const subscriptionService = {
     const token = tokenStorage.getToken();
     if (token) {
       try {
-        await apiClient.delete(`/subscriptions/${id}`);
+        await apiClient.post("/subscriptions/switch-free");
       } catch (err) {
-        console.warn("[subscriptionService] cancel error:", err);
+        console.warn("[subscriptionService] switch-free error, trying delete:", err);
+        try {
+          await apiClient.delete(`/subscriptions/${id}`);
+        } catch {
+          // ignore
+        }
       }
     }
 
     return updated;
   },
 
-  togglePremium(): UserSubscription {
+  async togglePremium(): Promise<UserSubscription> {
     if (this.isPremium()) {
-      this.cancelSubscription();
-      return DEFAULT_SUBSCRIPTION;
+      return this.cancelSubscription();
     }
     return this.upgradeToPremium();
   },
