@@ -177,20 +177,43 @@ export function useMealPlanner() {
 
         let plan: WeeklyMealPlan | null = null;
 
-        // 3. Nếu không có danh sách món yêu thích tùy biến, thử gọi Backend API #25
+        // 3. Nếu không có danh sách món yêu thích tùy biến, thử gọi Backend API
         if (!options?.favoriteRecipeIds || options.favoriteRecipeIds.length === 0) {
           try {
-            const apiRes = await mealPlanApiService.generateWeekly({
-              total_budget: options?.budgetLimit ?? budgetLimit,
-            });
-            if (apiRes && (apiRes.data || apiRes.weekly_plans || apiRes.meal_plan_id)) {
-              plan = mealPlannerService.convertBackendWeeklyPlan(apiRes, activeProfile);
+            if (isPlanForSomeoneElse) {
+              // Gọi API: POST /api/v1/meal-plans/generate/for-someone (Lập cho người thân)
+              const mappedDiet =
+                activeProfile.vegetarianType === "vegan"
+                  ? "vegan"
+                  : activeProfile.vegetarianType === "lacto_vegetarian"
+                  ? "lacto"
+                  : activeProfile.vegetarianType === "ovo_vegetarian"
+                  ? "ovo"
+                  : "ovo_lacto";
+
+              const apiRes = await mealPlanApiService.generateForSomeone({
+                profile_name: activeProfile.name || "Người thân",
+                diet_type: mappedDiet,
+                target_calories: nutritionSummary.dailyCalorieTarget,
+                total_budget: options?.budgetLimit ?? budgetLimit,
+              });
+              if (apiRes && (apiRes.data || apiRes.weekly_plans || apiRes.meal_plan_id)) {
+                plan = mealPlannerService.convertBackendWeeklyPlan(apiRes, activeProfile);
+              }
+            } else {
+              // Gọi API #25: POST /api/v1/meal-plans/generate/weekly (Sinh thực đơn 7 ngày)
+              const apiRes = await mealPlanApiService.generateWeekly({
+                total_budget: options?.budgetLimit ?? budgetLimit,
+              });
+              if (apiRes && (apiRes.data || apiRes.weekly_plans || apiRes.meal_plan_id)) {
+                plan = mealPlannerService.convertBackendWeeklyPlan(apiRes, activeProfile);
+              }
             }
           } catch (apiErr) {
             // Lỗi nghiệp vụ từ backend (mục tiêu cân nặng không an toàn, hồ sơ thiếu, dị ứng...) phải báo cho
             // người dùng, không được lặng lẽ lùi về engine FE với công thức calo khác.
             if (isBusinessError(apiErr)) throw apiErr;
-            console.warn("Backend generateWeekly failed, falling back to local engine with real DB recipes:", apiErr);
+            console.warn("Backend generate failed, falling back to local engine with real DB recipes:", apiErr);
           }
         }
 
