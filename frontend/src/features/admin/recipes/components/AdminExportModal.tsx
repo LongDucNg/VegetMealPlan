@@ -4,7 +4,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import {
   X,
-  Download,
   CheckCircle2,
   AlertCircle,
   Filter,
@@ -14,14 +13,13 @@ import {
   Sparkles,
   Tag,
   Check,
+  Trash2,
+  Info,
 } from "lucide-react";
-import {
-  adminRecipeApiService,
-  RecipeExportParams,
-} from "@/features/admin/services/adminRecipeApiService";
+import { adminRecipeApiService } from "@/features/admin/services/adminRecipeApiService";
 import { Recipe } from "@/features/recipes/types";
 
-// 10 danh mục chuẩn quản trị từ cơ sở dữ liệu (ảnh 2)
+// 10 danh mục chuẩn quản trị từ cơ sở dữ liệu
 export const ADMIN_RECIPE_CATEGORIES = [
   "Mì, Bún & Phở",
   "Cơm, Xôi & Cháo",
@@ -137,6 +135,11 @@ export function getRecipeDisplayCategory(r: Recipe): string {
   return r.category || "Món chay";
 }
 
+function getNumericId(r: Recipe): number {
+  const num = parseInt(String(r.id || "").replace(/\D/g, ""), 10);
+  return isNaN(num) ? 0 : num;
+}
+
 interface AdminExportModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -163,80 +166,47 @@ export function AdminExportModal({
   availableRecipes = [],
   activeFilters,
 }: AdminExportModalProps) {
-  // Mode: 1. Xuất theo món (gộp 1 món và nhiều món) | 2. Xuất theo bộ lọc
+  // Mode: 1. Xuất theo món đã chọn | 2. Xuất theo bộ lọc
   const [mode, setMode] = useState<ExportMode>("by_recipes");
 
-  // State for Tab 1: Xuất theo món (1 hoặc nhiều món)
-  const [idsInput, setIdsInput] = useState<string>("");
+  // State for Tab 1: Danh sách các ID món ăn được chọn (quản lý ngầm, không hiện ID ra giao diện)
+  const [selectedRecipeIds, setSelectedRecipeIds] = useState<number[]>([]);
   const [searchRecipeQuery, setSearchRecipeQuery] = useState<string>("");
   const [quickCategoryFilter, setQuickCategoryFilter] = useState<string>("all");
 
-  // State for Tab 2: Xuất theo bộ lọc (thay trạng thái bằng Category)
-  const [filterDiet, setFilterDiet] = useState<string>("vegan");
+  // State for Tab 2: Xuất theo bộ lọc
+  const [filterDiet, setFilterDiet] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterMealType, setFilterMealType] = useState<string>("all");
   const [filterQuery, setFilterQuery] = useState<string>("");
-  const [exportFormat, setExportFormat] = useState<"xlsx" | "csv">("xlsx");
 
   // Status & Feedback
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [successFilename, setSuccessFilename] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // 10 danh mục chuẩn từ ảnh 2
+  // 10 danh mục chuẩn
   const categories = useMemo(() => {
     return Array.from(ADMIN_RECIPE_CATEGORIES);
   }, []);
 
-  // Đếm số công thức cho từng danh mục
-  const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: availableRecipes.length };
-    ADMIN_RECIPE_CATEGORIES.forEach((cat) => {
-      counts[cat] = availableRecipes.filter((r) => recipeHasCategory(r, cat)).length;
-    });
-    return counts;
+  // CHỈ LẤY CÁC MÓN ĐÃ ĐƯỢC PHÊ DUYỆT (APPROVED) ĐỂ XUẤT FILE
+  const approvedRecipes = useMemo(() => {
+    return availableRecipes.filter(
+      (r) => String(r.status || "APPROVED").toUpperCase() === "APPROVED"
+    );
   }, [availableRecipes]);
 
-  // Parse IDs from idsInput
-  const parsedIds = useMemo(() => {
-    return idsInput
-      .split(/[,;\s]+/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0 && /^\d+$/.test(s))
-      .map((s) => parseInt(s, 10))
-      .filter((id, idx, arr) => arr.indexOf(id) === idx);
-  }, [idsInput]);
-
-  // Preview recipe when exactly 1 ID is entered
-  const singlePreviewRecipe = useMemo(() => {
-    if (parsedIds.length !== 1) return null;
-    const targetId = parsedIds[0];
-    return availableRecipes.find((r) => {
-      const idNum = parseInt(r.id.replace(/\D/g, ""), 10);
-      return idNum === targetId;
+  // Đếm số công thức cho từng danh mục (chỉ tính món đã duyệt)
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: approvedRecipes.length };
+    ADMIN_RECIPE_CATEGORIES.forEach((cat) => {
+      counts[cat] = approvedRecipes.filter((r) => recipeHasCategory(r, cat)).length;
     });
-  }, [parsedIds, availableRecipes]);
+    return counts;
+  }, [approvedRecipes]);
 
-  // Filtered recipes for the quick picker (Filtered by Category + Searched by Name)
-  const filteredQuickRecipes = useMemo(() => {
-    return availableRecipes.filter((r) => {
-      // 1. Filter by category
-      if (quickCategoryFilter !== "all" && !recipeHasCategory(r, quickCategoryFilter)) {
-        return false;
-      }
-      // 2. Search by recipe name or ID
-      if (searchRecipeQuery.trim()) {
-        const q = searchRecipeQuery.trim().toLowerCase();
-        const numId = parseInt(r.id.replace(/\D/g, ""), 10);
-        const nameMatch = (r.name || r.title || "").toLowerCase().includes(q);
-        const idMatch = String(numId).includes(q);
-        if (!nameMatch && !idMatch) return false;
-      }
-      return true;
-    });
-  }, [availableRecipes, quickCategoryFilter, searchRecipeQuery]);
-
-  // Initialize modal state on open
+  // Khởi tạo trạng thái khi mở modal
   useEffect(() => {
     if (!isOpen) {
       setSuccessFilename(null);
@@ -244,10 +214,18 @@ export function AdminExportModal({
       return;
     }
 
+    // Nếu người dùng đã tick chọn các món từ danh sách ngoài bảng, chỉ lấy các món ĐÃ DUYỆT
     if (selectedIds.length > 0) {
+      const approvedIds = new Set(
+        availableRecipes
+          .filter((r) => String(r.status || "APPROVED").toUpperCase() === "APPROVED")
+          .map((r) => getNumericId(r))
+      );
+      const validSelected = selectedIds.filter((id) => approvedIds.has(id));
+      setSelectedRecipeIds(validSelected);
       setMode("by_recipes");
-      setIdsInput(selectedIds.join(", "));
     } else {
+      setSelectedRecipeIds([]);
       setMode("by_recipes");
     }
 
@@ -265,37 +243,89 @@ export function AdminExportModal({
         setFilterQuery(activeFilters.search);
       }
     }
-  }, [isOpen, selectedIds, activeFilters]);
+  }, [isOpen, selectedIds, activeFilters, availableRecipes]);
 
-  // Toggle a recipe ID in the selection list
-  const toggleRecipeId = (numId: number) => {
-    if (parsedIds.includes(numId)) {
-      const next = parsedIds.filter((id) => id !== numId);
-      setIdsInput(next.join(", "));
+  // Danh sách các Recipe object tương ứng với selectedRecipeIds (chỉ món đã duyệt)
+  const chosenRecipes = useMemo(() => {
+    const set = new Set(selectedRecipeIds);
+    return approvedRecipes.filter((r) => set.has(getNumericId(r)));
+  }, [selectedRecipeIds, approvedRecipes]);
+
+  // Danh sách món ăn được lọc nhanh trong Tab 1 (chỉ món đã duyệt)
+  const filteredQuickRecipes = useMemo(() => {
+    return approvedRecipes.filter((r) => {
+      // 1. Lọc theo danh mục
+      if (quickCategoryFilter !== "all" && !recipeHasCategory(r, quickCategoryFilter)) {
+        return false;
+      }
+      // 2. Tìm kiếm theo tên món ăn
+      if (searchRecipeQuery.trim()) {
+        const q = searchRecipeQuery.trim().toLowerCase();
+        const nameMatch = (r.name || r.title || "").toLowerCase().includes(q);
+        if (!nameMatch) return false;
+      }
+      return true;
+    });
+  }, [approvedRecipes, quickCategoryFilter, searchRecipeQuery]);
+
+  // Danh sách món ăn khớp với bộ lọc ở Tab 2 (chỉ món đã duyệt)
+  const matchedFilterRecipes = useMemo(() => {
+    return approvedRecipes.filter((r) => {
+      if (filterDiet !== "all" && r.vegetarianType !== filterDiet) return false;
+      if (filterCategory !== "all" && !recipeHasCategory(r, filterCategory)) return false;
+      if (filterMealType !== "all" && r.mealType !== filterMealType) return false;
+      if (filterQuery.trim()) {
+        const q = filterQuery.trim().toLowerCase();
+        const nameMatch = (r.name || r.title || "").toLowerCase().includes(q);
+        if (!nameMatch) return false;
+      }
+      return true;
+    });
+  }, [approvedRecipes, filterDiet, filterCategory, filterMealType, filterQuery]);
+
+  // Thêm hoặc bỏ chọn 1 món ăn
+  const toggleRecipe = (numId: number) => {
+    if (selectedRecipeIds.includes(numId)) {
+      setSelectedRecipeIds((prev) => prev.filter((id) => id !== numId));
     } else {
-      const next = [...parsedIds, numId];
-      setIdsInput(next.join(", "));
+      setSelectedRecipeIds((prev) => [...prev, numId]);
     }
   };
 
-  // Select all currently filtered recipes
-  const handleSelectAllFiltered = () => {
-    const idsToAdd = filteredQuickRecipes
-      .map((r) => parseInt(r.id.replace(/\D/g, ""), 10))
-      .filter((id) => !isNaN(id));
-    const merged = Array.from(new Set([...parsedIds, ...idsToAdd]));
-    setIdsInput(merged.join(", "));
+  // Bỏ chọn 1 món từ danh sách đã chọn
+  const removeSelectedRecipe = (numId: number) => {
+    setSelectedRecipeIds((prev) => prev.filter((id) => id !== numId));
   };
 
-  // Deselect currently filtered recipes
+  // Chọn tất cả các món đang hiển thị trong bộ lọc Tab 1
+  const handleSelectAllFiltered = () => {
+    const idsToAdd = filteredQuickRecipes
+      .map((r) => getNumericId(r))
+      .filter((id) => id > 0);
+    const merged = Array.from(new Set([...selectedRecipeIds, ...idsToAdd]));
+    setSelectedRecipeIds(merged);
+  };
+
+  // Bỏ chọn các món đang lọc trong Tab 1
   const handleDeselectAllFiltered = () => {
     const idsToRemove = new Set(
-      filteredQuickRecipes
-        .map((r) => parseInt(r.id.replace(/\D/g, ""), 10))
-        .filter((id) => !isNaN(id))
+      filteredQuickRecipes.map((r) => getNumericId(r)).filter((id) => id > 0)
     );
-    const remaining = parsedIds.filter((id) => !idsToRemove.has(id));
-    setIdsInput(remaining.join(", "));
+    setSelectedRecipeIds((prev) => prev.filter((id) => !idsToRemove.has(id)));
+  };
+
+  // Nạp lại các món đang tick chọn trên trang quản lý (chỉ lấy món đã duyệt)
+  const handleLoadTableSelection = () => {
+    const approvedIds = new Set(approvedRecipes.map((r) => getNumericId(r)));
+    const valid = selectedIds.filter((id) => approvedIds.has(id));
+    if (valid.length > 0) {
+      setSelectedRecipeIds(Array.from(new Set([...selectedRecipeIds, ...valid])));
+    }
+  };
+
+  // Xóa toàn bộ lựa chọn món
+  const handleClearAllSelected = () => {
+    setSelectedRecipeIds([]);
   };
 
   const handleExport = async () => {
@@ -304,88 +334,33 @@ export function AdminExportModal({
     setIsExporting(true);
 
     try {
-      // 1. Lấy danh sách các món cần xuất theo Mode
       let targetRecipes: Recipe[] = [];
+
       if (mode === "by_recipes") {
-        if (parsedIds.length === 0) {
-          throw new Error("Vui lòng nhập mã ID (ví dụ: 15) hoặc chọn các món ăn từ danh sách.");
+        if (selectedRecipeIds.length === 0) {
+          throw new Error("Vui lòng chọn ít nhất một món ăn đã duyệt từ danh sách để xuất file.");
         }
-        if (parsedIds.length > 200) {
+        if (selectedRecipeIds.length > 200) {
           throw new Error("Chỉ được xuất tối đa 200 công thức mỗi lần.");
         }
-        targetRecipes = availableRecipes.filter((r) => {
-          const numId = parseInt(r.id.replace(/\D/g, ""), 10);
-          return parsedIds.includes(numId);
-        });
-        // Nếu không khớp trong availableRecipes (ví dụ vừa nhập ID lạ), tạo stub recipe
-        if (targetRecipes.length === 0 && parsedIds.length > 0) {
-          targetRecipes = parsedIds.map((id) => ({
-            id: String(id),
-            title: `Công thức #${id}`,
-            image: "",
-            serving: 1,
-            name: `Công thức #${id}`,
-            category: "Món chay",
-            description: "",
-            instructions: "",
-            mealType: "lunch" as any,
-            vegetarianType: "vegan" as any,
-            difficulty: "easy" as any,
-            servings: 1,
-            prepTime: 10,
-            cookTime: 15,
-            calories: 0,
-            protein: 0,
-            carbs: 0,
-            fat: 0,
-            fiber: 0,
-            status: "APPROVED" as any,
-            ingredients: [],
-          })) as unknown as Recipe[];
-        }
+        targetRecipes = chosenRecipes;
       } else {
         // Mode by_filter
-        targetRecipes = availableRecipes.filter((r) => {
-          if (filterDiet !== "all" && r.vegetarianType !== filterDiet) return false;
-          if (filterCategory !== "all" && !recipeHasCategory(r, filterCategory)) return false;
-          if (filterMealType !== "all" && r.mealType !== filterMealType) return false;
-          if (filterQuery.trim()) {
-            const q = filterQuery.trim().toLowerCase();
-            const nameMatch = (r.name || r.title || "").toLowerCase().includes(q);
-            if (!nameMatch) return false;
-          }
-          return true;
-        });
+        targetRecipes = matchedFilterRecipes;
+        if (targetRecipes.length === 0) {
+          throw new Error("Không có món ăn đã duyệt nào phù hợp với các tiêu chí lọc đã chọn.");
+        }
       }
 
-      if (exportFormat === "xlsx") {
-        if (targetRecipes.length === 0) {
-          throw new Error("Không tìm thấy công thức nào phù hợp để xuất file.");
-        }
-        const filename = adminRecipeApiService.exportRecipesToExcel(
-          targetRecipes,
-          mode === "by_recipes" ? `Cong_Thuc_${targetRecipes.length}_Mon` : "Cong_Thuc_Theo_Bo_Loc"
-        );
-        setSuccessFilename(filename);
-      } else {
-        // Format CSV
-        let params: RecipeExportParams = {};
-        if (mode === "by_recipes") {
-          params = { ids: parsedIds.join(",") };
-        } else {
-          params = {
-            dietType: filterDiet !== "all" ? filterDiet : undefined,
-            category: filterCategory !== "all" ? filterCategory : undefined,
-            mealType: filterMealType !== "all" ? filterMealType : undefined,
-            q: filterQuery.trim() || undefined,
-            status: "approved",
-          };
-        }
-        const res = await adminRecipeApiService.exportRecipes(params);
-        setSuccessFilename(res.filename);
-      }
+      // Luôn xuất ra file Excel (.xlsx) chuẩn
+      const prefix =
+        mode === "by_recipes"
+          ? `Cong_Thuc_${targetRecipes.length}_Mon`
+          : `Cong_Thuc_Theo_Bo_Loc_${targetRecipes.length}_Mon`;
+      const filename = adminRecipeApiService.exportRecipesToExcel(targetRecipes, prefix);
+      setSuccessFilename(filename);
     } catch (err: any) {
-      setErrorMessage(err?.message || "Đã xảy ra lỗi khi xuất file.");
+      setErrorMessage(err?.message || "Đã xảy ra lỗi khi xuất file Excel.");
     } finally {
       setIsExporting(false);
     }
@@ -393,7 +368,7 @@ export function AdminExportModal({
 
   const handleApplyActiveFilters = () => {
     if (activeFilters) {
-      setFilterDiet(activeFilters.dietType && activeFilters.dietType !== "all" ? activeFilters.dietType : "vegan");
+      setFilterDiet(activeFilters.dietType && activeFilters.dietType !== "all" ? activeFilters.dietType : "all");
       setFilterCategory(activeFilters.category && activeFilters.category !== "all" ? activeFilters.category : "all");
       setFilterMealType(activeFilters.mealType && activeFilters.mealType !== "all" ? activeFilters.mealType : "all");
       setFilterQuery(activeFilters.search || "");
@@ -409,14 +384,14 @@ export function AdminExportModal({
         <div className="p-5 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center shadow-xs">
-              <Download className="w-5 h-5 text-emerald-700" />
+              <FileSpreadsheet className="w-5 h-5 text-emerald-700" />
             </div>
             <div>
               <h3 className="font-serif font-bold text-lg text-stone-900">
-                Xuất dữ liệu công thức (Excel / CSV)
+                Xuất dữ liệu công thức ra file Excel (.xlsx)
               </h3>
               <p className="text-xs text-stone-500">
-                Hỗ trợ mở bằng Microsoft Excel với chuẩn UTF-8 BOM tiếng Việt
+                Chỉ xuất các món đã được duyệt · Tệp Excel tự động căn chỉnh độ rộng cột và nguyên liệu chuẩn tiếng Việt
               </p>
             </div>
           </div>
@@ -431,62 +406,21 @@ export function AdminExportModal({
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-5 flex-1">
-          {/* Format Selector: Excel (.xlsx) vs CSV (.csv) */}
-          <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <span className="text-xs font-bold text-stone-800 block">Định dạng tệp tải về:</span>
-              <span className="text-[11px] text-stone-500">
-                {exportFormat === "xlsx"
-                  ? "Định dạng Excel chuẩn (.xlsx) - Tự căn chỉnh cột, tương thích với file mẫu nhập"
-                  : "Định dạng CSV UTF-8 có BOM (.csv) - Dành cho phân tích dữ liệu"}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setExportFormat("xlsx")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  exportFormat === "xlsx"
-                    ? "bg-emerald-700 text-white shadow-xs"
-                    : "bg-white text-stone-700 border border-stone-200 hover:bg-stone-100"
-                }`}
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Excel (.xlsx) - Khuyên dùng</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setExportFormat("csv")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  exportFormat === "csv"
-                    ? "bg-emerald-700 text-white shadow-xs"
-                    : "bg-white text-stone-700 border border-stone-200 hover:bg-stone-100"
-                }`}
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>CSV (.csv)</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Mode Switcher Tabs: Gộp xuất 1 món và nhiều món vào Tab 1 */}
+          {/* Mode Switcher Tabs */}
           <div className="flex rounded-2xl bg-stone-100 p-1.5 text-xs font-semibold">
             <button
               type="button"
               onClick={() => setMode("by_recipes")}
-              className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                mode === "by_recipes"
+              className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${mode === "by_recipes"
                   ? "bg-white text-emerald-800 shadow-xs font-bold"
                   : "text-stone-600 hover:text-stone-900"
-              }`}
+                }`}
             >
               <Layers className="w-4 h-4" />
-              <span>1. Xuất theo món (1 hoặc nhiều món)</span>
-              {parsedIds.length > 0 && (
+              <span>1. Xuất theo món đã chọn</span>
+              {selectedRecipeIds.length > 0 && (
                 <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                  {parsedIds.length} món
+                  {selectedRecipeIds.length} món
                 </span>
               )}
             </button>
@@ -494,116 +428,112 @@ export function AdminExportModal({
             <button
               type="button"
               onClick={() => setMode("by_filter")}
-              className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                mode === "by_filter"
+              className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${mode === "by_filter"
                   ? "bg-white text-emerald-800 shadow-xs font-bold"
                   : "text-stone-600 hover:text-stone-900"
-              }`}
+                }`}
             >
               <Filter className="w-4 h-4" />
               <span>2. Xuất theo bộ lọc (Chế độ ăn & Danh mục)</span>
+              <span className="px-2 py-0.5 rounded-full bg-stone-200 text-stone-700 text-[10px] font-bold">
+
+              </span>
             </button>
           </div>
 
           {/* Form Content */}
           <div className="bg-stone-50/70 border border-stone-200 rounded-3xl p-5 space-y-4">
-            {/* Tab 1: Xuất theo món (gộp 1 món và nhiều món, tìm kiếm theo tên, lọc theo category) */}
+            {/* Tab 1: Xuất theo món đã chọn (Chỉ hiện các món đã duyệt, không có ID) */}
             {mode === "by_recipes" && (
               <div className="space-y-4 animate-in fade-in">
-                {/* Textarea nhập ID (1 món hoặc nhiều món) */}
+                {/* Khu vực 1: Danh sách các món ăn đã chọn */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-bold text-stone-800">
-                      Mã ID công thức cần xuất (Nhập 1 món hoặc nhiều món):
-                    </label>
-                    {selectedIds.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setIdsInput(selectedIds.join(", "))}
-                        className="text-[11px] text-emerald-700 hover:underline font-semibold cursor-pointer"
-                      >
-                        Lấy {selectedIds.length} món đang tick chọn trên bảng
-                      </button>
-                    )}
-                  </div>
-
-                  <textarea
-                    rows={2}
-                    value={idsInput}
-                    onChange={(e) => setIdsInput(e.target.value)}
-                    placeholder="Ví dụ: nhập 1 món (15) hoặc nhiều món (15, 20, 35)..."
-                    className="w-full p-3 rounded-xl border border-stone-200 bg-white text-sm font-mono focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 outline-none leading-relaxed"
-                  />
-
-                  <div className="flex items-center justify-between text-[11px] text-stone-500 mt-1">
+                  <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <span>
-                        Đã chọn:{" "}
-                        <strong className="text-emerald-800 font-bold font-mono">
-                          {parsedIds.length}
-                        </strong>{" "}
-                        mã món
+                      <span className="text-xs font-bold text-stone-900">
+                        Danh sách món ăn đã chọn:
                       </span>
-                      {parsedIds.length === 1 && (
-                        <span className="px-1.5 py-0.2 rounded-md bg-amber-100 text-amber-900 text-[10px] font-semibold">
-                          Xuất 1 món
+                      {selectedRecipeIds.length > 0 ? (
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                          Đã chọn {selectedRecipeIds.length} món
                         </span>
-                      )}
-                      {parsedIds.length > 1 && (
-                        <span className="px-1.5 py-0.2 rounded-md bg-emerald-100 text-emerald-900 text-[10px] font-semibold">
-                          Xuất nhiều món
+                      ) : (
+                        <span className="text-[11px] text-stone-400 font-medium">
+                          Chưa chọn món nào
                         </span>
                       )}
                     </div>
-                    {parsedIds.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setIdsInput("")}
-                        className="text-stone-400 hover:text-stone-700 underline cursor-pointer"
-                      >
-                        Xóa chọn
-                      </button>
-                    )}
+
+                    <div className="flex items-center gap-2.5 text-[11px]">
+                      {selectedIds.length > 0 && selectedRecipeIds.length !== selectedIds.length && (
+                        <button
+                          type="button"
+                          onClick={handleLoadTableSelection}
+                          className="text-emerald-700 hover:underline font-semibold cursor-pointer"
+                        >
+                          Lấy {selectedIds.length} món đang tick ở bảng
+                        </button>
+                      )}
+                      {selectedRecipeIds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearAllSelected}
+                          className="text-rose-600 hover:text-rose-700 hover:underline font-semibold cursor-pointer flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Xóa tất cả</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Hiển thị các món đã chọn dưới dạng chip có nút X để gỡ */}
+                  {selectedRecipeIds.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-3 bg-white rounded-2xl border border-emerald-200/80 shadow-2xs">
+                      {chosenRecipes.map((r) => {
+                        const numId = getNumericId(r);
+                        return (
+                          <div
+                            key={r.id}
+                            className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-semibold animate-in zoom-in-95 duration-100"
+                          >
+                            <span className="truncate max-w-[200px]">{r.name || r.title}</span>
+                            <span className="text-[9px] font-normal px-1.5 py-0.2 rounded-md bg-emerald-100/70 text-emerald-700">
+                              {getRecipeDisplayCategory(r)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeSelectedRecipe(numId)}
+                              title={`Bỏ chọn món ${r.name || r.title}`}
+                              className="w-4 h-4 rounded-full hover:bg-emerald-200 text-emerald-600 hover:text-emerald-900 flex items-center justify-center cursor-pointer transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-white border border-dashed border-stone-200 text-center space-y-1">
+                      <div className="w-8 h-8 rounded-full bg-stone-100 text-stone-500 mx-auto flex items-center justify-center">
+                        <Info className="w-4 h-4 text-stone-400" />
+                      </div>
+                      <p className="text-xs font-semibold text-stone-700">
+                        Chưa có món ăn nào được chọn
+                      </p>
+                      <p className="text-[11px] text-stone-400">
+                        Hệ thống chỉ cho phép xuất các món đã được duyệt. Hãy chọn món từ danh mục bên dưới để tạo file Excel.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                {/* Preview if exactly 1 recipe matches */}
-                {singlePreviewRecipe && (
-                  <div className="p-3.5 rounded-2xl bg-white border border-stone-200 flex items-center gap-3 shadow-2xs">
-                    <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-stone-100 shrink-0">
-                      {singlePreviewRecipe.image ? (
-                        <Image
-                          src={singlePreviewRecipe.image}
-                          alt={singlePreviewRecipe.title}
-                          fill
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[10px] text-stone-400">
-                          Ảnh
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-stone-900 truncate">
-                        #{singlePreviewRecipe.id} · {singlePreviewRecipe.name || singlePreviewRecipe.title}
-                      </p>
-                      <p className="text-[11px] text-stone-500">
-                        {singlePreviewRecipe.mealType} · {singlePreviewRecipe.vegetarianType} · {getRecipeDisplayCategory(singlePreviewRecipe)}
-                      </p>
-                    </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
-                      Khớp 1 món
-                    </span>
-                  </div>
-                )}
-
-                {/* Bộ lọc theo Category & Tìm kiếm theo tên món ăn */}
+                {/* Khu vực 2: Chọn món từ kho công thức đã duyệt */}
                 <div className="pt-3 border-t border-stone-200 space-y-3">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                     <span className="text-xs font-bold text-stone-800 flex items-center gap-1.5">
                       <Tag className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>Chọn nhanh từ danh sách công thức hiện có (Bộ lọc danh mục):</span>
+                      <span>Chọn món đã duyệt từ danh mục:</span>
                     </span>
 
                     {/* Quick batch toggle for filtered items */}
@@ -614,7 +544,7 @@ export function AdminExportModal({
                           onClick={handleSelectAllFiltered}
                           className="text-emerald-700 hover:text-emerald-800 font-semibold hover:underline cursor-pointer"
                         >
-                          + Chọn tất cả ({filteredQuickRecipes.length})
+                          + Chọn tất cả ({filteredQuickRecipes.length} món)
                         </button>
                         <span className="text-stone-300">|</span>
                         <button
@@ -628,19 +558,27 @@ export function AdminExportModal({
                     )}
                   </div>
 
-                  {/* Thanh bộ lọc Category (Category Filter Pills) */}
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                  {/* Thanh bộ lọc danh mục với số lượng hiển thị trong ngoặc rõ ràng */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin">
                     <button
                       type="button"
                       onClick={() => setQuickCategoryFilter("all")}
-                      className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
-                        quickCategoryFilter === "all"
+                      className={`px-3 py-1.5 rounded-full text-xs shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${quickCategoryFilter === "all"
                           ? "bg-emerald-800 text-white font-bold shadow-2xs"
                           : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
-                      }`}
+                        }`}
                     >
-                      Tất cả ({availableRecipes.length})
+                      <span>Tất cả</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${quickCategoryFilter === "all"
+                            ? "bg-emerald-900 text-emerald-100"
+                            : "bg-stone-100 text-stone-500"
+                          }`}
+                      >
+                        ({approvedRecipes.length})
+                      </span>
                     </button>
+
                     {categories.map((c) => {
                       const count = categoryCounts[c] || 0;
                       return (
@@ -648,24 +586,20 @@ export function AdminExportModal({
                           key={c}
                           type="button"
                           onClick={() => setQuickCategoryFilter(c)}
-                          className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer flex items-center gap-1 ${
-                            quickCategoryFilter === c
+                          className={`px-3 py-1.5 rounded-full text-xs shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${quickCategoryFilter === c
                               ? "bg-emerald-800 text-white font-bold shadow-2xs"
                               : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
-                          }`}
+                            }`}
                         >
                           <span>{c}</span>
-                          {count > 0 && (
-                            <span
-                              className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                                quickCategoryFilter === c
-                                  ? "bg-emerald-900 text-emerald-100"
-                                  : "bg-stone-100 text-stone-500 font-semibold"
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${quickCategoryFilter === c
+                                ? "bg-emerald-900 text-emerald-100"
+                                : "bg-stone-100 text-stone-500"
                               }`}
-                            >
-                              {count}
-                            </span>
-                          )}
+                          >
+                            ({count})
+                          </span>
                         </button>
                       );
                     })}
@@ -678,7 +612,7 @@ export function AdminExportModal({
                       type="text"
                       value={searchRecipeQuery}
                       onChange={(e) => setSearchRecipeQuery(e.target.value)}
-                      placeholder="Tìm kiếm nhanh theo tên món ăn (ví dụ: bún, phở, nấm, đậu phụ...)..."
+                      placeholder="Tìm nhanh theo tên món ăn (ví dụ: bún, phở, nấm, đậu phụ...)..."
                       className="w-full h-9 pl-8 pr-8 rounded-xl border border-stone-200 bg-white text-xs focus:border-emerald-600 outline-none"
                     />
                     {searchRecipeQuery && (
@@ -692,31 +626,28 @@ export function AdminExportModal({
                     )}
                   </div>
 
-                  {/* Danh sách chip công thức đã được lọc theo category & search name */}
-                  <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-2.5 bg-white rounded-xl border border-stone-200">
-                    {filteredQuickRecipes.slice(0, 60).map((r) => {
-                      const numId = parseInt(r.id.replace(/\D/g, ""), 10);
-                      const isSelected = parsedIds.includes(numId);
+                  {/* Danh sách chip công thức đã duyệt */}
+                  <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto p-2.5 bg-white rounded-xl border border-stone-200">
+                    {filteredQuickRecipes.slice(0, 80).map((r) => {
+                      const numId = getNumericId(r);
+                      const isSelected = selectedRecipeIds.includes(numId);
                       return (
                         <button
                           key={r.id}
                           type="button"
-                          onClick={() => toggleRecipeId(numId)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
-                            isSelected
+                          onClick={() => toggleRecipe(numId)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${isSelected
                               ? "bg-emerald-700 text-white font-semibold shadow-2xs scale-[1.02]"
                               : "bg-stone-50 text-stone-700 hover:bg-stone-100 border border-stone-200"
-                          }`}
+                            }`}
                         >
-                          {isSelected && <Check className="w-3 h-3 text-emerald-200" />}
-                          <span className="font-mono text-[11px] opacity-80">#{numId}</span>
-                          <span className="truncate max-w-[150px]">{r.name || r.title}</span>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-emerald-200 shrink-0" />}
+                          <span className="truncate max-w-[180px]">{r.name || r.title}</span>
                           <span
-                            className={`text-[9px] px-1.5 py-0.2 rounded-md ${
-                              isSelected
+                            className={`text-[9px] px-1.5 py-0.2 rounded-md ${isSelected
                                 ? "bg-emerald-800 text-emerald-100"
                                 : "bg-stone-200 text-stone-600"
-                            }`}
+                              }`}
                           >
                             {getRecipeDisplayCategory(r)}
                           </span>
@@ -726,29 +657,29 @@ export function AdminExportModal({
 
                     {filteredQuickRecipes.length === 0 && (
                       <p className="text-xs text-stone-400 py-4 w-full text-center">
-                        Không tìm thấy món ăn nào phù hợp danh mục hoặc từ khóa tìm kiếm.
+                        Không tìm thấy món ăn đã duyệt nào phù hợp với danh mục hoặc từ khóa tìm kiếm.
                       </p>
                     )}
                   </div>
 
                   <div className="flex items-center justify-between text-[11px] text-stone-500">
                     <span>
-                      Đang hiển thị <strong>{filteredQuickRecipes.length}</strong> món
-                      {quickCategoryFilter !== "all" && ` trong danh mục "${quickCategoryFilter}"`}
-                      {searchRecipeQuery && ` khớp từ khóa "${searchRecipeQuery}"`}
+                      Hiển thị <strong>{filteredQuickRecipes.length}</strong> món ăn đã duyệt
+                      {quickCategoryFilter !== "all" && ` thuộc "${quickCategoryFilter}"`}
+                      {searchRecipeQuery && ` khớp với "${searchRecipeQuery}"`}
                     </span>
-                    <span>Bấm vào tên món để chọn / bỏ chọn</span>
+                    <span>Bấm vào món để chọn hoặc bỏ chọn</span>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Tab 2: Xuất theo bộ lọc (thay trạng thái bằng Category) */}
+            {/* Tab 2: Xuất theo bộ lọc (Chế độ ăn & Danh mục - Chỉ món đã duyệt) */}
             {mode === "by_filter" && (
               <div className="space-y-4 animate-in fade-in">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-stone-800">
-                    Chọn các tiêu chí lọc để xuất dữ liệu:
+                    Chọn các tiêu chí lọc để xuất dữ liệu Excel:
                   </span>
                   <button
                     type="button"
@@ -779,20 +710,20 @@ export function AdminExportModal({
                     </select>
                   </div>
 
-                  {/* THAY TRẠNG THÁI CÔNG THỨC BẰNG CATEGORY */}
+                  {/* Danh mục */}
                   <div>
                     <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                      Danh mục (Category):
+                      Danh mục món ăn:
                     </label>
                     <select
                       value={filterCategory}
                       onChange={(e) => setFilterCategory(e.target.value)}
                       className="w-full h-10 px-3 rounded-xl border border-stone-200 bg-white text-xs font-medium focus:border-emerald-600 outline-none cursor-pointer"
                     >
-                      <option value="all">Tất cả danh mục (10 danh mục)</option>
+                      <option value="all">Tất cả danh mục ({approvedRecipes.length} món đã duyệt)</option>
                       {categories.map((c) => (
                         <option key={c} value={c}>
-                          {c}
+                          {c} ({categoryCounts[c] || 0} món)
                         </option>
                       ))}
                     </select>
@@ -834,11 +765,16 @@ export function AdminExportModal({
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-150 text-[11px] text-emerald-900 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>
-                    Ví dụ: Chọn chế độ <strong>vegan</strong> + Danh mục{" "}
-                    <strong>{filterCategory !== "all" ? filterCategory : "Món chính"}</strong> sẽ xuất một file CSV chứa toàn bộ công thức phù hợp.
+                {/* Khung đếm số lượng công thức phù hợp với bộ lọc */}
+                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>
+                      Tìm thấy <strong className="text-emerald-800 text-sm font-bold">{matchedFilterRecipes.length}</strong> món ăn đã duyệt phù hợp với bộ lọc.
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-emerald-700 font-medium">
+                    {filterCategory !== "all" ? filterCategory : "Toàn bộ danh mục"}
                   </span>
                 </div>
               </div>
@@ -862,9 +798,9 @@ export function AdminExportModal({
               <div className="flex items-center gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
                 <div>
-                  <p className="font-bold">Xuất dữ liệu thành công!</p>
+                  <p className="font-bold">Xuất file Excel thành công!</p>
                   <p className="text-[11px] text-emerald-800">
-                    Tệp <strong>{successFilename}</strong> đã được tải xuống trình duyệt của bạn.
+                    Tệp <strong>{successFilename}</strong> đã được tải xuống máy tính của bạn.
                   </p>
                 </div>
               </div>
@@ -885,25 +821,29 @@ export function AdminExportModal({
           <button
             type="button"
             onClick={handleExport}
-            disabled={isExporting || (mode === "by_recipes" && parsedIds.length === 0)}
+            disabled={
+              isExporting ||
+              (mode === "by_recipes" && selectedRecipeIds.length === 0) ||
+              (mode === "by_filter" && matchedFilterRecipes.length === 0)
+            }
             className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs flex items-center gap-2 cursor-pointer transition-colors"
           >
             {isExporting ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>Đang tạo file ${exportFormat.toUpperCase()}...</span>
+                <span>Đang tạo file Excel...</span>
               </>
             ) : (
               <>
-                <Download className="w-4 h-4" />
+                <FileSpreadsheet className="w-4 h-4" />
                 <span>
                   {mode === "by_recipes"
-                    ? parsedIds.length === 1
-                      ? `Xuất 1 món (ID ${parsedIds[0]})`
-                      : parsedIds.length > 1
-                      ? `Xuất file chứa ${parsedIds.length} món`
-                      : "Xuất file món đã chọn"
-                    : "Xuất file theo bộ lọc"}
+                    ? selectedRecipeIds.length === 0
+                      ? "Vui lòng chọn món để xuất"
+                      : `Xuất ${selectedRecipeIds.length} món đã chọn (Excel)`
+                    : matchedFilterRecipes.length === 0
+                      ? "Không có món nào phù hợp"
+                      : `Xuất ${matchedFilterRecipes.length} món theo bộ lọc (Excel)`}
                 </span>
               </>
             )}
