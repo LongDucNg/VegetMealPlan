@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Fraunces } from "next/font/google";
 import "./globals.css";
 import { RoleProvider } from "@/context/RoleContext";
+import { FloatingChatWidget } from "@/features/chatbot/components/FloatingChatWidget";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -30,7 +31,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${fraunces.variable}`}>
       <body className="min-h-screen bg-stone-50 font-sans text-stone-900 antialiased selection:bg-emerald-100 selection:text-emerald-900">
-        <RoleProvider>{children}</RoleProvider>
+        <RoleProvider>
+          {children}
+          <FloatingChatWidget />
+        </RoleProvider>
       </body>
     </html>
   );
