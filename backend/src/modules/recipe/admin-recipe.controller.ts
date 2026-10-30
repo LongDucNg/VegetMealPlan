@@ -42,6 +42,11 @@ export class AdminRecipeController {
     );
   }
 
+  @Get(':id')
+  async findOne(@Param('id', PositiveIntPipe) id: number) {
+    return this.recipeService.findOneForAdmin(id);
+  }
+
   @Put(':id/status')
   async updateStatus(
     @Req() req: any,
