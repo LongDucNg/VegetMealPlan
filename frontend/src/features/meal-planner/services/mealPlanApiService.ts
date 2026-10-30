@@ -92,6 +92,21 @@ export const mealPlanApiService = {
     return apiClient.delete<any>(`/users/me/meal-plans/${id}`);
   },
 
+  // GET /users/me/meal-plan-profiles/:profileId/allergies - Danh sách dị ứng của hồ sơ thực đơn
+  getProfileAllergies(profileId: number | string) {
+    return apiClient.get<Array<{ ingredient_id: number; ingredient_name: string }>>(
+      `/users/me/meal-plan-profiles/${profileId}/allergies`
+    );
+  },
+
+  // PUT /users/me/meal-plan-profiles/:profileId/allergies - Cập nhật danh sách dị ứng của hồ sơ thực đơn
+  setProfileAllergies(profileId: number | string, ingredient_ids: number[]) {
+    return apiClient.put<Array<{ ingredient_id: number; ingredient_name: string }>>(
+      `/users/me/meal-plan-profiles/${profileId}/allergies`,
+      { ingredient_ids }
+    );
+  },
+
   // API #34: PATCH /users/me/meal-plans/:id/days/:dayId/slots/:slotId - Đổi món trong một bữa
   updateMealSlot(
     planId: number | string,

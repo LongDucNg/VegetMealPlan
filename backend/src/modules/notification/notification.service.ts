@@ -37,4 +37,25 @@ export class NotificationService {
       });
     }
   }
+
+  /** Đánh dấu tất cả thông báo của người dùng là đã đọc */
+  async markAllRead(user_id: number): Promise<void> {
+    await this.notificationRepo.update({ user_id, is_read: false }, { is_read: true });
+  }
+
+  /** Xoá một thông báo */
+  async delete(user_id: number, notification_id: number): Promise<void> {
+    const result = await this.notificationRepo.delete({ notification_id, user_id });
+    if (!result.affected) {
+      throw new NotFoundException({
+        code: ErrorCode.RESOURCE_NOT_FOUND,
+        message: 'Không tìm thấy thông báo',
+      });
+    }
+  }
+
+  /** Xoá tất cả thông báo của người dùng */
+  async deleteAll(user_id: number): Promise<void> {
+    await this.notificationRepo.delete({ user_id });
+  }
 }

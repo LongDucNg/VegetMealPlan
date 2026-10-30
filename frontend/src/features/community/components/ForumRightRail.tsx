@@ -14,6 +14,7 @@ interface ForumRightRailProps {
 
 export function ForumRightRail({ onSelectTag }: ForumRightRailProps) {
   const [topPosts, setTopPosts] = useState<ForumPost[]>([]);
+  const [trending, setTrending] = useState<TrendingTopic[]>(TRENDING_TOPICS);
 
   useEffect(() => {
     forumService
@@ -23,6 +24,17 @@ export function ForumRightRail({ onSelectTag }: ForumRightRailProps) {
       })
       .catch((err) => {
         console.warn("Error fetching top forum posts:", err);
+      });
+
+    forumService
+      .getTrending(8)
+      .then((res) => {
+        if (res && res.length > 0) {
+          setTrending(res);
+        }
+      })
+      .catch((err) => {
+        console.warn("Error fetching trending topics:", err);
       });
   }, []);
 
@@ -73,7 +85,7 @@ export function ForumRightRail({ onSelectTag }: ForumRightRailProps) {
         </div>
 
         <div className="flex flex-col divide-y divide-stone-100">
-          {TRENDING_TOPICS.map((topic) => (
+          {trending.map((topic) => (
             <button
               key={topic.tag}
               type="button"
@@ -84,7 +96,7 @@ export function ForumRightRail({ onSelectTag }: ForumRightRailProps) {
                 {topic.tag}
               </span>
               <span className="text-xs text-stone-500 font-medium">
-                {topic.posts}
+                {typeof topic.posts === "number" ? `${topic.posts} bài viết` : topic.posts}
               </span>
             </button>
           ))}

@@ -89,7 +89,7 @@ function ForumContent() {
     try {
       if (showMyPosts) {
         const myRes = await forumService.listMyPosts();
-        const activePosts = myRes.data.filter((p) => p.status !== "removed" && p.status !== "rejected");
+        const activePosts = myRes.data.filter((p) => p.status !== "removed");
         setPosts(activePosts);
         setMyPostCount(activePosts.length);
       } else {
@@ -99,16 +99,14 @@ function ForumContent() {
           sort,
           page: 1,
           limit: 30,
-          currentUserId: user?.user_id,
         });
-        const activePosts = res.data.filter((p) => p.status !== "removed" && p.status !== "rejected");
-        setPosts(activePosts);
+        setPosts(res.data);
 
         if (user?.user_id) {
           forumService
             .listMyPosts()
             .then((myRes) => {
-              const count = myRes.data.filter((p) => p.status !== "removed" && p.status !== "rejected").length;
+              const count = myRes.data.filter((p) => p.status !== "removed").length;
               setMyPostCount(count);
             })
             .catch(() => { });
@@ -314,13 +312,17 @@ function ForumContent() {
                           {post.category}
                         </span>
 
-                        {/* Status Badge: Pending vs Removed vs Approved */}
+                        {/* Status Badge: Pending vs Rejected vs Removed vs Approved */}
                         {post.status === "pending_review" ? (
                           <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
                             <span>⏳</span> Đang chờ duyệt
                           </span>
-                        ) : post.status === "removed" || post.status === "rejected" ? (
-                          <span className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
+                        ) : post.status === "rejected" ? (
+                          <span className="text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
+                            <span>✕</span> Bị từ chối
+                          </span>
+                        ) : post.status === "removed" ? (
+                          <span className="text-xs font-semibold text-stone-600 bg-stone-100 border border-stone-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
                             <span>✕</span> Đã bị gỡ
                           </span>
                         ) : (
@@ -343,6 +345,12 @@ function ForumContent() {
                       <p className="mt-2 text-base text-stone-600 line-clamp-2 leading-relaxed">
                         {post.excerpt}
                       </p>
+
+                      {post.rejectReason && (
+                        <div className="mt-2.5 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
+                          <span className="font-semibold">Lý do từ chối:</span> {post.rejectReason}
+                        </div>
+                      )}
 
                       {/* Tags & Footer */}
                       <div className="mt-4 pt-3 border-t border-stone-100 flex flex-wrap items-center justify-between gap-3">
@@ -373,12 +381,12 @@ function ForumContent() {
                             <span>{post.author}</span>
                           </div>
 
-                          <div className="flex items-center gap-1 text-stone-500">
+                          <div className="flex items-center gap-1 text-stone-500" title="Lượt xem">
                             <Eye className="w-3.5 h-3.5 text-stone-400" />
                             <span>{post.views ?? 0}</span>
                           </div>
 
-                          <div className="flex items-center gap-1 text-stone-500">
+                          <div className="flex items-center gap-1 text-stone-500" title="Bình luận">
                             <MessageSquare className="w-3.5 h-3.5 text-stone-400" />
                             <span>{post.commentsCount}</span>
                           </div>

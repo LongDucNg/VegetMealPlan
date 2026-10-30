@@ -88,6 +88,18 @@ export interface CreateForumCommentInput {
   content: string;
 }
 
+export interface UpdateForumPostInput {
+  title?: string;
+  content?: string;
+  category_id?: number;
+  tags?: string[];
+}
+
+export interface ForumVoteResponse {
+  rating: number;
+  my_vote: "up" | "down" | null;
+}
+
 export interface CommentItem {
   id: string;
   numericId?: number;
@@ -99,6 +111,7 @@ export interface CommentItem {
   votes: number;
   userVoted?: "up" | "down" | null;
   createdAt?: string;
+  userId?: number;
 }
 
 export interface ForumPost {
@@ -125,9 +138,13 @@ export interface ForumPost {
   views?: number;
   createdAt?: string;
   userId?: number;
+  rejectReason?: string | null;
+  isFlagged?: boolean;
+  flagReason?: string | null;
+  updatedAt?: string;
 }
 
 export interface TrendingTopic {
   tag: string;
-  posts: string;
+  posts: string | number;
 }
