@@ -253,6 +253,8 @@ function ModerationContent() {
   const [items, setItems] = useState<ModerationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmModal, setConfirmModal] = useState<{ itemId: string; action: "Remove" | "Escalate" } | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectError, setRejectError] = useState<string | null>(null);
 
   const loadQueue = () => {
     setLoading(true);
@@ -268,15 +270,23 @@ function ModerationContent() {
     loadQueue();
   }, []);
 
-  const handleAction = async (itemId: string, status: ModerationItem["status"]) => {
+  const handleAction = async (itemId: string, status: ModerationItem["status"], reasonText?: string) => {
     const item = items.find((m) => m.id === itemId);
     if (item && item.contentId) {
-      const backendStatus =
-        status === "Approved" ? "approved" : status === "Removed" ? "removed" : "pending_review";
       try {
-        await forumService.adminUpdatePostStatus(item.contentId, backendStatus as any);
+        if (status === "Approved") {
+          // Gọi trực tiếp API: PUT /api/v1/admin/moderation/:id (action: 'approve')
+          await forumService.moderatePost(item.contentId, { action: "approve" });
+        } else if (status === "Removed") {
+          // Gọi trực tiếp API: PUT /api/v1/admin/moderation/:id (action: 'reject', reason)
+          const validReason = (reasonText || rejectReason || "Nội dung vi phạm tiêu chuẩn cộng đồng").trim();
+          await forumService.moderatePost(item.contentId, {
+            action: "reject",
+            reason: validReason.length >= 5 ? validReason : "Nội dung vi phạm tiêu chuẩn cộng đồng",
+          });
+        }
       } catch (err) {
-        console.error("Error updating post status:", err);
+        console.error("Error moderating post:", err);
       }
     }
 
@@ -284,6 +294,8 @@ function ModerationContent() {
       prev.map((m) => (m.id === itemId ? { ...m, status } : m))
     );
     setConfirmModal(null);
+    setRejectReason("");
+    setRejectError(null);
   };
 
   const pending = items.filter((i) => i.status === "Pending");
@@ -338,33 +350,68 @@ function ModerationContent() {
       {/* Confirmation modal */}
       <Modal
         isOpen={!!confirmModal}
-        onClose={() => setConfirmModal(null)}
-        title={confirmModal?.action === "Remove" ? "Xác nhận gỡ bỏ nội dung" : "Chuyển lên cấp cao hơn"}
+        onClose={() => {
+          setConfirmModal(null);
+          setRejectReason("");
+          setRejectError(null);
+        }}
+        title={confirmModal?.action === "Remove" ? "Từ chối & Gỡ bỏ bài viết" : "Chuyển lên cấp cao hơn"}
       >
         <div className="space-y-4">
-          <p className="text-base text-stone-700">
+          <p className="text-sm text-stone-600">
             {confirmModal?.action === "Remove"
-              ? "Hành động này sẽ gỡ vĩnh viễn nội dung khỏi VeggieHub. Quản trị viên vẫn có thể phục hồi lại từ trang Quản lý nội dung."
+              ? "Bài viết sẽ bị từ chối duyệt và tác giả sẽ nhận được lý do từ chối. Vui lòng nhập lý do cụ thể:"
               : "Hành động này sẽ chuyển nội dung lên quản trị viên cấp cao xem xét. Nội dung tạm thời vẫn hiển thị cho tới khi có phán quyết."}
           </p>
-          <div className="flex gap-3">
+
+          {confirmModal?.action === "Remove" && (
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-stone-700">
+                Lý do từ chối <span className="text-red-500">*</span> (tối thiểu 5 ký tự):
+              </label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => {
+                  setRejectReason(e.target.value);
+                  if (rejectError) setRejectError(null);
+                }}
+                rows={3}
+                placeholder="Ví dụ: Nội dung chứa từ khoá vi phạm tiêu chuẩn hoặc sai lệch thông tin ăn chay..."
+                className="w-full p-3 rounded-xl border border-stone-200 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+              />
+              {rejectError && (
+                <p className="text-xs text-red-600 font-medium">{rejectError}</p>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
             <button
-              onClick={() =>
-                confirmModal &&
-                handleAction(
-                  confirmModal.itemId,
-                  confirmModal.action === "Remove" ? "Removed" : "Escalated"
-                )
-              }
+              onClick={() => {
+                if (!confirmModal) return;
+                if (confirmModal.action === "Remove") {
+                  if (rejectReason.trim().length < 5) {
+                    setRejectError("Lý do từ chối bắt buộc phải có từ 5 ký tự trở lên.");
+                    return;
+                  }
+                  handleAction(confirmModal.itemId, "Removed", rejectReason.trim());
+                } else {
+                  handleAction(confirmModal.itemId, "Escalated");
+                }
+              }}
               className={`flex-1 h-11 rounded-xl font-semibold text-white transition-colors cursor-pointer ${confirmModal?.action === "Remove"
                 ? "bg-red-700 hover:bg-red-800"
                 : "bg-violet-700 hover:bg-violet-800"
                 }`}
             >
-              {confirmModal?.action === "Remove" ? "Đồng ý gỡ bỏ" : "Đồng ý chuyển tiếp"}
+              {confirmModal?.action === "Remove" ? "Xác nhận từ chối" : "Đồng ý chuyển tiếp"}
             </button>
             <button
-              onClick={() => setConfirmModal(null)}
+              onClick={() => {
+                setConfirmModal(null);
+                setRejectReason("");
+                setRejectError(null);
+              }}
               className="h-11 px-5 rounded-xl bg-stone-100 text-stone-700 font-semibold hover:bg-stone-200 transition-colors cursor-pointer"
             >
               Hủy

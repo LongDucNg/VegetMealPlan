@@ -20,6 +20,7 @@ import { favoriteService, SavedMealPlan } from "@/features/recipes/services/favo
 import { favoriteApiService } from "@/features/recipes/services/favoriteApiService";
 import { mapBackendToFrontendRecipe } from "@/features/recipes/utils/recipeMapper";
 import { mealPlannerService } from "../services/mealPlannerService";
+import { mealPlanApiService } from "../services/mealPlanApiService";
 import { priceService } from "@/features/recipes/services/priceService";
 import { DayMealPlan } from "../types";
 
@@ -138,7 +139,7 @@ export function FavoritesModal({
 
   if (!isOpen) return null;
 
-  const handleValidateSelection = () => {
+  const handleValidateSelection = async () => {
     const result = mealPlannerService.validateAndCreateFromFavorites(
       {
         breakfast: selectedBreakfast || undefined,
@@ -148,11 +149,45 @@ export function FavoritesModal({
       },
       profile
     );
-    setValidationResult(result);
+
+    // Gọi API: POST /api/v1/meal-plans/validate để kiểm tra dị ứng và chế độ ăn từ server
+    const todayStr = new Date().toISOString().split("T")[0];
+    const mealsToValidate = [
+      selectedBreakfast?.id ? { recipe_id: Number(selectedBreakfast.id), servings: 1 } : null,
+      selectedLunch?.id ? { recipe_id: Number(selectedLunch.id), servings: 1 } : null,
+      selectedDinner?.id ? { recipe_id: Number(selectedDinner.id), servings: 1 } : null,
+      selectedSnack?.id ? { recipe_id: Number(selectedSnack.id), servings: 1 } : null,
+    ].filter(Boolean) as Array<{ recipe_id: number; servings: number }>;
+
+    let finalResult = result;
+    if (mealsToValidate.length > 0) {
+      try {
+        const backendCheck = await mealPlanApiService.validateMealPlan({
+          start_date: todayStr,
+          end_date: todayStr,
+          days: [{ date: todayStr, meals: mealsToValidate }],
+        });
+
+        if (backendCheck && !backendCheck.valid && Array.isArray(backendCheck.errors) && backendCheck.errors.length > 0) {
+          finalResult = {
+            ...result,
+            isCompatible: false,
+            warnings: [
+              ...result.warnings,
+              ...backendCheck.errors.map((e: string) => `[Hệ thống kiểm tra]: ${e}`),
+            ],
+          };
+        }
+      } catch (err) {
+        console.warn("[FavoritesModal] Backend validateMealPlan error:", err);
+      }
+    }
+
+    setValidationResult(finalResult);
 
     // If completely compatible without warnings, immediately apply
-    if (result.isCompatible) {
-      onApplyPlan(result.dayPlan);
+    if (finalResult.isCompatible) {
+      onApplyPlan(finalResult.dayPlan);
       onClose();
     }
   };
