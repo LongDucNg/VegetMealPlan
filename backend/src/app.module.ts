@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { resolve } from 'path';
+import { buildPostgresOptions, describeDatabase, missingDatabaseEnv } from './config/database.config';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -43,29 +44,33 @@ import { PhotoScanModule } from './modules/photo-scan/photo-scan.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
+        const env = (key: string) => config.get<string>(key);
         // Báo thiếu biến môi trường bằng TÊN biến, KHÔNG in giá trị (không lộ mật khẩu).
-        const required = ['DB_HOST', 'DB_PORT', 'DB_USERNAME', 'DB_PASSWORD', 'DB_NAME'] as const;
-        const missing = required.filter((key) => {
-          const value = config.get<string>(key);
-          return value === undefined || value === null || value === '';
-        });
+        const missing = missingDatabaseEnv(env);
         if (missing.length) {
           throw new Error(
-            `Thiếu cấu hình PostgreSQL trong file .env: ${missing.join(', ')}. ` +
+            `Thiếu cấu hình PostgreSQL trong file .env: ${missing.join(', ')} (hoặc khai báo DATABASE_URL). ` +
               `Hãy copy .env.example thành .env rồi điền giá trị.`,
           );
         }
 
+        const target = describeDatabase(env);
+        const options = buildPostgresOptions(env);
+        const logger = new Logger('Database');
+        logger.log(`Kết nối ${target.label}${options.ssl ? ' (SSL)' : ''}`);
+        if (env('DB_SYNCHRONIZE') === 'true' && !options.synchronize) {
+          logger.warn('Bỏ qua DB_SYNCHRONIZE=true vì đây không phải DB local: schema chỉ đổi qua migration.');
+        }
+
         return {
           type: 'postgres',
-          host: config.get<string>('DB_HOST'),
-          port: Number(config.get<string>('DB_PORT')),
-          username: config.get<string>('DB_USERNAME'),
-          password: config.get<string>('DB_PASSWORD'),
-          database: config.get<string>('DB_NAME'),
+          ...options,
           autoLoadEntities: true,
-          // LUÔN false — schema đi qua migration để cả team dùng chung 1 nguồn sự thật.
-          synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
+          // DB_MIGRATIONS_RUN=true (dùng khi deploy): khởi động là tự áp các migration còn thiếu,
+          // chỉ thêm, không reset dữ liệu. Tránh lỗi "column does not exist" vì quên chạy migration.
+          // Ghép chuỗi bằng '/' (không dùng path.resolve): glob của TypeORM không hiểu dấu \ trên Windows.
+          migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
+          migrationsRun: env('DB_MIGRATIONS_RUN') === 'true',
         };
       },
     }),
