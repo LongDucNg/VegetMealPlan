@@ -429,13 +429,34 @@ export class RecipeService {
 
     if (recipes.length > 0) {
       const recipeIds = recipes.map((r) => r.recipe_id);
-      const nutritions = await this.nutritionRepo.find({
-        where: { recipe_id: In(recipeIds) },
-      });
+      const [nutritions, recipeIngredients] = await Promise.all([
+        this.nutritionRepo.find({
+          where: { recipe_id: In(recipeIds) },
+        }),
+        this.recipeIngredientRepo.find({
+          where: { recipe_id: In(recipeIds) },
+          relations: ['ingredient'],
+        }),
+      ]);
       const nutritionMap = new Map(nutritions.map((n) => [n.recipe_id, n]));
+
+      const riMap = new Map<number, any[]>();
+      for (const ri of recipeIngredients) {
+        const list = riMap.get(ri.recipe_id) || [];
+        list.push({
+          ingredient_id: ri.ingredient_id,
+          ingredient_name: ri.ingredient?.ingredient_name ?? '',
+          quantity: ri.quantity,
+          unit: ri.unit,
+          is_optional: ri.is_optional,
+        });
+        riMap.set(ri.recipe_id, list);
+      }
 
       for (const recipe of recipes as any[]) {
         recipe.nutrition = nutritionMap.get(recipe.recipe_id) || null;
+        recipe.recipe_ingredients = riMap.get(recipe.recipe_id) || [];
+        recipe.ingredient_count = recipe.recipe_ingredients.length;
       }
     }
 
@@ -649,6 +670,13 @@ export class RecipeService {
               `${i.note ? `, ${i.note}` : ''})`,
           )
           .join('; '),
+        recipe_ingredients: ingredients.map((i) => ({
+          ingredient_id: i.ingredient_id,
+          ingredient_name: i.ingredient?.ingredient_name ?? '',
+          quantity: i.quantity,
+          unit: i.unit,
+          is_optional: i.is_optional,
+        })),
         calories: nutrition?.calories ?? null,
         protein: nutrition?.protein ?? null,
         carbs: nutrition?.carbs ?? null,
@@ -857,6 +885,7 @@ export class RecipeService {
         description: dto.description,
         instructions: dto.instructions,
         image_url: dto.image_url,
+        video_url: dto.video_url,
         prep_time: dto.prep_time,
         cook_time: dto.cook_time,
         servings: dto.servings,
@@ -1905,6 +1934,7 @@ export class RecipeService {
         description: dto.description ?? recipe.description,
         instructions: dto.instructions ?? recipe.instructions,
         image_url: dto.image_url ?? recipe.image_url,
+        video_url: dto.video_url !== undefined ? dto.video_url : recipe.video_url,
         prep_time: dto.prep_time ?? recipe.prep_time,
         cook_time: dto.cook_time ?? recipe.cook_time,
         servings: dto.servings ?? recipe.servings,
@@ -2281,13 +2311,17 @@ export class RecipeService {
 
     if (recipes.length > 0) {
       const ids = recipes.map((r) => r.recipe_id);
-      const [nutritions, rcRecords] = await Promise.all([
+      const [nutritions, rcRecords, riRecords] = await Promise.all([
         this.nutritionRepo.find({
           where: { recipe_id: In(ids) },
         }),
         this.recipeCategoryRepo.find({
           where: { recipe_id: In(ids) },
           relations: ['category'],
+        }),
+        this.recipeIngredientRepo.find({
+          where: { recipe_id: In(ids) },
+          relations: ['ingredient'],
         }),
       ]);
 
@@ -2306,12 +2340,21 @@ export class RecipeService {
         rcByRecipe.set(rc.recipe_id, rcs);
       }
 
+      const riByRecipe = new Map<number, any[]>();
+      for (const ri of riRecords) {
+        const list = riByRecipe.get(ri.recipe_id) ?? [];
+        list.push(ri);
+        riByRecipe.set(ri.recipe_id, list);
+      }
+
       for (const recipe of recipes as any[]) {
         recipe.nutrition = nutritionMap.get(recipe.recipe_id) || null;
         const cats = categoriesByRecipe.get(recipe.recipe_id) || [];
         recipe.category = cats.length > 0 ? cats[0] : null;
         recipe.categories = cats;
         recipe.recipeCategories = rcByRecipe.get(recipe.recipe_id) || [];
+        recipe.recipeIngredients = riByRecipe.get(recipe.recipe_id) || [];
+        recipe.ingredients = riByRecipe.get(recipe.recipe_id) || [];
       }
     }
 
@@ -2328,6 +2371,48 @@ export class RecipeService {
     }
 
     return recipes;
+  }
+
+  
+  async findOneForAdmin(recipe_id: number) {
+    const recipe = await this.recipeRepo.findOne({
+      where: { recipe_id },
+    });
+
+    if (!recipe) {
+      throw new NotFoundException({
+        code: ErrorCode.RECIPE_NOT_FOUND,
+        message: `Không tìm thấy công thức #${recipe_id}`,
+      });
+    }
+
+    const [ingredients, nutrition, rcRecords] = await Promise.all([
+      this.recipeIngredientRepo.find({
+        where: { recipe_id },
+        relations: ['ingredient'],
+      }),
+      this.nutritionRepo.findOne({
+        where: { recipe_id },
+      }),
+      this.recipeCategoryRepo.find({
+        where: { recipe_id },
+        relations: ['category'],
+      }),
+    ]);
+
+    const categories = rcRecords
+      .map((rc) => rc.category?.category_name)
+      .filter(Boolean);
+
+    return {
+      ...recipe,
+      category: categories.length > 0 ? categories[0] : null,
+      categories,
+      recipeCategories: rcRecords,
+      ingredients,
+      recipeIngredients: ingredients,
+      nutrition,
+    };
   }
 
   async updateRecipeStatus(

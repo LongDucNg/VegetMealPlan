@@ -201,17 +201,33 @@ export function AdminRecipeManagement() {
     setModalOpen(true);
   };
 
-  const handleOpenEdit = (recipe: Recipe) => {
+  const handleOpenEdit = async (recipe: Recipe) => {
+    // Nếu công thức chưa có danh sách nguyên liệu, nạp chi tiết từ admin API
+    if (!recipe.ingredients || recipe.ingredients.length === 0) {
+      const numId = parseInt(recipe.id.replace(/\D/g, ""), 10);
+      if (!isNaN(numId)) {
+        try {
+          const detail = await recipeApiService.getAdminRecipeById(numId);
+          const mapped = mapBackendToFrontendRecipe(detail);
+          setEditingRecipe(mapped);
+          setModalOpen(true);
+          return;
+        } catch {
+          // Bỏ qua lỗi và dùng recipe hiện tại
+        }
+      }
+    }
     setEditingRecipe(recipe);
     setModalOpen(true);
   };
 
-  const handleSave = (recipeData: Omit<Recipe, "id">, editId?: string) => {
+  const handleSave = async (recipeData: Omit<Recipe, "id">, editId?: string) => {
     if (editId) {
-      updateRecipe(editId, recipeData);
+      await updateRecipe(editId, recipeData);
     } else {
-      createRecipe(recipeData);
+      await createRecipe(recipeData);
     }
+    await loadAdminRecipes();
     refresh();
   };
 
