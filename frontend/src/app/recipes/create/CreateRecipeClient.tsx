@@ -7,6 +7,9 @@ import { useRouter, usePathname } from "next/navigation";
 import {
   ArrowLeft,
   ChefHat,
+  Upload,
+  Video,
+  Loader2,
   Plus,
   Trash2,
   Clock,
@@ -132,6 +135,44 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState(SAMPLE_PRESET_IMAGES[0].url);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingImage(true);
+      const res = await recipeApiService.uploadMedia(file);
+      const fullUrl = (res as any)?.data?.url || res?.url;
+      if (fullUrl) {
+        setImageUrl(fullUrl);
+      }
+    } catch (err: any) {
+      alert("Lỗi khi tải ảnh: " + (err.message || "Không thể tải file lên"));
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingVideo(true);
+      const res = await recipeApiService.uploadMedia(file);
+      const fullUrl = (res as any)?.data?.url || res?.url;
+      if (fullUrl) {
+        setVideoUrl(fullUrl);
+      }
+    } catch (err: any) {
+      alert("Lỗi khi tải video: " + (err.message || "Không thể tải file lên"));
+    } finally {
+      setUploadingVideo(false);
+    }
+  };
+
 
   // Gộp trưa/tối thành 1 lựa chọn "any" (Trưa & Tối)
   const [mealType, setMealType] = useState<string>("any");
@@ -417,6 +458,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
     setTitle("");
     setDescription("");
     setImageUrl(SAMPLE_PRESET_IMAGES[0].url);
+    setVideoUrl("");
     setPrepTime(0);
     setCookTime(0);
     setServings(0);
@@ -452,14 +494,36 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
       return;
     }
 
-    const validIngredients = ingredients.filter(
-      (ing) => ing.ingredient_id > 0 && Number(ing.quantity) > 0
-    );
-
-    if (validIngredients.length === 0) {
-      setErrorMsg("Vui lòng chọn ít nhất một nguyên liệu từ kho hệ thống và nhập số lượng (g) lớn hơn 0.");
+    // Kiểm tra tất cả nguyên liệu người dùng nhập
+    const nonEmptyRows = ingredients.filter((ing) => ing.name.trim() !== "");
+    if (nonEmptyRows.length === 0) {
+      setErrorMsg("Vui lòng thêm ít nhất một nguyên liệu từ kho dữ liệu hệ thống.");
       return;
     }
+
+    // Auto-match nếu người dùng gõ tên trùng với DB mà chưa click gợi ý
+    for (const ing of nonEmptyRows) {
+      if (!ing.ingredient_id || ing.ingredient_id === 0) {
+        const found = availableIngredients.find(
+          (a) => a.ingredient_name.trim().toLowerCase() === ing.name.trim().toLowerCase()
+        );
+        if (found) {
+          ing.ingredient_id = found.ingredient_id;
+          ing.avg_price_per_unit = Number(found.avg_price_per_unit || 0);
+          ing.calories_per_100g = Number(found.calories_per_100g || 0);
+        }
+      }
+      if (!ing.ingredient_id || ing.ingredient_id === 0) {
+        setErrorMsg(`Nguyên liệu "${ing.name}" không có trong DB. Theo quy tắc hệ thống, bạn chỉ được chọn nguyên liệu có sẵn trong cơ sở dữ liệu.`);
+        return;
+      }
+      if (!ing.quantity || Number(ing.quantity) <= 0) {
+        setErrorMsg(`Vui lòng nhập số lượng theo đơn vị gam (g) lớn hơn 0 cho nguyên liệu "${ing.name}".`);
+        return;
+      }
+    }
+
+    const validIngredients = nonEmptyRows;
 
     // Kiểm tra tính tương thích giữa nguyên liệu đã chọn và chế độ ăn chay
     for (const ing of validIngredients) {
@@ -486,6 +550,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
       description: description.trim() || undefined,
       instructions: instructionsText,
       image_url: imageUrl.trim() || undefined,
+      video_url: videoUrl.trim() || undefined,
       prep_time: Math.max(0, Number(prepTime) || 0),
       cook_time: Math.max(0, Number(cookTime) || 0),
       servings: Math.max(1, Number(servings) || 1),
@@ -756,44 +821,109 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                 />
               </div>
 
-              {/* Image URL & Presets */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-stone-700 flex items-center justify-between">
-                  <span>Ảnh món ăn (URL)</span>
-                  <span className="text-[11px] font-normal text-stone-400">
-                    Chọn nhanh ảnh mẫu bên dưới hoặc nhập link
-                  </span>
-                </label>
-                <input
-                  type="url"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://images.unsplash.com/photo-..."
-                  className="w-full px-4 py-2 text-xs rounded-2xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:outline-hidden focus:border-emerald-600 transition-all font-mono text-stone-600"
-                />
-
-                {/* Preset image thumbnails */}
-                <div className="flex items-center gap-2 overflow-x-auto py-1">
-                  {SAMPLE_PRESET_IMAGES.map((preset, idx) => (
-                    <button
-                      type="button"
-                      key={idx}
-                      onClick={() => setImageUrl(preset.url)}
-                      className={`relative w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
-                        imageUrl === preset.url
-                          ? "border-emerald-600 ring-2 ring-emerald-600/30"
-                          : "border-stone-200 hover:border-emerald-400 opacity-70 hover:opacity-100"
-                      }`}
-                      title={preset.name}
-                    >
-                      <Image
-                        src={preset.url}
-                        alt={preset.name}
-                        fill
-                        className="object-cover"
+              {/* Image & Video Upload Section */}
+              <div className="space-y-4">
+                {/* Image Section */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-stone-700">
+                      Ảnh món ăn
+                    </label>
+                    <label className={`text-xs px-3 py-1.5 rounded-xl border border-emerald-600 bg-emerald-50 text-emerald-800 font-bold hover:bg-emerald-100 cursor-pointer flex items-center gap-1.5 transition-all ${uploadingImage ? "opacity-50 pointer-events-none" : ""}`}>
+                      {uploadingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                      <span>{uploadingImage ? "Đang tải..." : "Tải ảnh từ máy"}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
                       />
-                    </button>
-                  ))}
+                    </label>
+                  </div>
+
+                  <input
+                    type="text"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://images.unsplash.com/photo-..."
+                    className="w-full px-4 py-2 text-xs rounded-2xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:outline-hidden focus:border-emerald-600 transition-all font-mono text-stone-600"
+                  />
+
+                  {/* Preset image thumbnails */}
+                  <div className="flex items-center gap-2 overflow-x-auto py-1">
+                    {SAMPLE_PRESET_IMAGES.map((preset, idx) => (
+                      <button
+                        type="button"
+                        key={idx}
+                        onClick={() => setImageUrl(preset.url)}
+                        className={`relative w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
+                          imageUrl === preset.url
+                            ? "border-emerald-600 ring-2 ring-emerald-600/30"
+                            : "border-stone-200 hover:border-emerald-400 opacity-70 hover:opacity-100"
+                        }`}
+                        title={preset.name}
+                      >
+                        <Image
+                          src={preset.url}
+                          alt={preset.name}
+                          fill
+                          className="object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Video Section */}
+                <div className="space-y-2 pt-2 border-t border-stone-100">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-stone-700">
+                      Video nấu ăn (tùy chọn)
+                    </label>
+                    <label className={`text-xs px-3 py-1.5 rounded-xl border border-violet-600 bg-violet-50 text-violet-800 font-bold hover:bg-violet-100 cursor-pointer flex items-center gap-1.5 transition-all ${uploadingVideo ? "opacity-50 pointer-events-none" : ""}`}>
+                      {uploadingVideo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                      <span>{uploadingVideo ? "Đang tải video..." : "Tải video từ máy"}</span>
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm,video/quicktime"
+                        onChange={handleVideoUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={videoUrl}
+                      onChange={(e) => setVideoUrl(e.target.value)}
+                      placeholder="Hoặc dán đường link video (mp4, webm...)..."
+                      className="flex-1 px-4 py-2 text-xs rounded-2xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:outline-hidden focus:border-emerald-600 transition-all font-mono text-stone-600"
+                    />
+                    {videoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setVideoUrl("")}
+                        className="text-xs px-3 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 font-semibold hover:bg-rose-100 cursor-pointer"
+                      >
+                        Gỡ video
+                      </button>
+                    )}
+                  </div>
+
+                  {videoUrl && (
+                    <div className="p-3 bg-stone-900 rounded-2xl overflow-hidden mt-1">
+                      <div className="flex items-center gap-1.5 text-white/90 text-xs font-semibold mb-2">
+                        <Video className="w-4 h-4 text-emerald-400" />
+                        <span>Xem trước video đã tải lên:</span>
+                      </div>
+                      <video
+                        src={videoUrl.startsWith('/') ? `http://localhost:3000${videoUrl}` : videoUrl}
+                        controls
+                        className="w-full max-h-48 rounded-xl bg-black"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 

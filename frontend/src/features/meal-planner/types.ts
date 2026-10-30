@@ -33,6 +33,7 @@ export interface WeeklyMealPlan {
   totalEstimatedCost: number;
   averageDailyCost: number;
   budgetLimit?: number;
+  ai_cookability_notes?: string;
 }
 
 export interface CalendarDayMealPlan extends DayMealPlan {
@@ -53,6 +54,7 @@ export interface MonthlyMealPlan {
   averageDailyCost: number;
   targetCalories: number;
   budgetLimit?: number;
+  ai_cookability_notes?: string;
 }
 
 export interface GenerationPlanOptions {

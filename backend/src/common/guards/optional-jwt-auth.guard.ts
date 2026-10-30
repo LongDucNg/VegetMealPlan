@@ -1,12 +1,11 @@
-import { ExecutionContext, HttpException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ExecutionContext, Injectable } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ErrorCode } from '../constants/error-codes.enum';
 
 /**
  * Guard xác thực tuỳ chọn (dành cho các endpoint phục vụ cả khách và user đăng nhập như Chatbot AI).
- * - Không có header Authorization -> cho qua (request.user = undefined).
+ * - Không có header Authorization -> cho qua như khách (request.user = undefined).
  * - Có header Authorization hợp lệ -> gắn request.user.
- * - Token sai hoặc hết hạn -> ném lỗi 401 AUTH_UNAUTHORIZED (không âm thầm coi là khách).
+ * - Token sai hoặc hết hạn -> cho qua như khách (request.user = undefined), không ném 401 gây hỏng luồng chat của người dùng.
  */
 @Injectable()
 export class OptionalJwtAuthGuard extends AuthGuard('jwt') {
@@ -20,16 +19,18 @@ export class OptionalJwtAuthGuard extends AuthGuard('jwt') {
     }
 
     // Có Authorization header -> kiểm tra tính hợp lệ bằng Passport JWT
-    return (await super.canActivate(context)) as boolean;
+    try {
+      return (await super.canActivate(context)) as boolean;
+    } catch {
+      // Nếu token hết hạn hoặc sai định dạng -> cho qua như khách
+      return true;
+    }
   }
 
   handleRequest<TUser>(err: unknown, user: TUser | false) {
-    if (err instanceof HttpException) throw err;
     if (err || !user) {
-      throw new UnauthorizedException({
-        code: ErrorCode.AUTH_UNAUTHORIZED,
-        message: 'Token xác thực không hợp lệ hoặc đã hết hạn',
-      });
+      // Coi như khách chưa đăng nhập (request.user = undefined)
+      return undefined as unknown as TUser;
     }
     return user;
   }

@@ -1,30 +1,48 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Check, Crown } from "lucide-react";
+import { Check, Crown, Sparkles, Loader2, AlertCircle } from "lucide-react";
 import { subscriptionService } from "../services/subscriptionService";
 import { MOCK_PLANS } from "../data/mockSubscriptions";
 import { useSubscription } from "../hooks/useSubscription";
-import { MockPaymentModal } from "./MockPaymentModal";
 import { SubscriptionPlan } from "../types";
 
 export function SubscriptionPlans() {
   const { subscription, purchase, cancel, isPremium } = useSubscription();
   const [plans, setPlans] = useState<SubscriptionPlan[]>(MOCK_PLANS);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [targetPlanId, setTargetPlanId] = useState<SubscriptionPlan["id"]>("premium");
+  const [loading, setLoading] = useState(false);
+  const [alert, setAlert] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
     subscriptionService.getPlans().then(setPlans);
   }, []);
 
-  const handleSelectPlan = (planId: SubscriptionPlan["id"]) => {
-    if (planId === "free") {
-      cancel();
-      return;
+  const handleSelectPlan = async (planId: SubscriptionPlan["id"]) => {
+    if (loading) return;
+    setLoading(true);
+    setAlert(null);
+    try {
+      if (planId === "free") {
+        await cancel();
+        setAlert({
+          type: "success",
+          message: "Đã chuyển về gói Miễn phí thành công.",
+        });
+      } else {
+        await purchase("premium");
+        setAlert({
+          type: "success",
+          message: "Chúc mừng! Đã chuyển sang gói Premium thành công. Toàn bộ tính năng đã được mở khóa!",
+        });
+      }
+    } catch (err: any) {
+      setAlert({
+        type: "error",
+        message: err?.message || "Có lỗi xảy ra khi chuyển gói. Vui lòng thử lại.",
+      });
+    } finally {
+      setLoading(false);
     }
-    setTargetPlanId(planId);
-    setModalOpen(true);
   };
 
   return (
@@ -35,32 +53,64 @@ export function SubscriptionPlans() {
           <span className="text-xs text-stone-500">Gói hội viên hiện tại:</span>
           <p className="font-serif font-bold text-lg text-stone-900 flex items-center gap-1.5 mt-0.5">
             {isPremium && <Crown className="w-4 h-4 text-amber-500 fill-amber-500" />}
-            {subscription.planName}
+            {isPremium ? "Premium 1 tháng (Toàn bộ tính năng)" : "Free Plan (Gói Miễn Phí)"}
           </p>
           {isPremium && subscription.expiresAt && (
-            <p className="text-xs text-emerald-700 mt-0.5">
-              Hạn sử dụng đến: <span className="font-semibold">{new Date(subscription.expiresAt).toLocaleDateString("vi-VN")}</span>
+            <p className="text-xs text-emerald-700 mt-0.5 font-medium">
+              Hạn sử dụng đến: <span className="font-semibold">{new Date(subscription.expiresAt).toLocaleDateString("vi-VN")}</span> · Tất cả tính năng đã sẵn sàng
             </p>
           )}
         </div>
         {isPremium ? (
           <button
-            onClick={() => cancel()}
-            className="text-xs text-red-600 hover:text-red-800 underline underline-offset-2 font-medium cursor-pointer"
+            onClick={() => handleSelectPlan("free")}
+            disabled={loading}
+            className="text-xs text-stone-500 hover:text-red-700 underline underline-offset-2 font-medium cursor-pointer"
           >
-            Hủy gói Premium
+            Chuyển về gói Miễn phí
           </button>
         ) : (
-          <span className="text-xs font-semibold text-stone-500 bg-stone-200/70 px-2.5 py-1 rounded-full">
-            Gói Miễn Phí
-          </span>
+          <button
+            onClick={() => handleSelectPlan("premium")}
+            disabled={loading}
+            className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+          >
+            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Crown className="w-3.5 h-3.5 text-amber-300" />}
+            Nâng cấp Premium ngay
+          </button>
         )}
       </div>
+
+      {/* Thông báo kết quả thao tác */}
+      {alert && (
+        <div
+          className={`p-3.5 rounded-2xl text-xs font-medium flex items-center justify-between animate-in fade-in ${
+            alert.type === "success"
+              ? "bg-emerald-50 border border-emerald-200 text-emerald-900"
+              : "bg-red-50 border border-red-200 text-red-900"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {alert.type === "success" ? (
+              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            )}
+            <span>{alert.message}</span>
+          </div>
+          <button
+            onClick={() => setAlert(null)}
+            className="text-stone-400 hover:text-stone-600 cursor-pointer ml-3 font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Plans grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
         {plans.map((plan) => {
-          const isCurrent = subscription.planId === plan.id;
+          const isCurrent = isPremium ? plan.id === "premium" : plan.id === "free";
           return (
             <div
               key={plan.id}
@@ -105,20 +155,30 @@ export function SubscriptionPlans() {
                 {isCurrent ? (
                   <button
                     disabled
-                    className="w-full h-11 rounded-xl bg-stone-100 text-stone-500 font-semibold text-sm cursor-default"
+                    className="w-full h-11 rounded-xl bg-stone-100 text-stone-500 font-semibold text-sm cursor-default flex items-center justify-center gap-1.5"
                   >
+                    <Check className="w-4 h-4 text-emerald-600" />
                     Gói đang sử dụng
                   </button>
                 ) : (
                   <button
                     onClick={() => handleSelectPlan(plan.id)}
-                    className={`w-full h-11 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
+                    disabled={loading}
+                    className={`w-full h-11 rounded-xl font-semibold text-sm transition-all cursor-pointer flex items-center justify-center gap-2 ${
                       plan.price > 0
                         ? "bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs"
                         : "bg-stone-100 hover:bg-stone-200 text-stone-800"
                     }`}
                   >
-                    {plan.price > 0 ? "Nâng cấp Premium" : "Chuyển về Miễn phí"}
+                    {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {plan.price > 0 ? (
+                      <>
+                        <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300" />
+                        <span>Nâng cấp Premium</span>
+                      </>
+                    ) : (
+                      "Chuyển về Miễn phí"
+                    )}
                   </button>
                 )}
               </div>
@@ -126,13 +186,6 @@ export function SubscriptionPlans() {
           );
         })}
       </div>
-
-      <MockPaymentModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSuccess={(planId) => purchase(planId)}
-        defaultPlanId={targetPlanId}
-      />
     </div>
   );
 }

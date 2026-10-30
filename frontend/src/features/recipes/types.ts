@@ -60,6 +60,8 @@ export interface Recipe {
   ingredients: IngredientItem[];
   allergens?: string[]; // Standard property per Requirement 14
   instructions: string[];
+  video_url?: string;
+  videoUrl?: string;
 
   // Price & Source (Requirements 4, 5, 6, 16, 25, 26)
   estimatedCost?: number;

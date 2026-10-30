@@ -2,6 +2,9 @@
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
+  Upload,
+  Video,
+  Loader2,
   X,
   Plus,
   Trash2,
@@ -22,6 +25,8 @@ import { Recipe, IngredientItem, MealType, RecipeStatus } from "@/features/recip
 import { VegetarianType } from "@/features/profile/types";
 import { priceService } from "@/features/recipes/services/priceService";
 import { ingredientApiService, BackendIngredient } from "@/features/recipes/services/ingredientApiService";
+import { recipeApiService } from "@/features/recipes/services/recipeApiService";
+import { mapBackendToFrontendRecipe } from "@/features/recipes/utils/recipeMapper";
 
 interface AdminRecipeModalProps {
   isOpen: boolean;
@@ -76,6 +81,44 @@ function AdminRecipeForm({
   const [status, setStatus] = useState<RecipeStatus>(initialRecipe?.status || "APPROVED");
   const [sourceName, setSourceName] = useState(initialRecipe?.source?.name || "Hệ thống tạo");
   const [sourceUrl, setSourceUrl] = useState(initialRecipe?.source?.url || "");
+  const [videoUrl, setVideoUrl] = useState(initialRecipe?.video_url || initialRecipe?.videoUrl || "");
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingImage(true);
+      const res = await recipeApiService.uploadMedia(file);
+      const fullUrl = (res as any)?.data?.url || res?.url;
+      if (fullUrl) {
+        setImage(fullUrl);
+      }
+    } catch (err: any) {
+      alert("Lỗi khi tải ảnh: " + (err.message || "Không thể tải file lên"));
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingVideo(true);
+      const res = await recipeApiService.uploadMedia(file);
+      const fullUrl = (res as any)?.data?.url || res?.url;
+      if (fullUrl) {
+        setVideoUrl(fullUrl);
+      }
+    } catch (err: any) {
+      alert("Lỗi khi tải video: " + (err.message || "Không thể tải file lên"));
+    } finally {
+      setUploadingVideo(false);
+    }
+  };
+
 
   // Các trường số: Chưa nhập thì để là 0
   const [prepTime, setPrepTime] = useState<number | "">(initialRecipe?.prepTime ?? 0);
@@ -90,10 +133,40 @@ function AdminRecipeForm({
     initialRecipe?.difficulty || "Easy"
   );
 
-  // Nguyên liệu: Chưa nhập thì để trống mảng []
-  const [ingredients, setIngredients] = useState<IngredientItem[]>(
-    initialRecipe?.ingredients?.length ? initialRecipe.ingredients : []
-  );
+  // Nguyên liệu: Chưa nhập thì để trống mảng []. Bắt buộc chuẩn hoá đơn vị là "g"
+  const [ingredients, setIngredients] = useState<IngredientItem[]>(() => {
+    if (initialRecipe?.ingredients?.length) {
+      return initialRecipe.ingredients.map((ing) => ({
+        ...ing,
+        unit: "g",
+      }));
+    }
+    return [];
+  });
+
+  // Tự động tải lại nguyên liệu từ Admin API nếu initialRecipe bị thiếu/rỗng
+  useEffect(() => {
+    if (initialRecipe?.id && (!ingredients || ingredients.length === 0)) {
+      const numId = parseInt(initialRecipe.id.replace(/\D/g, ""), 10);
+      if (!isNaN(numId)) {
+        recipeApiService
+          .getAdminRecipeById(numId)
+          .then((res: any) => {
+            const data = res?.data || res;
+            const mapped = mapBackendToFrontendRecipe(data);
+            if (mapped?.ingredients && mapped.ingredients.length > 0) {
+              setIngredients(
+                mapped.ingredients.map((ing) => ({
+                  ...ing,
+                  unit: "g",
+                }))
+              );
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [initialRecipe?.id]);
 
   // Các bước: Chưa nhập thì để trống mảng []
   const [instructions, setInstructions] = useState<string[]>(
@@ -212,7 +285,7 @@ function AdminRecipeForm({
   const handleAddIngredient = () => {
     setIngredients((prev) => [
       ...prev,
-      { id: Date.now(), name: "", quantity: 0, unit: "g", unitPrice: 0 },
+      { id: 0, name: "", quantity: 0, unit: "g", unitPrice: 0 },
     ]);
   };
 
@@ -223,7 +296,7 @@ function AdminRecipeForm({
         ...copy[index],
         id: selected.ingredient_id,
         name: selected.ingredient_name,
-        unit: selected.unit || "g",
+        unit: "g",
         unitPrice: Number(selected.avg_price_per_unit || 0),
       };
       return copy;
@@ -239,7 +312,27 @@ function AdminRecipeForm({
   ) => {
     setIngredients((prev) => {
       const copy = [...prev];
-      copy[index] = { ...copy[index], [field]: val };
+      if (field === "name") {
+        const textVal = String(val);
+        const matched = availableIngredients.find(
+          (db) => db.ingredient_name.trim().toLowerCase() === textVal.trim().toLowerCase()
+        );
+        copy[index] = {
+          ...copy[index],
+          name: textVal,
+          id: matched ? matched.ingredient_id : 0,
+          unit: "g",
+          unitPrice: matched ? Number(matched.avg_price_per_unit || 0) : copy[index].unitPrice,
+        };
+      } else if (field === "quantity") {
+        copy[index] = {
+          ...copy[index],
+          quantity: val === "" ? 0 : Number(val),
+          unit: "g",
+        };
+      } else {
+        copy[index] = { ...copy[index], [field]: val };
+      }
       return copy;
     });
   };
@@ -273,9 +366,40 @@ function AdminRecipeForm({
       return;
     }
 
-    const { ingredientsWithCost } = priceService.calculateRecipeCost(
-      ingredients.filter((i) => i.name.trim() !== "")
-    );
+    const nonEmptyIngredients = ingredients.filter((i) => i.name.trim() !== "");
+    if (nonEmptyIngredients.length === 0) {
+      alert("Vui lòng thêm ít nhất một nguyên liệu cho công thức.");
+      return;
+    }
+
+    // Quy tắc: Chỉ được thêm nguyên liệu có sẵn trong DB, bắt buộc số lượng > 0 theo đơn vị g
+    for (let i = 0; i < nonEmptyIngredients.length; i++) {
+      const ing = nonEmptyIngredients[i];
+      const matched = availableIngredients.find(
+        (db) =>
+          db.ingredient_id === Number(ing.id) ||
+          db.ingredient_name.trim().toLowerCase() === ing.name.trim().toLowerCase()
+      );
+      if (!matched) {
+        alert(
+          `Nguyên liệu "${ing.name}" không tồn tại trong cơ sở dữ liệu. Theo quy định, chỉ được chọn nguyên liệu có sẵn trong DB.`
+        );
+        return;
+      }
+      if (!ing.quantity || Number(ing.quantity) <= 0) {
+        alert(
+          `Vui lòng nhập số lượng theo đơn vị gam (g) lớn hơn 0 cho nguyên liệu "${matched.ingredient_name}".`
+        );
+        return;
+      }
+      // Chuẩn hoá lại id và unit
+      ing.id = matched.ingredient_id;
+      ing.name = matched.ingredient_name;
+      ing.unit = "g";
+      ing.unitPrice = Number(matched.avg_price_per_unit || 0);
+    }
+
+    const { ingredientsWithCost } = priceService.calculateRecipeCost(nonEmptyIngredients);
 
     const safePrep = Number(prepTime) || 0;
     const safeCook = Number(cookTime) || 0;
@@ -285,6 +409,8 @@ function AdminRecipeForm({
       name: title.trim(),
       description: description.trim(),
       image,
+      video_url: videoUrl.trim() || undefined,
+      videoUrl: videoUrl.trim() || undefined,
       category,
       mealType,
       vegetarianType,
@@ -452,48 +578,146 @@ function AdminRecipeForm({
           </div>
         </div>
 
-        {/* Card 2: Hình ảnh món ăn & Nguồn */}
-        <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-xs space-y-4">
+        {/* Card 2: Hình ảnh món ăn, Video & Nguồn */}
+        <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-xs space-y-5">
           <div className="flex items-center gap-2.5 text-stone-800 border-b border-stone-100 pb-3">
             <Sparkles className="w-4 h-4 text-emerald-700" />
             <h3 className="text-sm font-bold uppercase tracking-wider text-stone-700">
-              2. Hình ảnh món ăn & Nguồn trích dẫn
+              2. Hình ảnh món ăn, Video & Nguồn trích dẫn
             </h3>
           </div>
 
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-                Đường dẫn hình ảnh (URL)
-              </label>
-              <input
-                type="url"
-                placeholder="https://images.unsplash.com/..."
-                value={image}
-                onChange={(e) => setImage(e.target.value)}
-                className="w-full h-11 rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 text-sm focus:border-emerald-600 focus:bg-white outline-none"
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-xs text-stone-500 font-medium">Hoặc chọn ảnh mẫu:</span>
-              {SAMPLE_IMAGES.map((url, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setImage(url)}
-                  className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                    image === url
-                      ? "border-emerald-600 bg-emerald-50 text-emerald-800 font-bold"
-                      : "border-stone-200 text-stone-600 hover:bg-stone-50"
+          <div className="space-y-4">
+            {/* Ảnh món ăn */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-stone-700">
+                  Hình ảnh món ăn (URL hoặc Tải lên từ máy)
+                </label>
+                <label
+                  className={`text-xs px-3 py-1.5 rounded-xl border border-emerald-600 bg-emerald-50 text-emerald-800 font-bold hover:bg-emerald-100 cursor-pointer flex items-center gap-1.5 transition-all ${
+                    uploadingImage ? "opacity-50 pointer-events-none" : ""
                   }`}
                 >
-                  Ảnh mẫu #{idx + 1}
-                </button>
-              ))}
+                  {uploadingImage ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="w-3.5 h-3.5" />
+                  )}
+                  <span>{uploadingImage ? "Đang tải ảnh..." : "Tải ảnh từ máy"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              <div className="flex gap-3 items-center">
+                {image && (
+                  <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-stone-200 bg-stone-100">
+                    <img
+                      src={image.startsWith("/") ? `http://localhost:3000${image}` : image}
+                      alt="Xem trước ảnh"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = "none";
+                      }}
+                    />
+                  </div>
+                )}
+                <input
+                  type="text"
+                  placeholder="https://images.unsplash.com/... hoặc đường dẫn ảnh tải lên"
+                  value={image}
+                  onChange={(e) => setImage(e.target.value)}
+                  className="flex-1 h-11 rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 text-sm focus:border-emerald-600 focus:bg-white outline-none"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <span className="text-xs text-stone-500 font-medium">Hoặc chọn ảnh mẫu:</span>
+                {SAMPLE_IMAGES.map((url, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setImage(url)}
+                    className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                      image === url
+                        ? "border-emerald-600 bg-emerald-50 text-emerald-800 font-bold"
+                        : "border-stone-200 text-stone-600 hover:bg-stone-50"
+                    }`}
+                  >
+                    Ảnh mẫu #{idx + 1}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            {/* Video nấu ăn */}
+            <div className="space-y-2 pt-3 border-t border-stone-100">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-stone-700 flex items-center gap-1.5">
+                  <Video className="w-4 h-4 text-emerald-600" />
+                  Video hướng dẫn nấu ăn (Tùy chọn)
+                </label>
+                <label
+                  className={`text-xs px-3 py-1.5 rounded-xl border border-violet-600 bg-violet-50 text-violet-800 font-bold hover:bg-violet-100 cursor-pointer flex items-center gap-1.5 transition-all ${
+                    uploadingVideo ? "opacity-50 pointer-events-none" : ""
+                  }`}
+                >
+                  {uploadingVideo ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="w-3.5 h-3.5" />
+                  )}
+                  <span>{uploadingVideo ? "Đang tải video..." : "Tải video từ máy"}</span>
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime"
+                    onChange={handleVideoUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              <div className="flex gap-2 items-center">
+                <input
+                  type="text"
+                  placeholder="Hoặc dán đường link video (mp4, webm...)..."
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  className="flex-1 h-11 rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 text-sm focus:border-emerald-600 focus:bg-white outline-none font-mono text-stone-700"
+                />
+                {videoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setVideoUrl("")}
+                    className="h-11 text-xs px-3.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 font-semibold hover:bg-rose-100 transition-colors cursor-pointer shrink-0"
+                  >
+                    Gỡ video
+                  </button>
+                )}
+              </div>
+
+              {videoUrl && (
+                <div className="p-3 bg-stone-900 rounded-2xl overflow-hidden mt-2">
+                  <div className="flex items-center gap-1.5 text-white/90 text-xs font-semibold mb-2">
+                    <Video className="w-4 h-4 text-emerald-400" />
+                    <span>Xem trước video:</span>
+                  </div>
+                  <video
+                    src={videoUrl.startsWith("/") ? `http://localhost:3000${videoUrl}` : videoUrl}
+                    controls
+                    className="w-full max-h-52 rounded-xl bg-black"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Nguồn trích dẫn */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-stone-100">
               <div>
                 <label className="block text-xs font-semibold text-stone-700 mb-1">
                   Tên nguồn / Tác giả
@@ -511,7 +735,7 @@ function AdminRecipeForm({
                   Đường dẫn nguồn tham khảo (nếu có)
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   placeholder="https://example.com/recipe"
                   value={sourceUrl}
                   onChange={(e) => setSourceUrl(e.target.value)}
@@ -706,8 +930,8 @@ function AdminRecipeForm({
                           <span>Đơn vị / Đơn giá / Calo</span>
                         </div>
                         {filteredSuggestions.length === 0 ? (
-                          <div className="px-3 py-3 text-xs text-stone-400 text-center">
-                            Không tìm thấy nguyên liệu trùng khớp. Bạn vẫn có thể dùng tên này.
+                          <div className="px-3 py-3 text-xs text-rose-700 bg-rose-50 rounded-lg m-1 text-center font-medium">
+                            Không tìm thấy trong DB. Chỉ được thêm nguyên liệu có sẵn trong hệ thống!
                           </div>
                         ) : (
                           filteredSuggestions.map((item) => (
@@ -740,57 +964,64 @@ function AdminRecipeForm({
                     )}
                   </div>
 
-                  {/* Số lượng */}
+                  {/* Trạng thái khớp DB */}
+                  <div className="shrink-0">
+                    {ing.name ? (
+                      availableIngredients.some(
+                        (db) =>
+                          db.ingredient_id === Number(ing.id) ||
+                          db.ingredient_name.trim().toLowerCase() === ing.name.trim().toLowerCase()
+                      ) ? (
+                        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-2 py-1 rounded-md border border-emerald-300">
+                          ✓ DB
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-1 rounded-md border border-rose-200 animate-pulse" title="Vui lòng bấm chọn nguyên liệu từ gợi ý DB">
+                          ! Chưa chọn từ DB
+                        </span>
+                      )
+                    ) : null}
+                  </div>
+
+                  {/* Số lượng (gam) */}
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      placeholder="Số lượng"
-                      value={ing.quantity || ""}
-                      onChange={(e) =>
-                        handleUpdateIngredient(
-                          idx,
-                          "quantity",
-                          e.target.value === "" ? 0 : Number(e.target.value)
-                        )
-                      }
-                      className="w-24 h-10 rounded-lg border border-stone-200 bg-white px-2.5 text-sm text-center focus:border-emerald-600 outline-none"
-                      title="Số lượng"
-                    />
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder="Số lượng"
+                        value={ing.quantity === 0 ? "" : ing.quantity || ""}
+                        onChange={(e) =>
+                          handleUpdateIngredient(
+                            idx,
+                            "quantity",
+                            e.target.value === "" ? 0 : Number(e.target.value)
+                          )
+                        }
+                        className="w-28 h-10 rounded-lg border border-stone-200 bg-white px-2.5 text-sm font-semibold text-center focus:border-emerald-600 outline-none"
+                        title="Nhập số lượng theo đơn vị gam (g)"
+                      />
+                    </div>
 
-                    {/* Đơn vị */}
-                    <input
-                      type="text"
-                      placeholder="Đơn vị"
-                      value={ing.unit || ""}
-                      onChange={(e) => handleUpdateIngredient(idx, "unit", e.target.value)}
-                      className="w-16 h-10 rounded-lg border border-stone-200 bg-white px-2 text-sm text-center focus:border-emerald-600 outline-none"
-                      title="Đơn vị (g, kg, cái, ml...)"
-                    />
+                    {/* Đơn vị bắt buộc: g */}
+                    <div
+                      className="w-12 h-10 rounded-lg border border-stone-200 bg-stone-100 flex items-center justify-center text-xs font-bold text-stone-700 select-none shrink-0"
+                      title="Đơn vị bắt buộc theo chuẩn hệ thống: gam (g)"
+                    >
+                      g
+                    </div>
 
-                    {/* Đơn giá */}
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="Đơn giá (đ)"
-                      value={ing.unitPrice || ""}
-                      onChange={(e) =>
-                        handleUpdateIngredient(
-                          idx,
-                          "unitPrice",
-                          e.target.value === "" ? 0 : Number(e.target.value)
-                        )
-                      }
-                      className="w-28 h-10 rounded-lg border border-stone-200 bg-white px-2.5 text-xs text-right focus:border-emerald-600 outline-none font-medium"
-                      title="Đơn giá nguyên liệu theo đơn vị"
-                    />
+                    {/* Đơn giá ước tính (tự động tính từ DB) */}
+                    <div className="w-28 h-10 rounded-lg border border-stone-100 bg-stone-100/60 px-2.5 flex items-center justify-end text-xs text-stone-600 font-medium select-none" title="Đơn giá tham khảo từ kho nguyên liệu DB">
+                      {Number(ing.unitPrice || 0) > 0 ? `${Number(ing.unitPrice).toLocaleString("vi-VN")} đ` : "0 đ"}
+                    </div>
 
                     <button
                       type="button"
                       onClick={() => handleRemoveIngredient(idx)}
                       className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                      title="Xóa dòng này"
+                      title="Xóa nguyên liệu này"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -802,7 +1033,7 @@ function AdminRecipeForm({
 
           <p className="text-[11px] text-stone-400 flex items-center gap-1 pt-1">
             <Info className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            Nhập tên nguyên liệu để chọn gợi ý từ 190+ nguyên liệu chuẩn trong DB. Lượng calo và chi phí sẽ tự động cập nhật theo khối lượng.
+            Quy định hệ thống: Chỉ được thêm nguyên liệu có sẵn trong DB (chọn từ danh sách gợi ý). Khối lượng bắt buộc tính theo đơn vị gam (g).
           </p>
         </div>
 

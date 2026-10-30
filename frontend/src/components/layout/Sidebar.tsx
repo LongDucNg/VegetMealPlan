@@ -61,12 +61,6 @@ export function Sidebar() {
       active: pathname === "/recipes" || pathname.startsWith("/recipes/"),
     },
     {
-      label: "Video nấu ăn",
-      href: "/videos",
-      icon: CirclePlay,
-      active: pathname === "/videos" || pathname.startsWith("/videos/"),
-    },
-    {
       label: "Quản lý tủ lạnh & Quét AI",
       href: "/planner/scan",
       icon: ScanLine,
@@ -82,13 +76,6 @@ export function Sidebar() {
       icon: CalendarDays,
       active: pathname === "/planner",
       lock: isGuest,
-    },
-    {
-      label: "Tư vấn dinh dưỡng AI",
-      href: "/ai",
-      icon: Sparkles,
-      active: pathname === "/ai" || pathname.startsWith("/ai/"),
-      badge: "Beta",
     },
     {
       label: "Diễn đàn cộng đồng",

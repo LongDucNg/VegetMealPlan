@@ -51,6 +51,6 @@ import { MockChatbotAiProvider } from './providers/mock-chatbot-ai.provider';
       inject: [GroqAiProvider, MockChatbotAiProvider],
     },
   ],
-  exports: [ChatbotService],
+  exports: [ChatbotService, GroqAiProvider],
 })
 export class ChatbotModule {}

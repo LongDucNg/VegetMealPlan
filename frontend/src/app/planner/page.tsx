@@ -238,6 +238,7 @@ function PlannerContent() {
       <NutritionGoalBanner
         nutrition={nutritionSummary}
         profile={activeProfile}
+        aiCookabilityNotes={planType === 'monthly' ? monthlyPlan?.ai_cookability_notes : weeklyPlan?.ai_cookability_notes}
         onCompleteProfile={() => {
           if (isPlanForSomeoneElse) {
             setShowSomeoneElseModal(true);
