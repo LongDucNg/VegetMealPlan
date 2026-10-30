@@ -365,4 +365,39 @@ export const favoriteService = {
   getFavoriteMealPlans(userId: string): SavedMealPlan[] {
     return this.getUserFavorites(userId).mealPlans;
   },
+
+  /**
+   * Lấy chi tiết thực đơn kèm ngày, bữa, món từ server
+   * GET /users/me/meal-plans/:id
+   */
+  async getSavedMealPlanDetail(planId: string | number): Promise<any> {
+    const numId = typeof planId === "number" ? planId : parseInt(String(planId).replace(/\D/g, ""), 10);
+    if (!isNaN(numId)) {
+      try {
+        return await apiClient.get<any>(`/users/me/meal-plans/${numId}`);
+      } catch (err) {
+        console.warn("[favoriteService] Không thể lấy chi tiết thực đơn từ server:", err);
+      }
+    }
+    return null;
+  },
+
+  /**
+   * Đổi tên hoặc trạng thái áp dụng thực đơn trên server
+   * PATCH /users/me/meal-plans/:id
+   */
+  async updateSavedMealPlan(
+    planId: string | number,
+    payload: { name?: string; is_active?: boolean }
+  ): Promise<any> {
+    const numId = typeof planId === "number" ? planId : parseInt(String(planId).replace(/\D/g, ""), 10);
+    if (!isNaN(numId)) {
+      try {
+        return await apiClient.patch<any>(`/users/me/meal-plans/${numId}`, payload);
+      } catch (err) {
+        console.warn("[favoriteService] Cập nhật thực đơn trên server thất bại:", err);
+      }
+    }
+    return null;
+  },
 };
