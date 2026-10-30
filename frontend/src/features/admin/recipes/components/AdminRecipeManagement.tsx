@@ -295,6 +295,11 @@ export function AdminRecipeManagement() {
   };
 
   const handleQuickExportSingle = async (recipe: Recipe) => {
+    const isApproved = String(recipe.status || "APPROVED").toUpperCase() === "APPROVED";
+    if (!isApproved) {
+      showToast("error", "Chỉ các món ăn đã được phê duyệt mới được phép xuất file.");
+      return;
+    }
     const numId = getRecipeNumId(recipe);
     setIsDirectExporting(true);
     try {
@@ -313,16 +318,18 @@ export function AdminRecipeManagement() {
     try {
       const targetRecipes = allRecipes.filter((r) => {
         const id = getRecipeNumId(r);
-        return id !== null && selectedIds.includes(id);
+        const isApproved = String(r.status || "APPROVED").toUpperCase() === "APPROVED";
+        return id !== null && selectedIds.includes(id) && isApproved;
       });
-      const recipesToExport = targetRecipes.length > 0
-        ? targetRecipes
-        : selectedIds.map((id) => ({ id: String(id), title: `Món #${id}`, ingredients: [] } as any));
+      if (targetRecipes.length === 0) {
+        showToast("error", "Không có món nào đã duyệt trong các món đã chọn. Vui lòng duyệt món trước khi xuất file.");
+        return;
+      }
       const filename = adminRecipeApiService.exportRecipesToExcel(
-        recipesToExport,
-        `${selectedIds.length}_Mon_Da_Chon`
+        targetRecipes,
+        `${targetRecipes.length}_Mon_Da_Duyet`
       );
-      showToast("success", `Đã xuất ${selectedIds.length} món đã chọn thành file Excel: ${filename}!`);
+      showToast("success", `Đã xuất ${targetRecipes.length} món đã duyệt thành file Excel: ${filename}!`);
     } catch (err: any) {
       showToast("error", err?.message || "Không thể xuất các món đã chọn.");
     } finally {
@@ -394,10 +401,10 @@ export function AdminRecipeManagement() {
           <button
             onClick={() => setExportModalOpen(true)}
             className="h-10 px-4 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer shadow-2xs"
-            title="Xuất công thức ra file CSV (1 món, nhiều món hoặc theo bộ lọc)"
+            title="Xuất công thức ra file Excel (.xlsx)"
           >
             <Download className="w-4 h-4 text-emerald-700" />
-            <span>Xuất file (Export)</span>
+            <span>Xuất Excel</span>
           </button>
 
           <Link
@@ -667,14 +674,16 @@ export function AdminRecipeManagement() {
                     <ExternalLink className="w-4 h-4" />
                   </Link>
 
-                  {/* Quick Export Single Recipe Button */}
-                  <button
-                    onClick={() => handleQuickExportSingle(recipe)}
-                    title={`Xuất riêng món "${recipe.name || recipe.title}" ra file CSV (ID: ${numId})`}
-                    className="p-2 rounded-xl text-stone-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
-                  >
-                    <FileDown className="w-4 h-4" />
-                  </button>
+                  {/* Quick Export Single Recipe Button - Chỉ hiện khi món ĐÃ ĐƯỢC DUYỆT */}
+                  {status === "APPROVED" && (
+                    <button
+                      onClick={() => handleQuickExportSingle(recipe)}
+                      title={`Xuất riêng món "${recipe.name || recipe.title}" ra file Excel (.xlsx)`}
+                      className="p-2 rounded-xl text-stone-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+                    >
+                      <FileDown className="w-4 h-4" />
+                    </button>
+                  )}
 
                   <button
                     onClick={() => setViewingRecipe(recipe)}
@@ -817,9 +826,7 @@ export function AdminRecipeManagement() {
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-xs font-medium">
               Đã chọn <strong className="text-emerald-400 font-bold">{selectedIds.length}</strong> món
-              <span className="text-stone-400 font-mono ml-1">
-                (ID: {selectedIds.slice(0, 5).join(", ")}{selectedIds.length > 5 ? "..." : ""})
-              </span>
+              
             </span>
           </div>
 
@@ -830,7 +837,7 @@ export function AdminRecipeManagement() {
               className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Xuất file {selectedIds.length} món (CSV)</span>
+              <span>Xuất file {selectedIds.length} món (Excel)</span>
             </button>
 
             <button

@@ -11,7 +11,9 @@ import {
   ForumPagination,
   ForumPost,
   ForumPostQueryParams,
+  ForumVoteResponse,
   TrendingTopic,
+  UpdateForumPostInput,
 } from "../types";
 import { FORUM_CATEGORIES, TRENDING_TOPICS } from "../data/mockForum";
 import { formatForumDate, getInitials } from "../utils/forumDate";
@@ -68,6 +70,11 @@ export function mapBackendPostToForumPost(
     views: p.views ?? 0,
     createdAt: p.created_at,
     userId: p.author?.user_id,
+    rejectReason: (p as any).reject_reason ?? null,
+    isFlagged: (p as any).is_flagged ?? false,
+    flagReason: (p as any).flag_reason ?? null,
+    updatedAt: (p as any).updated_at ?? undefined,
+    userVoted: (p as any).my_vote ?? null,
   };
 }
 
@@ -80,8 +87,10 @@ export function mapBackendCommentToCommentItem(c: BackendForumComment): CommentI
     verified: false,
     content: c.content || "",
     timestamp: formatForumDate(c.created_at),
-    votes: 0,
+    votes: (c as any).rating ?? (c as any).votes ?? 0,
     createdAt: c.created_at,
+    userId: c.author?.user_id,
+    userVoted: (c as any).my_vote ?? null,
   };
 }
 
@@ -97,6 +106,26 @@ export const forumService = {
     } catch (err) {
       console.warn("[forumService] listCategories error:", err);
       return [];
+    }
+  },
+
+  /**
+   * 2. Chủ đề nổi bật (trending tags trong 7 ngày gần nhất, mặc định 10, tối đa 20)
+   * GET /api/v1/forum/trending
+   */
+  async getTrending(limit: number = 10): Promise<TrendingTopic[]> {
+    try {
+      const res = await apiClient.get<TrendingTopic[]>("/forum/trending", {
+        params: { limit },
+      });
+      const data = Array.isArray(res) ? res : ((res as any)?.data || []);
+      return data.map((t: any) => ({
+        tag: t.tag.startsWith("#") ? t.tag : `#${t.tag}`,
+        posts: Number(t.posts) || 0,
+      }));
+    } catch (err) {
+      console.warn("[forumService] getTrending error:", err);
+      return TRENDING_TOPICS;
     }
   },
 
@@ -199,6 +228,61 @@ export const forumService = {
   },
 
   /**
+   * Chỉnh sửa bài viết (chủ bài hoặc admin)
+   * PUT /api/v1/forum/posts/:id
+   */
+  async updatePost(
+    id: number | string,
+    dto: UpdateForumPostInput
+  ): Promise<ForumPost> {
+    const numericId = Number(id);
+    const payload: any = {};
+    if (dto.title !== undefined) payload.title = dto.title.trim();
+    if (dto.content !== undefined) payload.content = dto.content.trim();
+    if (dto.category_id !== undefined && dto.category_id !== null) {
+      payload.category_id = Number(dto.category_id);
+    }
+    if (dto.tags !== undefined) {
+      payload.tags = dto.tags.map((t) => t.trim().replace(/^#/, "")).filter(Boolean);
+    }
+
+    const res = await apiClient.put<BackendForumPostDetail>(
+      `/forum/posts/${numericId}`,
+      payload
+    );
+    const postData = (res as any)?.data || res;
+    return mapBackendPostToForumPost(postData);
+  },
+
+  /**
+   * Xóa mềm bài viết (chủ bài hoặc admin)
+   * DELETE /api/v1/forum/posts/:id
+   */
+  async deletePost(id: number | string): Promise<{ success: boolean; message: string }> {
+    const numericId = Number(id);
+    const res = await apiClient.delete<{ success: boolean; message: string }>(
+      `/forum/posts/${numericId}`
+    );
+    return (res as any)?.data || res;
+  },
+
+  /**
+   * Bình chọn bài viết (up / down / null để hủy)
+   * POST /api/v1/forum/posts/:id/vote
+   */
+  async votePost(
+    id: number | string,
+    vote: "up" | "down" | null
+  ): Promise<ForumVoteResponse> {
+    const numericId = Number(id);
+    const res = await apiClient.post<ForumVoteResponse>(
+      `/forum/posts/${numericId}/vote`,
+      { vote }
+    );
+    return (res as any)?.data || res;
+  },
+
+  /**
    * 5. Lấy danh sách comment của bài viết
    * GET /api/v1/forum/posts/:id/comments
    */
@@ -258,6 +342,40 @@ export const forumService = {
     );
     const commentData = (res as any)?.data || res;
     return mapBackendCommentToCommentItem(commentData);
+  },
+
+  /**
+   * Xóa mềm bình luận (chủ bình luận hoặc admin)
+   * DELETE /api/v1/forum/posts/:postId/comments/:commentId
+   */
+  async deleteComment(
+    postId: number | string,
+    commentId: number | string
+  ): Promise<{ success: boolean; message: string }> {
+    const pId = Number(postId);
+    const cId = Number(commentId);
+    const res = await apiClient.delete<{ success: boolean; message: string }>(
+      `/forum/posts/${pId}/comments/${cId}`
+    );
+    return (res as any)?.data || res;
+  },
+
+  /**
+   * Bình chọn bình luận (up / down / null để hủy)
+   * POST /api/v1/forum/posts/:postId/comments/:commentId/vote
+   */
+  async voteComment(
+    postId: number | string,
+    commentId: number | string,
+    vote: "up" | "down" | null
+  ): Promise<ForumVoteResponse> {
+    const pId = Number(postId);
+    const cId = Number(commentId);
+    const res = await apiClient.post<ForumVoteResponse>(
+      `/forum/posts/${pId}/comments/${cId}/vote`,
+      { vote }
+    );
+    return (res as any)?.data || res;
   },
 
   /**
@@ -444,9 +562,79 @@ export const forumService = {
   },
 
   /**
+   * Admin: Hàng chờ duyệt bài viết diễn đàn (bài gắn cờ lên đầu, cũ nhất trước)
+   * GET /admin/moderation
+   */
+  async getAdminModeration(query?: {
+    page?: number;
+    limit?: number;
+    is_flagged?: boolean;
+  }): Promise<{
+    data: any[];
+    pagination: { page: number; limit: number; total: number; total_pages: number };
+  }> {
+    const params = new URLSearchParams();
+    if (query?.page) params.append("page", String(query.page));
+    if (query?.limit) params.append("limit", String(query.limit));
+    if (query?.is_flagged !== undefined) params.append("is_flagged", String(query.is_flagged));
+
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return apiClient.get<{
+      data: any[];
+      pagination: { page: number; limit: number; total: number; total_pages: number };
+    }>(`/admin/moderation${qs}`);
+  },
+
+  /**
+   * Admin: Duyệt hoặc từ chối bài viết (chỉ bài chờ duyệt, từ chối bắt buộc có lý do)
+   * PUT /admin/moderation/:id
+   */
+  async moderatePost(
+    id: number | string,
+    dto: { action: "approve" | "reject"; reason?: string }
+  ): Promise<{ success: boolean; message: string; blog_id: number; status: string }> {
+    return apiClient.put<{ success: boolean; message: string; blog_id: number; status: string }>(
+      `/admin/moderation/${id}`,
+      dto
+    );
+  },
+
+  /**
    * Admin Helpers: Lấy danh sách hàng đợi kiểm duyệt bài viết thật (bao gồm chờ duyệt và đã xử lý)
    */
   async getAdminModerationQueue(): Promise<ModerationItem[]> {
+    try {
+      // 1. Gọi trực tiếp API chuyên dụng: GET /api/v1/admin/moderation (Hàng chờ duyệt)
+      const res = await this.getAdminModeration({ limit: 50 });
+      if (res && Array.isArray(res.data) && res.data.length > 0) {
+        return res.data.map((p: any) => {
+          let modStatus: ModerationItem["status"] = "Pending";
+          if (p.status === "approved") modStatus = "Approved";
+          else if (p.status === "removed" || p.status === "rejected") modStatus = "Removed";
+          else modStatus = "Pending";
+
+          return {
+            id: `mod-post-${p.id || p.blog_id}`,
+            contentId: p.id || p.blog_id,
+            contentType: "Post" as const,
+            author: p.author || p.user?.full_name || "Thành viên",
+            title: p.title,
+            category: p.category?.name || p.category || "Diễn đàn",
+            excerpt: p.excerpt || p.content,
+            tags: p.tags || [],
+            snippet: p.title ? `${p.title}${p.excerpt ? ` — ${p.excerpt}` : ""}` : (p.excerpt || p.content?.slice(0, 150)),
+            flagReasons: p.flag_reason ? [p.flag_reason] : p.is_flagged ? ["Bài viết bị gắn cờ"] : [],
+            aiConfidence: p.status === "approved" ? 0.98 : 0.88,
+            reportedAt: p.timestamp || (p.created_at ? new Date(p.created_at).toLocaleDateString("vi-VN") : "Gần đây"),
+            status: modStatus,
+          };
+        });
+      }
+    } catch (err) {
+      console.warn("[forumService] getAdminModeration error, falling back to adminListPosts:", err);
+    }
+
+    // Fallback: Lấy danh sách toàn bộ bài viết từ adminListPosts
     const { data: posts } = await this.adminListPosts({ limit: 50 });
     return posts.map((p) => {
       let modStatus: ModerationItem["status"] = "Pending";
