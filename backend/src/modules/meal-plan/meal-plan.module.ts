@@ -18,6 +18,7 @@ import { HealthGoal } from '../health-goal/entities/health-goal.entity';
 
 import { SubscriptionModule } from '../subscription/subscription.module';
 import { IngredientModule } from '../ingredient/ingredient.module';
+import { ChatbotModule } from '../chatbot/chatbot.module';
 
 import { MealPlanController } from './meal-plan.controller';
 import { MealPlanService } from './meal-plan.service';
@@ -41,6 +42,7 @@ import { MealPlanService } from './meal-plan.service';
     ]),
     SubscriptionModule,
     IngredientModule,
+    ChatbotModule,
   ],
   controllers: [
     MealPlanController,

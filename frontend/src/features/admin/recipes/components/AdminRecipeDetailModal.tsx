@@ -3,7 +3,7 @@
 import React, { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { X, ExternalLink, Info } from "lucide-react";
+import { X, ExternalLink, Info, Video } from "lucide-react";
 import { Recipe, formatMealType } from "@/features/recipes";
 import { formatVegetarianType } from "@/features/profile/types";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
@@ -105,6 +105,21 @@ export function AdminRecipeDetailModal({
               </p>
             )}
           </div>
+
+                    {/* Video hướng dẫn nếu có */}
+          {(recipe.video_url || recipe.videoUrl) && (
+            <div className="p-4 bg-stone-900 rounded-2xl text-white space-y-2">
+              <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+                <Video className="w-4 h-4" />
+                <span>Video hướng dẫn nấu ăn</span>
+              </div>
+              <video
+                src={(recipe.video_url || recipe.videoUrl)!.startsWith('/') ? `http://localhost:3000${recipe.video_url || recipe.videoUrl}` : (recipe.video_url || recipe.videoUrl)}
+                controls
+                className="w-full max-h-56 rounded-xl bg-black"
+              />
+            </div>
+          )}
 
           {/* Allergy warning preview for current profile */}
           <RecipeAllergyBadge recipe={recipe} />

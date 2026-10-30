@@ -138,8 +138,9 @@ export const mealPlannerService = {
 
     const scaleRecipeToCalories = (raw: Recipe, targetKcal: number): Recipe => {
       const baseKcal = Number(raw.calories) || 150;
-      const maxPortion = baseKcal < 200 ? 3.0 : baseKcal < 350 ? 2.5 : 1.8;
-      const portion = Math.round(Math.min(maxPortion, Math.max(0.6, targetKcal / baseKcal)) * 10) / 10;
+      const maxPortion = 1.25;
+      const minPortion = 0.85;
+      const portion = Math.round(Math.min(maxPortion, Math.max(minPortion, targetKcal / baseKcal)) * 10) / 10;
       return {
         ...raw,
         calories: Math.round(baseKcal * portion),
@@ -573,6 +574,7 @@ export const mealPlannerService = {
       totalEstimatedCost: totalCost,
       averageDailyCost: Math.round(totalCost / days.length),
       budgetLimit: plan.has_budget && plan.total_budget ? Number(plan.total_budget) : undefined,
+      ai_cookability_notes: plan.ai_cookability_notes || data?.ai_cookability_notes || undefined,
     };
   },
 

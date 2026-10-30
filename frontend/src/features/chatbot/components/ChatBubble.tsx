@@ -1,3 +1,4 @@
+import { cleanChatText } from "../services/chatbotService";
 import React from "react";
 import { Sparkles, ArrowRight } from "lucide-react";
 import { SubstitutionItem } from "../types";
@@ -19,7 +20,7 @@ export function ChatBubble({
     return (
       <div className="flex flex-col items-end mb-4">
         <div className="bg-emerald-700 text-white rounded-2xl rounded-tr-xs px-5 py-3.5 max-w-[80%] shadow-xs">
-          <p className="text-base leading-relaxed">{text}</p>
+          <p className="text-base leading-relaxed">{cleanChatText(text)}</p>
         </div>
         {timestamp && (
           <span className="text-xs text-stone-400 mt-1 px-1">{timestamp}</span>

@@ -302,7 +302,10 @@ export class PhotoScanService {
 
     // 8, 9, 10: Ánh xạ nguyên liệu và kiểm tra cảnh báo
     const items = await this.mapAndEnrichIngredients(filteredRaw, userId);
-    const message = `Nhận diện thành công ${items.length} nguyên liệu thực phẩm.`;
+    const message =
+      items.length > 0
+        ? `Nhận diện thành công ${items.length} nguyên liệu thực phẩm chay.`
+        : 'Không tìm thấy nguyên liệu chay hợp lệ nào trong ảnh. VegetMealPlan chỉ nhận diện thực phẩm thuần chay (rau củ, nấm, đậu hạt...).';
 
     return {
       items,
@@ -455,11 +458,15 @@ export class PhotoScanService {
 
     // 8, 9, 10: Ánh xạ nguyên liệu và kiểm tra dị ứng / mặn
     const items = await this.mapAndEnrichIngredients(filteredRaw, userId);
+    const message =
+      items.length > 0
+        ? `Nhận diện thành công ${items.length} nguyên liệu thực phẩm chay từ ${files.length} ảnh.`
+        : 'Không tìm thấy nguyên liệu chay hợp lệ nào trong các ảnh đã chụp. VegetMealPlan chỉ nhận diện thực phẩm thuần chay (rau củ, nấm, đậu hạt...).';
 
     return {
       items,
       image_quality: rawResult.image_quality,
-      message: `Nhận diện thành công ${items.length} nguyên liệu thực phẩm từ ${files.length} ảnh.`,
+      message,
       remaining_scans: remainingScans,
     };
   }
@@ -622,6 +629,12 @@ export class PhotoScanService {
         if (!nonVegCheck.isClean) {
           warningsSet.add('non_vegan');
         }
+      }
+
+      // CHỈ QUÉT NGUYÊN LIỆU NẤU ĐỒ ĂN CHAY: Bỏ qua hoàn toàn nguyên liệu mặn
+      if (warningsSet.has('non_vegan')) {
+        this.logger.warn(`Bỏ qua nguyên liệu không thuần chay: "${rawItem.name}"`);
+        continue;
       }
 
       items.push({

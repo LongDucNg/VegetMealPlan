@@ -8,8 +8,8 @@ const INITIAL_MESSAGES: ChatbotMessage[] = [
   {
     id: "m-welcome",
     sender: "ai",
-    text: "Hello! I'm your VeggieHub AI Nutritionist. I can recommend meals based on your daily calories, explain your BMI, check ingredient allergies, or advise on plant-based nutrient absorption. What can I help you with today?",
-    timestamp: "Just now",
+    text: "Xin chào! Tôi là Trợ lý Dinh dưỡng AI của VeggieHub. Tôi có thể giúp bạn giải đáp về thực đơn chay, tính calo, gợi ý món ăn phù hợp với mục tiêu và dị ứng của bạn. Bạn muốn tìm hiểu gì hôm nay?",
+    timestamp: "Vừa xong",
   },
 ];
 
@@ -40,7 +40,7 @@ export function useChatbot() {
       const fallback: ChatbotMessage = {
         id: `ai-err-${Math.random().toString(36).substring(2, 9)}`,
         sender: "ai",
-        text: "I encountered a minor issue processing your question. Please try asking again!",
+        text: "Hệ thống gặp sự cố nhỏ khi xử lý câu hỏi của bạn. Vui lòng thử hỏi lại sau giây lát nhé!",
         timestamp: "Just now",
       };
       setMessages((prev) => [...prev, fallback]);

@@ -73,6 +73,21 @@ export class SubscriptionController {
       message: r.message,
     };
   }
+  @ApiBearerAuth()
+  @Post('activate-free')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Kích hoạt gói Premium trực tiếp không qua thanh toán' })
+  activateDirect(@CurrentUser('user_id') userId: number) {
+    return this.subscriptionService.activateDirect(userId);
+  }
+
+  @ApiBearerAuth()
+  @Post('switch-free')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Chuyển về gói Miễn phí' })
+  switchFree(@CurrentUser('user_id') userId: number) {
+    return this.subscriptionService.switchFree(userId);
+  }
 
   @ApiBearerAuth()
   @Delete(':id')
