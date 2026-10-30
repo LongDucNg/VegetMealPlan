@@ -36,6 +36,7 @@ export interface RecipePayload {
   description?: string;
   instructions?: string;
   image_url?: string;
+  video_url?: string;
   prep_time?: number;
   cook_time?: number;
   servings?: number;
@@ -92,6 +93,15 @@ export const recipeApiService = {
   },
 
   // API #6: POST /recipes - Member tạo -> pending_review, admin tạo -> approved
+  uploadMedia(file: File) {
+    return apiClient.upload<{ url: string; file_type: 'image' | 'video'; filename: string; size: number }>(
+      '/recipes/upload',
+      file,
+      'file'
+    );
+  },
+
+  // API #6: POST /recipes - Member t?o -> pending_review, admin t?o -> approved
   createRecipe(data: RecipePayload) {
     return apiClient.post<any>("/recipes", data);
   },
@@ -120,6 +130,11 @@ export const recipeApiService = {
   getAdminRecipes(status?: string) {
     const query = status ? `?status=${status}` : "";
     return apiClient.get<any[]>(`/admin/recipes${query}`);
+  },
+
+  // API Admin: GET /admin/recipes/:id - Lấy chi tiết công thức kèm nguyên liệu cho admin
+  getAdminRecipeById(id: number | string) {
+    return apiClient.get<any>(`/admin/recipes/${id}`);
   },
 
   // API Admin: PUT /admin/recipes/:id/status - Duyệt hoặc từ chối công thức

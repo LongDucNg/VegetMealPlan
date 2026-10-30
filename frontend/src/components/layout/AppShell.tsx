@@ -28,7 +28,7 @@ export function AppShell({
       <Header />
 
       {/* Mobile Sidebar Floating Trigger (<1024px) */}
-      <div className="lg:hidden fixed bottom-5 right-5 z-50">
+      <div className="lg:hidden fixed bottom-5 left-5 z-50">
         <button
           type="button"
           onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}

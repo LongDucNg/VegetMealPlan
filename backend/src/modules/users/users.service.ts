@@ -137,7 +137,7 @@ export class UsersService {
     const missing = missingProfileFields(user);
     return {
       ...safe,
-      is_premium: !!user.premium_until && user.premium_until > new Date(),
+      is_premium: user.role === 'admin' || (!!user.premium_until && user.premium_until > new Date()),
       // FE dùng 2 trường này để nhắc "hãy cập nhật hồ sơ" sau khi đăng ký (đăng ký không bắt nhập chỉ số cơ thể).
       profile_complete: missing.length === 0,
       missing_profile_fields: missing,

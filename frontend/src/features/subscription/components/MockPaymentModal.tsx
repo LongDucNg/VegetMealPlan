@@ -218,6 +218,27 @@ export function MockPaymentModal({
             </div>
           )}
 
+          {/* Direct Upgrade Button (No Payment Required) */}
+          <div className="p-3.5 bg-emerald-50 border border-emerald-200/90 rounded-2xl flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                Mở khóa trực tiếp không qua thanh toán
+              </p>
+              <p className="text-[11px] text-emerald-800">
+                Kích hoạt ngay gói Premium để sử dụng toàn bộ tính năng.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleDemoUpgrade}
+              disabled={processing || completed}
+              className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs cursor-pointer shadow-xs transition-colors shrink-0"
+            >
+              Mở khóa ngay
+            </button>
+          </div>
+
           {/* Action buttons */}
           <div className="pt-2">
             <button
