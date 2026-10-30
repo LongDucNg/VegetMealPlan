@@ -1,20 +1,18 @@
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync } from 'fs';
 import { DataSource } from 'typeorm';
 import { dataSourceOptions } from '../../config/typeorm.config';
-import type { RecipeImageEntry } from './fetch-recipe-images';
+import { hasImage, IMAGES_FILE, isOnCloudinary, loadMap, SEED_FOLDER } from './recipe-image-map';
 
 /**
- * Gắn ảnh trong src/database/seeds/data/recipe-images.json vào cột recipes.image_url của DB máy mình.
- * Không cần API key, không gọi mạng. Khớp món theo tiêu đề (không phân biệt hoa thường, bỏ khoảng trắng thừa).
+ * BƯỚC 4/4: gắn ảnh trong src/database/seeds/data/recipe-images.json vào cột recipes.image_url của DB máy mình.
+ * Không cần khoá API, không gọi mạng. Khớp món theo tiêu đề (không phân biệt hoa thường, bỏ khoảng trắng thừa).
  *
- * Chạy:  npm run images:apply              (chỉ điền món CHƯA có ảnh, không đè ảnh admin đã sửa tay)
- *        npm run images:apply -- --force   (đè tất cả theo file)
+ * Chạy:  npm run images:apply              (điền món chưa có ảnh + cập nhật món đang dùng ảnh seed;
+ *                                           KHÔNG đè ảnh admin/người dùng tự tải lên)
+ *        npm run images:apply force   (đè tất cả theo file)
  *
  * Chạy lại sau mỗi lần `npm run seed` với SEED_RESET=true, vì seed tạo lại món không có ảnh.
  */
-
-const IMAGES_FILE = join(__dirname, '..', 'seeds', 'data', 'recipe-images.json');
 
 async function main() {
   if (!existsSync(IMAGES_FILE)) {
@@ -22,9 +20,12 @@ async function main() {
     process.exit(1);
   }
 
-  const force = process.argv.includes('--force');
-  const map: Record<string, RecipeImageEntry | null> = JSON.parse(readFileSync(IMAGES_FILE, 'utf8'));
-  const entries = Object.entries(map).filter((e): e is [string, RecipeImageEntry] => !!e[1]?.url);
+  const force = process.argv.some((a) => a === 'force' || a === '--force');
+  const entries = Object.entries(loadMap()).filter((e) => hasImage(e[1]));
+  const notOnCloud = entries.filter(([, e]) => hasImage(e) && !isOnCloudinary(e.url)).length;
+  if (notOnCloud > 0) {
+    console.warn(`! ${notOnCloud} ảnh chưa lên Cloudinary (đang dùng link gốc). Nên chạy \`npm run images:cloudinary\` trước.`);
+  }
 
   const dataSource = new DataSource(dataSourceOptions);
   await dataSource.initialize();
@@ -33,12 +34,14 @@ async function main() {
   try {
     await dataSource.transaction(async (manager) => {
       for (const [title, entry] of entries) {
+        if (!hasImage(entry)) continue;
         const rows: unknown = await manager.query(
           `UPDATE recipes SET image_url = $1
            WHERE LOWER(BTRIM(REGEXP_REPLACE(title, '\\s+', ' ', 'g'))) = LOWER(BTRIM(REGEXP_REPLACE($2, '\\s+', ' ', 'g')))
-           ${force ? '' : `AND (image_url IS NULL OR BTRIM(image_url) = '')`}
+           AND image_url IS DISTINCT FROM $1
+           ${force ? '' : `AND (image_url IS NULL OR BTRIM(image_url) = '' OR image_url LIKE $3)`}
            RETURNING recipe_id`,
-          [entry.url, title],
+          force ? [entry.url, title] : [entry.url, title, `%/${SEED_FOLDER}/%`],
         );
         // TypeORM + pg trả [rows, số dòng] với UPDATE ... RETURNING; phòng trường hợp chỉ trả rows.
         const list = Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : rows;
@@ -50,7 +53,7 @@ async function main() {
   }
 
   console.log(
-    `Đã gắn ảnh cho ${updated} món (file có ${entries.length} món có ảnh${force ? ', chế độ --force' : ', bỏ qua món đã có ảnh'}).`,
+    `Đã gắn/cập nhật ảnh cho ${updated} món (file có ${entries.length} món có ảnh${force ? ', chế độ --force' : ', không đè ảnh tự tải lên'}).`,
   );
 }
 

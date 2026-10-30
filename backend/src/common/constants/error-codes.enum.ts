@@ -149,6 +149,14 @@ export enum ErrorCode {
   /** 404 */
   MEAL_PLAN_NOT_FOUND = 'MEAL_PLAN_NOT_FOUND',
 
+  // ---- Upload ảnh (Cloudinary) ----
+  /** 503: server chưa cấu hình CLOUDINARY_CLOUD_NAME / API_KEY / API_SECRET. */
+  UPLOAD_NOT_CONFIGURED = 'UPLOAD_NOT_CONFIGURED',
+  /** 400: thiếu file, sai định dạng (chỉ JPG/PNG/WEBP) hoặc quá 5 MB. */
+  UPLOAD_INVALID_FILE = 'UPLOAD_INVALID_FILE',
+  /** 502: Cloudinary từ chối hoặc không phản hồi. */
+  UPLOAD_FAILED = 'UPLOAD_FAILED',
+
   // ---- Chatbot AI ----
   /** 429: hết hạn mức câu hỏi chatbot trong ngày. */
   CHATBOT_QUOTA_EXCEEDED = 'CHATBOT_QUOTA_EXCEEDED',

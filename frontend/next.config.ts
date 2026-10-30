@@ -20,6 +20,7 @@ const nextConfig: NextConfig = {
         hostname: 'images.pexels.com',
       },
       {
+        // Ảnh món ăn người dùng/admin tải lên Cloudinary
         protocol: 'https',
         hostname: 'res.cloudinary.com',
       },
