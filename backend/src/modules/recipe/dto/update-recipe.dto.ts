@@ -90,6 +90,10 @@ export class UpdateRecipeDto {
   diet_type?: DietType;
 
   @IsOptional()
+  @IsString()
+  video_url?: string;
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   source_video_id?: number;

@@ -19,6 +19,7 @@ import {
   Layers,
   Scale,
   CalendarPlus,
+  Video,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { recipeApiService, RecipeCostResponse } from "@/features/recipes/services/recipeApiService";
@@ -523,6 +524,43 @@ export function RecipeDetailClient({
 
           {/* Right Column: Cooking Instructions & Tips (7 cols) */}
           <div className="lg:col-span-7 space-y-6">
+                        {/* Video hướng dẫn nấu ăn */}
+            {(recipe.video_url || recipe.videoUrl) ? (
+              <div className="p-6 rounded-3xl bg-stone-900 border border-stone-800 shadow-md text-white space-y-3">
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <Video className="w-5 h-5" />
+                  <h3 className="font-serif font-bold text-lg text-white">
+                    Video hướng dẫn nấu ăn
+                  </h3>
+                </div>
+                <video
+                  src={(recipe.video_url || recipe.videoUrl)!.startsWith('/') ? `http://localhost:3000${recipe.video_url || recipe.videoUrl}` : (recipe.video_url || recipe.videoUrl)}
+                  controls
+                  className="w-full max-h-[380px] rounded-2xl bg-black"
+                />
+              </div>
+            ) : (
+              <div className="p-6 rounded-3xl bg-white border border-stone-200/80 shadow-xs space-y-3">
+                <div className="flex items-center gap-2 text-emerald-700">
+                  <Video className="w-5 h-5" />
+                  <h3 className="font-serif font-bold text-lg text-stone-900">
+                    Video hướng dẫn nấu ăn
+                  </h3>
+                </div>
+                <div className="py-10 px-6 rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 flex flex-col items-center justify-center text-center space-y-2.5">
+                  <div className="w-12 h-12 rounded-2xl bg-stone-100 border border-stone-200 flex items-center justify-center text-stone-400">
+                    <Video className="w-6 h-6" />
+                  </div>
+                  <h4 className="font-semibold text-sm text-stone-700">
+                    Video cách nấu sẽ được update trong tương lai
+                  </h4>
+                  <p className="text-xs text-stone-400 max-w-sm">
+                    Đội ngũ đầu bếp VeggieHub đang ghi hình và hoàn thiện video hướng dẫn từng bước cho món ăn này.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="p-6 sm:p-8 rounded-3xl bg-white border border-stone-200/80 shadow-xs space-y-6">
               <div>
                 <h3 className="font-serif font-bold text-xl text-stone-900">
