@@ -6,5 +6,7 @@ dist/
 coverage/
 .DS_Store
 *.tsbuildinfo
-*.tsbuildinfo
 uploads/
+# Trang xem lại ảnh + danh sách ảnh bị loại (npm run images:review), chỉ dùng trên máy mình
+recipe-images-review.html
+recipe-images-reject.txt

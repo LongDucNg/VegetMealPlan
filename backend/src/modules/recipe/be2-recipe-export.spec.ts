@@ -226,7 +226,7 @@ describe('BE2 - Export cong thuc (CSV)', () => {
         content: 'x',
       })),
     };
-    const ctrl = new RecipeController(svc as any);
+    const ctrl = new RecipeController(svc as any, {} as any);
     const headers: Record<string, string> = {};
     const res: any = {
       setHeader: jest.fn((k: string, v: string) => { headers[k] = v; }),
@@ -248,4 +248,4 @@ describe('BE2 - Export cong thuc (CSV)', () => {
     expect(r.content).toContain('Ga nam chay');
     expect(r.content).toContain('Tofu nuong');
   });
-});
+});

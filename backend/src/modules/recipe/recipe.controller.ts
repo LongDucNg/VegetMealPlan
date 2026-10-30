@@ -5,8 +5,6 @@ const multer = require('multer');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const cloudinary = require('cloudinary').v2;
 import {
-  UseInterceptors,
-  UploadedFile,
   BadRequestException,
   Controller,
   Get,
@@ -19,7 +17,10 @@ import {
   UseGuards,
   Req,
   Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { RecipeService } from './recipe.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
@@ -29,18 +30,22 @@ import {
   RecommendationQueryDto,
 } from './dto/query-recipe.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiProduces } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiProduces, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
+import { CurrentUser, AuthUser } from '../../common/decorators/current-user.decorator';
+import { RecipeImageService, RECIPE_IMAGE_MAX_BYTES, UploadedImageFile } from './recipe-image.service';
 
 @ApiTags('recipes')
 @Controller('recipes')
 export class RecipeController {
-  constructor(private readonly recipeService: RecipeService) {}
+  constructor(
+    private readonly recipeService: RecipeService,
+    private readonly recipeImageService: RecipeImageService,
+  ) {}
 
   // =========================
   // PUBLIC / COMMON ROUTES
@@ -298,13 +303,35 @@ export class RecipeController {
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
-  remove(
+  async remove(
     @Param('id', PositiveIntPipe) id: number,
     @Req() req: any,
   ) {
     const userId = req.user.user_id;
     const userRole = req.user.role;
 
-    return this.recipeService.removeRecipe(id, userId, userRole);
+    const result = await this.recipeService.removeRecipe(id, userId, userRole);
+    // Món đã xoá hẳn thì dọn luôn ảnh trên Cloudinary; món chỉ bị ẩn (REMOVED, còn trong thực đơn) giữ ảnh.
+    await this.recipeImageService.removeIfRecipeDeleted(id);
+    return result;
+  }
+
+  /**
+   * Tải ảnh món lên Cloudinary (multipart, trường "image"; JPG/PNG/WEBP, tối đa 5 MB).
+   * Gọi SAU khi tạo/sửa món thành công. Chỉ người tạo món hoặc admin. Đổi ảnh = ghi đè ảnh cũ.
+   */
+  @Post(':id/image')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Tải ảnh món ăn lên Cloudinary và gắn vào công thức' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', properties: { image: { type: 'string', format: 'binary' } }, required: ['image'] } })
+  // Multer chặn cứng file trên 10 MB (không đọc file khổng lồ vào RAM); 5–10 MB để service báo lỗi tiếng Việt rõ ràng.
+  @UseInterceptors(FileInterceptor('image', { limits: { fileSize: RECIPE_IMAGE_MAX_BYTES * 2, files: 1 } }))
+  uploadImage(
+    @Param('id', PositiveIntPipe) id: number,
+    @CurrentUser() user: AuthUser,
+    @UploadedFile() file?: UploadedImageFile,
+  ) {
+    return this.recipeImageService.upload(id, user.user_id, user.role, file);
   }
 }
