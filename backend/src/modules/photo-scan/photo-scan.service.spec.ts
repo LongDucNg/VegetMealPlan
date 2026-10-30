@@ -244,6 +244,22 @@ describe('PhotoScanService', () => {
       expect(result.image_quality).toBe('no_food');
       expect(result.remaining_scans).toBe(29);
     });
+
+    it('loại bỏ hoàn toàn các nguyên liệu không thuần chay (thịt bò, cá...) khỏi kết quả quét', async () => {
+      mockScanAiProvider.detectIngredients.mockResolvedValueOnce({
+        image_quality: 'good',
+        items: [
+          { name: 'Cà chua', confidence: 0.95, freshness: 'fresh' },
+          { name: 'Thịt bò xay', confidence: 0.9, freshness: 'fresh' },
+        ],
+      });
+
+      const result = await service.detect(1, { originalname: 'test.jpg', buffer: validJpeg });
+
+      expect(result.items.length).toBe(1);
+      expect(result.items[0].detected_name).toBe('Cà chua');
+      expect(result.items.some((i) => i.detected_name === 'Thịt bò xay')).toBe(false);
+    });
   });
 
   describe('detectBatch', () => {
