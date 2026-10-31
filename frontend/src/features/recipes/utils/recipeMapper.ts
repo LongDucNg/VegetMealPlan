@@ -149,6 +149,8 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
     ingredients,
     allergens: r.allergens || [],
     instructions,
+    video_url: r.video_url || r.videoUrl || undefined,
+    videoUrl: r.video_url || r.videoUrl || undefined,
     estimatedCost: Number(r.estimated_cost ?? r.estimatedCost ?? 0),
     status,
     source: r.source || { type: "admin", name: "VeggieHub Kitchen" },

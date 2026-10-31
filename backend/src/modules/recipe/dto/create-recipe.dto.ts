@@ -91,6 +91,10 @@ export class CreateRecipeDto {
   @IsEnum(DietType)
   diet_type?: DietType;
 
+  @IsOptional()
+  @IsString()
+  video_url?: string;
+
   // source_video_id là INT trong DB (recipes.source_video_id int).
   // Để @IsString() sẽ nhận "abc" -> lỗi DB 500.
   @IsOptional()
