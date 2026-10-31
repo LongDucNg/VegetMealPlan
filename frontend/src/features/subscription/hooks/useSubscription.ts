@@ -22,8 +22,8 @@ export function useSubscription() {
     return unsubscribe;
   }, []);
 
-  const purchase = useCallback((planId: SubscriptionTier) => {
-    const updated = subscriptionService.purchasePlan(planId);
+  const purchase = useCallback(async (planId: SubscriptionTier) => {
+    const updated = await subscriptionService.purchasePlan(planId);
     setSubscription(updated);
     return updated;
   }, []);
@@ -34,8 +34,8 @@ export function useSubscription() {
     return updated;
   }, []);
 
-  const toggle = useCallback(() => {
-    const updated = subscriptionService.togglePremium();
+  const toggle = useCallback(async () => {
+    const updated = await subscriptionService.togglePremium();
     setSubscription(updated);
     return updated;
   }, []);

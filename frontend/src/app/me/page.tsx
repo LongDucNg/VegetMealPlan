@@ -33,8 +33,12 @@ import {
   ExternalLink,
   Crown,
   ChefHat,
+  Bell,
+  CheckCheck,
+  Check,
 } from "lucide-react";
 
+import { useNotifications, formatTimeAgo, getNotificationLink, NotificationType } from "@/features/notification";
 import { useProfile } from "@/features/profile/hooks/useProfile";
 import { formatVegetarianType, formatAllergies } from "@/features/profile/types";
 import { useSubscription } from "@/features/subscription/hooks/useSubscription";
@@ -61,6 +65,7 @@ import { recipeApiService } from "@/features/recipes/services/recipeApiService";
 import { ingredientApiService, UserRecipePriceItem } from "@/features/recipes/services/ingredientApiService";
 import { mapBackendToFrontendRecipe } from "@/features/recipes/utils/recipeMapper";
 import { tokenStorage } from "@/lib/tokenStorage";
+import { forumService, ForumPost } from "@/features/community";
 
 const MY_POSTS: Array<{
   id: string;
@@ -79,7 +84,7 @@ const MY_COMMENTS: Array<{
   votes: number;
 }> = [];
 
-type TabId = "favorites" | "my_recipes" | "saved_plans" | "custom_prices" | "posts" | "comments";
+type TabId = "favorites" | "my_recipes" | "saved_plans" | "custom_prices" | "posts" | "comments" | "notifications";
 
 function TabButton({
   label,
@@ -99,8 +104,8 @@ function TabButton({
     <button
       onClick={onClick}
       className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer shrink-0 ${active
-          ? "bg-emerald-700 text-white shadow-sm"
-          : "text-stone-600 hover:bg-stone-100 hover:text-stone-900 bg-white border border-stone-200"
+        ? "bg-emerald-700 text-white shadow-sm"
+        : "text-stone-600 hover:bg-stone-100 hover:text-stone-900 bg-white border border-stone-200"
         }`}
     >
       {icon}
@@ -121,12 +126,22 @@ function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") as TabId | null;
+  const { isGuest } = useRole();
   const { profile } = useProfile();
   const { subscription, isPremium, cancel, purchase } = useSubscription();
   const authUser = tokenStorage.getUser();
   const userId = String(authUser?.user_id || profile.id || "1");
 
   const [activeTab, setActiveTab] = useState<TabId>(tabParam || "favorites");
+  const {
+    notifications,
+    unreadCount: notificationUnreadCount,
+    markAsRead: markNotificationAsRead,
+    markAllAsRead: markAllNotificationsAsRead,
+    deleteNotification,
+    deleteAllNotifications,
+  } = useNotifications();
+  const [notificationTabFilter, setNotificationTabFilter] = useState<"ALL" | "UNREAD" | "READ">("ALL");
   const [dataVersion, setDataVersion] = useState(0);
   const [recipeStatusFilter, setRecipeStatusFilter] = useState<"ALL" | "APPROVED" | "PENDING_REVIEW" | "REJECTED">("ALL");
 
@@ -357,6 +372,41 @@ function ProfileContent() {
     });
 
     router.push("/planner");
+  };
+
+  // Forum Posts State
+  const [myForumPosts, setMyForumPosts] = useState<ForumPost[]>([]);
+  const [myForumPostsLoading, setMyForumPostsLoading] = useState(false);
+  const [deletingForumPostId, setDeletingForumPostId] = useState<string | null>(null);
+
+  const fetchMyForumPosts = React.useCallback(async () => {
+    if (isGuest) return;
+    setMyForumPostsLoading(true);
+    try {
+      const res = await forumService.listMyPosts({ limit: 50 });
+      setMyForumPosts(res.data.filter((p) => p.status !== "removed"));
+    } catch (err) {
+      console.warn("Error fetching my forum posts:", err);
+    } finally {
+      setMyForumPostsLoading(false);
+    }
+  }, [isGuest]);
+
+  useEffect(() => {
+    fetchMyForumPosts();
+  }, [fetchMyForumPosts]);
+
+  const handleDeleteMyForumPost = async (id: string | number) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa bài viết này khỏi diễn đàn?")) return;
+    setDeletingForumPostId(String(id));
+    try {
+      await forumService.deletePost(id);
+      setMyForumPosts((prev) => prev.filter((p) => p.id !== String(id)));
+    } catch (err: any) {
+      alert(err?.message || "Không thể xóa bài viết lúc này.");
+    } finally {
+      setDeletingForumPostId(null);
+    }
   };
 
   const handleDeleteSavedPlan = (planId: string) => {
@@ -596,16 +646,12 @@ function ProfileContent() {
         />
         <TabButton
           label="Bài viết diễn đàn"
-          icon={<FileText className="w-4 h-4" />}
+          icon={<FileText className="w-4 h-4 text-emerald-700" />}
           active={activeTab === "posts"}
+          badgeCount={myForumPosts.length > 0 ? myForumPosts.length : undefined}
           onClick={() => setActiveTab("posts")}
         />
-        <TabButton
-          label="Bình luận"
-          icon={<MessageSquare className="w-4 h-4" />}
-          active={activeTab === "comments"}
-          onClick={() => setActiveTab("comments")}
-        />
+
       </div>
 
       {/* ========================================================
@@ -799,8 +845,8 @@ function ProfileContent() {
                   type="button"
                   onClick={() => setRecipeStatusFilter("ALL")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${recipeStatusFilter === "ALL"
-                      ? "bg-stone-900 text-white"
-                      : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                    ? "bg-stone-900 text-white"
+                    : "bg-stone-100 text-stone-600 hover:bg-stone-200"
                     }`}
                 >
                   Tất cả ({myRecipes.length})
@@ -809,8 +855,8 @@ function ProfileContent() {
                   type="button"
                   onClick={() => setRecipeStatusFilter("APPROVED")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${recipeStatusFilter === "APPROVED"
-                      ? "bg-emerald-700 text-white"
-                      : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                    ? "bg-emerald-700 text-white"
+                    : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
                     }`}
                 >
                   <span>Đã duyệt</span>
@@ -822,8 +868,8 @@ function ProfileContent() {
                   type="button"
                   onClick={() => setRecipeStatusFilter("PENDING_REVIEW")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${recipeStatusFilter === "PENDING_REVIEW"
-                      ? "bg-amber-600 text-white"
-                      : "bg-amber-50 text-amber-800 hover:bg-amber-100"
+                    ? "bg-amber-600 text-white"
+                    : "bg-amber-50 text-amber-800 hover:bg-amber-100"
                     }`}
                 >
                   <span>Đang chờ duyệt</span>
@@ -836,8 +882,8 @@ function ProfileContent() {
                     type="button"
                     onClick={() => setRecipeStatusFilter("REJECTED")}
                     className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${recipeStatusFilter === "REJECTED"
-                        ? "bg-rose-600 text-white"
-                        : "bg-rose-50 text-rose-700 hover:bg-rose-100"
+                      ? "bg-rose-600 text-white"
+                      : "bg-rose-50 text-rose-700 hover:bg-rose-100"
                       }`}
                   >
                     <span>Bị từ chối</span>
@@ -1225,10 +1271,10 @@ function ProfileContent() {
                           <td className="py-3.5 px-3">
                             <span
                               className={`text-xs font-bold px-2 py-0.5 rounded-md ${diff > 0
-                                  ? "bg-amber-100 text-amber-900"
-                                  : diff < 0
-                                    ? "bg-emerald-100 text-emerald-900"
-                                    : "bg-stone-100 text-stone-700"
+                                ? "bg-amber-100 text-amber-900"
+                                : diff < 0
+                                  ? "bg-emerald-100 text-emerald-900"
+                                  : "bg-stone-100 text-stone-700"
                                 }`}
                             >
                               {diff > 0 ? `+${diff.toLocaleString("vi-VN")}` : diff.toLocaleString("vi-VN")} VNĐ
@@ -1268,46 +1314,117 @@ function ProfileContent() {
           TAB 4: MY POSTS
       ======================================================== */}
       {activeTab === "posts" && (
-        MY_POSTS.length === 0 ? (
-          <div className="bg-white border border-stone-200 rounded-3xl p-12 text-center text-stone-400">
-            <FileText className="w-10 h-10 text-stone-300 mx-auto mb-2" />
-            <p className="font-medium text-stone-700 text-sm">Chưa có bài viết nào.</p>
-            <p className="text-xs text-stone-500 mt-1">
-              Bạn chưa đăng bài viết nào trên Diễn đàn cộng đồng.
-            </p>
+        <div className="space-y-6 animate-in fade-in">
+          <div className="bg-white border border-stone-200 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-stone-100 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-emerald-700" />
+                  <h3 className="font-serif font-bold text-xl text-stone-900">
+                    Bài viết Diễn đàn của tôi
+                  </h3>
+                </div>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Danh sách bài thảo luận bạn đã đăng trên diễn đàn VeggieHub (bao gồm cả bài đang chờ duyệt và bị từ chối).
+                </p>
+              </div>
+
+              <Link
+                href="/forum"
+                className="h-9 px-4 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-2xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Đăng thảo luận mới</span>
+              </Link>
+            </div>
+
+            {myForumPostsLoading ? (
+              <div className="py-12 text-center text-stone-400">
+                <p className="text-sm">Đang tải danh sách bài viết từ máy chủ…</p>
+              </div>
+            ) : myForumPosts.length === 0 ? (
+              <div className="text-center py-12 text-stone-400">
+                <FileText className="w-10 h-10 text-stone-300 mx-auto mb-2" />
+                <p className="font-medium text-stone-700 text-sm">Chưa có bài viết nào.</p>
+                <p className="text-xs text-stone-500 mt-1">
+                  Bạn chưa đăng bài thảo luận nào trên diễn đàn VeggieHub.
+                </p>
+                <Link
+                  href="/forum"
+                  className="mt-4 inline-flex items-center gap-2 h-9 px-4 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Tham gia thảo luận ngay</span>
+                </Link>
+              </div>
+            ) : (
+              <DataTable
+                columns={[
+                  { key: "title", label: "Tiêu đề bài viết" },
+                  { key: "category", label: "Danh mục" },
+                  { key: "comments", label: "Bình luận" },
+                  { key: "status", label: "Trạng thái" },
+                  { key: "actions", label: "" },
+                ]}
+                rows={myForumPosts.map((p) => ({
+                  title: (
+                    <div className="space-y-1 py-1">
+                      <Link
+                        href={`/forum/${p.id}`}
+                        className="font-medium text-stone-900 hover:text-emerald-700 transition-colors line-clamp-1"
+                      >
+                        {p.title}
+                      </Link>
+                      {p.rejectReason && (
+                        <p className="text-xs text-rose-600">
+                          <strong>Lý do từ chối:</strong> {p.rejectReason}
+                        </p>
+                      )}
+                    </div>
+                  ),
+                  category: (
+                    <span className="text-xs font-medium text-stone-600 bg-stone-100 px-2.5 py-1 rounded-full">
+                      {p.category}
+                    </span>
+                  ),
+                  comments: (
+                    <span className="text-xs font-medium text-stone-600">
+                      {p.commentsCount}
+                    </span>
+                  ),
+                  status: (
+                    p.status === "pending_review" ? (
+                      <Badge variant="recipeOfDay">Chờ duyệt</Badge>
+                    ) : p.status === "rejected" ? (
+                      <Badge variant="flagged">Bị từ chối</Badge>
+                    ) : (
+                      <Badge variant="success">Đã duyệt</Badge>
+                    )
+                  ),
+                  actions: (
+                    <div className="flex items-center gap-2 justify-end">
+                      <Link
+                        href={`/forum/${p.id}`}
+                        className="text-xs font-semibold text-emerald-700 hover:underline"
+                      >
+                        Xem bài
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteMyForumPost(p.id)}
+                        disabled={deletingForumPostId === p.id}
+                        title="Xóa bài viết"
+                        className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ),
+                }))}
+              />
+            )}
           </div>
-        ) : (
-          <DataTable
-            columns={[
-              { key: "title", label: "Tiêu đề bài viết" },
-              { key: "votes", label: "Bình chọn" },
-              { key: "comments", label: "Bình luận" },
-              { key: "status", label: "Trạng thái" },
-              { key: "actions", label: "" },
-            ]}
-            rows={MY_POSTS.map((p) => ({
-              title: (
-                <Link
-                  href={`/forum/${p.id}`}
-                  className="font-medium text-stone-900 hover:text-emerald-700 transition-colors line-clamp-1"
-                >
-                  {p.title}
-                </Link>
-              ),
-              votes: <span className="text-sm text-stone-600">▲ {p.votes}</span>,
-              comments: <span className="text-sm text-stone-600">{p.comments}</span>,
-              status: <Badge variant="success">{p.status}</Badge>,
-              actions: (
-                <Link
-                  href={`/forum/${p.id}`}
-                  className="text-xs font-semibold text-emerald-700 hover:underline"
-                >
-                  Xem chi tiết
-                </Link>
-              ),
-            }))}
-          />
-        )
+        </div>
       )}
 
       {/* ========================================================
@@ -1338,6 +1455,253 @@ function ProfileContent() {
             }))}
           />
         )
+      )}
+
+      {/* ========================================================
+          TAB 7: NOTIFICATIONS
+      ======================================================== */}
+      {activeTab === "notifications" && (
+        <div className="space-y-6 animate-in fade-in">
+          <div className="bg-white border border-stone-200 rounded-3xl p-6 sm:p-7 shadow-xs space-y-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-stone-100 pb-5">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-emerald-600" />
+                  <h3 className="font-serif font-bold text-xl text-stone-900">
+                    Trung tâm Thông báo
+                  </h3>
+                  {notificationUnreadCount > 0 && (
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                      {notificationUnreadCount} chưa đọc
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-stone-500 mt-1">
+                  Thông báo về gói hội viên Premium, cập nhật món ăn, bình luận và hoạt động hệ thống.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {notificationUnreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => markAllNotificationsAsRead()}
+                    className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold text-xs transition-colors cursor-pointer"
+                  >
+                    <CheckCheck className="w-4 h-4" />
+                    <span>Đánh dấu tất cả đã đọc</span>
+                  </button>
+                )}
+                {notifications.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm("Bạn có chắc chắn muốn xoá tất cả thông báo không?")) {
+                        deleteAllNotifications();
+                      }
+                    }}
+                    className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-500 hover:text-rose-600 font-medium text-xs transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xoá tất cả</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setNotificationTabFilter("ALL")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${notificationTabFilter === "ALL"
+                  ? "bg-stone-900 text-white shadow-xs"
+                  : "bg-stone-100 text-stone-600 hover:bg-stone-200/70"
+                  }`}
+              >
+                Tất cả ({notifications.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setNotificationTabFilter("UNREAD")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${notificationTabFilter === "UNREAD"
+                  ? "bg-emerald-700 text-white shadow-xs"
+                  : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                  }`}
+              >
+                Chưa đọc ({notificationUnreadCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setNotificationTabFilter("READ")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${notificationTabFilter === "READ"
+                  ? "bg-stone-900 text-white shadow-xs"
+                  : "bg-stone-100 text-stone-600 hover:bg-stone-200/70"
+                  }`}
+              >
+                Đã đọc ({notifications.length - notificationUnreadCount})
+              </button>
+            </div>
+
+            {/* Notification List */}
+            {(() => {
+              const displayList = notifications.filter((n) => {
+                if (notificationTabFilter === "UNREAD") return !n.is_read;
+                if (notificationTabFilter === "READ") return n.is_read;
+                return true;
+              });
+
+              if (displayList.length === 0) {
+                return (
+                  <div className="p-12 text-center text-stone-400 bg-stone-50 rounded-2xl border border-dashed border-stone-200">
+                    <Bell className="w-10 h-10 text-stone-300 mx-auto mb-2" />
+                    <p className="font-medium text-stone-700 text-sm">
+                      {notificationTabFilter === "UNREAD"
+                        ? "Không có thông báo chưa đọc nào."
+                        : "Chưa có thông báo nào."}
+                    </p>
+                    <p className="text-xs text-stone-500 mt-1">
+                      Các thông báo từ hệ thống, gói cước và tương tác sẽ hiển thị ở đây.
+                    </p>
+                  </div>
+                );
+              }
+
+              const renderIcon = (type: NotificationType) => {
+                switch (type) {
+                  case "SUBSCRIPTION_SUCCESS":
+                    return (
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                        <Sparkles className="w-5 h-5" />
+                      </div>
+                    );
+                  case "SUBSCRIPTION_EXPIRING":
+                  case "SUBSCRIPTION_EXPIRED":
+                  case "SUBSCRIPTION_CANCELLED":
+                    return (
+                      <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                        <AlertCircle className="w-5 h-5" />
+                      </div>
+                    );
+                  case "CONTENT_COMMENT":
+                    return (
+                      <div className="w-10 h-10 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+                        <MessageSquare className="w-5 h-5" />
+                      </div>
+                    );
+                  case "CONTENT_VOTE":
+                    return (
+                      <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                        <Heart className="w-5 h-5" />
+                      </div>
+                    );
+                  default:
+                    return (
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                        <Bell className="w-5 h-5" />
+                      </div>
+                    );
+                }
+              };
+
+              return (
+                <div className="space-y-3">
+                  {displayList.map((item) => {
+                    const targetLink = getNotificationLink(item.type, item.ref_type, item.ref_id);
+
+                    return (
+                      <div
+                        key={item.notification_id}
+                        onClick={() => {
+                          if (!item.is_read) {
+                            markNotificationAsRead(item.notification_id);
+                          }
+                          if (targetLink) {
+                            router.push(targetLink);
+                          }
+                        }}
+                        className={`p-4 rounded-2xl border transition-all flex items-start gap-4 cursor-pointer group ${item.is_read
+                          ? "bg-white border-stone-200 hover:border-stone-300 hover:bg-stone-50/60"
+                          : "bg-emerald-50/40 border-emerald-200 hover:bg-emerald-50/70 shadow-xs"
+                          }`}
+                      >
+                        {renderIcon(item.type)}
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <h4
+                                className={`text-sm ${item.is_read
+                                  ? "font-medium text-stone-800"
+                                  : "font-bold text-stone-900"
+                                  }`}
+                              >
+                                {item.title}
+                              </h4>
+                              {!item.is_read && (
+                                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-600 text-white">
+                                  Mới
+                                </span>
+                              )}
+                            </div>
+
+                            <span className="text-xs text-stone-400 flex items-center gap-1 shrink-0">
+                              <Calendar className="w-3 h-3" />
+                              {formatTimeAgo(item.created_at)}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-stone-600 mt-1 leading-relaxed">
+                            {item.message}
+                          </p>
+
+                          <div className="flex items-center justify-between mt-3 pt-2 border-t border-stone-100">
+                            {targetLink ? (
+                              <span className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 group-hover:underline">
+                                Xem chi tiết liên quan
+                                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-stone-400">
+                                {new Date(item.created_at).toLocaleString("vi-VN")}
+                              </span>
+                            )}
+
+                            <div
+                              className="flex items-center gap-2"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {!item.is_read && (
+                                <button
+                                  type="button"
+                                  onClick={() => markNotificationAsRead(item.notification_id)}
+                                  className="flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-800 font-semibold px-2 py-1 rounded-lg hover:bg-white transition-colors cursor-pointer"
+                                  title="Đánh dấu đã đọc"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>Đã đọc</span>
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => deleteNotification(item.notification_id)}
+                                className="p-1 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-white transition-colors cursor-pointer"
+                                title="Xoá thông báo"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
       )}
 
       {/* ========================================================

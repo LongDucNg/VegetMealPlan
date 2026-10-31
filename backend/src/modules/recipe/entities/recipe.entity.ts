@@ -41,6 +41,9 @@ export class Recipe {
   image_url: string;
 
   @Column({ nullable: true })
+  video_url: string;
+
+  @Column({ nullable: true })
   prep_time: number; // phút
 
   @Column({ nullable: true })
