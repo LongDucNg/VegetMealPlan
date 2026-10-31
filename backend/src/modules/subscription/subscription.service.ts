@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { Subscription, SubscriptionStatus } from './entities/subscription.entity';
-import { PaymentTransaction, PaymentTransactionStatus } from './entities/payment-transaction.entity';
+import { PaymentTransaction, PaymentTransactionStatus, PaymentGateway } from './entities/payment-transaction.entity';
 import { User } from '../users/entities/user.entity';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/entities/notification.entity';
@@ -73,9 +73,10 @@ export class SubscriptionService {
 
   /** Premium tính theo users.premium_until (gói mua một lần, cộng dồn), chỉ đọc đúng cột cần. */
   async premiumStatus(user_id: number) {
-    const user = await this.userRepo.findOne({ where: { user_id }, select: { user_id: true, premium_until: true } });
+    const user = await this.userRepo.findOne({ where: { user_id }, select: { user_id: true, role: true, premium_until: true } });
     const premium_until = user?.premium_until ?? null;
-    return { isPremium: !!premium_until && premium_until.getTime() > Date.now(), premium_until };
+    const isPremium = user?.role === 'admin' || (!!premium_until && premium_until.getTime() > Date.now());
+    return { isPremium, premium_until };
   }
 
   /**
@@ -237,5 +238,44 @@ export class SubscriptionService {
       ref_id: subscription.subscription_id,
     });
     return saved;
+  }
+  /**
+   * Kích hoạt gói Premium trực tiếp (không qua thanh toán VNPay)
+   * Phục vụ chuyển gói tự do trong giai đoạn chưa hoàn thiện cổng thanh toán.
+   */
+  async activateDirect(user_id: number) {
+    const transaction = await this.transactionRepo.save(
+      this.transactionRepo.create({
+        user_id,
+        amount: 0,
+        gateway: PaymentGateway.VNPAY,
+        gateway_txn_ref: `DIRECT_${Date.now()}_${randomUUID().slice(0, 6).toUpperCase()}`,
+        status: PaymentTransactionStatus.SUCCESS,
+      }),
+    );
+    const premium_until = await this.activatePremium(transaction);
+    return {
+      success: true,
+      isPremium: true,
+      premium_until,
+      message: 'Kích hoạt gói Premium thành công! Toàn bộ tính năng đã được mở khóa.',
+    };
+  }
+
+  /**
+   * Chuyển về gói Miễn phí (hủy hiệu lực Premium)
+   */
+  async switchFree(user_id: number) {
+    await this.userRepo.update({ user_id }, { premium_until: null as any });
+    await this.subscriptionRepo.update(
+      { user_id, status: SubscriptionStatus.ACTIVE },
+      { status: SubscriptionStatus.CANCELLED, cancelled_at: new Date() },
+    );
+    return {
+      success: true,
+      isPremium: false,
+      premium_until: null,
+      message: 'Đã chuyển về gói Miễn phí thành công.',
+    };
   }
 }
