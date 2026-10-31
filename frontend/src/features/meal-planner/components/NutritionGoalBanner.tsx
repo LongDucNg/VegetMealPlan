@@ -8,12 +8,14 @@ import { UserProfile, formatVegetarianType, formatAllergies } from "@/features/p
 interface NutritionGoalBannerProps {
   nutrition: CalorieCalculationResult;
   profile: UserProfile;
+  aiCookabilityNotes?: string;
   onCompleteProfile?: () => void;
 }
 
 export function NutritionGoalBanner({
   nutrition,
   profile,
+  aiCookabilityNotes,
   onCompleteProfile,
 }: NutritionGoalBannerProps) {
   const {
@@ -165,6 +167,20 @@ export function NutritionGoalBanner({
                 </li>
               ))}
             </ul>
+          </div>
+        </div>
+
+        {/* Groq AI Cookability Review Note */}
+        <div className="pt-2.5 border-t border-emerald-800/80 flex items-start gap-2.5 text-xs text-emerald-100">
+          <span className="px-2 py-0.5 rounded-md bg-amber-400 text-amber-950 font-bold text-[10px] uppercase shrink-0 mt-0.5">
+            AI Groq Chef
+          </span>
+          <div className="flex-1 leading-relaxed">
+            <span className="font-bold text-amber-300">Thẩm định tính khả thi món ăn: </span>
+            <span className="text-emerald-100">
+              {aiCookabilityNotes ||
+                "Khẩu phần nguyên liệu đã được thẩm định tính khả thi nấu nướng thực tế — không ép tăng gia vị để bù calo ảo. Năng lượng dung nạp tự nhiên và cân bằng."}
+            </span>
           </div>
         </div>
 

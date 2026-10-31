@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Flame, Clock, Users, RefreshCw, Tag, AlertCircle, Info } from "lucide-react";
+import { Flame, Clock, RefreshCw, Tag, AlertCircle, Info } from "lucide-react";
 import { Recipe } from "@/features/recipes/types";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
 import { RecipeFavoriteButton } from "@/components/ui/RecipeFavoriteButton";
@@ -107,15 +107,11 @@ export function MealCard({
             {recipe.name || recipe.title}
           </Link>
 
-          {/* Calories & Serving */}
+          {/* Calories */}
           <div className="flex items-center gap-2 mt-2 text-xs text-stone-500">
             <span className="flex items-center gap-1 font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
               <Flame className="w-3 h-3 text-amber-500 fill-amber-500" />
               {recipe.calories} kcal
-            </span>
-            <span className="flex items-center gap-1 text-[11px]">
-              <Users className="w-3 h-3 text-stone-400" />
-              {recipe.serving} khẩu phần
             </span>
           </div>
 
