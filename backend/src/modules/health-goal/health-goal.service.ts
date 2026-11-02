@@ -6,7 +6,7 @@ import { HealthGoal } from './entities/health-goal.entity';
 /**
  * Danh sách mục tiêu sức khoẻ chuẩn.
  *
- * Đây là "master data" — bảng `health_goals` chỉ chứa 3 dòng này. Giữ hằng số
+ * Đây là "master data" — bảng `health_goals` chứa 4 dòng này. Giữ hằng số
  * ở code để:
  *   - frontend luôn có danh sách mục tiêu để chọn, kể cả khi bảng còn trống;
  *   - `current_goal_id` trong hồ sơ luôn trỏ tới một dòng có thật.
@@ -15,6 +15,7 @@ export const HEALTH_GOAL_DEFINITIONS = [
   { name: 'lose_weight', description: 'Giảm cân' },
   { name: 'gain_muscle', description: 'Tăng cơ' },
   { name: 'maintain', description: 'Duy trì cân nặng' },
+  { name: 'healthy_eating', description: 'Ăn uống lành mạnh' },
 ] as const;
 
 export type HealthGoalName = (typeof HEALTH_GOAL_DEFINITIONS)[number]['name'];
@@ -29,7 +30,7 @@ export class HealthGoalService {
   ) {}
 
   /**
-   * Đảm bảo bảng `health_goals` có đủ 3 mục tiêu chuẩn.
+   * Đảm bảo bảng `health_goals` có đủ các mục tiêu chuẩn.
    *
    * Chạy lại an toàn (idempotent): dòng đã có thì bỏ qua, không xoá gì.
    * Dùng để tự khởi tạo dữ liệu tối thiểu khi bảng bị trống (ví dụ môi trường
@@ -69,7 +70,7 @@ export class HealthGoalService {
   }
 
   /**
-   * Tìm mục tiêu theo tên ('lose_weight' | 'gain_muscle' | 'maintain').
+   * Tìm mục tiêu theo tên ('lose_weight' | 'gain_muscle' | 'maintain' | 'healthy_eating').
    *
    * Tự lành: nếu bảng `health_goals` đang TRỐNG (dev mới chưa seed, hoặc bị
    * xoá nhầm) thì khởi tạo master data rồi thử lại. Nhờ vậy lời gọi này

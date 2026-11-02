@@ -31,15 +31,15 @@ export class WeightGoalDto {
   duration_days?: number;
 
   @ApiPropertyOptional({
-    enum: ['lose_weight', 'gain_muscle', 'maintain'],
+    enum: ['lose_weight', 'gain_muscle', 'maintain', 'healthy_eating'],
     description:
-      'Hướng mục tiêu: giảm cân, tăng cân hoặc duy trì. ' +
-      'Duy trì (maintain) -> kcal mục tiêu = TDEE, không thâm hụt, không thặng dư.',
+      'Hướng mục tiêu: giảm cân, tăng cân, duy trì hoặc ăn uống lành mạnh. ' +
+      'Duy trì / ăn uống lành mạnh -> kcal mục tiêu = TDEE, không thâm hụt, không thặng dư.',
   })
   @IsOptional()
-  @IsIn(['lose_weight', 'gain_muscle', 'maintain'], {
+  @IsIn(['lose_weight', 'gain_muscle', 'maintain', 'healthy_eating'], {
     message:
-      'Hướng mục tiêu phải là lose_weight (giảm cân), gain_muscle (tăng cân) hoặc maintain (duy trì).',
+      'Hướng mục tiêu phải là lose_weight (giảm cân), gain_muscle (tăng cân), maintain (duy trì) hoặc healthy_eating (ăn uống lành mạnh).',
   })
-  direction?: 'lose_weight' | 'gain_muscle' | 'maintain';
+  direction?: 'lose_weight' | 'gain_muscle' | 'maintain' | 'healthy_eating';
 }
