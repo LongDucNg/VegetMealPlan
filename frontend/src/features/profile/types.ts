@@ -58,6 +58,10 @@ export const ALLERGEN_LABELS_VI: Record<string, string> = {
   FUNGI: "Nấm",
   allium: "Hành tỏi (ngũ vị tân)",
   ALLIUM: "Hành tỏi (ngũ vị tân)",
+  salt: "Muối",
+  SALT: "Muối",
+  muoi: "Muối",
+  "muối": "Muối",
 };
 
 export function formatAllergy(allergy?: string): string {
