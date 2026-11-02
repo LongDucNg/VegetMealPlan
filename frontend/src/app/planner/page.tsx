@@ -85,6 +85,7 @@ function PlannerContent() {
   const [replacingSlot, setReplacingSlot] = useState<{
     slot: "breakfast" | "lunch" | "dinner" | "snack";
     recipe: Recipe;
+    recipeIndex?: number;
   } | null>(null);
 
   // Update user price modal state
@@ -124,17 +125,18 @@ function PlannerContent() {
   // Open replace modal for an individual meal (Requirement 3)
   const handleOpenReplace = (
     recipe: Recipe,
-    slot: "breakfast" | "lunch" | "dinner" | "snack"
+    slot: "breakfast" | "lunch" | "dinner" | "snack",
+    recipeIndex?: number
   ) => {
     requirePremium(() => {
-      setReplacingSlot({ slot, recipe });
+      setReplacingSlot({ slot, recipe, recipeIndex });
     });
   };
 
   // Execute replace
   const handleSelectReplacement = (newRecipe: Recipe) => {
     if (!replacingSlot) return;
-    replaceMeal(activeDayIndex, replacingSlot.slot, newRecipe);
+    replaceMeal(activeDayIndex, replacingSlot.slot, newRecipe, replacingSlot.recipeIndex);
     setReplacingSlot(null);
   };
 
@@ -612,33 +614,37 @@ function PlannerContent() {
                 <MealCard
                   mealType="Breakfast"
                   recipe={activeDay.breakfast.recipe}
+                  recipes={activeDay.breakfast.recipes}
                   timeString={activeDay.breakfast.time}
                   userId={String(activeProfile.id || "")}
-                  onOpenReplace={(r) => handleOpenReplace(r, "breakfast")}
+                  onOpenReplace={(r, idx) => handleOpenReplace(r, "breakfast", idx)}
                   onOpenPriceModal={(r) => setPricingRecipe(r)}
                 />
                 <MealCard
                   mealType="Lunch"
                   recipe={activeDay.lunch.recipe}
+                  recipes={activeDay.lunch.recipes}
                   timeString={activeDay.lunch.time}
                   userId={String(activeProfile.id || "")}
-                  onOpenReplace={(r) => handleOpenReplace(r, "lunch")}
+                  onOpenReplace={(r, idx) => handleOpenReplace(r, "lunch", idx)}
                   onOpenPriceModal={(r) => setPricingRecipe(r)}
                 />
                 <MealCard
                   mealType="Dinner"
                   recipe={activeDay.dinner.recipe}
+                  recipes={activeDay.dinner.recipes}
                   timeString={activeDay.dinner.time}
                   userId={String(activeProfile.id || "")}
-                  onOpenReplace={(r) => handleOpenReplace(r, "dinner")}
+                  onOpenReplace={(r, idx) => handleOpenReplace(r, "dinner", idx)}
                   onOpenPriceModal={(r) => setPricingRecipe(r)}
                 />
                 <MealCard
                   mealType="Snack"
                   recipe={activeDay.snack.recipe}
+                  recipes={activeDay.snack.recipes}
                   timeString={activeDay.snack.time}
                   userId={String(activeProfile.id || "")}
-                  onOpenReplace={(r) => handleOpenReplace(r, "snack")}
+                  onOpenReplace={(r, idx) => handleOpenReplace(r, "snack", idx)}
                   onOpenPriceModal={(r) => setPricingRecipe(r)}
                 />
               </div>
