@@ -24,7 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { useRecipes } from "@/features/recipes/hooks/useRecipes";
-import { Recipe, RecipeStatus, formatMealType } from "@/features/recipes";
+import { Recipe, RecipeStatus, formatMealType, isMealTypeMatch } from "@/features/recipes";
 import { formatVegetarianType } from "@/features/profile/types";
 import { AdminRecipeModal } from "./AdminRecipeModal";
 import { AdminRecipeDetailModal } from "./AdminRecipeDetailModal";
@@ -211,7 +211,7 @@ export function AdminRecipeManagement() {
         (r.ingredients || []).some((ing) => ing.name.toLowerCase().includes(q));
       if (!match) return false;
     }
-    if (selectedMealType !== "all" && r.mealType !== selectedMealType) {
+    if (selectedMealType !== "all" && !isMealTypeMatch(r.mealType, selectedMealType)) {
       return false;
     }
     if (selectedDiet !== "all" && r.vegetarianType !== selectedDiet) {
@@ -459,8 +459,7 @@ export function AdminRecipeManagement() {
         <span className="font-semibold text-stone-500 mr-1">Bữa ăn:</span>
         {[
           { id: "all", label: "Tất cả" },
-          { id: "breakfast", label: "Bữa sáng" },
-          { id: "lunch", label: "Bữa trưa" },
+          { id: "breakfast_lunch", label: "Bữa sáng / trưa" },
           { id: "dinner", label: "Bữa tối" },
           { id: "snack", label: "Bữa phụ" },
         ].map((m) => (
