@@ -1,5 +1,9 @@
 import { Recipe, MealType, RecipeStatus, IngredientItem } from "../types";
 import { VegetarianType } from "@/features/profile/types";
+import {
+  getIngredientCaloriesPer100g,
+  calculateIngredientCalories,
+} from "./ingredientNutrition";
 
 export function mapDietTypeToFrontend(dietType?: string): VegetarianType {
   const dt = (dietType || "").toLowerCase();
@@ -75,6 +79,18 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
         0
       );
       const cost = Number(item.cost || (unitPrice > 0 ? Math.round(unitPrice * quantity) : 0));
+      const caloriesPer100g =
+        ingredientObj.calories_per_100g !== undefined && ingredientObj.calories_per_100g !== null
+          ? Number(ingredientObj.calories_per_100g)
+          : item.calories_per_100g !== undefined && item.calories_per_100g !== null
+            ? Number(item.calories_per_100g)
+            : item.caloriesPer100g !== undefined && item.caloriesPer100g !== null
+              ? Number(item.caloriesPer100g)
+              : getIngredientCaloriesPer100g(name);
+      const calories =
+        item.calories !== undefined && item.calories !== null
+          ? Number(item.calories)
+          : calculateIngredientCalories(quantity, unit, caloriesPer100g);
 
       return {
         id,
@@ -83,6 +99,8 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
         unit,
         unitPrice,
         cost,
+        caloriesPer100g,
+        calories,
       };
     });
   }
@@ -119,7 +137,7 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
   const category =
     categoriesList.length > 0
       ? categoriesList[0]
-      : (rawCat && rawCat.trim() ? rawCat.trim() : "Chưa phân loại");
+      : (rawCat && rawCat.trim() ? rawCat.trim() : "Khác");
 
   // Status
   const status: RecipeStatus = (

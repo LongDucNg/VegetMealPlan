@@ -697,11 +697,10 @@ export function AdminRecipeManagement() {
                             }
                           }}
                           title="Nhập lý do từ chối công thức"
-                          className={`h-8 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
-                            rejectingRecipeId === recipe.id
+                          className={`h-8 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${rejectingRecipeId === recipe.id
                               ? "bg-rose-600 text-white border-rose-600 shadow-xs"
                               : "bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200"
-                          }`}
+                            }`}
                         >
                           <XCircle className="w-3.5 h-3.5" />
                           <span>Từ chối</span>
@@ -737,13 +736,13 @@ export function AdminRecipeManagement() {
                       </>
                     )}
 
-                    <Link
+                    {/* <Link
                       href={`/recipes/${recipe.id}`}
                       title="Xem trang công thức"
                       className="p-2 rounded-xl text-stone-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
                     >
                       <ExternalLink className="w-4 h-4" />
-                    </Link>
+                    </Link> */}
 
                     {/* Quick Export Single Recipe Button - Chỉ hiện khi món ĐÃ ĐƯỢC DUYỆT */}
                     {status === "APPROVED" && (
@@ -994,7 +993,7 @@ export function AdminRecipeManagement() {
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-xs font-medium">
               Đã chọn <strong className="text-emerald-400 font-bold">{selectedIds.length}</strong> món
-              
+
             </span>
           </div>
 
@@ -1029,13 +1028,12 @@ export function AdminRecipeManagement() {
       {toast && (
         <div className="fixed top-5 right-5 sm:right-8 z-50 max-w-md w-full animate-in slide-in-from-top-3 fade-in duration-200">
           <div
-            className={`p-4 rounded-2xl shadow-xl border flex items-start gap-3 backdrop-blur-md ${
-              toast.type === "success"
+            className={`p-4 rounded-2xl shadow-xl border flex items-start gap-3 backdrop-blur-md ${toast.type === "success"
                 ? "bg-emerald-50/95 border-emerald-200 text-emerald-950"
                 : toast.type === "error"
-                ? "bg-rose-50/95 border-rose-200 text-rose-950"
-                : "bg-amber-50/95 border-amber-200 text-amber-950"
-            }`}
+                  ? "bg-rose-50/95 border-rose-200 text-rose-950"
+                  : "bg-amber-50/95 border-amber-200 text-amber-950"
+              }`}
           >
             {toast.type === "success" && (
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
@@ -1052,8 +1050,8 @@ export function AdminRecipeManagement() {
                 {toast.type === "success"
                   ? "Thành công"
                   : toast.type === "error"
-                  ? "Đã xảy ra lỗi"
-                  : "Thông báo"}
+                    ? "Đã xảy ra lỗi"
+                    : "Thông báo"}
               </p>
               <p className="text-xs mt-0.5 leading-relaxed text-stone-700 font-medium">
                 {toast.message}

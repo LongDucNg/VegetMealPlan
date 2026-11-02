@@ -9,7 +9,20 @@ import { Modal } from "@/components/ui/Modal";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
 import { ADMIN_CATEGORIES, CategoryItem, adminService } from "@/features/admin";
-import { Plus, Pencil, Archive, RotateCcw, Trash2, Loader2, AlertCircle } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Archive,
+  RotateCcw,
+  Trash2,
+  Loader2,
+  AlertCircle,
+  Utensils,
+  MessageSquare,
+  Layers,
+} from "lucide-react";
+
+type CategoryTab = "all" | "recipes" | "forum";
 
 function CategoriesContent() {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
@@ -18,6 +31,7 @@ function CategoriesContent() {
   const [editItem, setEditItem] = useState<CategoryItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<CategoryTab>("all");
 
   // Form state
   const [formName, setFormName] = useState("");
@@ -40,11 +54,11 @@ function CategoriesContent() {
     loadCategories();
   }, []);
 
-  const openAdd = () => {
+  const openAdd = (defaultType: CategoryItem["type"] = "Recipe Category") => {
     setEditItem(null);
     setFormName("");
     setFormSlug("");
-    setFormType("Recipe Category");
+    setFormType(activeTab === "forum" ? "Forum Category" : defaultType);
     setErrorMsg(null);
     setModalOpen(true);
   };
@@ -63,7 +77,12 @@ function CategoriesContent() {
     setIsSaving(true);
     setErrorMsg(null);
 
-    const categoryType = formType === "Food Type" ? "food_type" : "recipe_type";
+    const categoryType =
+      formType === "Forum Category"
+        ? "forum"
+        : formType === "Food Type"
+          ? "food_type"
+          : "recipe_type";
 
     try {
       if (editItem) {
@@ -122,18 +141,26 @@ function CategoriesContent() {
 
   const foodTypes = categories.filter((c) => c.type === "Food Type");
   const recipeCategories = categories.filter((c) => c.type === "Recipe Category");
+  const forumCategories = categories.filter((c) => c.type === "Forum Category");
 
-  const renderTable = (items: CategoryItem[]) => (
+  const renderTable = (items: CategoryItem[], isForum = false) => (
     <DataTable
       columns={[
-        { key: "name", label: "Tên danh mục" },
+        { key: "name", label: isForum ? "Tên chuyên mục" : "Tên danh mục" },
         { key: "slug", label: "Định danh / Mô tả" },
-        { key: "count", label: "Số công thức" },
+        { key: "count", label: isForum ? "Số bài viết" : "Số công thức" },
         { key: "status", label: "Trạng thái" },
         { key: "actions", label: "" },
       ]}
       rows={items.map((item) => ({
-        name: <span className="text-sm font-semibold text-stone-900">{item.name}</span>,
+        name: (
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-stone-900">{item.name}</span>
+            {item.description && (
+              <span className="text-xs text-stone-400 line-clamp-1">{item.description}</span>
+            )}
+          </div>
+        ),
         slug: (
           <code className="text-xs bg-stone-100 text-stone-600 px-2 py-0.5 rounded-lg max-w-[200px] truncate inline-block">
             {item.slug}
@@ -141,7 +168,9 @@ function CategoriesContent() {
         ),
         count: (
           <span className="text-sm text-stone-600 font-medium">
-            {item.recipeCount.toLocaleString()}
+            {isForum
+              ? (item.postCount ?? 0).toLocaleString()
+              : item.recipeCount.toLocaleString()}
           </span>
         ),
         status:
@@ -161,11 +190,10 @@ function CategoriesContent() {
             </button>
             <button
               onClick={() => toggleArchive(item.id)}
-              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                item.status === "Active"
-                  ? "hover:bg-amber-50 text-stone-400 hover:text-amber-700"
-                  : "hover:bg-emerald-50 text-stone-400 hover:text-emerald-700"
-              }`}
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${item.status === "Active"
+                ? "hover:bg-amber-50 text-stone-400 hover:text-amber-700"
+                : "hover:bg-emerald-50 text-stone-400 hover:text-emerald-700"
+                }`}
               title={item.status === "Active" ? "Lưu trữ" : "Khôi phục"}
             >
               {item.status === "Active" ? (
@@ -189,14 +217,70 @@ function CategoriesContent() {
 
   return (
     <div className="space-y-8">
-      {/* Header action */}
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-stone-500">
-          Quản lý danh mục và phân loại công thức món ăn.
-        </p>
+      {/* Header action & Tabs */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-stone-200/80 pb-5">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setActiveTab("all")}
+            className={`px-3.5 py-1.5 text-sm font-medium rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === "all"
+              ? "bg-emerald-700 text-white shadow-xs"
+              : "bg-stone-100 text-stone-600 hover:bg-stone-200/70"
+              }`}
+          >
+            <Layers className="w-4 h-4" />
+            Tất cả
+            <span
+              className={`text-xs px-1.5 py-0.2 rounded-full ${activeTab === "all"
+                ? "bg-white/20 text-white"
+                : "bg-stone-200 text-stone-700"
+                }`}
+            >
+              {recipeCategories.length + forumCategories.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("recipes")}
+            className={`px-3.5 py-1.5 text-sm font-medium rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === "recipes"
+              ? "bg-emerald-700 text-white shadow-xs"
+              : "bg-stone-100 text-stone-600 hover:bg-stone-200/70"
+              }`}
+          >
+            <Utensils className="w-4 h-4" />
+            Công thức & Món ăn
+            <span
+              className={`text-xs px-1.5 py-0.2 rounded-full ${activeTab === "recipes"
+                ? "bg-white/20 text-white"
+                : "bg-stone-200 text-stone-700"
+                }`}
+            >
+              {recipeCategories.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("forum")}
+            className={`px-3.5 py-1.5 text-sm font-medium rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === "forum"
+              ? "bg-emerald-700 text-white shadow-xs"
+              : "bg-stone-100 text-stone-600 hover:bg-stone-200/70"
+              }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Diễn đàn & Thảo luận
+            <span
+              className={`text-xs px-1.5 py-0.2 rounded-full ${activeTab === "forum"
+                ? "bg-white/20 text-white"
+                : "bg-stone-200 text-stone-700"
+                }`}
+            >
+              {forumCategories.length}
+            </span>
+          </button>
+        </div>
+
         <button
-          onClick={openAdd}
-          className="flex items-center gap-2 h-10 px-4 rounded-xl bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-800 transition-colors cursor-pointer shadow-sm"
+          onClick={() => openAdd()}
+          className="flex items-center gap-2 h-10 px-4 rounded-xl bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-800 transition-colors cursor-pointer shadow-sm self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           Thêm danh mục
@@ -209,18 +293,49 @@ function CategoriesContent() {
           Đang tải danh mục từ máy chủ...
         </div>
       ) : (
-        <>
-          {/* Recipe Categories */}
-          <div className="space-y-3">
-            <h3 className="font-semibold text-stone-800 flex items-center gap-2">
-              Danh mục món ăn
-              <span className="text-xs font-normal text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
-                {recipeCategories.length}
-              </span>
-            </h3>
-            {renderTable(recipeCategories)}
-          </div>
-        </>
+        <div className="space-y-10">
+          {/* Section: Recipe Categories */}
+          {(activeTab === "all" || activeTab === "recipes") && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-stone-800 text-base flex items-center gap-2">
+                    <Utensils className="w-4 h-4 text-emerald-600" />
+                    Danh mục Công thức & Món ăn
+                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-full">
+                      {recipeCategories.length} danh mục
+                    </span>
+                  </h3>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    Phân loại các công thức nấu ăn, món chính, món khai vị, canh, lẩu...
+                  </p>
+                </div>
+              </div>
+              {renderTable(recipeCategories, false)}
+            </div>
+          )}
+
+          {/* Section: Forum Categories */}
+          {(activeTab === "all" || activeTab === "forum") && (
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-stone-800 text-base flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-teal-600" />
+                    Chuyên mục Diễn đàn & Thảo luận
+                    <span className="text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200/60 px-2 py-0.5 rounded-full">
+                      {forumCategories.length} chuyên mục
+                    </span>
+                  </h3>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    Quản lý các chủ đề thảo luận, cẩm nang, quán chay và kết nối cộng đồng.
+                  </p>
+                </div>
+              </div>
+              {renderTable(forumCategories, true)}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Add/Edit Modal */}
@@ -239,31 +354,52 @@ function CategoriesContent() {
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1.5">
-              Tên danh mục *
+              Loại danh mục *
+            </label>
+            <select
+              value={formType}
+              onChange={(e) => setFormType(e.target.value as CategoryItem["type"])}
+              className="w-full h-10 px-3 rounded-xl border border-stone-200 text-sm focus:border-emerald-600 outline-none bg-white cursor-pointer"
+            >
+              <option value="Recipe Category">Danh mục món ăn (Công thức)</option>
+              <option value="Forum Category">Chuyên mục Diễn đàn & Thảo luận</option>
+
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1.5">
+              {formType === "Forum Category" ? "Tên chuyên mục diễn đàn *" : "Tên danh mục *"}
             </label>
             <input
               type="text"
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
-              placeholder="Ví dụ: Món chay giàu đạm"
+              placeholder={
+                formType === "Forum Category"
+                  ? "Ví dụ: Mẹo vặt bếp chay"
+                  : "Ví dụ: Món chay giàu đạm"
+              }
               className="w-full h-10 px-3.5 rounded-xl border border-stone-200 text-sm focus:border-emerald-600 outline-none"
             />
           </div>
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1.5">
-              Định danh / Mô tả (Slug)
+              Mô tả ngắn / Định danh (Slug)
             </label>
             <input
               type="text"
               value={formSlug}
               onChange={(e) => setFormSlug(e.target.value)}
-              placeholder="Ví dụ: mon-chay-giau-dam"
+              placeholder={
+                formType === "Forum Category"
+                  ? "Ví dụ: Chia sẻ công thức và mẹo vặt khi nấu nướng..."
+                  : "Ví dụ: mon-chay-giau-dam"
+              }
               className="w-full h-10 px-3.5 rounded-xl border border-stone-200 text-sm focus:border-emerald-600 outline-none"
             />
           </div>
-
-
 
           <div className="flex justify-end gap-2 pt-4 border-t border-stone-100">
             <button
@@ -297,8 +433,8 @@ export default function AdminCategoriesPage() {
       <div className="max-w-[1240px] mx-auto w-full">
         <PageHeader
           eyebrow="Quản trị hệ thống"
-          title="Quản lý Danh mục & Phân loại"
-          subtitle="Quản lý danh mục và phân loại công thức món ăn."
+          title="Quản lý Danh mục & Chuyên mục"
+          subtitle="Quản lý danh mục công thức món ăn, chế độ dinh dưỡng và chuyên mục diễn đàn cộng đồng."
         />
         {!ready ? (
           <GatedSkeleton />

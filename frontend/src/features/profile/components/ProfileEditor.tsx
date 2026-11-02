@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { UserProfile, Gender, ActivityLevel, HealthGoal, VegetarianType } from "../types";
+import { UserProfile, Gender, ActivityLevel, HealthGoal, VegetarianType, formatAllergy } from "../types";
 import { useProfile } from "../hooks/useProfile";
 import {
   ALLERGY_MASTER_LIST,
@@ -10,7 +10,7 @@ import {
   ACTIVITY_LEVEL_OPTIONS,
 } from "../data/mockProfile";
 import { SYSTEM_INGREDIENTS, SYSTEM_ALLERGEN_GROUPS } from "@/features/recipes/data/systemIngredients";
-import { profileService } from "../services/profileService";
+import { profileService, ALLERGEN_MAP_TO_BACKEND } from "../services/profileService";
 import { storage, STORAGE_KEYS } from "@/utils/storage/storage";
 import { calculateBMI } from "@/features/nutrition/utils/bmi";
 import {
@@ -205,20 +205,10 @@ export function ProfileEditor() {
 
   // Helper lấy các tên nguyên liệu con thuộc một nhóm dị ứng
   const getGroupMemberNames = (groupId: string): string[] => {
+    const lower = groupId.toLowerCase();
+    const code = ALLERGEN_MAP_TO_BACKEND[lower] || groupId.toUpperCase();
     const groupDef = SYSTEM_ALLERGEN_GROUPS.find(
-      (g) =>
-        g.code.toLowerCase() === groupId.toLowerCase() ||
-        (groupId === "peanuts" && g.code === "PEANUT") ||
-        (groupId === "legumes" && g.code === "LEGUME") ||
-        (groupId === "mushrooms" && g.code === "FUNGI") ||
-        (groupId === "tree_nuts" && g.code === "TREE_NUT") ||
-        (groupId === "wheat" && g.code === "GLUTEN") ||
-        (groupId === "sesame" && g.code === "SEED") ||
-        (groupId === "soy" && g.code === "SOY") ||
-        (groupId === "corn" && g.code === "CORN") ||
-        (groupId === "egg" && g.code === "EGG") ||
-        (groupId === "dairy" && g.code === "DAIRY") ||
-        (groupId === "allium" && g.code === "ALLIUM")
+      (g) => g.code === code || g.code.toLowerCase() === lower
     );
     if (!groupDef) return [];
     return groupDef.ingredient_ids
@@ -234,38 +224,34 @@ export function ProfileEditor() {
 
     const lowerId = allergyId.toLowerCase();
     const memberNames = getGroupMemberNames(lowerId);
+    const targetCode = ALLERGEN_MAP_TO_BACKEND[lowerId] || lowerId.toUpperCase();
 
     setAllergies((prev) => {
       const exists = prev.some((a) => {
         const aLower = a.toLowerCase();
-        return (
-          aLower === lowerId ||
-          (allergyId === "peanuts" && (aLower === "peanut" || aLower === "peanuts")) ||
-          (allergyId === "legumes" && (aLower === "legume" || aLower === "legumes")) ||
-          (allergyId === "mushrooms" && (aLower === "fungi" || aLower === "mushroom" || aLower === "mushrooms")) ||
-          (allergyId === "tree_nuts" && (aLower === "treenut" || aLower === "tree_nut" || aLower === "tree_nuts")) ||
-          (allergyId === "wheat" && (aLower === "gluten" || aLower === "wheat")) ||
-          (allergyId === "sesame" && (aLower === "seed" || aLower === "sesame"))
-        );
+        const aCode = ALLERGEN_MAP_TO_BACKEND[aLower] || aLower.toUpperCase();
+        return aLower === lowerId || (targetCode && aCode === targetCode);
       });
 
       if (exists) {
         // Bỏ chọn nhóm: loại bỏ mã nhóm và bất kỳ nguyên liệu con nào của nhóm đó
         return prev.filter((a) => {
           const aLower = a.toLowerCase();
+          const aCode = ALLERGEN_MAP_TO_BACKEND[aLower] || aLower.toUpperCase();
           if (aLower === lowerId) return false;
-          if (allergyId === "peanuts" && (aLower === "peanut" || aLower === "peanuts")) return false;
-          if (allergyId === "legumes" && (aLower === "legume" || aLower === "legumes")) return false;
-          if (allergyId === "mushrooms" && (aLower === "fungi" || aLower === "mushroom" || aLower === "mushrooms")) return false;
-          if (allergyId === "tree_nuts" && (aLower === "treenut" || aLower === "tree_nut" || aLower === "tree_nuts")) return false;
-          if (allergyId === "wheat" && (aLower === "gluten" || aLower === "wheat")) return false;
-          if (allergyId === "sesame" && (aLower === "seed" || aLower === "sesame")) return false;
+          if (targetCode && aCode === targetCode) return false;
           if (memberNames.includes(aLower)) return false;
           return true;
         });
       } else {
         // Chọn nhóm: thêm mã nhóm vào và dọn dẹp các nguyên liệu con lẻ (nếu có) để chỉ giữ đúng tên nhóm
-        const filtered = prev.filter((a) => !memberNames.includes(a.toLowerCase()));
+        const filtered = prev.filter((a) => {
+          const aLower = a.toLowerCase();
+          const aCode = ALLERGEN_MAP_TO_BACKEND[aLower] || aLower.toUpperCase();
+          if (targetCode && aCode === targetCode) return false;
+          if (memberNames.includes(aLower)) return false;
+          return true;
+        });
         return [...filtered, allergyId];
       }
     });
@@ -341,17 +327,14 @@ export function ProfileEditor() {
   const handleRemoveAllergy = (item: string) => {
     const lower = item.toLowerCase();
     const memberNames = getGroupMemberNames(lower);
+    const targetCode = ALLERGEN_MAP_TO_BACKEND[lower] || lower.toUpperCase();
 
     setAllergies((prev) =>
       prev.filter((a) => {
         const aLower = a.toLowerCase();
+        const aCode = ALLERGEN_MAP_TO_BACKEND[aLower] || aLower.toUpperCase();
         if (aLower === lower) return false;
-        if (item === "peanuts" && (aLower === "peanut" || aLower === "peanuts")) return false;
-        if (item === "legumes" && (aLower === "legume" || aLower === "legumes")) return false;
-        if (item === "mushrooms" && (aLower === "fungi" || aLower === "mushroom" || aLower === "mushrooms")) return false;
-        if (item === "tree_nuts" && (aLower === "treenut" || aLower === "tree_nut" || aLower === "tree_nuts")) return false;
-        if (item === "wheat" && (aLower === "gluten" || aLower === "wheat")) return false;
-        if (item === "sesame" && (aLower === "seed" || aLower === "sesame")) return false;
+        if (targetCode && aCode === targetCode) return false;
         if (memberNames.includes(aLower)) return false;
         return true;
       })
@@ -360,22 +343,25 @@ export function ProfileEditor() {
 
   const getAllergyDisplayLabel = (item: string) => {
     const lower = item.toLowerCase();
+    const code = ALLERGEN_MAP_TO_BACKEND[lower];
 
     // 1. Kiểm tra theo danh sách nhóm chuẩn
-    const foundMaster = ALLERGY_MASTER_LIST.find(
-      (m) =>
-        m.id.toLowerCase() === lower ||
+    const foundMaster = ALLERGY_MASTER_LIST.find((m) => {
+      const mLower = m.id.toLowerCase();
+      const mCode = ALLERGEN_MAP_TO_BACKEND[mLower];
+      return (
+        mLower === lower ||
         m.label.toLowerCase() === lower ||
-        (m.id === "peanuts" && (lower === "peanut" || lower === "peanuts")) ||
-        (m.id === "legumes" && (lower === "legume" || lower === "legumes")) ||
-        (m.id === "mushrooms" && (lower === "fungi" || lower === "mushroom" || lower === "mushrooms")) ||
-        (m.id === "tree_nuts" && (lower === "treenut" || lower === "tree_nut" || lower === "tree_nuts")) ||
-        (m.id === "wheat" && (lower === "gluten" || lower === "wheat")) ||
-        (m.id === "sesame" && (lower === "seed" || lower === "sesame"))
-    );
+        (code && mCode === code)
+      );
+    });
     if (foundMaster) return foundMaster.label;
 
-    // 2. Kiểm tra theo 190 nguyên liệu của hệ thống
+    // 2. Format theo từ điển formatAllergy (tiếng Việt chuẩn)
+    const formatted = formatAllergy(item);
+    if (formatted && formatted.toLowerCase() !== lower) return formatted;
+
+    // 3. Kiểm tra theo 190 nguyên liệu của hệ thống
     const foundIng = SYSTEM_INGREDIENTS.find(
       (ing) => ing.name.toLowerCase() === lower || String(ing.id) === item
     );
@@ -1079,17 +1065,14 @@ export function ProfileEditor() {
               {/* Master allergy list tags */}
               <div className="flex flex-wrap gap-1.5 mb-3">
                 {ALLERGY_MASTER_LIST.map((item) => {
+                  const itemCode = ALLERGEN_MAP_TO_BACKEND[item.id.toLowerCase()];
                   const isSelected = allergies.some((a) => {
                     const aLower = a.toLowerCase();
+                    const aCode = ALLERGEN_MAP_TO_BACKEND[aLower];
                     return (
                       aLower === item.id.toLowerCase() ||
                       aLower === item.label.toLowerCase() ||
-                      (item.id === "peanuts" && (aLower === "peanut" || aLower === "peanuts")) ||
-                      (item.id === "legumes" && (aLower === "legume" || aLower === "legumes")) ||
-                      (item.id === "mushrooms" && (aLower === "fungi" || aLower === "mushroom" || aLower === "mushrooms")) ||
-                      (item.id === "tree_nuts" && (aLower === "treenut" || aLower === "tree_nut" || aLower === "tree_nuts")) ||
-                      (item.id === "wheat" && (aLower === "gluten" || aLower === "wheat")) ||
-                      (item.id === "sesame" && (aLower === "seed" || aLower === "sesame"))
+                      (itemCode && aCode === itemCode)
                     );
                   });
                   const disabledReason = isAllergyDisabledByDiet(item.id);
@@ -1120,7 +1103,6 @@ export function ProfileEditor() {
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    list="system-ingredients-datalist"
                     value={customAllergyInput}
                     onChange={(e) => {
                       setCustomAllergyInput(e.target.value);
@@ -1135,11 +1117,6 @@ export function ProfileEditor() {
                     placeholder="Nhập tên nguyên liệu dị ứng (VD: Muối, Cà chua, Nấm rơm...)"
                     className="flex-1 h-9 rounded-xl border border-stone-200 bg-stone-50 px-3 text-xs focus:bg-white focus:border-emerald-600 outline-none"
                   />
-                  <datalist id="system-ingredients-datalist">
-                    {SYSTEM_INGREDIENTS.map((ing) => (
-                      <option key={ing.id} value={ing.name} />
-                    ))}
-                  </datalist>
 
                   <button
                     type="button"
