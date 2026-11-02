@@ -4,6 +4,7 @@ import React from "react";
 import { AlertTriangle, CheckCircle } from "lucide-react";
 import { checkRecipeAllergy, HasIngredients } from "@/features/allergy/utils/checkRecipeAllergy";
 import { useProfile } from "@/features/profile/hooks/useProfile";
+import { formatAllergy } from "@/features/profile/types";
 
 interface RecipeAllergyBadgeProps {
   recipe: HasIngredients;
@@ -24,7 +25,9 @@ export function RecipeAllergyBadge({
     return null;
   }
 
-  const allergenText = allergyResult.allergens.join(", ");
+  const allergenText = allergyResult.allergens
+    .map((a) => formatAllergy(a) || a)
+    .join(", ");
   const warningLabel =
     allergyResult.allergens.length === 1
       ? `Chứa ${allergenText}`

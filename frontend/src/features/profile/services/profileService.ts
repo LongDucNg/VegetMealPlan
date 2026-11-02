@@ -14,7 +14,7 @@ import {
 import { DEFAULT_MOCK_PROFILE } from "../data/mockProfile";
 import { SYSTEM_INGREDIENTS, SYSTEM_ALLERGEN_GROUPS } from "@/features/recipes/data/systemIngredients";
 
-const ALLERGEN_MAP_TO_BACKEND: Record<string, string> = {
+export const ALLERGEN_MAP_TO_BACKEND: Record<string, string> = {
   peanuts: "PEANUT",
   peanut: "PEANUT",
   PEANUT: "PEANUT",
@@ -58,17 +58,17 @@ const ALLERGEN_MAP_TO_BACKEND: Record<string, string> = {
   ALLIUM: "ALLIUM",
 };
 
-const ALLERGEN_MAP_FROM_BACKEND: Record<string, string> = {
-  PEANUT: "peanuts",
+export const ALLERGEN_MAP_FROM_BACKEND: Record<string, string> = {
+  PEANUT: "peanut",
   SOY: "soy",
-  GLUTEN: "wheat",
+  GLUTEN: "gluten",
   DAIRY: "dairy",
-  TREE_NUT: "tree_nuts",
+  TREE_NUT: "treenut",
   SEED: "sesame",
   CORN: "corn",
   EGG: "egg",
-  LEGUME: "legumes",
-  FUNGI: "mushrooms",
+  LEGUME: "legume",
+  FUNGI: "fungi",
   ALLIUM: "allium",
 };
 
