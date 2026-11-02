@@ -30,8 +30,8 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
     nut.calories !== undefined && nut.calories !== null
       ? Number(nut.calories)
       : r.calories !== undefined && r.calories !== null
-      ? Number(r.calories)
-      : null;
+        ? Number(r.calories)
+        : null;
 
   if (rawCalories === null || isNaN(rawCalories) || rawCalories <= 0) {
     const macroCalories = Math.round(protein * 4 + carbs * 4 + fat * 9);
@@ -43,9 +43,11 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
   let ingredients: IngredientItem[] = [];
   const rawIngredients = Array.isArray(r.recipeIngredients)
     ? r.recipeIngredients
-    : Array.isArray(r.ingredients)
-    ? r.ingredients
-    : [];
+    : Array.isArray(r.recipe_ingredients)
+      ? r.recipe_ingredients
+      : Array.isArray(r.ingredients)
+        ? r.ingredients
+        : [];
 
   if (rawIngredients.length > 0) {
     ingredients = rawIngredients.map((item: any) => {
@@ -114,16 +116,21 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
     categoriesList.push(rawCat);
   }
 
-  const category = categoriesList.length > 0 ? categoriesList[0] : (rawCat || "Món chính");
+  const category =
+    categoriesList.length > 0
+      ? categoriesList[0]
+      : (rawCat && rawCat.trim() ? rawCat.trim() : "Chưa phân loại");
 
   // Status
   const status: RecipeStatus = (
     r.status === "pending_review" ? "PENDING_REVIEW" :
-    r.status === "approved" ? "APPROVED" :
-    r.status === "rejected" ? "REJECTED" :
-    r.status === "draft" ? "DRAFT" :
-    (r.status || "APPROVED")
+      r.status === "approved" ? "APPROVED" :
+        r.status === "rejected" ? "REJECTED" :
+          r.status === "draft" ? "DRAFT" :
+            (r.status || "APPROVED")
   ).toUpperCase() as RecipeStatus;
+
+  const reviewReason = r.review_reason || r.reviewReason || null;
 
   return {
     id,
@@ -153,6 +160,8 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
     videoUrl: r.video_url || r.videoUrl || undefined,
     estimatedCost: Number(r.estimated_cost ?? r.estimatedCost ?? 0),
     status,
+    review_reason: reviewReason,
+    reviewReason: reviewReason,
     source: r.source || { type: "admin", name: "VeggieHub Kitchen" },
     duration: `${prepTime + cookTime} min`,
     author: r.author || (r.user ? r.user.full_name || r.user.email : "VeggieHub Kitchen"),
