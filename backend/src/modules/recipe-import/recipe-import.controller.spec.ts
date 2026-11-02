@@ -15,6 +15,7 @@ const HEADERS = [
   'meal_type',
   'diet_type',
   'ingredients',
+  'category_ids',
 ];
 
 const ingJson = (name: string) =>
@@ -33,6 +34,7 @@ const happyRow = (title: string): any[] => [
   'lunch',
   'vegan',
   ingJson('Yến mạch'),
+  'Canh & Súp',
 ];
 
 async function makeWorkbook(
@@ -117,6 +119,7 @@ describe('RecipeImportController - đọc file Excel', () => {
             'lunch',
             'vegan',
             JSON.stringify([null]),
+            'Canh & Súp',
           ],
           happyRow('Món Bình Thường'),
         ],
@@ -149,6 +152,7 @@ describe('RecipeImportController - đọc file Excel', () => {
             'lunch',
             'vegan',
             'không phải JSON',
+            'Canh & Súp',
           ],
           happyRow('Món Tốt'),
         ],

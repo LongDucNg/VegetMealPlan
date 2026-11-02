@@ -157,12 +157,6 @@ export function Sidebar() {
       icon: Users,
       active: pathname.startsWith("/admin/members"),
     },
-    {
-      label: "Mô hình AI & Nhật ký",
-      href: "/admin/ai",
-      icon: Cpu,
-      active: pathname.startsWith("/admin/ai"),
-    },
   ];
 
   const renderNavGroup = (items: NavItem[]) => (
