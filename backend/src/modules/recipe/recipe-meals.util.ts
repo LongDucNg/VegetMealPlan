@@ -214,6 +214,18 @@ export function isRecipeSuitableForMeal(
     return true;
   }
 
+  // Khớp bữa sáng / trưa: chấp nhận các món phù hợp cho bữa sáng hoặc bữa trưa
+  if (
+    requestedMeal === 'breakfast_lunch' ||
+    requestedMeal === 'sang_trua' ||
+    requestedMeal === 'breakfast,lunch'
+  ) {
+    return (
+      isRecipeSuitableForMeal(recipe, 'breakfast') ||
+      isRecipeSuitableForMeal(recipe, 'lunch')
+    );
+  }
+
   const recipeMealType = recipe.meal_type?.trim().toLowerCase() ?? '';
   const suitableMeals = parseSuitableMeals(recipe.suitable_meals);
 
