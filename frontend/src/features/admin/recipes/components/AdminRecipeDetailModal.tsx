@@ -3,7 +3,7 @@
 import React, { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { X, ExternalLink, Info, Video } from "lucide-react";
+import { X, ExternalLink, Info, Video, AlertCircle, XCircle } from "lucide-react";
 import { Recipe, formatMealType } from "@/features/recipes";
 import { formatVegetarianType } from "@/features/profile/types";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
@@ -86,13 +86,22 @@ export function AdminRecipeDetailModal({
                     ? "bg-emerald-50 text-emerald-800 border-emerald-300"
                     : recipe.status === "PENDING_REVIEW"
                     ? "bg-amber-50 text-amber-900 border-amber-300"
+                    : recipe.status === "REJECTED"
+                    ? "bg-rose-50 text-rose-900 border-rose-300"
                     : "bg-stone-100 text-stone-700 border-stone-200"
                 }`}
               >
-                Trạng thái: {recipe.status === "APPROVED" ? "Đã duyệt" : recipe.status === "PENDING_REVIEW" ? "Chờ duyệt" : recipe.status === "REJECTED" ? "Từ chối" : "Bản nháp"}
+                Trạng thái: {recipe.status === "APPROVED" ? "Đã duyệt" : recipe.status === "PENDING_REVIEW" ? "Chờ duyệt" : recipe.status === "REJECTED" ? "Đã từ chối" : "Bản nháp"}
               </span>
               <span className="text-xs font-medium text-stone-500">
-                Danh mục: {recipe.category}
+                Danh mục:{" "}
+                {recipe.category === "un-category" || !recipe.category ? (
+                  <span className="inline-block px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 font-mono text-[11px] border border-stone-200">
+                    un-category (Chưa phân loại)
+                  </span>
+                ) : (
+                  recipe.category
+                )}
               </span>
             </div>
 
@@ -103,6 +112,19 @@ export function AdminRecipeDetailModal({
               <p className="text-stone-600 text-sm mt-1.5 leading-relaxed">
                 {recipe.description}
               </p>
+            )}
+
+            {/* Rejection reason banner */}
+            {recipe.status === "REJECTED" && (recipe.review_reason || recipe.reviewReason) && (
+              <div className="mt-3 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs">
+                <div className="font-bold flex items-center gap-1.5 mb-1 text-rose-700">
+                  <XCircle className="w-4 h-4" />
+                  <span>Lý do từ chối duyệt:</span>
+                </div>
+                <p className="text-stone-700 leading-relaxed font-medium">
+                  {recipe.review_reason || recipe.reviewReason}
+                </p>
+              </div>
             )}
           </div>
 
