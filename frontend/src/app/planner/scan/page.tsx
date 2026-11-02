@@ -20,6 +20,7 @@ import {
 } from "@/features/meal-planner/services/userIngredientService";
 
 import {
+  ChevronLeft,
   ChevronRight,
   Plus,
   Trash2,
@@ -308,8 +309,44 @@ function RecipeMatchList({
   emptyMessage?: string;
   userAllergies?: UserAllergyState;
 }) {
+  const PAGE_SIZE = 9;
+  const [currentPage, setCurrentPage] = useState(1);
+  const listTopRef = React.useRef<HTMLDivElement>(null);
+
+  // Khi danh sách công thức thay đổi (ví dụ người dùng thêm/bớt nguyên liệu), reset về trang 1
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [matchedRecipes]);
+
+  const totalCount = matchedRecipes.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safePage - 1) * PAGE_SIZE;
+  const endIndex = Math.min(startIndex + PAGE_SIZE, totalCount);
+  const currentRecipes = matchedRecipes.slice(startIndex, endIndex);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages && newPage !== safePage) {
+      setCurrentPage(newPage);
+      listTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  const getPaginationPages = () => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (safePage <= 4) {
+      return [1, 2, 3, 4, 5, "...", totalPages];
+    }
+    if (safePage >= totalPages - 3) {
+      return [1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, "...", safePage - 1, safePage, safePage + 1, "...", totalPages];
+  };
+
   return (
-    <div className="space-y-5 pt-4 border-t border-stone-200">
+    <div ref={listTopRef} className="space-y-5 pt-4 border-t border-stone-200">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h3 className="font-serif font-bold text-xl text-stone-900 flex items-center gap-2">
@@ -319,7 +356,7 @@ function RecipeMatchList({
           <p className="text-xs text-stone-500 mt-0.5">{subtitle}</p>
         </div>
         <span className="text-xs font-semibold px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full w-fit">
-          Tìm thấy {matchedRecipes.length} công thức có nguyên liệu trùng
+          Tìm thấy {totalCount} công thức có nguyên liệu trùng{totalPages > 1 ? ` (Trang ${safePage}/${totalPages})` : ""}
         </span>
       </div>
 
@@ -333,174 +370,236 @@ function RecipeMatchList({
           {emptyMessage}
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {matchedRecipes.slice(0, 12).map((item) => {
-            const {
-              recipe,
-              matchedCount,
-              totalCount,
-              matchPercentage,
-              matchedIngredientNames,
-              missingIngredientNames,
-            } = item;
-            const isFullMatch = matchedCount === totalCount && totalCount > 0;
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {currentRecipes.map((item) => {
+              const {
+                recipe,
+                matchedCount,
+                totalCount,
+                matchPercentage,
+                matchedIngredientNames,
+                missingIngredientNames,
+              } = item;
+              const isFullMatch = matchedCount === totalCount && totalCount > 0;
 
-            const allergensInRecipe = getRecipeAllergens(
-              recipe,
-              userAllergies?.names || [],
-              userAllergies?.ids || new Set(),
-              userAllergies?.isEggAllergic || false
-            );
-            const hasAllergy = allergensInRecipe.length > 0;
+              const allergensInRecipe = getRecipeAllergens(
+                recipe,
+                userAllergies?.names || [],
+                userAllergies?.ids || new Set(),
+                userAllergies?.isEggAllergic || false
+              );
+              const hasAllergy = allergensInRecipe.length > 0;
 
-            return (
-              <Link
-                key={recipe.recipe_id}
-                href={`/recipes/${recipe.recipe_id}`}
-                className="group block"
-              >
-                <Card className={`overflow-hidden transition-all flex flex-col h-full ${
-                  hasAllergy
-                    ? "border-2 border-amber-400 bg-amber-50/30 shadow-md ring-2 ring-amber-300/60 hover:border-amber-500"
-                    : "hover:border-emerald-500 hover:shadow-md"
-                }`}>
-                  <div className="relative h-44 w-full bg-stone-100 overflow-hidden">
-                    {recipe.image_url ? (
-                      <img
-                        src={recipe.image_url}
-                        alt={recipe.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-stone-300">
-                        <Utensils className="w-10 h-10" />
+              return (
+                <Link
+                  key={recipe.recipe_id}
+                  href={`/recipes/${recipe.recipe_id}`}
+                  className="group block"
+                >
+                  <Card className={`overflow-hidden transition-all flex flex-col h-full ${
+                    hasAllergy
+                      ? "border-2 border-amber-400 bg-amber-50/30 shadow-md ring-2 ring-amber-300/60 hover:border-amber-500"
+                      : "hover:border-emerald-500 hover:shadow-md"
+                  }`}>
+                    <div className="relative h-44 w-full bg-stone-100 overflow-hidden">
+                      {recipe.image_url ? (
+                        <img
+                          src={recipe.image_url}
+                          alt={recipe.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-stone-300">
+                          <Utensils className="w-10 h-10" />
+                        </div>
+                      )}
+
+                      <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-extrabold shadow-sm flex items-center gap-1 ${
+                            isFullMatch
+                              ? "bg-emerald-600 text-white"
+                              : matchedCount >= 2
+                              ? "bg-emerald-700 text-white"
+                              : "bg-stone-900/80 backdrop-blur-xs text-white"
+                          }`}
+                        >
+                          {isFullMatch ? "✓ Đủ " : "Trùng "}
+                          {matchedCount}/{totalCount} nguyên liệu
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/90 text-stone-800 shadow-xs">
+                          Khớp {matchPercentage}%
+                        </span>
+                      </div>
+
+                      {recipe.meal_type && (
+                        <span className="absolute bottom-3 left-3 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-xs text-white text-[11px] font-medium">
+                          {recipe.meal_type}
+                        </span>
+                      )}
+                    </div>
+
+                    {hasAllergy && (
+                      <div className="mx-3 mt-3 px-3 py-1.5 rounded-xl bg-amber-100 border border-amber-400 text-amber-950 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
+                        <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+                        <span>Thành phần dị ứng: {allergensInRecipe.join(", ")}</span>
                       </div>
                     )}
 
-                    <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-extrabold shadow-sm flex items-center gap-1 ${
-                          isFullMatch
-                            ? "bg-emerald-600 text-white"
-                            : matchedCount >= 2
-                            ? "bg-emerald-700 text-white"
-                            : "bg-stone-900/80 backdrop-blur-xs text-white"
+                    <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                      <div>
+                        <h4 className="font-bold text-stone-900 text-base line-clamp-1 group-hover:text-emerald-700 transition-colors">
+                          {recipe.title}
+                        </h4>
+                        <p className="text-xs text-stone-500 mt-1 line-clamp-2">
+                          {recipe.description || "Công thức món chay bổ dưỡng, thanh đạm."}
+                        </p>
+                      </div>
+
+                      <div className="space-y-1.5 pt-2 border-t border-stone-100">
+                        {matchedIngredientNames.length > 0 && (
+                          <div className="text-xs">
+                            <span className="text-emerald-700 font-bold block mb-1">
+                              ✓ Đã có ({matchedCount}):
+                            </span>
+                            <div className="flex flex-wrap gap-1">
+                              {matchedIngredientNames.slice(0, 4).map((name, i) => {
+                                const isEggChip = name.toLowerCase().includes("trứng");
+                                const isAllergenChip =
+                                  (userAllergies?.isEggAllergic && isEggChip) ||
+                                  allergensInRecipe.some((a) => name.toLowerCase().includes(a.toLowerCase()));
+
+                                return (
+                                  <span
+                                    key={i}
+                                    className={`inline-block text-[11px] px-2.5 py-1 rounded-md font-bold border transition-colors ${
+                                      isAllergenChip
+                                        ? "bg-amber-100 text-amber-950 border-amber-400 ring-1 ring-amber-300 shadow-2xs"
+                                        : "bg-emerald-50 text-emerald-800 border-emerald-200/80 font-medium"
+                                    }`}
+                                  >
+                                    {isAllergenChip ? `⚠ ${name}` : name}
+                                  </span>
+                                );
+                              })}
+                              {matchedIngredientNames.length > 4 && (
+                                <span className="text-[11px] text-stone-400 font-medium self-center">
+                                  +{matchedIngredientNames.length - 4}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {missingIngredientNames.length > 0 && (
+                          <div className="text-xs">
+                            <span className="text-stone-400 font-medium block mb-1">
+                              Thiếu ({missingIngredientNames.length}):
+                            </span>
+                            <div className="flex flex-wrap gap-1">
+                              {missingIngredientNames.slice(0, 3).map((name, i) => {
+                                const isEggMissing = name.toLowerCase().includes("trứng");
+                                const isAllergenMissing =
+                                  (userAllergies?.isEggAllergic && isEggMissing) ||
+                                  allergensInRecipe.some((a) => name.toLowerCase().includes(a.toLowerCase()));
+
+                                return (
+                                  <span
+                                    key={i}
+                                    className={`inline-block text-[11px] px-2 py-0.5 rounded-md ${
+                                      isAllergenMissing
+                                        ? "bg-amber-100 text-amber-950 border border-amber-400 font-bold"
+                                        : "bg-stone-100 text-stone-600"
+                                    }`}
+                                  >
+                                    {isAllergenMissing ? `⚠ ${name}` : name}
+                                  </span>
+                                );
+                              })}
+                              {missingIngredientNames.length > 3 && (
+                                <span className="text-[11px] text-stone-400 font-medium self-center">
+                                  +{missingIngredientNames.length - 3}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
+                        <span>{recipe.calories ? `${recipe.calories} kcal` : "Chuẩn dinh dưỡng"}</span>
+                        <span className="flex items-center gap-1 font-semibold text-emerald-700 group-hover:translate-x-0.5 transition-transform">
+                          Xem cách nấu <ChevronRight className="w-3.5 h-3.5" />
+                        </span>
+                      </div>
+                    </div>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-6 border-t border-stone-200 text-xs text-stone-600">
+              <div>
+                Hiển thị <span className="font-bold text-stone-900">{startIndex + 1}</span> -{" "}
+                <span className="font-bold text-stone-900">{endIndex}</span> trong tổng số{" "}
+                <span className="font-bold text-stone-900">{totalCount}</span> công thức
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(safePage - 1)}
+                  disabled={safePage === 1}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium text-xs shadow-2xs"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span>Trước</span>
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {getPaginationPages().map((pageItem, idx) => {
+                    if (pageItem === "...") {
+                      return (
+                        <span key={`ellipsis-${idx}`} className="px-2 py-1 text-stone-400">
+                          ...
+                        </span>
+                      );
+                    }
+                    const pageNum = pageItem as number;
+                    const isActive = pageNum === safePage;
+                    return (
+                      <button
+                        key={pageNum}
+                        type="button"
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`min-w-8 h-8 px-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center ${
+                          isActive
+                            ? "bg-emerald-700 text-white shadow-xs"
+                            : "border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 hover:text-emerald-700"
                         }`}
                       >
-                        {isFullMatch ? "✓ Đủ " : "Trùng "}
-                        {matchedCount}/{totalCount} nguyên liệu
-                      </span>
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/90 text-stone-800 shadow-xs">
-                        Khớp {matchPercentage}%
-                      </span>
-                    </div>
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
 
-                    {recipe.meal_type && (
-                      <span className="absolute bottom-3 left-3 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-xs text-white text-[11px] font-medium">
-                        {recipe.meal_type}
-                      </span>
-                    )}
-                  </div>
-
-                  {hasAllergy && (
-                    <div className="mx-3 mt-3 px-3 py-1.5 rounded-xl bg-amber-100 border border-amber-400 text-amber-950 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
-                      <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
-                      <span>Thành phần dị ứng: {allergensInRecipe.join(", ")}</span>
-                    </div>
-                  )}
-
-                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                    <div>
-                      <h4 className="font-bold text-stone-900 text-base line-clamp-1 group-hover:text-emerald-700 transition-colors">
-                        {recipe.title}
-                      </h4>
-                      <p className="text-xs text-stone-500 mt-1 line-clamp-2">
-                        {recipe.description || "Công thức món chay bổ dưỡng, thanh đạm."}
-                      </p>
-                    </div>
-
-                    <div className="space-y-1.5 pt-2 border-t border-stone-100">
-                      {matchedIngredientNames.length > 0 && (
-                        <div className="text-xs">
-                          <span className="text-emerald-700 font-bold block mb-1">
-                            ✓ Đã có ({matchedCount}):
-                          </span>
-                          <div className="flex flex-wrap gap-1">
-                            {matchedIngredientNames.slice(0, 4).map((name, i) => {
-                              const isEggChip = name.toLowerCase().includes("trứng");
-                              const isAllergenChip =
-                                (userAllergies?.isEggAllergic && isEggChip) ||
-                                allergensInRecipe.some((a) => name.toLowerCase().includes(a.toLowerCase()));
-
-                              return (
-                                <span
-                                  key={i}
-                                  className={`inline-block text-[11px] px-2.5 py-1 rounded-md font-bold border transition-colors ${
-                                    isAllergenChip
-                                      ? "bg-amber-100 text-amber-950 border-amber-400 ring-1 ring-amber-300 shadow-2xs"
-                                      : "bg-emerald-50 text-emerald-800 border-emerald-200/80 font-medium"
-                                  }`}
-                                >
-                                  {isAllergenChip ? `⚠ ${name}` : name}
-                                </span>
-                              );
-                            })}
-                            {matchedIngredientNames.length > 4 && (
-                              <span className="text-[11px] text-stone-400 font-medium self-center">
-                                +{matchedIngredientNames.length - 4}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {missingIngredientNames.length > 0 && (
-                        <div className="text-xs">
-                          <span className="text-stone-400 font-medium block mb-1">
-                            Thiếu ({missingIngredientNames.length}):
-                          </span>
-                          <div className="flex flex-wrap gap-1">
-                            {missingIngredientNames.slice(0, 3).map((name, i) => {
-                              const isEggMissing = name.toLowerCase().includes("trứng");
-                              const isAllergenMissing =
-                                (userAllergies?.isEggAllergic && isEggMissing) ||
-                                allergensInRecipe.some((a) => name.toLowerCase().includes(a.toLowerCase()));
-
-                              return (
-                                <span
-                                  key={i}
-                                  className={`inline-block text-[11px] px-2 py-0.5 rounded-md ${
-                                    isAllergenMissing
-                                      ? "bg-amber-100 text-amber-950 border border-amber-400 font-bold"
-                                      : "bg-stone-100 text-stone-600"
-                                  }`}
-                                >
-                                  {isAllergenMissing ? `⚠ ${name}` : name}
-                                </span>
-                              );
-                            })}
-                            {missingIngredientNames.length > 3 && (
-                              <span className="text-[11px] text-stone-400 font-medium self-center">
-                                +{missingIngredientNames.length - 3}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
-                      <span>{recipe.calories ? `${recipe.calories} kcal` : "Chuẩn dinh dưỡng"}</span>
-                      <span className="flex items-center gap-1 font-semibold text-emerald-700 group-hover:translate-x-0.5 transition-transform">
-                        Xem cách nấu <ChevronRight className="w-3.5 h-3.5" />
-                      </span>
-                    </div>
-                  </div>
-                </Card>
-              </Link>
-            );
-          })}
-        </div>
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(safePage + 1)}
+                  disabled={safePage === totalPages}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium text-xs shadow-2xs"
+                >
+                  <span>Sau</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
