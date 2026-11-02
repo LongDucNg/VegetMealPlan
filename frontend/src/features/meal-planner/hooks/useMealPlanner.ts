@@ -331,7 +331,8 @@ export function useMealPlanner() {
     (
       dayIdx: number,
       mealSlot: "breakfast" | "lunch" | "dinner" | "snack",
-      newRecipe: Recipe
+      newRecipe: Recipe,
+      recipeIndex?: number
     ) => {
       const userId = String(activeProfile.id || "");
       // Đổi món thì tính lại theo kcal mục tiêu của chính thực đơn đang xem (backend trả về lúc lập).
@@ -344,11 +345,25 @@ export function useMealPlanner() {
         const day = updatedDays[dayIdx];
         if (!day) return;
 
+        const currentSlot = day[mealSlot];
+        const existingRecipes = currentSlot?.recipes && currentSlot.recipes.length > 0
+          ? [...currentSlot.recipes]
+          : [currentSlot.recipe];
+
+        if (recipeIndex !== undefined && recipeIndex >= 0 && recipeIndex < existingRecipes.length) {
+          existingRecipes[recipeIndex] = newRecipe;
+        } else {
+          existingRecipes[0] = newRecipe;
+        }
+
+        const maxTime = Math.max(...existingRecipes.map((r) => (Number(r.prepTime) || 0) + (Number(r.cookTime) || 0)));
+
         const updatedDay: DayMealPlan = {
           ...day,
           [mealSlot]: {
-            recipe: newRecipe,
-            time: `${newRecipe.prepTime + newRecipe.cookTime} min`,
+            recipe: existingRecipes[0],
+            recipes: existingRecipes,
+            time: `${maxTime || 25} min`,
           },
         };
 
@@ -376,11 +391,25 @@ export function useMealPlanner() {
         const day = updatedDays[dayIdx];
         if (!day) return;
 
+        const currentSlot = day[mealSlot];
+        const existingRecipes = currentSlot?.recipes && currentSlot.recipes.length > 0
+          ? [...currentSlot.recipes]
+          : [currentSlot.recipe];
+
+        if (recipeIndex !== undefined && recipeIndex >= 0 && recipeIndex < existingRecipes.length) {
+          existingRecipes[recipeIndex] = newRecipe;
+        } else {
+          existingRecipes[0] = newRecipe;
+        }
+
+        const maxTime = Math.max(...existingRecipes.map((r) => (Number(r.prepTime) || 0) + (Number(r.cookTime) || 0)));
+
         const updatedDay: CalendarDayMealPlan = {
           ...day,
           [mealSlot]: {
-            recipe: newRecipe,
-            time: `${newRecipe.prepTime + newRecipe.cookTime} min`,
+            recipe: existingRecipes[0],
+            recipes: existingRecipes,
+            time: `${maxTime || 25} min`,
           },
         };
 

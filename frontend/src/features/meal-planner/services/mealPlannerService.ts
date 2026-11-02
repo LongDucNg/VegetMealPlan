@@ -52,39 +52,33 @@ export const mealPlannerService = {
    * Recalculates nutritional totals, remaining calories, and cost for a single day plan
    */
   recalculateDay(day: DayMealPlan, targetCalories: number, userId?: string): DayMealPlan {
-    const totalCalories = Math.round(
-      day.breakfast.recipe.calories +
-      day.lunch.recipe.calories +
-      day.dinner.recipe.calories +
-      day.snack.recipe.calories
-    );
+    const getSlotRecipes = (slot: MealSlotItem): Recipe[] => {
+      if (slot.recipes && slot.recipes.length > 0) return slot.recipes;
+      return slot.recipe ? [slot.recipe] : [];
+    };
 
-    const totalProtein = Math.round((
-      day.breakfast.recipe.protein +
-      day.lunch.recipe.protein +
-      day.dinner.recipe.protein +
-      day.snack.recipe.protein
-    ) * 10) / 10;
+    const allSlots = [day.breakfast, day.lunch, day.dinner, day.snack];
+    let totalCalories = 0;
+    let totalProtein = 0;
+    let totalCarbs = 0;
+    let totalFat = 0;
+    let estimatedCost = 0;
 
-    const totalCarbs = Math.round((
-      day.breakfast.recipe.carbs +
-      day.lunch.recipe.carbs +
-      day.dinner.recipe.carbs +
-      day.snack.recipe.carbs
-    ) * 10) / 10;
+    for (const slot of allSlots) {
+      const recipes = getSlotRecipes(slot);
+      for (const r of recipes) {
+        totalCalories += Number(r.calories) || 0;
+        totalProtein += Number(r.protein) || 0;
+        totalCarbs += Number(r.carbs) || 0;
+        totalFat += Number(r.fat) || 0;
+        estimatedCost += priceService.getEffectivePrice(r, userId).price;
+      }
+    }
 
-    const totalFat = Math.round((
-      day.breakfast.recipe.fat +
-      day.lunch.recipe.fat +
-      day.dinner.recipe.fat +
-      day.snack.recipe.fat
-    ) * 10) / 10;
-
-    const costBreakfast = priceService.getEffectivePrice(day.breakfast.recipe, userId).price;
-    const costLunch = priceService.getEffectivePrice(day.lunch.recipe, userId).price;
-    const costDinner = priceService.getEffectivePrice(day.dinner.recipe, userId).price;
-    const costSnack = priceService.getEffectivePrice(day.snack.recipe, userId).price;
-    const estimatedCost = costBreakfast + costLunch + costDinner + costSnack;
+    totalCalories = Math.round(totalCalories);
+    totalProtein = Math.round(totalProtein * 10) / 10;
+    totalCarbs = Math.round(totalCarbs * 10) / 10;
+    totalFat = Math.round(totalFat * 10) / 10;
 
     return {
       ...day,
@@ -136,109 +130,164 @@ export const mealPlannerService = {
       "snack"
     );
 
-    const scaleRecipeToCalories = (raw: Recipe, targetKcal: number): Recipe => {
-      const baseKcal = Number(raw.calories) || 150;
-      const maxPortion = 1.25;
-      const minPortion = 0.85;
-      const portion = Math.round(Math.min(maxPortion, Math.max(minPortion, targetKcal / baseKcal)) * 10) / 10;
+    const getRecipeTitle = (r: Recipe): string =>
+      ((r.name || r.title || "") + " " + (r.description || "")).toLowerCase();
+
+    const getRecipeCategories = (r: Recipe): string[] => {
+      const cats: string[] = [];
+      if (r.category) cats.push(r.category.toLowerCase());
+      if (Array.isArray(r.categories)) {
+        cats.push(...r.categories.map((c) => String(c).toLowerCase()));
+      }
+      return cats;
+    };
+
+    const isRiceDish = (r: Recipe): boolean => {
+      const t = getRecipeTitle(r);
+      const cats = getRecipeCategories(r);
+      return cats.some((c) => c.includes("cơm") || c.includes("xôi")) || t.includes("cơm") || t.includes("xôi");
+    };
+
+    const isSoupDish = (r: Recipe): boolean => {
+      const t = getRecipeTitle(r);
+      const cats = getRecipeCategories(r);
+      return cats.some((c) => c.includes("canh") || c.includes("súp")) || t.includes("canh") || t.includes("súp");
+    };
+
+    const isBreakfastDish = (r: Recipe): boolean => {
+      const mt = (r.mealType || "").toLowerCase();
+      const t = getRecipeTitle(r);
+      return mt === "breakfast" || t.includes("bánh mì") || t.includes("sandwich") || t.includes("ngũ cốc") || t.includes("yến mạch");
+    };
+
+    const isMainDish = (r: Recipe): boolean => {
+      const t = getRecipeTitle(r);
+      const cats = getRecipeCategories(r);
+      return (
+        cats.some((c) => c.includes("mặn") || c.includes("kho") || c.includes("rim") || c.includes("chiên") || c.includes("xào") || c.includes("đủ bữa")) ||
+        t.includes("kho") || t.includes("rim") || t.includes("chiên") || t.includes("xào") || t.includes("đậu hũ") || t.includes("nấm")
+      );
+    };
+
+    const isVeggieOrSide = (r: Recipe): boolean => {
+      const t = getRecipeTitle(r);
+      const cats = getRecipeCategories(r);
+      return (
+        cats.some((c) => c.includes("rau") || c.includes("luộc") || c.includes("hấp") || c.includes("gỏi") || c.includes("salad") || c.includes("cuốn")) ||
+        t.includes("rau") || t.includes("luộc") || t.includes("salad") || t.includes("gỏi")
+      );
+    };
+
+    const composeMealSlot = (
+      candidates: Recipe[],
+      targetKcal: number,
+      mealSlotType: "breakfast" | "lunch" | "dinner" | "snack",
+      preferredFavIds?: string[]
+    ): MealSlotItem => {
+      // 1. Filter allergies
+      let safePool = candidates.filter((r) => !checkAllergies(r, profile).hasAllergy);
+      if (safePool.length === 0) safePool = candidates;
+
+      // 2. Không đưa món ăn sáng vào ăn trưa hay ăn tối!
+      if (mealSlotType === "lunch" || mealSlotType === "dinner") {
+        const nonBreakfast = safePool.filter((r) => !isBreakfastDish(r));
+        if (nonBreakfast.length > 0) safePool = nonBreakfast;
+      }
+
+      // 3. Số lượng món: Bữa trưa/tối 2-3 món, bữa sáng 1-2 món, bữa phụ 1 món
+      let maxDishes = 1;
+      if (mealSlotType === "lunch") {
+        maxDishes = targetKcal >= 500 && safePool.length >= 3 ? 3 : (safePool.length >= 2 ? 2 : 1);
+      } else if (mealSlotType === "dinner") {
+        maxDishes = targetKcal >= 450 && safePool.length >= 3 ? 3 : (safePool.length >= 2 ? 2 : 1);
+      } else if (mealSlotType === "breakfast") {
+        maxDishes = targetKcal >= 380 && safePool.length >= 2 ? 2 : 1;
+      }
+
+      const chosenDishes: Recipe[] = [];
+      const usedIds = new Set<string>();
+      let hasRice = false;
+      let hasSoup = false;
+      let remainingKcal = targetKcal;
+
+      for (let i = 0; i < maxDishes; i++) {
+        let dishCandidates = safePool.filter((r) => {
+          if (usedIds.has(r.id)) return false;
+          if (hasRice && isRiceDish(r)) return false;
+          if (hasSoup && isSoupDish(r)) return false;
+          return true;
+        });
+
+        if (dishCandidates.length === 0) break;
+
+        // Phân vai ẩm thực: Món chính -> Món canh -> Rau/cơm
+        if (mealSlotType === "lunch" || mealSlotType === "dinner") {
+          if (i === 0) {
+            const mains = dishCandidates.filter((r) => isMainDish(r));
+            if (mains.length > 0) dishCandidates = mains;
+          } else if (i === 1 && !hasSoup) {
+            const soups = dishCandidates.filter((r) => isSoupDish(r));
+            if (soups.length > 0) dishCandidates = soups;
+          } else if (i === 2) {
+            const sides = dishCandidates.filter((r) => isVeggieOrSide(r) || isRiceDish(r));
+            if (sides.length > 0) dishCandidates = sides;
+          }
+        }
+
+        const targetPerDish = Math.max(80, Math.round(remainingKcal / (maxDishes - i)));
+        const sorted = [...dishCandidates].sort(
+          (a, b) => Math.abs(a.calories - targetPerDish) - Math.abs(b.calories - targetPerDish)
+        );
+
+        // Luân phiên 14 ngày (dayIndex + seed)
+        const rotationIdx = (dayIndex * 3 + i + seed) % Math.min(6, sorted.length);
+        const selected = sorted[rotationIdx] || sorted[0];
+
+        chosenDishes.push(selected);
+        usedIds.add(selected.id);
+        if (isRiceDish(selected)) hasRice = true;
+        if (isSoupDish(selected)) hasSoup = true;
+        remainingKcal -= selected.calories;
+      }
+
+      if (chosenDishes.length === 0) {
+        const fallback = safePool[0] || candidates[0];
+        chosenDishes.push(fallback);
+      }
+
+      const maxTime = Math.max(...chosenDishes.map((d) => (Number(d.prepTime) || 0) + (Number(d.cookTime) || 0)));
+
       return {
-        ...raw,
-        calories: Math.round(baseKcal * portion),
-        serving: Math.round((Number(raw.serving) || 1) * portion * 10) / 10,
-        protein: Math.round((Number(raw.protein) || 0) * portion * 10) / 10,
-        carbs: Math.round((Number(raw.carbs) || 0) * portion * 10) / 10,
-        fat: Math.round((Number(raw.fat) || 0) * portion * 10) / 10,
+        recipe: chosenDishes[0],
+        recipes: chosenDishes,
+        time: `${maxTime || 25} min`,
       };
     };
 
-    // Pick distinct recipes using offset without allergen violations, bám sát calo mục tiêu
-    const pickRecipe = (
-      candidates: Recipe[],
-      targetKcal: number,
-      index: number,
-      preferredFavIds?: string[]
-    ): Recipe => {
-      // 1. If user chose favorites, give them precedence and rotate across days
-      if (preferredFavIds && preferredFavIds.length > 0) {
-        const matchingFavs = candidates.filter((r) => preferredFavIds.includes(r.id));
-        if (matchingFavs.length > 0) {
-          const chosen = matchingFavs[(index + seed) % matchingFavs.length];
-          return scaleRecipeToCalories(chosen, targetKcal);
-        }
-      }
-
-      // Filter out any recipe with user allergies
-      const safe = candidates.filter((r) => !checkAllergies(r, profile).hasAllergy);
-      let pool = safe.length > 0 ? safe : candidates;
-
-      // Budget sorting if budget limit exists (Requirement 24)
-      if (options?.budgetLimit && options.budgetLimit > 0) {
-        pool = [...pool].sort((a, b) => {
-          const costA = priceService.getEffectivePrice(a, userId).price;
-          const costB = priceService.getEffectivePrice(b, userId).price;
-          return costA - costB;
-        });
-      }
-
-      if (!pool.length) {
-        const allSafe = recipeService
-          .getRecipes()
-          .filter((r) => !checkAllergies(r, profile).hasAllergy);
-        const fallback = allSafe[0] || recipeService.getRecipes()[0];
-        return scaleRecipeToCalories(fallback, targetKcal);
-      }
-
-      // Sắp xếp theo mức độ gần với targetKcal để chọn món cung cấp đủ năng lượng
-      const sortedByCal = [...pool].sort(
-        (a, b) => Math.abs(a.calories - targetKcal) - Math.abs(b.calories - targetKcal)
-      );
-      // Luân chuyển trong top 6 món gần nhất để đảm bảo đa dạng nhưng vẫn bám sát calo
-      const topPool = sortedByCal.slice(0, Math.min(6, sortedByCal.length));
-      const chosen = topPool[(index + seed) % topPool.length];
-      return scaleRecipeToCalories(chosen, targetKcal);
-    };
-
-    const breakfastRecipe = pickRecipe(
+    const breakfastSlot = composeMealSlot(
       breakfastCandidates,
       mealTargets.breakfast,
-      dayIndex,
+      "breakfast",
       options?.favoriteRecipeIds
     );
-    const lunchRecipe = pickRecipe(
+    const lunchSlot = composeMealSlot(
       lunchCandidates,
       mealTargets.lunch,
-      dayIndex,
+      "lunch",
       options?.favoriteRecipeIds
     );
-    const dinnerRecipe = pickRecipe(
+    const dinnerSlot = composeMealSlot(
       dinnerCandidates,
       mealTargets.dinner,
-      dayIndex,
+      "dinner",
       options?.favoriteRecipeIds
     );
-    const snackRecipe = pickRecipe(
+    const snackSlot = composeMealSlot(
       snackCandidates,
       mealTargets.snack,
-      dayIndex,
+      "snack",
       options?.favoriteRecipeIds
     );
-
-    const breakfastSlot: MealSlotItem = {
-      recipe: breakfastRecipe,
-      time: `${breakfastRecipe.prepTime + breakfastRecipe.cookTime} min`,
-    };
-    const lunchSlot: MealSlotItem = {
-      recipe: lunchRecipe,
-      time: `${lunchRecipe.prepTime + lunchRecipe.cookTime} min`,
-    };
-    const dinnerSlot: MealSlotItem = {
-      recipe: dinnerRecipe,
-      time: `${dinnerRecipe.prepTime + dinnerRecipe.cookTime} min`,
-    };
-    const snackSlot: MealSlotItem = {
-      recipe: snackRecipe,
-      time: `${snackRecipe.prepTime + snackRecipe.cookTime} min`,
-    };
 
     const baseDay: DayMealPlan = {
       dayName: dayInfo.day,
@@ -493,7 +542,7 @@ export const mealPlannerService = {
     const weeklyPlans = plan?.weekly_plans || [];
     const dailyMeals = weeklyPlans[0]?.daily_meals || [];
 
-    const dateMap = new Map<string, Record<string, Recipe>>();
+    const dateMap = new Map<string, Record<string, Recipe[]>>();
     const allApproved = recipeService.getRecipes();
 
     for (const dm of dailyMeals) {
@@ -502,10 +551,13 @@ export const mealPlannerService = {
         dateMap.set(rawDate, {});
       }
       const slots = dateMap.get(rawDate)!;
-      const rawItem = dm.meal_items?.[0];
-      const rawRecipe = rawItem?.recipe;
-      const portion = Number(rawItem?.portion_multiplier) || 1;
-      if (rawRecipe) {
+      const items = Array.isArray(dm.meal_items) ? dm.meal_items : (dm.meal_items ? [dm.meal_items] : []);
+      const recipesInMeal: Recipe[] = [];
+
+      for (const rawItem of items) {
+        const rawRecipe = rawItem?.recipe;
+        if (!rawRecipe) continue;
+        const portion = Number(rawItem?.portion_multiplier) || 1;
         let frontendRecipe = mapBackendToFrontendRecipe(rawRecipe);
         if (frontendRecipe.calories === 350) {
           const fromCache = allApproved.find((r) => String(r.id) === String(rawRecipe.recipe_id));
@@ -523,7 +575,11 @@ export const mealPlannerService = {
             fat: Math.round(frontendRecipe.fat * portion * 10) / 10,
           };
         }
-        slots[dm.meal_type] = frontendRecipe;
+        recipesInMeal.push(frontendRecipe);
+      }
+
+      if (recipesInMeal.length > 0) {
+        slots[dm.meal_type] = recipesInMeal;
       }
     }
 
@@ -535,21 +591,24 @@ export const mealPlannerService = {
       const dateKey = dayDates[idx] || dayDates[0];
       const slots = (dateKey ? dateMap.get(dateKey) : null) || {};
 
-      const breakfast = slots.breakfast || allApproved.find((r) => r.mealType === "breakfast") || allApproved[0];
-      const lunch = slots.lunch || allApproved.find((r) => r.mealType === "lunch") || allApproved[1 % allApproved.length];
-      const dinner = slots.dinner || allApproved.find((r) => r.mealType === "dinner") || allApproved[2 % allApproved.length];
-      const snack =
-        slots.snack ||
-        (snackCandidates.length > 0 ? snackCandidates[idx % snackCandidates.length] : allApproved[idx % allApproved.length]);
+      const buildSlot = (mealType: string, defaultDish: Recipe): MealSlotItem => {
+        const list = slots[mealType] && slots[mealType].length > 0 ? slots[mealType] : [defaultDish];
+        const maxTime = Math.max(...list.map((r) => (Number(r.prepTime) || 0) + (Number(r.cookTime) || 0)));
+        return {
+          recipe: list[0],
+          recipes: list,
+          time: `${maxTime || 25} min`,
+        };
+      };
 
       const baseDay: DayMealPlan = {
         dayName: dayInfo.day,
         shortDay: dayInfo.short,
         dateText: dayInfo.date,
-        breakfast: { recipe: breakfast, time: `${breakfast.prepTime + breakfast.cookTime} min` },
-        lunch: { recipe: lunch, time: `${lunch.prepTime + lunch.cookTime} min` },
-        dinner: { recipe: dinner, time: `${dinner.prepTime + dinner.cookTime} min` },
-        snack: { recipe: snack, time: `${snack.prepTime + snack.cookTime} min` },
+        breakfast: buildSlot("breakfast", allApproved.find((r) => r.mealType === "breakfast") || allApproved[0]),
+        lunch: buildSlot("lunch", allApproved.find((r) => r.mealType === "lunch") || allApproved[1 % allApproved.length]),
+        dinner: buildSlot("dinner", allApproved.find((r) => r.mealType === "dinner") || allApproved[2 % allApproved.length]),
+        snack: buildSlot("snack", snackCandidates.length > 0 ? snackCandidates[idx % snackCandidates.length] : allApproved[idx % allApproved.length]),
         totalCalories: 0,
         totalProtein: 0,
         totalCarbs: 0,
@@ -593,17 +652,20 @@ export const mealPlannerService = {
       }
     }
 
-    const dateMap = new Map<string, Record<string, Recipe>>();
+    const dateMap = new Map<string, Record<string, Recipe[]>>();
     for (const dm of allDailyMeals) {
       const rawDate = typeof dm.meal_date === "string" ? dm.meal_date.split("T")[0] : String(dm.meal_date);
       if (!dateMap.has(rawDate)) {
         dateMap.set(rawDate, {});
       }
       const slots = dateMap.get(rawDate)!;
-      const rawItem = dm.meal_items?.[0];
-      const rawRecipe = rawItem?.recipe;
-      const portion = Number(rawItem?.portion_multiplier) || 1;
-      if (rawRecipe) {
+      const items = Array.isArray(dm.meal_items) ? dm.meal_items : (dm.meal_items ? [dm.meal_items] : []);
+      const recipesInMeal: Recipe[] = [];
+
+      for (const rawItem of items) {
+        const rawRecipe = rawItem?.recipe;
+        if (!rawRecipe) continue;
+        const portion = Number(rawItem?.portion_multiplier) || 1;
         let frontendRecipe = mapBackendToFrontendRecipe(rawRecipe);
         if (frontendRecipe.calories === 350) {
           const fromCache = allApproved.find((r) => String(r.id) === String(rawRecipe.recipe_id));
@@ -621,7 +683,11 @@ export const mealPlannerService = {
             fat: Math.round(frontendRecipe.fat * portion * 10) / 10,
           };
         }
-        slots[dm.meal_type] = frontendRecipe;
+        recipesInMeal.push(frontendRecipe);
+      }
+
+      if (recipesInMeal.length > 0) {
+        slots[dm.meal_type] = recipesInMeal;
       }
     }
 
@@ -643,19 +709,24 @@ export const mealPlannerService = {
       const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
       const slots = dateMap.get(dateKey) || {};
 
-      const breakfast = slots.breakfast || allApproved[d % allApproved.length] || allApproved[0];
-      const lunch = slots.lunch || allApproved[(d + 1) % allApproved.length] || allApproved[0];
-      const dinner = slots.dinner || allApproved[(d + 2) % allApproved.length] || allApproved[0];
-      const snack = slots.snack || allApproved[(d + 3) % allApproved.length] || allApproved[0];
+      const buildSlot = (mealType: string, defaultDish: Recipe): MealSlotItem => {
+        const list = slots[mealType] && slots[mealType].length > 0 ? slots[mealType] : [defaultDish];
+        const maxTime = Math.max(...list.map((r) => (Number(r.prepTime) || 0) + (Number(r.cookTime) || 0)));
+        return {
+          recipe: list[0],
+          recipes: list,
+          time: `${maxTime || 25} min`,
+        };
+      };
 
       const baseDay: DayMealPlan = {
         dayName: dayNames[dayOfWeek],
         shortDay: dayShorts[dayOfWeek],
         dateText: `${monthShort[month]} ${d}`,
-        breakfast: { recipe: breakfast, time: `${breakfast.prepTime + breakfast.cookTime} min` },
-        lunch: { recipe: lunch, time: `${lunch.prepTime + lunch.cookTime} min` },
-        dinner: { recipe: dinner, time: `${dinner.prepTime + dinner.cookTime} min` },
-        snack: { recipe: snack, time: `${snack.prepTime + snack.cookTime} min` },
+        breakfast: buildSlot("breakfast", allApproved[d % allApproved.length] || allApproved[0]),
+        lunch: buildSlot("lunch", allApproved[(d + 1) % allApproved.length] || allApproved[0]),
+        dinner: buildSlot("dinner", allApproved[(d + 2) % allApproved.length] || allApproved[0]),
+        snack: buildSlot("snack", allApproved[(d + 3) % allApproved.length] || allApproved[0]),
         totalCalories: 0,
         totalProtein: 0,
         totalCarbs: 0,
