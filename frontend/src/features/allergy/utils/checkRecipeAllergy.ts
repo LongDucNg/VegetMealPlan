@@ -1,4 +1,5 @@
 import { COMMON_ALLERGENS } from "../data/mockAllergies";
+import { formatAllergy } from "@/features/profile/types";
 
 export interface AllergyCheckResult {
   hasAllergy: boolean;
@@ -80,7 +81,9 @@ export function checkAllergies(
     );
 
     const keywords = rule ? rule.keywords : [normalizedUserAllergy];
-    const allergenDisplayName = rule ? rule.name : userAllergy;
+    const allergenDisplayName = rule
+      ? rule.name
+      : formatAllergy(userAllergy) || userAllergy;
 
     // Check explicit array match
     const explicitMatch = explicitAllergens.some(
@@ -108,7 +111,7 @@ export function checkAllergies(
     allergens: detectedAllergens,
     isSafe: !hasAllergy,
     warningMessage: hasAllergy
-      ? `This recipe contains ingredients that may cause an allergic reaction based on your profile. Detected allergens: ${detectedAllergens.join(", ")}`
+      ? `Công thức này có chứa thành phần có thể gây dị ứng cho bạn: ${detectedAllergens.join(", ")}`
       : undefined,
   };
 }
@@ -131,7 +134,10 @@ export function isIngredientAllergenic(
   for (const allergy of userAllergies) {
     const normalized = allergy.toLowerCase().trim();
     const rule = COMMON_ALLERGENS.find(
-      (r) => r.id.toLowerCase() === normalized || r.name.toLowerCase() === normalized
+      (r) =>
+        r.id.toLowerCase() === normalized ||
+        r.name.toLowerCase() === normalized ||
+        (r.aliases && r.aliases.map((a) => a.toLowerCase()).includes(normalized))
     );
     const keywords = rule ? rule.keywords : [normalized];
 
