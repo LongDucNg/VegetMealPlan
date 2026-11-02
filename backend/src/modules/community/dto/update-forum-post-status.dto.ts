@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
 import { ContentStatus } from '../entities/blog.entity';
 
 export class UpdateForumPostStatusDto {
@@ -10,4 +10,9 @@ export class UpdateForumPostStatusDto {
   })
   @IsEnum(ContentStatus)
   status!: ContentStatus;
+
+  @ApiPropertyOptional({ description: 'Lý do từ chối hoặc gỡ bài viết' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }
