@@ -94,12 +94,14 @@ function mapBackendGoalToFrontend(goal?: string): HealthGoal {
   const g = goal.toLowerCase();
   if (g.includes("lose")) return "lose_weight";
   if (g.includes("gain") || g.includes("muscle")) return "gain_weight";
+  if (g.includes("healthy") || g.includes("eating") || g.includes("lanh_manh")) return "healthy_eating";
   return "maintain_weight";
 }
 
 function mapFrontendGoalToId(goal?: HealthGoal | ""): number {
   if (goal === "lose_weight") return 1;
   if (goal === "gain_weight") return 2;
+  if (goal === "healthy_eating") return 4;
   return 3; // maintain
 }
 

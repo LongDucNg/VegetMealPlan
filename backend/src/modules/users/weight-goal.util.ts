@@ -213,7 +213,7 @@ function inferTargetWeight(current: number, direction: WeightGoalDirection): num
   return Math.max(1, Number(inferred.toFixed(1)));
 }
 
-export type WeightGoalDirection = 'lose_weight' | 'gain_muscle' | 'maintain';
+export type WeightGoalDirection = 'lose_weight' | 'gain_muscle' | 'maintain' | 'healthy_eating';
 
 /**
  * Hướng mục tiêu + nguồn quyết định, dùng để trả về client rõ ràng
@@ -259,7 +259,8 @@ export function resolveGoalDirectionDetailed(params: {
   const profileDirection =
     params.healthGoalName === 'lose_weight' ||
     params.healthGoalName === 'gain_muscle' ||
-    params.healthGoalName === 'maintain'
+    params.healthGoalName === 'maintain' ||
+    params.healthGoalName === 'healthy_eating'
       ? params.healthGoalName
       : null;
 
@@ -422,10 +423,15 @@ export function assertValidGoalInput(input: WeightGoalInput): void {
       'Cần nhập thời gian đạt mục tiêu (số ngày, tối thiểu 1 ngày).',
     );
   }
-  if (input.direction !== 'lose_weight' && input.direction !== 'gain_muscle' && input.direction !== 'maintain') {
+  if (
+    input.direction !== 'lose_weight' &&
+    input.direction !== 'gain_muscle' &&
+    input.direction !== 'maintain' &&
+    input.direction !== 'healthy_eating'
+  ) {
     throw badRequest(
       ErrorCode.WEIGHT_GOAL_INVALID,
-      'Mục tiêu phải là giảm cân (lose_weight), tăng cân (gain_muscle) hoặc duy trì (maintain).',
+      'Mục tiêu phải là giảm cân (lose_weight), tăng cân (gain_muscle), duy trì (maintain) hoặc ăn uống lành mạnh (healthy_eating).',
     );
   }
 
@@ -512,13 +518,13 @@ export function assessWeightGoal(
   // 'maintain' -> không thâm hụt, không thặng dư: kcal mục tiêu = TDEE.
   const desiredDelta = (Math.abs(change_kg) * KCAL_PER_KG) / durationDays;
   const maxDelta =
-    direction === 'maintain'
+    direction === 'maintain' || direction === 'healthy_eating'
       ? 0
       : tdee * (direction === 'lose_weight' ? MAX_DEFICIT_RATIO : MAX_SURPLUS_RATIO);
   const appliedDelta = Math.min(desiredDelta, maxDelta);
 
   const rawTarget =
-    direction === 'maintain'
+    direction === 'maintain' || direction === 'healthy_eating'
       ? tdee
       : direction === 'lose_weight'
         ? tdee - appliedDelta
@@ -571,16 +577,18 @@ export function assessWeightGoal(
     };
   }
 
-  // ---- Duy trì cân nặng: không thâm hụt, không thặng dư ----
+  // ---- Duy trì cân nặng / Ăn uống lành mạnh: không thâm hụt, không thặng dư ----
   // kcal mục tiêu = TDEE. Chênh lệch cân nặng nhỏ (dưới 2 kg) vẫn chấp nhận
   // được vì đây là dao động bình thường; lệch lớn thì báo lỗi để người dùng
   // chọn đúng mục tiêu.
-  if (direction === 'maintain') {
+  if (direction === 'maintain' || direction === 'healthy_eating') {
     if (Math.abs(change_kg) > MAINTAIN_TOLERANCE_KG) {
       return {
         ...base,
         message:
-          `Mục tiêu là duy trì cân nặng nhưng cân nặng mục tiêu lệch ${Math.abs(change_kg)} kg so với hiện tại.`,
+          direction === 'healthy_eating'
+            ? `Mục tiêu là ăn uống lành mạnh nhưng cân nặng mục tiêu lệch ${Math.abs(change_kg)} kg so với hiện tại.`
+            : `Mục tiêu là duy trì cân nặng nhưng cân nặng mục tiêu lệch ${Math.abs(change_kg)} kg so với hiện tại.`,
         suggestion:
           change_kg < 0
             ? 'Hãy chọn mục tiêu giảm cân (lose_weight) nếu bạn muốn giảm cân.'
@@ -685,6 +693,7 @@ export const HEALTH_GOAL_CALORIE_FACTOR: Record<WeightGoalDirection, number> = {
   lose_weight: 0.85,
   gain_muscle: 1.1,
   maintain: 1,
+  healthy_eating: 1,
 };
 
 export interface EnergyBreakdown {
@@ -714,7 +723,7 @@ export interface HealthGoalCalorieTarget {
 /** kcal mục tiêu = TDEE × hệ số theo mục tiêu sức khoẻ, không thấp hơn sàn an toàn. */
 export function healthGoalCalorieTarget(tdee: number, goalName?: string | null): HealthGoalCalorieTarget {
   const goal: WeightGoalDirection =
-    goalName === 'lose_weight' || goalName === 'gain_muscle' ? goalName : 'maintain';
+    goalName === 'lose_weight' || goalName === 'gain_muscle' || goalName === 'healthy_eating' ? goalName : 'maintain';
   const factor = HEALTH_GOAL_CALORIE_FACTOR[goal];
   const raw = Math.round(tdee * factor);
   return {
