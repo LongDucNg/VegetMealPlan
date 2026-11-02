@@ -7,9 +7,12 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Dropzone } from "@/components/ui/Dropzone";
 import { recipeApiService } from "@/features/recipes/services/recipeApiService";
+import { apiClient } from "@/lib/apiClient";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
 import { photoScanService, DetectedIngredientItem } from "@/features/meal-planner/services/photoScanService";
+import { profileService } from "@/features/profile/services/profileService";
+import { tokenStorage } from "@/lib/tokenStorage";
 import {
   userIngredientService,
   UserIngredientItem,
@@ -28,6 +31,7 @@ import {
   Check,
   Utensils,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 
 /**
@@ -97,7 +101,108 @@ function isIngredientMatch(
   return false;
 }
 
-export interface MatchedRecipeItem {
+
+interface UserAllergyState {
+  names: string[];
+  ids: Set<number>;
+  isEggAllergic: boolean;
+}
+
+function getInitialUserAllergies(): UserAllergyState {
+  if (typeof window === "undefined") {
+    return { names: [], ids: new Set(), isEggAllergic: false };
+  }
+  try {
+    const p = profileService.getProfile();
+    const authUser = tokenStorage.getUser();
+    const allergies = [...(p?.allergies || []), ...(authUser?.allergies || [])];
+    const groups = p?.allergenGroups || [];
+    const hasEgg =
+      groups.some((g: string) => g.toUpperCase() === "EGG") ||
+      allergies.some((a: string) => {
+        const norm = (a || "").toLowerCase();
+        return norm === "egg" || norm.includes("trứng");
+      });
+    return {
+      names: Array.from(new Set(allergies)),
+      ids: new Set<number>(),
+      isEggAllergic: hasEgg,
+    };
+  } catch {
+    return { names: [], ids: new Set(), isEggAllergic: false };
+  }
+}
+
+function getRecipeAllergens(
+  recipe: any,
+  userAllergyNames: string[],
+  userAllergyIds: Set<number>,
+  isEggAllergic: boolean
+): string[] {
+  const detected: Set<string> = new Set();
+  const titleLower = (recipe.title || "").toLowerCase();
+  const descLower = (recipe.description || "").toLowerCase();
+
+  const rIngredients: Array<{ id?: number; name: string }> = [];
+  if (Array.isArray(recipe.recipe_ingredients)) {
+    for (const ri of recipe.recipe_ingredients) {
+      rIngredients.push({ id: ri.ingredient_id, name: ri.ingredient_name || "" });
+    }
+  } else if (typeof recipe.ingredients === "string") {
+    const parts = recipe.ingredients.split(";").map((s: string) => s.trim()).filter(Boolean);
+    const ids = typeof recipe.ingredient_ids === "string"
+      ? recipe.ingredient_ids.split(",").map((s: string) => Number(s.trim())).filter(Boolean)
+      : [];
+    parts.forEach((p: string, idx: number) => {
+      rIngredients.push({ id: ids[idx], name: p.replace(/\s*\([^)]*\).*/, "").trim() });
+    });
+  }
+
+  // 1. Check by ingredient ID
+  for (const ing of rIngredients) {
+    if (ing.id && userAllergyIds.has(Number(ing.id))) {
+      detected.add(ing.name || "Trứng gà");
+    }
+  }
+
+  // 2. Check egg specifically if user has egg allergy
+  if (isEggAllergic) {
+    let eggFound = false;
+    for (const ing of rIngredients) {
+      if (ing.name.toLowerCase().includes("trứng")) {
+        detected.add(ing.name || "Trứng gà");
+        eggFound = true;
+      }
+    }
+    if (!eggFound && (titleLower.includes("trứng") || descLower.includes("trứng"))) {
+      detected.add("Trứng gà");
+    }
+  }
+
+  // 3. Check other allergy names
+  for (const aName of userAllergyNames) {
+    const normA = aName.toLowerCase().trim();
+    if (!normA) continue;
+    const searchTerms: string[] = [normA];
+    if (normA === "egg" || normA === "trứng") searchTerms.push("trứng");
+    if (normA === "peanut" || normA === "đậu phộng" || normA === "lạc") searchTerms.push("đậu phộng", "lạc");
+    if (normA === "soy" || normA === "đậu nành") searchTerms.push("đậu nành", "đậu hũ", "tàu hũ");
+    if (normA === "gluten" || normA === "lúa mì") searchTerms.push("lúa mì", "gluten", "bột mì");
+    if (normA === "dairy" || normA === "sữa") searchTerms.push("sữa", "phô mai", "bơ");
+    if (normA === "fungi" || normA === "nấm") searchTerms.push("nấm");
+
+    for (const ing of rIngredients) {
+      const normIng = ing.name.toLowerCase();
+      if (searchTerms.some((term) => normIng.includes(term) || term.includes(normIng))) {
+        detected.add(ing.name);
+      }
+    }
+  }
+
+  return Array.from(detected);
+}
+
+interface MatchedRecipeItem {
   recipe: any;
   matchedCount: number;
   totalCount: number;
@@ -194,12 +299,14 @@ function RecipeMatchList({
   matchedRecipes,
   loading = false,
   emptyMessage = "Chưa tìm thấy công thức nào khớp với các nguyên liệu này.",
+  userAllergies,
 }: {
   title?: string;
   subtitle?: string;
   matchedRecipes: MatchedRecipeItem[];
   loading?: boolean;
   emptyMessage?: string;
+  userAllergies?: UserAllergyState;
 }) {
   return (
     <div className="space-y-5 pt-4 border-t border-stone-200">
@@ -238,13 +345,25 @@ function RecipeMatchList({
             } = item;
             const isFullMatch = matchedCount === totalCount && totalCount > 0;
 
+            const allergensInRecipe = getRecipeAllergens(
+              recipe,
+              userAllergies?.names || [],
+              userAllergies?.ids || new Set(),
+              userAllergies?.isEggAllergic || false
+            );
+            const hasAllergy = allergensInRecipe.length > 0;
+
             return (
               <Link
                 key={recipe.recipe_id}
                 href={`/recipes/${recipe.recipe_id}`}
                 className="group block"
               >
-                <Card className="overflow-hidden hover:border-emerald-500 hover:shadow-md transition-all flex flex-col h-full">
+                <Card className={`overflow-hidden transition-all flex flex-col h-full ${
+                  hasAllergy
+                    ? "border-2 border-amber-400 bg-amber-50/30 shadow-md ring-2 ring-amber-300/60 hover:border-amber-500"
+                    : "hover:border-emerald-500 hover:shadow-md"
+                }`}>
                   <div className="relative h-44 w-full bg-stone-100 overflow-hidden">
                     {recipe.image_url ? (
                       <img
@@ -283,6 +402,13 @@ function RecipeMatchList({
                     )}
                   </div>
 
+                  {hasAllergy && (
+                    <div className="mx-3 mt-3 px-3 py-1.5 rounded-xl bg-amber-100 border border-amber-400 text-amber-950 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
+                      <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+                      <span>Thành phần dị ứng: {allergensInRecipe.join(", ")}</span>
+                    </div>
+                  )}
+
                   <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                     <div>
                       <h4 className="font-bold text-stone-900 text-base line-clamp-1 group-hover:text-emerald-700 transition-colors">
@@ -300,14 +426,25 @@ function RecipeMatchList({
                             ✓ Đã có ({matchedCount}):
                           </span>
                           <div className="flex flex-wrap gap-1">
-                            {matchedIngredientNames.slice(0, 4).map((name, i) => (
-                              <span
-                                key={i}
-                                className="inline-block text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-200/80 px-2 py-0.5 rounded-md font-medium"
-                              >
-                                {name}
-                              </span>
-                            ))}
+                            {matchedIngredientNames.slice(0, 4).map((name, i) => {
+                              const isEggChip = name.toLowerCase().includes("trứng");
+                              const isAllergenChip =
+                                (userAllergies?.isEggAllergic && isEggChip) ||
+                                allergensInRecipe.some((a) => name.toLowerCase().includes(a.toLowerCase()));
+
+                              return (
+                                <span
+                                  key={i}
+                                  className={`inline-block text-[11px] px-2.5 py-1 rounded-md font-bold border transition-colors ${
+                                    isAllergenChip
+                                      ? "bg-amber-100 text-amber-950 border-amber-400 ring-1 ring-amber-300 shadow-2xs"
+                                      : "bg-emerald-50 text-emerald-800 border-emerald-200/80 font-medium"
+                                  }`}
+                                >
+                                  {isAllergenChip ? `⚠ ${name}` : name}
+                                </span>
+                              );
+                            })}
                             {matchedIngredientNames.length > 4 && (
                               <span className="text-[11px] text-stone-400 font-medium self-center">
                                 +{matchedIngredientNames.length - 4}
@@ -323,14 +460,25 @@ function RecipeMatchList({
                             Thiếu ({missingIngredientNames.length}):
                           </span>
                           <div className="flex flex-wrap gap-1">
-                            {missingIngredientNames.slice(0, 3).map((name, i) => (
-                              <span
-                                key={i}
-                                className="inline-block text-[11px] bg-stone-100 text-stone-600 px-2 py-0.5 rounded-md"
-                              >
-                                {name}
-                              </span>
-                            ))}
+                            {missingIngredientNames.slice(0, 3).map((name, i) => {
+                              const isEggMissing = name.toLowerCase().includes("trứng");
+                              const isAllergenMissing =
+                                (userAllergies?.isEggAllergic && isEggMissing) ||
+                                allergensInRecipe.some((a) => name.toLowerCase().includes(a.toLowerCase()));
+
+                              return (
+                                <span
+                                  key={i}
+                                  className={`inline-block text-[11px] px-2 py-0.5 rounded-md ${
+                                    isAllergenMissing
+                                      ? "bg-amber-100 text-amber-950 border border-amber-400 font-bold"
+                                      : "bg-stone-100 text-stone-600"
+                                  }`}
+                                >
+                                  {isAllergenMissing ? `⚠ ${name}` : name}
+                                </span>
+                              );
+                            })}
                             {missingIngredientNames.length > 3 && (
                               <span className="text-[11px] text-stone-400 font-medium self-center">
                                 +{missingIngredientNames.length - 3}
@@ -365,10 +513,12 @@ function PantryManager({
   onOpenScan,
   dbRecipes,
   loadingRecipes,
+  userAllergies,
 }: {
   onOpenScan?: () => void;
   dbRecipes: any[];
   loadingRecipes: boolean;
+  userAllergies?: UserAllergyState;
 }) {
   const [myIngredients, setMyIngredients] = useState<UserIngredientItem[]>([]);
   const [systemIngredients, setSystemIngredients] = useState<SystemIngredient[]>([]);
@@ -450,6 +600,13 @@ function PantryManager({
   const filteredSystemIngredients = systemIngredients.filter((i) =>
     (i.ingredient_name || "").toLowerCase().includes(ingredientSearch.toLowerCase().trim())
   );
+
+  const effectiveAllergies = useMemo<UserAllergyState>(() => {
+    if (userAllergies && (userAllergies.isEggAllergic || userAllergies.names.length > 0 || userAllergies.ids.size > 0)) {
+      return userAllergies;
+    }
+    return getInitialUserAllergies();
+  }, [userAllergies]);
 
   return (
     <div className="space-y-8">
@@ -559,6 +716,7 @@ function PantryManager({
           matchedRecipes={matchedPantryRecipes}
           loading={loadingRecipes}
           emptyMessage="Chưa tìm thấy công thức nào khớp với các nguyên liệu trong tủ lạnh của bạn. Hãy thêm thêm nguyên liệu."
+          userAllergies={effectiveAllergies}
         />
       )}
 
@@ -649,6 +807,48 @@ function PantryManager({
 
 function ScanContent() {
   const [activeTab, setActiveTab] = useState<"pantry" | "scan">("pantry");
+
+  const [userAllergies, setUserAllergies] = useState<UserAllergyState>(getInitialUserAllergies);
+
+  useEffect(() => {
+    async function loadAllergies() {
+      try {
+        const res = await apiClient.get<any>("/users/me/allergies");
+        const list = res?.ingredients || [];
+        const ids = new Set<number>(list.map((i: any) => Number(i.ingredient_id)));
+        const names: string[] = list.map((i: any) => i.ingredient_name || "").filter(Boolean);
+        const groups: string[] = res?.allergen_groups || [];
+        const hasEgg =
+          groups.some((g: string) => g.toUpperCase() === "EGG") ||
+          ids.has(185) ||
+          ids.has(186) ||
+          names.some((n: string) => n.toLowerCase().includes("trứng") || n.toLowerCase().includes("egg"));
+
+        setUserAllergies((prev) => ({
+          names: names.length > 0 ? names : prev.names,
+          ids,
+          isEggAllergic: hasEgg || prev.isEggAllergic,
+        }));
+      } catch (err) {
+        console.warn("Could not load user allergies from /users/me/allergies:", err);
+        try {
+          const profile = await profileService.fetchServerProfile();
+          const hasEgg =
+            profile.allergenGroups?.some((g: string) => g.toUpperCase() === "EGG") ||
+            profile.allergies?.some((a: string) => a.toLowerCase().includes("trứng") || a.toLowerCase() === "egg");
+          setUserAllergies((prev) => ({
+            names: profile.allergies?.length ? profile.allergies : prev.names,
+            ids: prev.ids,
+            isEggAllergic: Boolean(hasEgg || prev.isEggAllergic),
+          }));
+        } catch {
+          // ignore
+        }
+      }
+    }
+    loadAllergies();
+  }, []);
+
   const [scanned, setScanned] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -800,6 +1000,7 @@ function ScanContent() {
           onOpenScan={() => setActiveTab("scan")}
           dbRecipes={dbRecipes}
           loadingRecipes={loadingRecipes}
+          userAllergies={userAllergies}
         />
       ) : (
         <div className="space-y-8 animate-in fade-in">
@@ -881,47 +1082,69 @@ function ScanContent() {
                 </div>
 
                 <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
-                  {detectedItems.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className={`flex items-center justify-between gap-3 border rounded-2xl p-3 transition-colors ${
-                        item.selected
-                          ? "bg-emerald-50/40 border-emerald-200"
-                          : "bg-stone-50/60 border-stone-200 opacity-60"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <input
-                          type="checkbox"
-                          checked={item.selected ?? true}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            setDetectedItems((prev) =>
-                              prev.map((it, i) => (i === idx ? { ...it, selected: checked } : it))
-                            );
-                          }}
-                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                        />
-                        <div className="min-w-0">
-                          <p className="text-xs sm:text-sm font-bold text-stone-900 truncate">
-                            {item.ingredient?.ingredient_name || item.detected_name}
-                          </p>
-                          {item.warnings && item.warnings.length > 0 && (
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                                ⚠ {item.warnings.includes("allergen") ? "Dị ứng" : "Nguyên liệu mặn"}
-                              </span>
-                            </div>
-                          )}
+                  {detectedItems.map((item, idx) => {
+                    const itemName = item.ingredient?.ingredient_name || item.detected_name || "";
+                    const isEgg = itemName.toLowerCase().includes("trứng");
+                    const isAllergen =
+                      item.warnings?.includes("allergen") ||
+                      (isEgg && userAllergies.isEggAllergic) ||
+                      userAllergies.ids.has(item.ingredient?.ingredient_id || 0) ||
+                      userAllergies.names.some((a) => itemName.toLowerCase().includes(a.toLowerCase()));
+
+                    const allergenLabel =
+                      item.allergen_name || (isEgg ? "Trứng gà" : itemName);
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex items-center justify-between gap-3 border rounded-2xl p-3 transition-colors ${
+                          isAllergen
+                            ? "bg-amber-50/90 border-amber-400 ring-1 ring-amber-300 shadow-xs"
+                            : item.selected
+                            ? "bg-emerald-50/40 border-emerald-200"
+                            : "bg-stone-50/60 border-stone-200 opacity-60"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={item.selected ?? true}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setDetectedItems((prev) =>
+                                prev.map((it, i) => (i === idx ? { ...it, selected: checked } : it))
+                              );
+                            }}
+                            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-bold text-stone-900 truncate">
+                              {itemName}
+                            </p>
+                            {isAllergen ? (
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[11px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300 flex items-center gap-1">
+                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                                  <span>Thành phần dị ứng: {allergenLabel}</span>
+                                </span>
+                              </div>
+                            ) : item.warnings && item.warnings.length > 0 ? (
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                  ⚠ {item.warnings.includes("allergen") ? "Dị ứng" : "Nguyên liệu mặn"}
+                                </span>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        {/* 1. Status tươi mới */}
+                        <div className="shrink-0">
+                          <FreshnessBadge freshness={item.freshness_status} />
                         </div>
                       </div>
-
-                      {/* 1. Status tươi mới, cần dùng ngay, héo/hỏng cố định theo AI, không cho đổi, không icon */}
-                      <div className="shrink-0">
-                        <FreshnessBadge freshness={item.freshness_status} />
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div className="pt-2 border-t border-stone-100 flex items-center justify-between">
@@ -964,6 +1187,7 @@ function ScanContent() {
               matchedRecipes={matchedScanRecipes}
               loading={loadingRecipes}
               emptyMessage="Chưa tìm thấy công thức nào khớp với các nguyên liệu đã quét. Hãy thử chọn thêm nguyên liệu."
+              userAllergies={userAllergies}
             />
           )}
         </div>
