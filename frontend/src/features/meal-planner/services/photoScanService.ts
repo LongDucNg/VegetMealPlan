@@ -14,6 +14,7 @@ export interface DetectedIngredientItem {
   ingredient: MatchedIngredient | null;
   candidates: MatchedIngredient[];
   warnings: Array<"allergen" | "non_vegan">;
+  allergen_name?: string;
   // UI helper fields
   selected?: boolean;
   quantity?: number;
