@@ -1,24 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Leaf, Search } from "lucide-react";
+import { Leaf } from "lucide-react";
 import { useRole } from "@/context/RoleContext";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { NotificationBell } from "@/features/notification";
 
 export function Header() {
-  const router = useRouter();
   const { isGuest, role, user } = useRole();
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
 
   return (
     <header className="sticky top-0 z-50 h-[72px] w-full bg-white border-b border-stone-200 flex items-center justify-between">
@@ -38,24 +29,8 @@ export function Header() {
         </Link>
       </div>
 
-      {/* Middle: Search Pill (646x44, left aligned at x=277) */}
-      <div className="flex-1 max-w-[646px] ml-2 mr-4 hidden md:block">
-        <div className="w-full h-11 bg-stone-50 border border-stone-200 rounded-full px-4 flex items-center gap-3 focus-within:border-emerald-600 focus-within:bg-white transition-all shadow-xs">
-          <Search className="w-[18px] h-[18px] text-stone-400 shrink-0" strokeWidth={1.75} />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={handleSearchKeyDown}
-            placeholder="Tìm món ăn, bài viết, quán chay…"
-            className="w-full bg-transparent text-base text-stone-900 placeholder:text-stone-400 outline-none"
-          />
-
-        </div>
-      </div>
-
       {/* Right Cluster: right offset 28px, gap 24 */}
-      <div className="flex items-center gap-5 pr-7 shrink-0 ml-auto md:ml-0">
+      <div className="flex items-center gap-5 pr-7 shrink-0 ml-auto">
         {isGuest ? (
           <>
             <Link

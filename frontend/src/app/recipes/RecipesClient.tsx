@@ -151,9 +151,9 @@ export function RecipesClient() {
             </span>
             {[
               { id: "all", label: "Tất cả" },
-              { id: "breakfast", label: "Bữa sáng" },
+              { id: "breakfast_lunch", label: "Bữa sáng / trưa" },
+              { id: "dinner", label: "Bữa tối" },
               { id: "snack", label: "Bữa phụ" },
-              { id: "any", label: "Trưa & Tối (Linh hoạt)" },
             ].map((m) => (
               <button
                 key={m.id}
