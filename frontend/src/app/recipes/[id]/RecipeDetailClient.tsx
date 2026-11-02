@@ -27,6 +27,7 @@ import { favoriteApiService } from "@/features/recipes/services/favoriteApiServi
 import { recipeService } from "@/features/recipes/services/recipeService";
 import { priceService } from "@/features/recipes/services/priceService";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
+import { isIngredientAllergenic } from "@/features/allergy/utils/checkRecipeAllergy";
 import { useProfile } from "@/features/profile/hooks/useProfile";
 import { formatVegetarianType } from "@/features/profile/types";
 import { favoriteService } from "@/features/recipes/services/favoriteService";
@@ -371,6 +372,9 @@ export function RecipeDetailClient({
           </div>
         </div>
 
+        {/* Cảnh báo dị ứng nổi bật nếu công thức chứa thành phần dị ứng của người dùng */}
+        <RecipeAllergyBadge recipe={recipe} />
+
         {/* 2-Column Layout: Ingredients & Cost Breakdown on Left, Instructions & Substitutions on Right */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Column: Ingredients (5 cols) */}
@@ -414,6 +418,7 @@ export function RecipeDetailClient({
                     typeof ing.quantity === "number"
                       ? ing.quantity * servingsMultiplier
                       : ing.quantity;
+                  const isAllergenic = isIngredientAllergenic(ing.name, profile?.allergies);
 
                   return (
                     <div
@@ -422,7 +427,9 @@ export function RecipeDetailClient({
                       className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                         isChecked
                           ? "bg-stone-50/70 border-stone-200 text-stone-400 line-through"
-                          : "bg-white border-stone-200/80 hover:border-emerald-300 text-stone-800"
+                          : isAllergenic
+                            ? "bg-amber-50/50 border-amber-300 text-amber-950 hover:border-amber-400"
+                            : "bg-white border-stone-200/80 hover:border-emerald-300 text-stone-800"
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -430,12 +437,21 @@ export function RecipeDetailClient({
                           className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-colors ${
                             isChecked
                               ? "bg-emerald-600 border-emerald-600 text-white"
-                              : "border-stone-300 bg-white"
+                              : isAllergenic
+                                ? "border-amber-400 bg-amber-100 text-amber-900"
+                                : "border-stone-300 bg-white"
                           }`}
                         >
                           {isChecked && <CheckCircle2 className="w-3.5 h-3.5" />}
                         </div>
-                        <span className="text-xs font-semibold">{ing.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold">{ing.name}</span>
+                          {isAllergenic && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-0.5">
+                              ⚠ Dị ứng
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <span className="text-xs font-bold text-emerald-800">
                         {adjustedQuantity} {ing.unit}
