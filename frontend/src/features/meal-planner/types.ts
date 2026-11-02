@@ -5,6 +5,7 @@ export type MealPlanType = "weekly" | "monthly";
 
 export interface MealSlotItem {
   recipe: Recipe;
+  recipes?: Recipe[];
   time: string;
 }
 

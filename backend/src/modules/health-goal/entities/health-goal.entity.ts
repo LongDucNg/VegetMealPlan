@@ -6,7 +6,7 @@ export class HealthGoal {
   goal_id: number;
 
   @Column({ unique: true })
-  name: string; // lose_weight / gain_muscle / maintain
+  name: string; // lose_weight / gain_muscle / maintain / healthy_eating
 
   @Column({ nullable: true })
   description: string;
