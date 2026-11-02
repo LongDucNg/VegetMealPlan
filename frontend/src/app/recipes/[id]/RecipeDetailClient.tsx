@@ -35,6 +35,10 @@ import { formatMealType } from "@/features/recipes";
 import { tokenStorage } from "@/lib/tokenStorage";
 import { mapBackendToFrontendRecipe } from "@/features/recipes/utils/recipeMapper";
 import { Recipe } from "@/features/recipes/types";
+import {
+  getIngredientCaloriesPer100g,
+  calculateIngredientCalories,
+} from "@/features/recipes/utils/ingredientNutrition";
 
 interface RecipeDetailClientProps {
   recipeId: string;
@@ -419,6 +423,15 @@ export function RecipeDetailClient({
                       ? ing.quantity * servingsMultiplier
                       : ing.quantity;
                   const isAllergenic = isIngredientAllergenic(ing.name, profile?.allergies);
+                  const calPer100 =
+                    ing.caloriesPer100g !== undefined && ing.caloriesPer100g !== null
+                      ? Number(ing.caloriesPer100g)
+                      : getIngredientCaloriesPer100g(ing.name);
+                  const calculatedKcal = calculateIngredientCalories(
+                    adjustedQuantity,
+                    ing.unit,
+                    calPer100
+                  );
 
                   return (
                     <div
@@ -432,9 +445,9 @@ export function RecipeDetailClient({
                             : "bg-white border-stone-200/80 hover:border-emerald-300 text-stone-800"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-colors ${
+                          className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-colors shrink-0 ${
                             isChecked
                               ? "bg-emerald-600 border-emerald-600 text-white"
                               : isAllergenic
@@ -444,18 +457,29 @@ export function RecipeDetailClient({
                         >
                           {isChecked && <CheckCircle2 className="w-3.5 h-3.5" />}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold">{ing.name}</span>
-                          {isAllergenic && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-0.5">
-                              ⚠ Dị ứng
-                            </span>
-                          )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-semibold">{ing.name}</span>
+                            {isAllergenic && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-0.5">
+                                ⚠ Dị ứng
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-stone-400 flex items-center gap-1 mt-0.5 font-medium">
+                            <span className="text-amber-700 font-semibold">{calPer100} kcal</span>
+                            <span className="text-stone-400">/ 100g</span>
+                          </div>
                         </div>
                       </div>
-                      <span className="text-xs font-bold text-emerald-800">
-                        {adjustedQuantity} {ing.unit}
-                      </span>
+                      <div className="text-right shrink-0 ml-3">
+                        <span className="text-xs font-bold text-emerald-800 block">
+                          {adjustedQuantity} {ing.unit}
+                        </span>
+                        <span className="text-[11px] font-bold text-amber-700 bg-amber-50/90 px-1.5 py-0.5 rounded-md border border-amber-200/60 inline-block mt-0.5 shadow-2xs">
+                          ~{calculatedKcal} kcal
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
@@ -468,24 +492,38 @@ export function RecipeDetailClient({
                     Chi tiết giá nguyên liệu thị trường
                   </span>
                   <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                    {costData.ingredients.map((cIng: any, i: number) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between text-xs py-1 border-b border-stone-50"
-                      >
-                        <span className="text-stone-600 truncate max-w-[180px]">
-                          {cIng.ingredient_name}
-                        </span>
-                        <div className="text-right shrink-0">
-                          <span className="font-semibold text-stone-900">
-                            {Number(cIng.cost || 0).toLocaleString("vi-VN")} VNĐ
-                          </span>
-                          <span className="text-[10px] text-stone-400 block">
-                            ({Number(cIng.unit_price || 0).toLocaleString("vi-VN")} VNĐ/{cIng.price_unit || cIng.unit})
-                          </span>
+                    {costData.ingredients.map((cIng: any, i: number) => {
+                      const ingCalPer100 =
+                        cIng.calories_per_100g != null
+                          ? Number(cIng.calories_per_100g)
+                          : getIngredientCaloriesPer100g(cIng.ingredient_name);
+                      const ingQty = Number(cIng.quantity || 0) * servingsMultiplier;
+                      const ingKcal = calculateIngredientCalories(ingQty, cIng.unit, ingCalPer100);
+
+                      return (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between text-xs py-1.5 border-b border-stone-50"
+                        >
+                          <div>
+                            <span className="text-stone-700 font-medium truncate max-w-[180px] block">
+                              {cIng.ingredient_name}
+                            </span>
+                            <span className="text-[10px] text-stone-400 block mt-0.5">
+                              {ingCalPer100} kcal/100g · ~{ingKcal} kcal
+                            </span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="font-semibold text-stone-900 block">
+                              {Number(cIng.cost || 0).toLocaleString("vi-VN")} VNĐ
+                            </span>
+                            <span className="text-[10px] text-stone-400 block">
+                              ({Number(cIng.unit_price || 0).toLocaleString("vi-VN")} VNĐ/{cIng.price_unit || cIng.unit})
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   <div className="flex items-center justify-between pt-2 text-xs font-bold text-emerald-900">
                     <span>Tổng chi phí:</span>

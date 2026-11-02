@@ -73,6 +73,8 @@ export interface IngredientItem {
   unit: string;
   unitPrice?: number; // admin price per unit
   cost?: number; // computed cost for this recipe
+  caloriesPer100g?: number; // kcal per 100g
+  calories?: number; // computed kcal for this quantity
 }
 
 export interface Recipe {
