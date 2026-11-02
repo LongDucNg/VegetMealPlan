@@ -66,6 +66,8 @@ import { PhotoScanModule } from './modules/photo-scan/photo-scan.module';
           autoLoadEntities: true,
           // LUÔN false — schema đi qua migration để cả team dùng chung 1 nguồn sự thật.
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
+          migrations: [resolve(__dirname, 'database', 'migrations', '*{.ts,.js}')],
+          migrationsRun: true,
         };
       },
     }),

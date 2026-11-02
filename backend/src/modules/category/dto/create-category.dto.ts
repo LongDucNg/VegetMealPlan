@@ -18,7 +18,7 @@ export class CreateCategoryDto {
   @MaxLength(1000, { message: 'Mô tả vượt quá độ dài cho phép' })
   description?: string;
 
-  @ApiPropertyOptional({ example: 'recipe_type', description: 'recipe_type hoặc food_type' })
+  @ApiPropertyOptional({ example: 'recipe_type', description: 'recipe_type, food_type hoặc forum' })
   @IsOptional()
   @IsEnum(CategoryType, { message: 'Loại danh mục không hợp lệ' })
   category_type?: CategoryType;
