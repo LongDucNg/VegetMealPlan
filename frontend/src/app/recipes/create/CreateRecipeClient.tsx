@@ -659,9 +659,8 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
               <div className="flex justify-between">
                 <span className="text-stone-400">Trạng thái:</span>
                 <span
-                  className={`font-semibold uppercase tracking-wider ${
-                    isApproved ? "text-emerald-700" : "text-amber-700"
-                  }`}
+                  className={`font-semibold uppercase tracking-wider ${isApproved ? "text-emerald-700" : "text-amber-700"
+                    }`}
                 >
                   {successData.status || (isApproved ? "APPROVED" : "pending_review")}
                 </span>
@@ -780,18 +779,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
           </p>
         </div>
 
-        {/* Notice Banner */}
-        <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-100 flex items-start gap-3 text-xs text-emerald-950">
-          <Info className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-          <div className="space-y-0.5 leading-relaxed">
-            <span className="font-bold text-emerald-900">Quy trình kiểm duyệt công thức:</span>
-            <p className="text-stone-600">
-              {isActuallyAdmin
-                ? "Tài khoản Quản trị viên: Công thức tạo bởi quản trị viên sẽ được tự động kích hoạt trạng thái APPROVED."
-                : "Công thức của bạn sẽ được lưu ở trạng thái PENDING_REVIEW để ban quản trị kiểm tra tính an toàn dinh dưỡng và tiêu chuẩn chay. Sau khi được duyệt, món ăn sẽ hiển thị công khai trên toàn hệ thống."}
-            </p>
-          </div>
-        </div>
+
 
         {/* Error Alert if any */}
         {errorMsg && (
@@ -913,11 +901,10 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                         type="button"
                         key={idx}
                         onClick={() => pickImageUrl(preset.url)}
-                        className={`relative w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
-                          imageUrl === preset.url
-                            ? "border-emerald-600 ring-2 ring-emerald-600/30"
-                            : "border-stone-200 hover:border-emerald-400 opacity-70 hover:opacity-100"
-                        }`}
+                        className={`relative w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${imageUrl === preset.url
+                          ? "border-emerald-600 ring-2 ring-emerald-600/30"
+                          : "border-stone-200 hover:border-emerald-400 opacity-70 hover:opacity-100"
+                          }`}
                         title={preset.name}
                       >
                         <Image
@@ -1131,9 +1118,8 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                       )}
                     </div>
                     <ChevronDown
-                      className={`w-4 h-4 text-stone-400 transition-transform ${
-                        categoryDropdownOpen ? "rotate-180" : ""
-                      }`}
+                      className={`w-4 h-4 text-stone-400 transition-transform ${categoryDropdownOpen ? "rotate-180" : ""
+                        }`}
                     />
                   </div>
 
@@ -1162,19 +1148,17 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                               <div
                                 key={cat.category_id}
                                 onClick={() => handleToggleCategory(cat.category_id)}
-                                className={`px-3 py-2 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-between transition-colors ${
-                                  isSelected
-                                    ? "bg-emerald-50 text-emerald-950 font-semibold"
-                                    : "hover:bg-stone-50 text-stone-700"
-                                }`}
+                                className={`px-3 py-2 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-between transition-colors ${isSelected
+                                  ? "bg-emerald-50 text-emerald-950 font-semibold"
+                                  : "hover:bg-stone-50 text-stone-700"
+                                  }`}
                               >
                                 <div className="flex items-center gap-2.5">
                                   <div
-                                    className={`w-4 h-4 rounded-md border flex items-center justify-center transition-colors ${
-                                      isSelected
-                                        ? "bg-emerald-700 border-emerald-700 text-white"
-                                        : "border-stone-300 bg-white"
-                                    }`}
+                                    className={`w-4 h-4 rounded-md border flex items-center justify-center transition-colors ${isSelected
+                                      ? "bg-emerald-700 border-emerald-700 text-white"
+                                      : "border-stone-300 bg-white"
+                                      }`}
                                   >
                                     {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                                   </div>
@@ -1316,14 +1300,14 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                                 name: val,
                                 ...(val.trim() === ""
                                   ? {
-                                      ingredient_id: 0,
-                                      avg_price_per_unit: 0,
-                                      calories_per_100g: 0,
-                                      protein_per_100g: 0,
-                                      carb_per_100g: 0,
-                                      fat_per_100g: 0,
-                                      fiber_per_100g: 0,
-                                    }
+                                    ingredient_id: 0,
+                                    avg_price_per_unit: 0,
+                                    calories_per_100g: 0,
+                                    protein_per_100g: 0,
+                                    carb_per_100g: 0,
+                                    fat_per_100g: 0,
+                                    fiber_per_100g: 0,
+                                  }
                                   : {}),
                               };
                               return updated;
