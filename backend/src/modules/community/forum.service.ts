@@ -999,6 +999,9 @@ export class ForumService {
       tags: post.tags,
       views: post.views,
       status: post.status,
+      reject_reason: post.reject_reason || null,
+      flag_reason: post.flag_reason || null,
+      is_flagged: post.is_flagged || false,
       rating: ratingMap.get(post.blog_id) ?? 0,
       comment_count: commentMap.get(post.blog_id) ?? 0,
       author: post.user ? { user_id: post.user.user_id, full_name: post.user.full_name } : null,
@@ -1061,7 +1064,7 @@ export class ForumService {
     return { count };
   }
 
-  async adminUpdateStatus(adminId: number, blogId: number, status: ContentStatus) {
+  async adminUpdateStatus(adminId: number, blogId: number, status: ContentStatus, reason?: string) {
     const blog = await this.blogRepo
       .createQueryBuilder('blog')
       .leftJoinAndSelect('blog.user', 'user')
@@ -1079,6 +1082,11 @@ export class ForumService {
     blog.status = status;
     blog.approved_by = adminId;
     blog.approved_at = new Date();
+    if (reason !== undefined) {
+      blog.reject_reason = reason;
+    } else if (status === ContentStatus.APPROVED) {
+      blog.reject_reason = null;
+    }
 
     const saved = await this.blogRepo.save(blog);
     const { ratingMap, commentMap } = await this.loadStats([blogId]);

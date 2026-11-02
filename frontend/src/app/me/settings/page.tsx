@@ -116,7 +116,7 @@ function SettingsContent() {
 
       setChangePasswordSuccess(
         res?.message ||
-          "Đổi mật khẩu thành công! Các thiết bị khác đã được đăng xuất an toàn."
+        "Đổi mật khẩu thành công! Các thiết bị khác đã được đăng xuất an toàn."
       );
       setCurrentPassword("");
       setNewPassword("");
@@ -148,11 +148,10 @@ function SettingsContent() {
       <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
         <button
           onClick={() => setActiveTab("profile")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === "profile"
-              ? "bg-emerald-700 text-white shadow-xs"
-              : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
-          }`}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${activeTab === "profile"
+            ? "bg-emerald-700 text-white shadow-xs"
+            : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
+            }`}
         >
           <UserCheck className="w-4 h-4" />
           Chỉ số dinh dưỡng & Thể trạng
@@ -160,35 +159,23 @@ function SettingsContent() {
 
         <button
           onClick={() => setActiveTab("subscription")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === "subscription"
-              ? "bg-emerald-700 text-white shadow-xs"
-              : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
-          }`}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${activeTab === "subscription"
+            ? "bg-emerald-700 text-white shadow-xs"
+            : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
+            }`}
         >
           <Crown className="w-4 h-4 text-amber-400" />
           Gói hội viên & Đăng ký
         </button>
 
-        <button
-          onClick={() => setActiveTab("notifications")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === "notifications"
-              ? "bg-emerald-700 text-white shadow-xs"
-              : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
-          }`}
-        >
-          <Bell className="w-4 h-4" />
-          Khu vực & Thông báo
-        </button>
+
 
         <button
           onClick={() => setActiveTab("security")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === "security"
-              ? "bg-emerald-700 text-white shadow-xs"
-              : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
-          }`}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${activeTab === "security"
+            ? "bg-emerald-700 text-white shadow-xs"
+            : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
+            }`}
         >
           <ShieldCheck className="w-4 h-4" />
           Bảo mật & Đổi mật khẩu
