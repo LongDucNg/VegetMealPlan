@@ -17,7 +17,7 @@ import {
   Info,
 } from "lucide-react";
 import { adminRecipeApiService } from "@/features/admin/services/adminRecipeApiService";
-import { Recipe } from "@/features/recipes/types";
+import { Recipe, isMealTypeMatch } from "@/features/recipes/types";
 
 // 10 danh mục chuẩn quản trị từ cơ sở dữ liệu
 export const ADMIN_RECIPE_CATEGORIES = [
@@ -273,7 +273,7 @@ export function AdminExportModal({
     return approvedRecipes.filter((r) => {
       if (filterDiet !== "all" && r.vegetarianType !== filterDiet) return false;
       if (filterCategory !== "all" && !recipeHasCategory(r, filterCategory)) return false;
-      if (filterMealType !== "all" && r.mealType !== filterMealType) return false;
+      if (filterMealType !== "all" && !isMealTypeMatch(r.mealType, filterMealType)) return false;
       if (filterQuery.trim()) {
         const q = filterQuery.trim().toLowerCase();
         const nameMatch = (r.name || r.title || "").toLowerCase().includes(q);
@@ -740,8 +740,7 @@ export function AdminExportModal({
                       className="w-full h-10 px-3 rounded-xl border border-stone-200 bg-white text-xs font-medium focus:border-emerald-600 outline-none"
                     >
                       <option value="all">Tất cả các bữa</option>
-                      <option value="breakfast">Bữa sáng</option>
-                      <option value="lunch">Bữa trưa</option>
+                      <option value="breakfast_lunch">Bữa sáng / trưa</option>
                       <option value="dinner">Bữa tối</option>
                       <option value="snack">Bữa phụ</option>
                     </select>

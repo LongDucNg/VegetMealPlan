@@ -23,7 +23,7 @@ import { RecommendationModule } from './modules/recommendation/recommendation.mo
 import { MealPlanModule } from './modules/meal-plan/meal-plan.module';
 import { CommunityModule } from './modules/community/community.module';
 import { ChatbotModule } from './modules/chatbot/chatbot.module';
-import { ShopModule } from './modules/shop/shop.module';
+import { PlacesModule } from './modules/places/places.module';
 import { UsageQuotaModule } from './modules/usage-quota/usage-quota.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
@@ -52,7 +52,7 @@ import { PhotoScanModule } from './modules/photo-scan/photo-scan.module';
         if (missing.length) {
           throw new Error(
             `Thiếu cấu hình PostgreSQL trong file .env: ${missing.join(', ')}. ` +
-              `Hãy copy .env.example thành .env rồi điền giá trị.`,
+            `Hãy copy .env.example thành .env rồi điền giá trị.`,
           );
         }
 
@@ -85,7 +85,7 @@ import { PhotoScanModule } from './modules/photo-scan/photo-scan.module';
     MealPlanModule,
     CommunityModule,
     ChatbotModule,
-    ShopModule,
+    PlacesModule,
     UsageQuotaModule,
     NotificationModule,
     SubscriptionModule,
