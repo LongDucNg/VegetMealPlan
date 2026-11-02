@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import {
   MapPin,
   Clock,
@@ -12,218 +13,171 @@ import {
   Trash2,
   X,
   Check,
+  Phone,
+  Compass,
+  Star,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
-import { Chip } from "@/components/ui/Chip";
-import { Rating } from "@/components/ui/Rating";
 import { Badge } from "@/components/ui/Badge";
 import { useAuth } from "@/features/auth";
-import {
-  VEGAN_PLACES,
-  SHOP_FILTERS,
-  SUGGESTED_FOOD_SPOTS,
-  VeganPlace,
-  ShopFilter,
-  FoodSpotItem,
-} from "@/features/places";
+import type { Shop } from "@/types/shop";
+import { FoodSpotItem } from "@/features/places";
 import { placeService } from "@/features/places/services/placeService";
+import ShopCard from "@/components/ShopCard";
 
-function InteractiveMap({
-  places,
-  selectedPlace,
-  onSelectPlace,
-}: {
-  places: VeganPlace[];
-  selectedPlace: VeganPlace | null;
-  onSelectPlace: (p: VeganPlace) => void;
-}) {
-  return (
-    <div className="relative h-[360px] w-full rounded-[20px] bg-gradient-to-br from-map-from to-map-to border border-stone-200 overflow-hidden shadow-sm select-none">
-      {/* Decorative City Grid Lines & River */}
-      <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        viewBox="0 0 800 360"
-        preserveAspectRatio="none"
-        fill="none"
-      >
-        {/* River */}
-        <path
-          d="M-20 180 C 180 240, 320 80, 520 220 C 640 290, 740 140, 840 170"
-          stroke="white"
-          strokeWidth="32"
-          strokeOpacity="0.8"
-          strokeLinecap="round"
-        />
-        {/* Major thoroughfares */}
-        <path
-          d="M60 -20 C 140 140, 280 220, 420 380"
-          stroke="white"
-          strokeWidth="14"
-          strokeOpacity="0.9"
-        />
-        <path
-          d="M-20 90 L 820 120"
-          stroke="white"
-          strokeWidth="10"
-          strokeOpacity="0.75"
-        />
-        <path
-          d="M220 -20 L 260 380"
-          stroke="white"
-          strokeWidth="8"
-          strokeOpacity="0.6"
-        />
-        <path
-          d="M580 -20 L 520 380"
-          stroke="white"
-          strokeWidth="8"
-          strokeOpacity="0.6"
-        />
-      </svg>
-
-      {/* Pins */}
-      {places.map((place) => {
-        const isSelected = selectedPlace?.id === place.id;
-        return (
-          <button
-            key={place.id}
-            type="button"
-            onClick={() => onSelectPlace(place)}
-            style={{ left: `${place.x}%`, top: `${place.y}%` }}
-            className="absolute -translate-x-1/2 -translate-y-full cursor-pointer group transition-transform hover:scale-110 focus:outline-none"
-            aria-label={`Select ${place.name}`}
-          >
-            {/* Custom SVG Pin */}
-            <svg
-              viewBox="0 0 24 30"
-              width={isSelected ? 32 : 26}
-              height={isSelected ? 40 : 32}
-              fill="none"
-              className="transition-all filter drop-shadow-md"
-            >
-              <path
-                d="M12 0C5.373 0 0 5.373 0 12C0 19.5 12 30 12 30C12 30 24 19.5 24 12C24 5.373 18.627 0 12 0Z"
-                className={isSelected ? "fill-amber-500" : "fill-emerald-600"}
-              />
-              <circle cx="12" cy="11" r="4.5" className="fill-white" />
-            </svg>
-
-            {/* Hover Tooltip / Label */}
-            <div
-              className={`absolute left-1/2 -translate-x-1/2 -top-8 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap shadow-sm pointer-events-none transition-opacity ${
-                isSelected
-                  ? "bg-amber-400 text-amber-950 opacity-100 scale-105"
-                  : "bg-stone-900/80 text-white opacity-0 group-hover:opacity-100"
-              }`}
-            >
-              {place.name}
-            </div>
-          </button>
-        );
-      })}
-
-      {/* Map Corner Info Badge */}
-      <div className="absolute left-4 bottom-4 bg-white/90 backdrop-blur-xs px-3 py-1.5 rounded-xl border border-stone-200 text-xs font-semibold text-stone-700 shadow-xs flex items-center gap-2">
-        <Navigation className="w-3.5 h-3.5 text-emerald-600" />
-        <span>Thành phố Hồ Chí Minh · Các quận trung tâm</span>
-      </div>
+// Dynamic import component bản đồ Leaflet để tránh lỗi SSR trên Next.js
+const PlacesMap = dynamic(() => import("@/components/PlacesMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[420px] w-full rounded-[20px] bg-stone-100 flex flex-col items-center justify-center border border-stone-200">
+      <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin mb-2" />
+      <p className="text-sm text-stone-500 font-medium">Đang tải bản đồ OpenStreetMap...</p>
     </div>
-  );
-}
+  ),
+});
 
-type PlaceType = "Vegan" | "Vegetarian" | "Grocer" | "Café";
+const DEFAULT_COORDS = { lat: 10.776889, lng: 106.695345 }; // Trung tâm TP.HCM
+const RADIUS_OPTIONS = [2, 5, 10, 20];
 
 export default function ShopsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "Admin";
 
-  const [activeFilter, setActiveFilter] = useState<string>("All");
-  const [filters, setFilters] = useState<readonly string[]>(SHOP_FILTERS);
-  const [places, setPlaces] = useState<VeganPlace[]>(VEGAN_PLACES);
-  const [selectedPlace, setSelectedPlace] = useState<VeganPlace | null>(VEGAN_PLACES[0]);
-  const [suggestedSpots, setSuggestedSpots] = useState<FoodSpotItem[]>(SUGGESTED_FOOD_SPOTS);
-  const [loading, setLoading] = useState(false);
+  // Tọa độ người dùng & cài đặt tìm kiếm
+  const [coords, setCoords] = useState(DEFAULT_COORDS);
+  const [radiusKm, setRadiusKm] = useState<number>(5);
 
-  // Admin Modal states (Endpoints 33, 34)
+  // Dữ liệu quán ăn
+  const [shops, setShops] = useState<Shop[]>([]);
+  const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [gpsLoading, setGpsLoading] = useState<boolean>(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [gpsSuccess, setGpsSuccess] = useState<boolean>(false);
+
+  // Gợi ý món
+  const [suggestedSpots, setSuggestedSpots] = useState<FoodSpotItem[]>([]);
+
+  // Admin Modal
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingPlace, setEditingPlace] = useState<VeganPlace | null>(null);
+  const [editingShop, setEditingShop] = useState<Shop | null>(null);
   const [formData, setFormData] = useState({
     name: "",
-    type: "Vegan" as PlaceType,
+    category: "Vegan",
     address: "",
-    district: "Quận 1",
-    popularDish: "",
-    openingHours: "07:00 - 21:00",
+    latitude: 10.7769,
+    longitude: 106.6983,
+    specialDish: "",
+    phoneNumber: "",
     rating: 4.8,
   });
 
+  // ── 1. Lấy vị trí GPS từ trình duyệt ──────────────────────────
+  const requestGps = useCallback(() => {
+    if (typeof window === "undefined" || !("geolocation" in navigator)) {
+      setGpsError("Trình duyệt không hỗ trợ Geolocation GPS.");
+      return;
+    }
+
+    setGpsLoading(true);
+    setGpsError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        });
+        setGpsLoading(false);
+        setGpsSuccess(true);
+        setGpsError(null);
+      },
+      (err) => {
+        console.warn("Lỗi GPS:", err.message);
+        setGpsLoading(false);
+        setGpsSuccess(false);
+        setGpsError("Không thể lấy vị trí GPS tự động. Đang dùng vị trí mặc định (TP.HCM).");
+      },
+      { timeout: 10000, maximumAge: 60000, enableHighAccuracy: true }
+    );
+  }, []);
+
   useEffect(() => {
-    placeService.fetchShopFilters().then((f) => {
-      if (f && f.length > 0) setFilters(f);
-    });
+    requestGps();
+  }, [requestGps]);
+
+  // ── 2. Nạp danh sách gợi ý món ăn ──────────────────────────
+  useEffect(() => {
     placeService.fetchSuggestedFoodSpots().then((s) => {
       if (s && s.length > 0) setSuggestedSpots(s);
     });
   }, []);
 
-  useEffect(() => {
-    let active = true;
+  // ── 3. Gọi Backend tìm quán xung quanh (Haversine + OSM + Cache) ──
+  const fetchNearby = useCallback(async () => {
     setLoading(true);
-    placeService
-      .fetchPlaces(activeFilter as ShopFilter | "All")
-      .then((data) => {
-        if (!active) return;
-        setPlaces(data);
-        if (data.length > 0 && (!selectedPlace || !data.some((p) => p.id === selectedPlace.id))) {
-          setSelectedPlace(data[0]);
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [activeFilter]);
-
-  // Endpoint 30: GET /places/:id
-  const handleSelectPlace = async (p: VeganPlace) => {
-    setSelectedPlace(p);
     try {
-      const detailed = await placeService.fetchPlaceById(p.id);
-      if (detailed) {
-        setSelectedPlace(detailed);
-      }
-    } catch {}
-  };
+      const res = await placeService.fetchNearbyPlaces({
+        lat: coords.lat,
+        lng: coords.lng,
+        radiusKm,
+      });
 
-  // Admin handlers (Endpoints 33, 34, 35)
+      const fetchedShops = res.items || [];
+      setShops(fetchedShops);
+
+      if (fetchedShops.length > 0) {
+        setSelectedShop((prev) => {
+          if (prev && fetchedShops.some((s) => s.shopId === prev.shopId)) {
+            return fetchedShops.find((s) => s.shopId === prev.shopId) || fetchedShops[0];
+          }
+          return fetchedShops[0];
+        });
+      } else {
+        setSelectedShop(null);
+      }
+    } catch (err) {
+      console.error("Lỗi khi tải quán lân cận:", err);
+      setShops([]);
+      setSelectedShop(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [coords, radiusKm]);
+
+  useEffect(() => {
+    fetchNearby();
+  }, [fetchNearby]);
+
+  // ── 4. Admin CRUD Handlers ────────────────────────────────────
   const handleOpenAddModal = () => {
-    setEditingPlace(null);
+    setEditingShop(null);
     setFormData({
       name: "",
-      type: "Vegan",
+      category: "Vegan",
       address: "",
-      district: "Quận 1",
-      popularDish: "",
-      openingHours: "07:00 - 21:00",
+      latitude: coords.lat,
+      longitude: coords.lng,
+      specialDish: "",
+      phoneNumber: "",
       rating: 4.8,
     });
     setModalOpen(true);
   };
 
-  const handleOpenEditModal = (p: VeganPlace) => {
-    setEditingPlace(p);
+  const handleOpenEditModal = (shop: Shop) => {
+    setEditingShop(shop);
     setFormData({
-      name: p.name,
-      type: p.type,
-      address: p.address,
-      district: p.district,
-      popularDish: p.popularDish,
-      openingHours: p.openingHours,
-      rating: p.rating,
+      name: shop.name,
+      category: shop.category || "Vegan",
+      address: shop.address || "",
+      latitude: Number(shop.latitude),
+      longitude: Number(shop.longitude),
+      specialDish: shop.specialDish || "",
+      phoneNumber: shop.phoneNumber || "",
+      rating: Number(shop.rating || 4.5),
     });
     setModalOpen(true);
   };
@@ -232,77 +186,58 @@ export default function ShopsPage() {
     e.preventDefault();
     if (!formData.name.trim() || !formData.address.trim()) return;
 
-    if (editingPlace) {
-      // Endpoint 34: PUT /places/:id
-      try {
-        const updated = await placeService.updatePlace(editingPlace.id, formData);
-        setPlaces((prev) =>
-          prev.map((p) => (p.id === editingPlace.id ? { ...p, ...formData, ...updated } : p))
-        );
-        setSelectedPlace((prev) =>
-          prev?.id === editingPlace.id ? { ...prev, ...formData, ...updated } : prev
-        );
-      } catch {
-        setPlaces((prev) =>
-          prev.map((p) => (p.id === editingPlace.id ? { ...p, ...formData } : p))
-        );
-        setSelectedPlace((prev) =>
-          prev?.id === editingPlace.id ? { ...prev, ...formData } : prev
-        );
-      }
-    } else {
-      // Endpoint 33: POST /places
-      const newPlaceData: VeganPlace = {
-        id: `custom-${Date.now()}`,
-        name: formData.name,
-        type: formData.type,
-        address: formData.address,
-        district: formData.district,
-        popularDish: formData.popularDish || "Món chay tự chọn",
-        openingHours: formData.openingHours,
-        rating: formData.rating,
-        reviewsCount: 1,
-        distance: "Gần bạn",
-        x: 48,
-        y: 45,
-      };
-
-      try {
-        const created = await placeService.createPlace(newPlaceData);
-        const item = created?.id ? created : newPlaceData;
-        setPlaces((prev) => [item, ...prev]);
-        setSelectedPlace(item);
-      } catch {
-        setPlaces((prev) => [newPlaceData, ...prev]);
-        setSelectedPlace(newPlaceData);
-      }
-    }
-    setModalOpen(false);
-  };
-
-  const handleDeletePlace = async (p: VeganPlace) => {
-    if (!confirm(`Bạn có chắc chắn muốn xóa địa điểm "${p.name}"?`)) return;
     try {
-      // Endpoint 35: DELETE /places/:id
-      await placeService.deletePlace(p.id);
-    } catch {}
-    setPlaces((prev) => prev.filter((item) => item.id !== p.id));
-    if (selectedPlace?.id === p.id) {
-      setSelectedPlace(places.find((item) => item.id !== p.id) || null);
+      if (editingShop) {
+        await placeService.updatePlace(String(editingShop.shopId), {
+          name: formData.name,
+          address: formData.address,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+          type: formData.category as any,
+          popularDish: formData.specialDish,
+          phoneNumber: formData.phoneNumber,
+          rating: formData.rating,
+        });
+      } else {
+        await placeService.createPlace({
+          name: formData.name,
+          address: formData.address,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+          type: formData.category as any,
+          popularDish: formData.specialDish,
+          phoneNumber: formData.phoneNumber,
+          rating: formData.rating,
+        });
+      }
+      setModalOpen(false);
+      fetchNearby();
+    } catch (err) {
+      console.error("Lưu địa điểm thất bại:", err);
+      alert("Không thể lưu địa điểm, vui lòng kiểm tra lại quyền.");
     }
   };
 
-  const filteredPlaces = places;
+  const handleDeletePlace = async (shop: Shop) => {
+    if (!confirm(`Bạn có chắc chắn muốn xóa quán "${shop.name}"?`)) return;
+    try {
+      await placeService.deletePlace(String(shop.shopId));
+      fetchNearby();
+    } catch (err) {
+      console.error("Xóa thất bại:", err);
+      alert("Không thể xóa địa điểm.");
+    }
+  };
 
   return (
     <AppShell>
-      <div className="flex flex-col space-y-8">
+      <div className="flex flex-col space-y-6 max-w-7xl mx-auto pb-12">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <PageHeader
             eyebrow="BẢN ĐỒ ĂN UỐNG"
             title="Quán chay & địa điểm thuần chay gần bạn"
-            subtitle="Khám phá nhà hàng chay, quán cơm chay thanh tịnh, siêu thị thực phẩm sạch và quán café thân thiện tại TP.HCM."
+            subtitle="Khám phá nhà hàng chay, quán cơm chay thanh tịnh, siêu thị thực phẩm sạch và quán café thân thiện gần vị trí của bạn."
           />
           {isAdmin && (
             <button
@@ -316,74 +251,166 @@ export default function ShopsPage() {
           )}
         </div>
 
-        {/* Category Filters */}
-        <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
-          {filters.map((f) => (
-            <Chip
-              key={f}
-              variant="filter"
-              active={activeFilter === f}
-              onClick={() => setActiveFilter(f)}
+        {/* Thanh bộ lọc chỉ để BÁN KÍNH & VỊ TRÍ GPS */}
+        <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          {/* Bộ lọc bán kính */}
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs font-semibold text-stone-700">Bán kính:</span>
+            <div className="flex gap-1.5">
+              {RADIUS_OPTIONS.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRadiusKm(r)}
+                  className={`px-3.5 py-1.5 text-xs rounded-full font-semibold transition cursor-pointer ${
+                    radiusKm === r
+                      ? "bg-emerald-700 text-white shadow-xs"
+                      : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                  }`}
+                >
+                  {r}km
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Nút & trạng thái định vị GPS */}
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+            {gpsSuccess && !gpsError && (
+              <span className="text-xs text-stone-500 hidden md:inline">
+                Tọa độ: ({coords.lat.toFixed(4)}, {coords.lng.toFixed(4)})
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={requestGps}
+              disabled={gpsLoading}
+              title="Cập nhật vị trí GPS hiện tại"
+              className="h-9 px-3.5 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-700 text-xs font-medium shrink-0 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
-              {f}
-            </Chip>
-          ))}
+              <Compass className={`w-4 h-4 text-emerald-600 ${gpsLoading ? "animate-spin" : ""}`} />
+              <span>{gpsLoading ? "Đang định vị..." : "Định vị vị trí của tôi"}</span>
+            </button>
+          </div>
         </div>
 
-        {/* Interactive Pure SVG Map */}
-        <InteractiveMap
-          places={filteredPlaces}
-          selectedPlace={selectedPlace}
-          onSelectPlace={handleSelectPlace}
-        />
+        {/* Cảnh báo GPS lỗi nếu có */}
+        {gpsError && (
+          <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center justify-between">
+            <span>{gpsError}</span>
+            <button
+              type="button"
+              onClick={requestGps}
+              className="font-semibold text-emerald-800 hover:underline cursor-pointer ml-2 shrink-0"
+            >
+              Thử lại GPS
+            </button>
+          </div>
+        )}
 
-        {/* Selected Place Detail Highlight */}
-        {selectedPlace && (
-          <Card className="p-6 bg-gradient-to-r from-emerald-50/50 to-white border-emerald-200/80">
+        {/* ── BẢN ĐỒ TƯƠNG TÁC OPENSTREETMAP (LEAFLET) ── */}
+        <div className="relative w-full rounded-[20px] overflow-hidden border border-stone-200 shadow-sm bg-stone-100">
+          <PlacesMap
+            userLat={coords.lat}
+            userLng={coords.lng}
+            radiusKm={radiusKm}
+            shops={shops}
+            selectedShop={selectedShop}
+            onSelectShop={setSelectedShop}
+            height="420px"
+          />
+
+          {/* Badge góc bản đồ */}
+          <div className="absolute left-4 bottom-4 z-20 bg-white/95 backdrop-blur-xs px-3.5 py-1.5 rounded-xl border border-stone-200 text-xs font-semibold text-stone-800 shadow-md flex items-center gap-2">
+            <Navigation className="w-3.5 h-3.5 text-emerald-700" />
+            <span>
+              {shops.length > 0
+                ? `Tìm thấy ${shops.length} quán trong ${radiusKm}km`
+                : `Đang quét quán trong ${radiusKm}km...`}
+            </span>
+          </div>
+        </div>
+
+        {/* ── QUÁN ĐƯỢC CHỌN (DETAIL HIGHLIGHT CARD) ── */}
+        {selectedShop && (
+          <Card className="p-6 bg-gradient-to-r from-emerald-50/60 to-white border-emerald-200/90 shadow-sm">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2.5 mb-1.5">
-                  <Badge variant="success">{selectedPlace.type === 'Vegan' ? 'Thuần chay' : selectedPlace.type === 'Vegetarian' ? 'Chay' : selectedPlace.type === 'Café' ? 'Quán Cafe' : 'Cửa hàng'}</Badge>
-                  <span className="text-sm font-semibold text-stone-500">
-                    {selectedPlace.district} · Cách bạn {selectedPlace.distance}
+                  <Badge variant="success">
+                    {selectedShop.category || "Quán chay"}
+                  </Badge>
+                  {selectedShop.distanceM != null && (
+                    <span className="text-xs font-bold text-emerald-800 bg-emerald-100/90 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                      <Navigation className="w-3 h-3" />
+                      Cách {selectedShop.distanceM < 1000
+                        ? `${selectedShop.distanceM}m`
+                        : `${(selectedShop.distanceM / 1000).toFixed(1)}km`}
+                    </span>
+                  )}
+                  <span
+                    className={`text-xs font-medium flex items-center gap-1 ${
+                      selectedShop.isOpen ? "text-emerald-700" : "text-stone-500"
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${selectedShop.isOpen ? "bg-emerald-600" : "bg-stone-400"}`} />
+                    {selectedShop.isOpen ? "Đang mở cửa" : "Tạm đóng cửa"}
                   </span>
                 </div>
-                <h2 className="font-serif font-bold text-2xl text-stone-900">
-                  {selectedPlace.name}
+
+                <h2 className="font-serif font-bold text-2xl text-stone-900 leading-snug">
+                  {selectedShop.name}
                 </h2>
-                <p className="mt-1 text-sm text-stone-600">
-                  {selectedPlace.address}
-                </p>
+                {selectedShop.address && (
+                  <p className="mt-1 text-sm text-stone-600 flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{selectedShop.address}</span>
+                  </p>
+                )}
               </div>
 
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 shrink-0">
-                <Rating
-                  score={selectedPlace.rating}
-                  reviewsCount={`${selectedPlace.reviewsCount}`}
-                  variant="hero"
-                  className="text-stone-900"
-                />
-                <div className="flex items-center gap-1.5 text-sm text-stone-600">
-                  <Clock className="w-4 h-4 text-emerald-600" />
-                  <span>{selectedPlace.openingHours}</span>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 shrink-0">
+                <div className="flex items-center gap-1.5 font-bold text-base text-stone-900">
+                  <Star className="w-5 h-5 fill-amber-400 text-amber-400 shrink-0" />
+                  <span>{Number(selectedShop.rating || 4.5).toFixed(1)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${selectedShop.latitude},${selectedShop.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-xs transition"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>Chỉ đường Google Maps</span>
+                  </a>
+                  {selectedShop.phoneNumber && (
+                    <a
+                      href={`tel:${selectedShop.phoneNumber}`}
+                      className="p-2 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-700 text-xs"
+                      title="Gọi điện thoại"
+                    >
+                      <Phone className="w-4 h-4 text-emerald-700" />
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-emerald-100/70 flex items-center justify-between gap-2 text-sm text-stone-700">
+            <div className="mt-4 pt-4 border-t border-emerald-100 flex items-center justify-between gap-2 text-sm text-stone-700">
               <div className="flex items-center gap-2">
                 <Utensils className="w-4 h-4 text-emerald-700 shrink-0" />
                 <span>
-                  <strong>Món đặc trưng:</strong> {selectedPlace.popularDish}
+                  <strong>Món đặc trưng:</strong>{" "}
+                  {selectedShop.specialDish || "Đậu hũ sốt nấm, cơm chay tự chọn"}
                 </span>
               </div>
 
-              {/* Admin Actions for selected place */}
+              {/* Admin Actions */}
               {isAdmin && (
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => handleOpenEditModal(selectedPlace)}
+                    onClick={() => handleOpenEditModal(selectedShop)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold transition-colors cursor-pointer"
                   >
                     <Pencil className="w-3.5 h-3.5" />
@@ -391,7 +418,7 @@ export default function ShopsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDeletePlace(selectedPlace)}
+                    onClick={() => handleDeletePlace(selectedShop)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -403,99 +430,101 @@ export default function ShopsPage() {
           </Card>
         )}
 
-        {/* Full Places Directory List */}
+        {/* ── DANH SÁCH QUÁN XUNG QUANH (HAVERSINE REAL DISTANCE) ── */}
         <div>
-          <h2 className="font-serif font-bold text-2xl text-stone-900 tracking-tight mb-4">
-            Tất cả địa điểm ({filteredPlaces.length})
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredPlaces.map((place) => (
-              <Card
-                key={place.id}
-                onClick={() => handleSelectPlace(place)}
-                className={`p-5 cursor-pointer transition-all ${
-                  selectedPlace?.id === place.id
-                    ? "border-emerald-600 shadow-sm bg-emerald-50/30"
-                    : "hover:border-stone-300"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full">
-                        {place.type === 'Vegan' ? 'Thuần chay' : place.type === 'Vegetarian' ? 'Chay' : place.type === 'Café' ? 'Quán Cafe' : 'Cửa hàng'}
-                      </span>
-                      <span className="text-xs text-stone-400">
-                        {place.distance}
-                      </span>
-                    </div>
-                    <h3 className="font-serif font-bold text-lg text-stone-900 leading-snug">
-                      {place.name}
-                    </h3>
-                    <p className="mt-1 text-xs text-stone-500">
-                      {place.address}
-                    </p>
-                  </div>
-
-                  <Rating score={place.rating} />
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs text-stone-600">
-                  <span>Mở cửa: {place.openingHours}</span>
-                  <span className="text-emerald-700 font-medium">
-                    {place.popularDish.split("&")[0]}
-                  </span>
-                </div>
-              </Card>
-            ))}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-serif font-bold text-2xl text-stone-900 tracking-tight">
+              Quán ăn trong bán kính {radiusKm}km ({shops.length})
+            </h2>
+            <span className="text-xs text-stone-500">
+              Sắp xếp theo khoảng cách gần nhất
+            </span>
           </div>
+
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-32 bg-stone-100 rounded-2xl animate-pulse" />
+              ))}
+            </div>
+          ) : shops.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-2xl border border-stone-200">
+              <p className="text-base font-semibold text-stone-800">
+                Không tìm thấy quán chay nào trong bán kính {radiusKm}km
+              </p>
+              <p className="text-xs text-stone-500 mt-1">
+                Thử mở rộng bán kính tìm kiếm để xem thêm các quán lân cận.
+              </p>
+              <button
+                type="button"
+                onClick={() => setRadiusKm((r) => Math.min(r + 5, 30))}
+                className="mt-4 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-xs cursor-pointer transition inline-flex items-center gap-1.5"
+              >
+                <span>Mở rộng lên {Math.min(radiusKm + 5, 30)}km</span>
+                <Navigation className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {shops.map((shop) => (
+                <ShopCard
+                  key={shop.shopId}
+                  shop={shop}
+                  isSelected={selectedShop?.shopId === shop.shopId}
+                  onClick={() => setSelectedShop(shop)}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Suggested For Section */}
-        <section className="pt-6 border-t border-stone-200">
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-5 h-5 text-amber-500" />
-            <h2 className="font-serif font-bold text-2xl text-stone-900 tracking-tight">
-              Gợi ý quán chay chuẩn vị theo món ăn
-            </h2>
-          </div>
+        {/* ── GỢI Ý MÓN ĂN CHUẨN VỊ ── */}
+        {suggestedSpots.length > 0 && (
+          <section className="pt-6 border-t border-stone-200">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="w-5 h-5 text-amber-500" />
+              <h2 className="font-serif font-bold text-2xl text-stone-900 tracking-tight">
+                Gợi ý quán chay chuẩn vị theo món ăn
+              </h2>
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {suggestedSpots.map((sug) => (
-              <Card key={sug.dish} className="p-5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700 mb-1">
-                  BẠN ĐANG THÈM MÓN NÀY?
-                </p>
-                <h3 className="font-serif font-bold text-lg text-stone-900 mb-3">
-                  {sug.dish}
-                </h3>
-                <div className="space-y-2">
-                  {sug.places.map((p) => (
-                    <div
-                      key={p.name}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50 text-sm"
-                    >
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span className="font-medium text-stone-900">{p.name}</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {suggestedSpots.map((sug) => (
+                <Card key={sug.dish} className="p-5">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700 mb-1">
+                    BẠN ĐANG THÈM MÓN NÀY?
+                  </p>
+                  <h3 className="font-serif font-bold text-lg text-stone-900 mb-3">
+                    {sug.dish}
+                  </h3>
+                  <div className="space-y-2">
+                    {sug.places.map((p) => (
+                      <div
+                        key={p.name}
+                        className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50 text-sm"
+                      >
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span className="font-medium text-stone-900">{p.name}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-stone-500">
+                          <span>{p.distance}</span>
+                          <span className="font-semibold text-emerald-800">{p.price}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-stone-500">
-                        <span>{p.distance}</span>
-                        <span className="font-semibold text-emerald-800">{p.price}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            ))}
-          </div>
-        </section>
+                    ))}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
-      {/* Admin Add/Edit Place Modal */}
+      {/* ── MODAL THÊM / SỬA ĐỊA ĐIỂM (ADMIN) ── */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-stone-200 relative">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-stone-200 relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setModalOpen(false)}
               className="absolute top-5 right-5 text-stone-400 hover:text-stone-700 cursor-pointer"
@@ -504,7 +533,7 @@ export default function ShopsPage() {
             </button>
 
             <h3 className="font-serif font-bold text-xl text-stone-900 mb-1">
-              {editingPlace ? "Sửa địa điểm quán chay" : "Thêm địa điểm quán chay mới"}
+              {editingShop ? "Sửa địa điểm quán chay" : "Thêm địa điểm quán chay mới"}
             </h3>
             <p className="text-xs text-stone-500 mb-5">
               Cập nhật cơ sở dữ liệu các điểm ăn chay cho cộng đồng
@@ -527,8 +556,8 @@ export default function ShopsPage() {
                 <div>
                   <label className="text-xs font-semibold text-stone-700 block mb-1">Loại hình</label>
                   <select
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value as PlaceType })}
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     className="w-full h-10 px-3 rounded-xl border border-stone-200 text-sm focus:outline-emerald-600 bg-white"
                   >
                     <option value="Vegan">Thuần chay (Vegan)</option>
@@ -538,12 +567,12 @@ export default function ShopsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-stone-700 block mb-1">Khu vực / Quận</label>
+                  <label className="text-xs font-semibold text-stone-700 block mb-1">Số điện thoại</label>
                   <input
                     type="text"
-                    value={formData.district}
-                    onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                    placeholder="Quận 1"
+                    value={formData.phoneNumber}
+                    onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                    placeholder="028 3823 4567"
                     className="w-full h-10 px-3.5 rounded-xl border border-stone-200 text-sm focus:outline-emerald-600"
                   />
                 </div>
@@ -556,9 +585,32 @@ export default function ShopsPage() {
                   required
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Ví dụ: 38 Huỳnh Khương Ninh, Đa Kao, Quận 1"
+                  placeholder="Ví dụ: 38 Huỳnh Khương Ninh, Đa Kao, Quận 1, TP.HCM"
                   className="w-full h-10 px-3.5 rounded-xl border border-stone-200 text-sm focus:outline-emerald-600"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-stone-700 block mb-1">Vĩ độ (Latitude)</label>
+                  <input
+                    type="number"
+                    step="0.0000001"
+                    value={formData.latitude}
+                    onChange={(e) => setFormData({ ...formData, latitude: parseFloat(e.target.value) || 0 })}
+                    className="w-full h-10 px-3.5 rounded-xl border border-stone-200 text-sm focus:outline-emerald-600"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-stone-700 block mb-1">Kinh độ (Longitude)</label>
+                  <input
+                    type="number"
+                    step="0.0000001"
+                    value={formData.longitude}
+                    onChange={(e) => setFormData({ ...formData, longitude: parseFloat(e.target.value) || 0 })}
+                    className="w-full h-10 px-3.5 rounded-xl border border-stone-200 text-sm focus:outline-emerald-600"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -566,19 +618,21 @@ export default function ShopsPage() {
                   <label className="text-xs font-semibold text-stone-700 block mb-1">Món ăn nổi bật</label>
                   <input
                     type="text"
-                    value={formData.popularDish}
-                    onChange={(e) => setFormData({ ...formData, popularDish: e.target.value })}
+                    value={formData.specialDish}
+                    onChange={(e) => setFormData({ ...formData, specialDish: e.target.value })}
                     placeholder="Lẩu nấm tiêu xanh"
                     className="w-full h-10 px-3.5 rounded-xl border border-stone-200 text-sm focus:outline-emerald-600"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-stone-700 block mb-1">Giờ mở cửa</label>
+                  <label className="text-xs font-semibold text-stone-700 block mb-1">Đánh giá (Rating)</label>
                   <input
-                    type="text"
-                    value={formData.openingHours}
-                    onChange={(e) => setFormData({ ...formData, openingHours: e.target.value })}
-                    placeholder="07:00 - 21:00"
+                    type="number"
+                    step="0.1"
+                    min="1"
+                    max="5"
+                    value={formData.rating}
+                    onChange={(e) => setFormData({ ...formData, rating: parseFloat(e.target.value) || 4.5 })}
                     className="w-full h-10 px-3.5 rounded-xl border border-stone-200 text-sm focus:outline-emerald-600"
                   />
                 </div>
@@ -597,7 +651,7 @@ export default function ShopsPage() {
                   className="px-5 h-10 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
-                  <span>{editingPlace ? "Lưu thay đổi" : "Tạo địa điểm"}</span>
+                  <span>{editingShop ? "Lưu thay đổi" : "Tạo địa điểm"}</span>
                 </button>
               </div>
             </form>

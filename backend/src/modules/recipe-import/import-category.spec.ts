@@ -110,8 +110,8 @@ describe('Import: nhận đúng tên cột trong file Excel (mục 4)', () => {
 
   it('"Cách nấu" là hướng dẫn, "Thời gian nấu" là số phút, "suitable_meals" không đè cột Bữa ăn', async () => {
     const row = await importWith(
-      ['Tên món', 'Cách nấu', 'Thời gian nấu (phút)', 'Bữa ăn', 'suitable_meals', 'Chế độ ăn chay', 'Nguyên liệu'],
-      ['Canh chua chay', '1. Nấu nước dùng', 25, 'Trưa/Tối', 'lunch,dinner', 'Thuần chay', 'Đậu hũ trắng (150g)'],
+      ['Tên món', 'Cách nấu', 'Thời gian nấu (phút)', 'Bữa ăn', 'suitable_meals', 'Chế độ ăn chay', 'Nguyên liệu', 'Danh mục'],
+      ['Canh chua chay', '1. Nấu nước dùng', 25, 'Trưa/Tối', 'lunch,dinner', 'Thuần chay', 'Đậu hũ trắng (150g)', 'Canh & Súp'],
     );
     expect(row.instructions).toBe('1. Nấu nước dùng');
     expect(row.cook_time).toBe(25);
