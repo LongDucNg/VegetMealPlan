@@ -1590,6 +1590,10 @@ export class RecipeService {
         cost: hasPrice ? Math.round(cost) : null,
         // false: không quy đổi được đơn vị, chi phí chỉ là ước tính
         unit_converted: hasPrice ? converted : false,
+        calories_per_100g: ingredient?.calories_per_100g != null ? Number(ingredient.calories_per_100g) : null,
+        calories: ingredient?.calories_per_100g != null
+          ? Math.round((Number(row.quantity ?? 0) / 100) * Number(ingredient.calories_per_100g))
+          : null,
       };
     });
 

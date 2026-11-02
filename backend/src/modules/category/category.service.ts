@@ -80,11 +80,12 @@ export class CategoryService {
     return await this.categoryRepo.save(category);
   }
 
-  /** Danh mục kèm số công thức đang dùng (findAll / findOne dùng chung). */
+  /** Danh mục kèm số công thức / số bài viết đang dùng (findAll / findOne dùng chung). */
   private withRecipeCount() {
     return this.categoryRepo
       .createQueryBuilder('category')
       .leftJoin('recipe_categories', 'rc', 'rc.category_id = category.category_id')
+      .leftJoin('blogs', 'b', 'b.category_id = category.category_id')
       .select([
         'category.category_id AS category_id',
         'category.category_name AS category_name',
@@ -95,12 +96,17 @@ export class CategoryService {
         'category.created_at AS created_at',
         'category.updated_at AS updated_at',
       ])
-      .addSelect('COUNT(rc.recipe_id)::int', 'recipe_count')
+      .addSelect('COUNT(DISTINCT rc.recipe_id)::int', 'recipe_count')
+      .addSelect('COUNT(DISTINCT b.blog_id)::int', 'post_count')
       .groupBy('category.category_id');
   }
 
   private toView(row: any) {
-    return { ...row, recipe_count: Number(row.recipe_count || 0) };
+    return {
+      ...row,
+      recipe_count: Number(row.recipe_count || 0),
+      post_count: Number(row.post_count || 0),
+    };
   }
 
   async findAll(): Promise<any[]> {

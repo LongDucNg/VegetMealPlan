@@ -1,4 +1,5 @@
 import { COMMON_ALLERGENS } from "../data/mockAllergies";
+import { formatAllergy } from "@/features/profile/types";
 
 export interface AllergyCheckResult {
   hasAllergy: boolean;
@@ -13,9 +14,11 @@ export interface HasIngredients {
   description?: string;
   allergens?: string[];
   ingredients?: Array<
-    | { name: string; id?: unknown; quantity?: unknown; unit?: unknown; amount?: unknown }
+    | { name?: string; ingredient_name?: string; id?: unknown; quantity?: unknown; unit?: unknown; amount?: unknown }
     | string
   >;
+  recipe_ingredients?: Array<any>;
+  recipeIngredients?: Array<any>;
 }
 
 interface HasAllergies {
@@ -42,9 +45,18 @@ export function checkAllergies(
   const explicitAllergens = (recipe.allergens || []).map((a) => a.toLowerCase().trim());
 
   // 2. Flatten recipe text into normalized string for comprehensive detection
-  const ingredientNames = ((recipe.ingredients || []) as Array<{ name?: string } | string>).map((ing) =>
-    typeof ing === "string" ? ing.toLowerCase() : (ing.name || "").toLowerCase()
-  );
+  const rawIngs = (recipe.ingredients && recipe.ingredients.length > 0)
+    ? recipe.ingredients
+    : (recipe.recipe_ingredients && recipe.recipe_ingredients.length > 0)
+    ? recipe.recipe_ingredients
+    : (recipe.recipeIngredients && recipe.recipeIngredients.length > 0)
+    ? recipe.recipeIngredients
+    : [];
+
+  const ingredientNames = (rawIngs as Array<{ name?: string; ingredient_name?: string } | string>).map((ing) => {
+    if (typeof ing === "string") return ing.toLowerCase();
+    return (ing.name || ing.ingredient_name || "").toLowerCase();
+  });
 
   const fullText = [
     recipe.name || "",
@@ -64,11 +76,14 @@ export function checkAllergies(
     const rule = COMMON_ALLERGENS.find(
       (r) =>
         r.id.toLowerCase() === normalizedUserAllergy ||
-        r.name.toLowerCase() === normalizedUserAllergy
+        r.name.toLowerCase() === normalizedUserAllergy ||
+        (r.aliases && r.aliases.map((a) => a.toLowerCase()).includes(normalizedUserAllergy))
     );
 
     const keywords = rule ? rule.keywords : [normalizedUserAllergy];
-    const allergenDisplayName = rule ? rule.name : userAllergy;
+    const allergenDisplayName = rule
+      ? rule.name
+      : formatAllergy(userAllergy) || userAllergy;
 
     // Check explicit array match
     const explicitMatch = explicitAllergens.some(
@@ -96,7 +111,7 @@ export function checkAllergies(
     allergens: detectedAllergens,
     isSafe: !hasAllergy,
     warningMessage: hasAllergy
-      ? `This recipe contains ingredients that may cause an allergic reaction based on your profile. Detected allergens: ${detectedAllergens.join(", ")}`
+      ? `Công thức này có chứa thành phần có thể gây dị ứng cho bạn: ${detectedAllergens.join(", ")}`
       : undefined,
   };
 }
@@ -105,4 +120,31 @@ export function checkAllergies(
  * Backward compatibility alias
  */
 export const checkRecipeAllergy = checkAllergies;
+
+/**
+ * Kiểm tra xem một nguyên liệu cụ thể có chứa thành phần dị ứng của người dùng hay không
+ */
+export function isIngredientAllergenic(
+  ingredientName?: string,
+  userAllergies?: string[] | null
+): boolean {
+  if (!ingredientName || !userAllergies || !userAllergies.length) return false;
+  const lowerName = ingredientName.toLowerCase().trim();
+
+  for (const allergy of userAllergies) {
+    const normalized = allergy.toLowerCase().trim();
+    const rule = COMMON_ALLERGENS.find(
+      (r) =>
+        r.id.toLowerCase() === normalized ||
+        r.name.toLowerCase() === normalized ||
+        (r.aliases && r.aliases.map((a) => a.toLowerCase()).includes(normalized))
+    );
+    const keywords = rule ? rule.keywords : [normalized];
+
+    if (keywords.some((kw) => lowerName.includes(kw.toLowerCase()))) {
+      return true;
+    }
+  }
+  return false;
+}
 

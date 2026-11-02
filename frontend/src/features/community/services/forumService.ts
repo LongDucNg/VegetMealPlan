@@ -516,12 +516,13 @@ export const forumService = {
    */
   async adminUpdatePostStatus(
     id: number | string,
-    status: "approved" | "rejected" | "removed" | "pending_review"
+    status: "approved" | "rejected" | "removed" | "pending_review",
+    reason?: string
   ): Promise<ForumPost> {
     const numericId = Number(id);
     const res = await apiClient.put<BackendForumPostDetail>(
       `/admin/forum/posts/${numericId}/status`,
-      { status }
+      { status, reason }
     );
     const postData = (res as any)?.data || res;
     return mapBackendPostToForumPost(postData);
@@ -557,6 +558,7 @@ export const forumService = {
         date: p.timestamp,
         reports: 0,
         status,
+        rejectReason: p.rejectReason || null,
       };
     });
   },

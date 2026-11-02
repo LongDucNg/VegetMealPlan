@@ -21,6 +21,7 @@ import { IngredientModule } from '../ingredient/ingredient.module';
 import { IngredientReplacement } from '../ingredient/entities/ingredient-replacement.entity';
 import { User } from '../users/entities/user.entity';
 import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
     ]),
     IngredientModule,
     MediaModule,
+    NotificationModule,
   ],
   controllers: [
     RecipeController,
