@@ -871,6 +871,12 @@ export function ProfileEditor() {
                             Khuyên dùng
                           </span>
                         );
+                      } else if (g.id === "healthy_eating") {
+                        badge = (
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded shrink-0">
+                            Cân bằng
+                          </span>
+                        );
                       }
                     }
                   }
