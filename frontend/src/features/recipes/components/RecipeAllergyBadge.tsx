@@ -33,11 +33,11 @@ export function RecipeAllergyBadge({
   if (compact) {
     return (
       <span
-        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs ${className}`}
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs ${className}`}
         title={`Cảnh báo dị ứng: Chứa ${allergenText}`}
       >
         <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-        <span className="truncate">⚠ {warningLabel}</span>
+        <span className="truncate">{warningLabel}</span>
       </span>
     );
   }
