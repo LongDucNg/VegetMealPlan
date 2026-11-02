@@ -67,6 +67,8 @@ export interface Recipe {
   estimatedCost?: number;
   source?: RecipeSource;
   status?: RecipeStatus;
+  review_reason?: string | null;
+  reviewReason?: string | null;
 
   // Display & compatibility helpers
   duration?: string;

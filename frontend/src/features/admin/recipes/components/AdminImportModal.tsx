@@ -11,6 +11,7 @@ import {
   AlertOctagon,
   RefreshCw,
   Check,
+  Tag,
 } from "lucide-react";
 import { excelImportService } from "../services/excelImportService";
 import { adminRecipeApiService } from "@/features/admin/services/adminRecipeApiService";
@@ -174,6 +175,17 @@ export function AdminImportModal({
                 </p>
               </div>
             </label>
+          </div>
+
+          {/* Note about un-category */}
+          <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 text-stone-700 text-xs flex items-start gap-2.5">
+            <Tag className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-stone-900">Quy tắc phân loại danh mục:</p>
+              <p className="mt-0.5 text-stone-600 leading-relaxed">
+                Nếu công thức chưa có danh mục hoặc danh mục trong file Excel không tồn tại trong hệ thống, hệ thống sẽ tự động hiển thị nhãn <span className="inline-block px-1.5 py-0.2 rounded font-mono font-semibold bg-stone-200 text-stone-800 text-[11px]">un-category</span> (Chưa phân loại) để bạn dễ dàng quản lý và cập nhật sau.
+              </p>
+            </div>
           </div>
 
           {/* Upload Error Alert */}
