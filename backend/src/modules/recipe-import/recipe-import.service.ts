@@ -713,6 +713,15 @@ export class RecipeImportService {
       );
     }
 
+    if (row.category_raw === '' || (row.category_raw === undefined && row.category_ids === undefined && row.row_error && row.row_error.includes('danh mục'))) {
+      return this.createFailedItem(
+        row_number,
+        recipe_title,
+        ImportFailReason.INVALID_CATEGORY,
+        'Cột danh mục món ăn không được để trống. Vui lòng nhập tên danh mục hợp lệ (ví dụ: Món đủ bữa, Cơm/xôi nếp, Canh/súp, Mì, Bún & Phở...).',
+      );
+    }
+
     if (hasCategoryText || hasCategoryIds) {
       const allCategories = await loadCategories();
       let categoryIds = hasCategoryIds ? [...row.category_ids!] : [];
