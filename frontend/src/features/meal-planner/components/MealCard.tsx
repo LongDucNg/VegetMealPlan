@@ -129,7 +129,7 @@ export function MealCard({
         <div className="flex items-center justify-between gap-2 pt-0.5 flex-wrap">
           <span className="flex items-center gap-1 font-bold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-lg border border-amber-200 text-xs shadow-2xs">
             <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-            Tổng: {totalMealCalories} kcal
+            Tổng: ~{Math.round(Number(totalMealCalories) * 100) / 100} kcal
           </span>
 
           {/* Macronutrient breakdown */}
@@ -175,7 +175,7 @@ export function MealCard({
                       {role.label}
                     </span>
                     <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                      {dish.calories} kcal
+                      ~{Math.round(Number(dish.calories) * 100) / 100} kcal
                     </span>
                   </div>
 

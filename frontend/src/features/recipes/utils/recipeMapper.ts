@@ -41,7 +41,7 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
     const macroCalories = Math.round(protein * 4 + carbs * 4 + fat * 9);
     rawCalories = macroCalories > 0 ? macroCalories : 350;
   }
-  const calories = Math.round(rawCalories);
+  const calories = Math.round(rawCalories * 100) / 100;
 
   // Ingredients
   let ingredients: IngredientItem[] = [];
@@ -79,7 +79,7 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
         0
       );
       const cost = Number(item.cost || (unitPrice > 0 ? Math.round(unitPrice * quantity) : 0));
-      const caloriesPer100g =
+      const rawCalPer100 =
         ingredientObj.calories_per_100g !== undefined && ingredientObj.calories_per_100g !== null
           ? Number(ingredientObj.calories_per_100g)
           : item.calories_per_100g !== undefined && item.calories_per_100g !== null
@@ -87,9 +87,10 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
             : item.caloriesPer100g !== undefined && item.caloriesPer100g !== null
               ? Number(item.caloriesPer100g)
               : getIngredientCaloriesPer100g(name);
+      const caloriesPer100g = Math.round(rawCalPer100 * 100) / 100;
       const calories =
         item.calories !== undefined && item.calories !== null
-          ? Number(item.calories)
+          ? Math.round(Number(item.calories) * 100) / 100
           : calculateIngredientCalories(quantity, unit, caloriesPer100g);
 
       return {
