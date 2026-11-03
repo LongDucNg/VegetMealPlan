@@ -187,6 +187,24 @@ export const forumService = {
    * 3. Lấy chi tiết bài viết và tăng lượt xem
    * GET /api/v1/forum/posts/:id
    */
+  /**
+   * 3.1. Tăng lượt xem bài viết
+   * POST /api/v1/forum/posts/:id/view
+   */
+  async incrementPostView(id: number | string): Promise<{ success: boolean; views?: number }> {
+    const numericId = Number(id);
+    if (!numericId || isNaN(numericId)) return { success: false };
+    try {
+      const res = await apiClient.post<{ success: boolean; views: number }>(
+        `/forum/posts/${numericId}/view`
+      );
+      return (res as any)?.data || res;
+    } catch (err) {
+      console.warn(`[forumService] incrementPostView error for #${numericId}:`, err);
+      return { success: false };
+    }
+  },
+
   async getPostDetail(id: number | string): Promise<ForumPost | null> {
     const numericId = Number(id);
     if (!numericId || isNaN(numericId)) {
