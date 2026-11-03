@@ -96,6 +96,22 @@ export function useMealPlanner() {
     prevProfileRef.current = currentJson;
   }, [profile, hasGenerated, isPlanForSomeoneElse]);
 
+  // Tự động loại trừ và thay thế 100% các món có dị ứng khỏi kế hoạch
+  useEffect(() => {
+    if (weeklyPlan && activeProfile.allergies && activeProfile.allergies.length > 0) {
+      const sanitized = mealPlannerService.sanitizePlanAllergies(weeklyPlan, activeProfile);
+      if (sanitized !== weeklyPlan) {
+        setWeeklyPlan(sanitized);
+        storage.setItem(STORAGE_KEYS.GENERATED_PLAN, {
+          planType,
+          weeklyPlan: sanitized,
+          monthlyPlan,
+          activeDayIndex,
+        });
+      }
+    }
+  }, [weeklyPlan, activeProfile, planType, monthlyPlan, activeDayIndex]);
+
   // Listen for external recipe changes or price updates
   const [syncVersion, setSyncVersion] = useState(0);
   useEffect(() => {
