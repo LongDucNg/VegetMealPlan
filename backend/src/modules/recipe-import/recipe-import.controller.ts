@@ -254,21 +254,20 @@ export class RecipeImportController {
         const categoryCell = row.category_ids;
         const categoryText =
           typeof categoryCell === 'string' ? categoryCell.trim() : '';
+        const isBlankCategory =
+          categoryCell === undefined ||
+          categoryCell === null ||
+          (typeof categoryCell === 'string' && categoryText === '');
         const categoryByName =
-          categoryText !== '' && !isCategoryIdList(categoryText);
-        const categoryIds = categoryByName
+          isBlankCategory || (categoryText !== '' && !isCategoryIdList(categoryText));
+        const categoryIds = (categoryByName || isBlankCategory)
           ? {}
           : this.toCategoryIds(categoryCell);
-
-        if (categoryCell === undefined || categoryCell === null || (typeof categoryCell === 'string' && categoryCell.trim() === '')) {
-          row_error = row_error
-            ? `${row_error}; Cột danh mục món ăn không được để trống`
-            : `Dòng Excel ${rowNumber}: Cột danh mục món ăn không được để trống`;
-        } else if (categoryIds.error) {
-          row_error = row_error
-            ? `${row_error}; ${categoryIds.error}`
-            : `Dòng Excel ${rowNumber}: ${categoryIds.error}`;
-        }
+        const resolvedCategoryRaw = isBlankCategory
+          ? 'Khác'
+          : categoryByName
+            ? categoryText
+            : undefined;
 
         return {
           title: String(row.title || '').trim(),
@@ -291,7 +290,7 @@ export class RecipeImportController {
             : undefined,
           diet_type: this.normalizeDietType(row.diet_type),
           category_ids: categoryIds.ids,
-          category_raw: categoryByName ? categoryText : undefined,
+          category_raw: resolvedCategoryRaw,
           row_error,
           row_number: rowNumber,
           ingredients: ingredients.map((ingredient) => ({

@@ -21,7 +21,7 @@ import {
 import { DietType } from '../users/entities/user.entity';
 import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
 import { RecipeCategory } from '../recipe/entities/recipe-category.entity';
-import { Category } from '../category/entities/category.entity';
+import { Category, CategoryStatus, CategoryType } from '../category/entities/category.entity';
 import { assertValidRecipeCategoryIds } from '../category/category-validation.util';
 import { resolveCategoryText, validateImportCategories } from './import-category.util';
 import { validateRecipeTitleKeyword } from '../recipe/recipe-validation.util';
@@ -117,6 +117,50 @@ export class RecipeImportService {
    * - Dong loi -> FAILED, cac dong khac van duoc xu ly binh thuong.
    * - Cong thuc hop le duoc tao voi trang thai PENDING_REVIEW.
    */
+  private async ensureOtherCategory(allCategories: Category[]): Promise<Category> {
+    let other: Category | null | undefined = allCategories.find(
+      (c) =>
+        c.category_name?.trim().toLowerCase() === 'khác' &&
+        c.category_type === CategoryType.RECIPE_TYPE &&
+        c.status === CategoryStatus.ACTIVE,
+    );
+    if (!other) {
+      const repo = this.dataSource.getRepository(Category);
+      if (repo && typeof repo.findOne === 'function') {
+        other = await repo.findOne({
+          where: {
+            category_name: 'Khác',
+            category_type: CategoryType.RECIPE_TYPE,
+          },
+        });
+      }
+      if (!other) {
+        if (repo && typeof repo.create === 'function' && typeof repo.save === 'function') {
+          other = await repo.save(
+            repo.create({
+              category_name: 'Khác',
+              category_type: CategoryType.RECIPE_TYPE,
+              description: 'Danh mục mặc định cho các món ăn khác hoặc món import chưa phân loại',
+              status: CategoryStatus.ACTIVE,
+            }),
+          );
+        } else {
+          other = {
+            category_id: 99,
+            category_name: 'Khác',
+            category_type: CategoryType.RECIPE_TYPE,
+            description: 'Danh mục mặc định cho các món ăn khác hoặc món import chưa phân loại',
+            status: CategoryStatus.ACTIVE,
+          } as Category;
+        }
+      }
+      if (other && !allCategories.some((c) => c.category_id === other!.category_id)) {
+        allCategories.push(other);
+      }
+    }
+    return other!;
+  }
+
   async importRows(
     admin_user_id: number,
     file_name: string,
@@ -713,30 +757,26 @@ export class RecipeImportService {
       );
     }
 
-    if (row.category_raw === '' || (row.category_raw === undefined && row.category_ids === undefined && row.row_error && row.row_error.includes('danh mục'))) {
-      return this.createFailedItem(
-        row_number,
-        recipe_title,
-        ImportFailReason.INVALID_CATEGORY,
-        'Cột danh mục món ăn không được để trống. Vui lòng nhập tên danh mục hợp lệ (ví dụ: Món đủ bữa, Cơm/xôi nếp, Canh/súp, Mì, Bún & Phở...).',
-      );
-    }
-
     if (hasCategoryText || hasCategoryIds) {
       const allCategories = await loadCategories();
-      let categoryIds = hasCategoryIds ? [...row.category_ids!] : [];
+      let categoryIds: number[] = hasCategoryIds ? [...row.category_ids!] : [];
 
       if (hasCategoryText) {
         const resolved = resolveCategoryText(row.category_raw!, allCategories);
-        if (resolved.error) {
-          return this.createFailedItem(
-            row_number,
-            recipe_title,
-            ImportFailReason.INVALID_CATEGORY,
-            resolved.error,
-          );
+        if (resolved.error || !resolved.ids || resolved.ids.length === 0) {
+          // Yêu cầu: Nếu import danh mục không trùng với các loại trong DB hoặc không nhận diện được,
+          // tự động chuyển vào danh mục "Khác" thay vì đánh dấu lỗi FAILED
+          const otherCat = await this.ensureOtherCategory(allCategories);
+          categoryIds = [otherCat.category_id];
+        } else {
+          categoryIds = [...categoryIds, ...(resolved.ids ?? [])];
         }
-        categoryIds = [...categoryIds, ...(resolved.ids ?? [])];
+      }
+
+      // Nếu không chọn danh mục hoặc danh sách trống -> tự động đưa vào danh mục "Khác"
+      if (categoryIds.length === 0) {
+        const otherCat = await this.ensureOtherCategory(allCategories);
+        categoryIds = [otherCat.category_id];
       }
 
       const invalidIds = categoryIds.filter((id) => !Number.isInteger(id) || id <= 0);
@@ -751,12 +791,17 @@ export class RecipeImportService {
 
       const categoryError = validateImportCategories(categoryIds, allCategories);
       if (categoryError) {
-        return this.createFailedItem(
-          row_number,
-          recipe_title,
-          ImportFailReason.INVALID_CATEGORY,
-          categoryError,
-        );
+        if (hasCategoryText) {
+          const otherCat = await this.ensureOtherCategory(allCategories);
+          categoryIds = [otherCat.category_id];
+        } else {
+          return this.createFailedItem(
+            row_number,
+            recipe_title,
+            ImportFailReason.INVALID_CATEGORY,
+            categoryError,
+          );
+        }
       }
 
       // Bước tạo công thức bên dưới đọc row.category_ids.
