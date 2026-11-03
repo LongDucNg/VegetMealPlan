@@ -827,7 +827,7 @@ function PantryManager({
               Tủ lạnh thông minh của bạn
             </h2>
             <p className="text-stone-600 text-sm mt-0.5">
-              Đồng bộ dữ liệu thời gian thực với PostgreSQL. Các công thức bên dưới sẽ tự động đề xuất dựa trên nguyên liệu bạn đang có.
+              Tự động cập nhật nguyên liệu trong bếp. Hệ thống AI sẽ đề xuất các món chay dinh dưỡng phù hợp nhất từ những gì bạn đang có.
             </p>
           </div>
         </div>
@@ -1471,7 +1471,7 @@ export default function PlannerScanPage() {
         <PageHeader
           eyebrow="TỦ LẠNH THÔNG MINH & SCANNER"
           title="Quản lý Tủ lạnh & Quét nguyên liệu AI"
-          subtitle="Theo dõi nguyên liệu sẵn có trong tủ lạnh của bạn với PostgreSQL và sử dụng AI để gợi ý món ăn chuẩn dinh dưỡng ngay tức thì."
+          subtitle="Theo dõi nguyên liệu sẵn có trong tủ lạnh của bạn và sử dụng AI để gợi ý các món chay chuẩn dinh dưỡng ngay tức thì."
         />
 
         {!ready ? (

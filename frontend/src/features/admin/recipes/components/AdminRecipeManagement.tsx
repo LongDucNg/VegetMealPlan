@@ -468,8 +468,8 @@ export function AdminRecipeManagement() {
             className="h-9 px-3 rounded-xl border border-stone-200 bg-white text-xs font-medium text-stone-700 outline-none hover:border-stone-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 cursor-pointer shadow-2xs"
           >
             <option value="all">Tất cả bữa ăn</option>
-            <option value="breakfast_lunch">Bữa sáng / trưa</option>
-            <option value="dinner">Bữa tối</option>
+            <option value="breakfast">Bữa sáng</option>
+            <option value="lunch_dinner">Bữa trưa / tối</option>
             <option value="snack">Bữa phụ</option>
           </select>
         </div>
@@ -595,21 +595,26 @@ export function AdminRecipeManagement() {
                       title={`Chọn món #${numId}`}
                     />
 
-                    {/* Thumbnail */}
-                    <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-stone-100 shrink-0">
+                    {/* Thumbnail - Bấm xem nhanh */}
+                    <button
+                      type="button"
+                      onClick={() => setViewingRecipe(recipe)}
+                      className="relative w-16 h-16 rounded-2xl overflow-hidden bg-stone-100 shrink-0 cursor-pointer group/thumb hover:ring-2 hover:ring-emerald-500 transition-all text-left"
+                      title="Xem nhanh chi tiết món ăn"
+                    >
                       {recipe.image ? (
                         <Image
                           src={recipe.image}
                           alt={recipe.title}
                           fill
-                          className="object-cover"
+                          className="object-cover group-hover/thumb:scale-105 transition-transform"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-xs text-stone-400">
                           Không có ảnh
                         </div>
                       )}
-                    </div>
+                    </button>
 
                     {/* Details */}
                     <div className="min-w-0 flex-1">
@@ -647,12 +652,14 @@ export function AdminRecipeManagement() {
                         )}
                       </div>
 
-                      <Link
-                        href={`/recipes/${recipe.id}`}
-                        className="font-semibold text-stone-900 text-base truncate block hover:text-emerald-700 hover:underline transition-colors"
+                      <button
+                        type="button"
+                        onClick={() => setViewingRecipe(recipe)}
+                        className="font-semibold text-stone-900 text-base truncate block text-left hover:text-emerald-700 hover:underline transition-colors cursor-pointer"
+                        title="Bấm để xem nhanh chi tiết công thức (không chuyển trang)"
                       >
                         {recipe.name || recipe.title}
-                      </Link>
+                      </button>
 
                       <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500 mt-1">
                         <span className="flex items-center gap-1 font-semibold text-amber-700">
