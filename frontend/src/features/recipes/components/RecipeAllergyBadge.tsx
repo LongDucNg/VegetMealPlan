@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { AlertTriangle, ShieldAlert, Sparkles } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { checkRecipeAllergy, HasIngredients } from "@/features/allergy/utils/checkRecipeAllergy";
 import { useProfile } from "@/features/profile/hooks/useProfile";
 import { formatAllergy } from "@/features/profile/types";
@@ -38,33 +38,38 @@ export function RecipeAllergyBadge({
 
   // Phân loại chi tiết vi phạm:
   // 1. Vi phạm Trứng theo trường phái ăn chay
-  const hasEggInRecipe = allergyResult.allergens.some(
-    (a) => a.toLowerCase().includes("trứng") || a.toLowerCase() === "egg"
-  );
+  const hasEggInRecipe =
+    allergyResult.allergenIds.includes("egg") ||
+    allergyResult.allergens.some(
+      (a) => a.toLowerCase().includes("trứng") || a.toLowerCase() === "egg"
+    );
   const isEggDietViolation =
     (vegType === "vegan" || vegType === "lacto_vegetarian") && hasEggInRecipe;
 
   // 2. Vi phạm Sữa theo trường phái ăn chay
-  const hasDairyInRecipe = allergyResult.allergens.some(
-    (a) =>
-      a.toLowerCase().includes("sữa") ||
-      a.toLowerCase().includes("dairy") ||
-      a.toLowerCase().includes("sua")
-  );
+  const hasDairyInRecipe =
+    allergyResult.allergenIds.includes("dairy") ||
+    allergyResult.allergens.some(
+      (a) =>
+        a.toLowerCase().includes("sữa") ||
+        a.toLowerCase().includes("dairy") ||
+        a.toLowerCase().includes("sua")
+    );
   const isDairyDietViolation =
     (vegType === "vegan" || vegType === "ovo_vegetarian") && hasDairyInRecipe;
 
   // 3. Vi phạm dị ứng cá nhân do người dùng chủ động chọn
-  const userDeclaredMatches = allergyResult.allergens.filter((a) => {
-    const lower = a.toLowerCase();
+  const userDeclaredMatches = allergyResult.detectedAllergens.filter((item) => {
     return declaredAllergies.some((d) => {
-      const dLower = d.toLowerCase();
+      const dNorm = d.toLowerCase().trim();
       return (
-        dLower === lower ||
-        dLower.includes(lower) ||
-        lower.includes(dLower) ||
-        (dLower === "egg" && lower.includes("trứng")) ||
-        (dLower === "dairy" && lower.includes("sữa"))
+        dNorm === item.id ||
+        (dNorm === "treenut" && (item.id === "treenut" || item.id === "tree_nut")) ||
+        (dNorm === "sesame" && (item.id === "sesame" || item.id === "seed")) ||
+        (dNorm === "egg" && item.id === "egg") ||
+        (dNorm === "dairy" && item.id === "dairy") ||
+        dNorm === item.name.toLowerCase() ||
+        (item.name.toLowerCase().includes(dNorm) && dNorm.length > 3)
       );
     });
   });
@@ -108,15 +113,16 @@ export function RecipeAllergyBadge({
     compactLabel = "Chứa Sữa (Né theo Chay có trứng)";
     description = "Món ăn có chứa Sữa & Chế phẩm sữa — chế độ Chay có trứng tự động né Sữa (chỉ cho phép dùng trứng).";
   } else if (userDeclaredMatches.length > 0) {
-    const formattedList = userDeclaredMatches.map((a) => formatAllergy(a) || a).join(", ");
+    const formattedList = userDeclaredMatches.map((a) => formatAllergy(a.id) || a.name).join(", ");
     title = "⚠ Cảnh báo dị ứng thực phẩm";
     compactLabel = `Dị ứng: ${formattedList}`;
     description = `Món ăn có chứa thành phần bạn bị dị ứng: ${formattedList}.`;
   }
 
-  // Bổ sung thông tin dị ứng cá nhân nếu có kèm theo
+  // Bổ sung thông tin dị ứng cá nhân nếu có kèm theo vi phạm trường phái ăn chay
   if (userDeclaredMatches.length > 0 && (isEggDietViolation || isDairyDietViolation)) {
-    const formattedList = userDeclaredMatches.map((a) => formatAllergy(a) || a).join(", ");
+    const formattedList = userDeclaredMatches.map((a) => formatAllergy(a.id) || a.name).join(", ");
+    compactLabel = `${compactLabel} • Dị ứng: ${formattedList}`;
     description += ` Ngoài ra món còn chứa thành phần dị ứng của bạn: ${formattedList}.`;
   }
 

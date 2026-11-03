@@ -271,7 +271,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
             "Luộc & Hấp",
             "Cuốn, Gỏi & Sa lát",
             "Canh & Súp",
-            "Món đủ bữa",
+            "Khác",
           ];
           const officialSet = new Set(OFFICIAL_10_CATEGORIES.map((x) => x.toLowerCase()));
           const matched = list.filter((c: any) =>
