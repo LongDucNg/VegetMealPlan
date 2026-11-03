@@ -38,42 +38,17 @@ export function useMealPlanner() {
     return profile;
   }, [isPlanForSomeoneElse, someoneElseProfile, profile]);
 
-  // NO AUTO-GENERATION: defaults to false unless explicitly generated or loaded (Requirements 18, 22, 29)
-  const [hasGenerated, setHasGenerated] = useState<boolean>(() => {
-    const saved = storage.getItem<{
-      planType: MealPlanType;
-      weeklyPlan: WeeklyMealPlan | null;
-      monthlyPlan: MonthlyMealPlan | null;
-      activeDayIndex: number;
-    } | null>(STORAGE_KEYS.GENERATED_PLAN, null);
-    return !!saved && (!!saved.weeklyPlan || !!saved.monthlyPlan);
-  });
+  // Mặc định ban đầu chưa bấm tạo thực đơn: lịch trống và chưa có món (hasGenerated = false)
+  const [hasGenerated, setHasGenerated] = useState<boolean>(false);
 
-  interface SavedPlanData {
-    planType?: MealPlanType;
-    weeklyPlan?: WeeklyMealPlan | null;
-    monthlyPlan?: MonthlyMealPlan | null;
-    activeDayIndex?: number;
-  }
+  const [planType, setPlanType] = useState<MealPlanType>("monthly");
 
-  const [planType, setPlanType] = useState<MealPlanType>(() => {
-    const saved = storage.getItem<SavedPlanData | null>(STORAGE_KEYS.GENERATED_PLAN, null);
-    return saved?.planType || "weekly";
-  });
+  const [activeDayIndex, setActiveDayIndex] = useState<number>(0);
 
-  const [activeDayIndex, setActiveDayIndex] = useState<number>(() => {
-    const saved = storage.getItem<SavedPlanData | null>(STORAGE_KEYS.GENERATED_PLAN, null);
-    return saved?.activeDayIndex || 0;
-  });
-
-  // Store actual plans
-  const [weeklyPlan, setWeeklyPlan] = useState<WeeklyMealPlan | null>(() => {
-    const saved = storage.getItem<SavedPlanData | null>(STORAGE_KEYS.GENERATED_PLAN, null);
-    return saved?.weeklyPlan || null;
-  });
+  // Store actual plans - bắt đầu bằng lịch trống
+  const [weeklyPlan, setWeeklyPlan] = useState<WeeklyMealPlan | null>(null);
   const [monthlyPlan, setMonthlyPlan] = useState<MonthlyMealPlan | null>(() => {
-    const saved = storage.getItem<SavedPlanData | null>(STORAGE_KEYS.GENERATED_PLAN, null);
-    return saved?.monthlyPlan || null;
+    return mealPlannerService.createEmptyMonthlyPlan();
   });
 
 
