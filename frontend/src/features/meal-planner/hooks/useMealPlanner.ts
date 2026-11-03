@@ -792,6 +792,7 @@ export function useMealPlanner() {
     nutritionSummary,
     isGenerating,
     generationFeedback,
+    setGenerationFeedback,
     profileChangedNotice,
     activeProfile,
     isPlanForSomeoneElse,

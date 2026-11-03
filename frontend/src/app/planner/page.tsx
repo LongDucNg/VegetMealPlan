@@ -38,6 +38,8 @@ import {
   CheckCircle2,
   Calendar,
   Lock,
+  X,
+  BookOpen,
 } from "lucide-react";
 
 function PlannerContent() {
@@ -56,6 +58,7 @@ function PlannerContent() {
     nutritionSummary,
     isGenerating,
     generationFeedback,
+    setGenerationFeedback,
     profileChangedNotice,
     activeProfile,
     isPlanForSomeoneElse,
@@ -87,8 +90,12 @@ function PlannerContent() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
+  const [favoritesModalTab, setFavoritesModalTab] = useState<"recipes" | "plans">("recipes");
   const [showSomeoneElseModal, setShowSomeoneElseModal] = useState(false);
   const [showSavePlanModal, setShowSavePlanModal] = useState(false);
+
+  // In-app Notification for Saved Meal Plan
+  const [savedNotification, setSavedNotification] = useState<{ name: string } | null>(null);
 
   // Single meal replace state
   const [replacingSlot, setReplacingSlot] = useState<{
@@ -162,7 +169,6 @@ function PlannerContent() {
     setShowUpgradeModal(false);
   };
 
-  // Determine currently selected day in view
   const currentViewDay = activeDay;
   const isSelectedDateInPast = isPastDate(selectedDateKey);
   const isSelectedDateGenerated = Boolean(currentViewDay && currentViewDay.totalCalories > 0);
@@ -223,6 +229,46 @@ function PlannerContent() {
               className="text-stone-500 hover:text-stone-800 underline cursor-pointer"
             >
               Đặt lại về bản thân
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          IN-APP NOTIFICATION TOAST: SAVED MEAL PLAN CONFIRMATION
+          ======================================================== */}
+      {savedNotification && (
+        <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-emerald-950 animate-in fade-in shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div>
+              <p className="font-bold text-sm text-emerald-900">
+                Đã lưu thành công &quot;{savedNotification.name}&quot; vào Thực đơn yêu thích!
+              </p>
+              <p className="text-emerald-700 text-xs mt-0.5">
+                Bạn có thể xem lại trong mục <strong>Thực đơn đã lưu</strong> và bấm &quot;Thay thế vào ngày đang xem&quot; bất cứ lúc nào.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+            <button
+              onClick={() => {
+                setFavoritesModalTab("plans");
+                setShowFavoritesModal(true);
+                setSavedNotification(null);
+              }}
+              className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs cursor-pointer flex items-center gap-1.5"
+            >
+              <CalendarDays className="w-3.5 h-3.5" />
+              <span>Xem thực đơn đã lưu & Thay thế</span>
+            </button>
+            <button
+              onClick={() => setSavedNotification(null)}
+              className="p-1.5 rounded-lg text-emerald-800 hover:bg-emerald-100 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -340,11 +386,28 @@ function PlannerContent() {
             <Button
               variant="soft"
               size="sm"
-              onClick={() => setShowFavoritesModal(true)}
+              onClick={() => {
+                setFavoritesModalTab("recipes");
+                setShowFavoritesModal(true);
+              }}
               className="h-10 px-3.5 rounded-xl border-stone-200 text-stone-700 hover:border-rose-300 hover:text-rose-700 flex items-center gap-1.5 text-xs cursor-pointer"
             >
-              <Heart className="w-3.5 h-3.5 text-rose-500" />
+              <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
               <span>Món yêu thích</span>
+            </Button>
+
+            <Button
+              variant="soft"
+              size="sm"
+              onClick={() => {
+                setFavoritesModalTab("plans");
+                setShowFavoritesModal(true);
+              }}
+              className="h-10 px-3.5 rounded-xl border-stone-200 text-stone-700 hover:border-emerald-300 hover:text-emerald-700 flex items-center gap-1.5 text-xs cursor-pointer"
+              title="Xem và áp dụng các mẫu thực đơn bạn đã lưu"
+            >
+              <CalendarDays className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Thực đơn đã lưu</span>
             </Button>
 
             <Button
@@ -439,7 +502,7 @@ function PlannerContent() {
       )}
 
       {/* ========================================================
-          3 NÚT XEM NGÀY / TUẦN / THÁNG & SUB-ACTIONS (Requirement)
+          3 NÚT XEM NGÀY / TUẦN / THÁNG & SUB-ACTIONS
           ======================================================== */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-b border-stone-200/80 pb-3">
         {/* 3 Nút xem */}
@@ -489,7 +552,7 @@ function PlannerContent() {
           <button
             onClick={() => setShowSavePlanModal(true)}
             className="h-10 px-3.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-            title="Lưu thực đơn vào mục Yêu thích"
+            title="Lưu thực đơn vào danh sách yêu thích"
           >
             <Heart className="w-3.5 h-3.5 fill-stone-400 text-stone-400" />
             <span>Lưu thực đơn</span>
@@ -861,7 +924,7 @@ function PlannerContent() {
       {/* ========================================================
           ALL INTERACTIVE MODALS
           ======================================================== */}
-      {/* 1. Meal Replacement Modal (Requirement 3) */}
+      {/* 1. Meal Replacement Modal (3 Tabs: AI suggestions, Favorite recipes, Saved meal plans) */}
       <MealReplacementModal
         isOpen={replacingSlot !== null}
         onClose={() => setReplacingSlot(null)}
@@ -869,6 +932,11 @@ function PlannerContent() {
         mealType={replacingSlot?.slot ? replacingSlot.slot.toUpperCase() : "Meal"}
         profile={activeProfile}
         onSelectReplacement={handleSelectReplacement}
+        onApplyDayPlan={(dayPlan) => {
+          applyFavoriteDayPlan(dayPlan);
+          setGenerationFeedback("✓ Đã thay thế toàn bộ 4 bữa ăn hôm nay bằng thực đơn yêu thích!");
+          setTimeout(() => setGenerationFeedback(null), 3000);
+        }}
       />
 
       {/* 2. Update Personal Recipe Price Modal (Requirement 6) */}
@@ -888,7 +956,12 @@ function PlannerContent() {
         isOpen={showFavoritesModal}
         onClose={() => setShowFavoritesModal(false)}
         profile={activeProfile}
-        onApplyPlan={(dayPlan) => applyFavoriteDayPlan(dayPlan)}
+        defaultTab={favoritesModalTab}
+        onApplyPlan={(dayPlan) => {
+          applyFavoriteDayPlan(dayPlan);
+          setGenerationFeedback("✓ Đã thay thế thực đơn vào ngày đang xem!");
+          setTimeout(() => setGenerationFeedback(null), 3000);
+        }}
         onLoadSavedPlan={(plan) => loadSavedPlan(plan)}
         onGenerateWeeklyWithFavorites={(favIds) => {
           generateWeekly({ favoriteRecipeIds: favIds });
@@ -923,9 +996,10 @@ function PlannerContent() {
             ? weeklyPlan?.totalEstimatedCost || 0
             : monthlyPlan?.totalEstimatedCost || 0
         }
-        onSave={(name) => {
-          saveCurrentMealPlan(name);
-          alert(`Đã lưu "${name}" vào danh sách Thực đơn yêu thích!`);
+        onSave={async (name) => {
+          await saveCurrentMealPlan(name);
+          setSavedNotification({ name });
+          setTimeout(() => setSavedNotification(null), 10000);
         }}
       />
 
