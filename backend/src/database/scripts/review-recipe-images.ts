@@ -15,8 +15,8 @@ const OUTPUT = resolve(join(__dirname, '..', '..', '..', 'recipe-images-review.h
 
 const LABEL: Record<string, string> = { exact: 'đúng món', similar: 'gần đúng', generic: 'minh hoạ chung' };
 
-const esc = (s: string) =>
-  s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+const esc = (s: string | undefined | null) =>
+  String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 function main() {
   const map = loadMap();
@@ -32,10 +32,12 @@ function main() {
   const cards = withImage
     .map(([title, e]) => {
       if (!hasImage(e)) return '';
+      const sourceLink = e.source_url || (e as any).original_url || e.url;
+      const queryStr = (e as any).query || '';
       return `<label class="card" data-title="${esc(title)}">
   <img loading="lazy" src="${esc(e.url)}" alt="${esc(title)}">
   <div class="meta"><span><input type="checkbox"> <b>${esc(title)}</b> <i class="m-${esc(e.match ?? 'exact')}">${LABEL[e.match ?? 'exact']}${e.shared ? ' · dùng chung' : ''}</i></span>
-  <small>${esc(e.provider)} · "${esc(e.query)}" · <a href="${esc(e.source_url)}" target="_blank" rel="noopener">nguồn</a></small>
+  <small>${esc(e.provider)} · "${esc(queryStr)}" · <a href="${esc(sourceLink)}" target="_blank" rel="noopener">nguồn</a></small>
   <small class="desc">${esc(e.description)}</small></div>
 </label>`;
     })
