@@ -54,7 +54,7 @@ export function MonthlyCalendarView({
           <div className="bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200">
             <span className="text-amber-600 block text-[10px]">Trung bình ngày:</span>
             <span className="font-bold text-amber-900">
-              {averageDailyCalories} kcal/ngày
+              ~{Math.round(Number(averageDailyCalories) * 100) / 100} kcal/ngày
             </span>
           </div>
         </div>
@@ -118,7 +118,7 @@ export function MonthlyCalendarView({
                   }`}
                 >
                   <Flame className="w-2.5 h-2.5 shrink-0" />
-                  <span>{day.totalCalories} kcal</span>
+                  <span>~{Math.round(Number(day.totalCalories) * 100) / 100} kcal</span>
                 </div>
                 <div
                   className={`truncate font-medium ${
