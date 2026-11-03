@@ -9,7 +9,7 @@ import {
   MealPlanType,
   GenerationPlanOptions,
 } from "../types";
-import { mealPlannerService } from "../services/mealPlannerService";
+import { mealPlannerService, getCurrentWeekDates } from "../services/mealPlannerService";
 import { useProfile } from "@/features/profile/hooks/useProfile";
 import { calculateDailyCalorieTarget, withCalorieTarget } from "@/features/nutrition/utils/calorieCalculator";
 import { nutritionService } from "@/features/nutrition/services/nutritionService";
@@ -144,7 +144,7 @@ export function useMealPlanner() {
   const activeDay: DayMealPlan | null = useMemo(() => {
     if (!hasGenerated) return null;
 
-    if (planType === "weekly" && weeklyPlan) {
+    if ((planType === "weekly" || planType === "daily") && weeklyPlan) {
       return weeklyPlan.days[activeDayIndex] || weeklyPlan.days[0] || null;
     }
 
@@ -161,6 +161,83 @@ export function useMealPlanner() {
   /**
    * Generates Weekly Meal Plan using real database recipes and backend AI API (Requirement 18, 19, 22)
    */
+  /**
+   * Generates Daily Meal Plan (1 ngày) với 3 buổi sáng trưa chiều có 2-3 món, AI xét duyệt
+   */
+  const generateDaily = useCallback(
+    async (options?: Partial<GenerationPlanOptions>, onComplete?: () => void) => {
+      setIsGenerating(true);
+      setGenerationFeedback("AI đang phân tích & lên thực đơn 3 bữa (2-3 món/bữa)...");
+
+      try {
+        await recipeService.syncRecipesFromApi();
+
+        if (!isPlanForSomeoneElse) {
+          await profileService.updateProfile(activeProfile).catch(() => {});
+        }
+
+        let plan: WeeklyMealPlan | null = null;
+
+        if (!options?.favoriteRecipeIds || options.favoriteRecipeIds.length === 0) {
+          try {
+            const apiRes = await mealPlanApiService.generateDaily({
+              total_budget: options?.budgetLimit ?? budgetLimit,
+            });
+            if (apiRes && (apiRes.data || apiRes.weekly_plans || apiRes.meal_plan_id)) {
+              plan = mealPlannerService.convertBackendWeeklyPlan(apiRes, activeProfile);
+            }
+          } catch (apiErr) {
+            if (isBusinessError(apiErr)) throw apiErr;
+            console.warn("Backend generateDaily failed, falling back to local engine with real DB recipes:", apiErr);
+          }
+        }
+
+        if (!plan) {
+          const seed = Math.floor(Math.random() * 100);
+          const currentWeekDates = getCurrentWeekDates();
+          const dayPlan = mealPlannerService.generateDayPlan(currentWeekDates[0], activeProfile, 0, seed, {
+            planType: "daily",
+            budgetLimit: options?.budgetLimit ?? budgetLimit,
+            favoriteRecipeIds: options?.favoriteRecipeIds,
+          });
+          plan = {
+            days: [dayPlan],
+            averageDailyCalories: dayPlan.totalCalories,
+            averageProtein: dayPlan.totalProtein,
+            targetCalories: dayPlan.targetCalories,
+            totalEstimatedCost: dayPlan.estimatedCost,
+            averageDailyCost: dayPlan.estimatedCost,
+            budgetLimit: options?.budgetLimit ?? budgetLimit,
+            ai_cookability_notes: `Bếp trưởng AI: Thực đơn 3 buổi sáng, trưa, chiều (2-3 món/bữa) đã được xét duyệt đạt ~${dayPlan.totalCalories} kcal. Nguyên liệu định lượng theo gam hợp lý, cân bằng dinh dưỡng.`,
+            ingredient_summary: mealPlannerService.aggregateIngredientsByGram([dayPlan]),
+          };
+        }
+
+        setWeeklyPlan(plan);
+        setPlanType("daily");
+        setHasGenerated(true);
+        setActiveDayIndex(0);
+        setProfileChangedNotice(false);
+        setIsGenerating(false);
+        setGenerationFeedback("✓ Đã sinh thực đơn ngày với 2-3 món mỗi bữa!");
+        storage.setItem(STORAGE_KEYS.GENERATED_PLAN, {
+          planType: "daily",
+          weeklyPlan: plan,
+          monthlyPlan: null,
+          activeDayIndex: 0,
+        });
+        setTimeout(() => setGenerationFeedback(null), 3000);
+        onComplete?.();
+      } catch (err) {
+        console.error("Lỗi khi sinh thực đơn ngày:", err);
+        setIsGenerating(false);
+        setGenerationFeedback(isBusinessError(err) ? err.message : "Có lỗi khi sinh thực đơn ngày");
+        setTimeout(() => setGenerationFeedback(null), isBusinessError(err) ? 8000 : 3000);
+      }
+    },
+    [activeProfile, budgetLimit, isPlanForSomeoneElse]
+  );
+
   const generateWeekly = useCallback(
     async (options?: Partial<GenerationPlanOptions>, onComplete?: () => void) => {
       setIsGenerating(true);
@@ -331,98 +408,118 @@ export function useMealPlanner() {
     (
       dayIdx: number,
       mealSlot: "breakfast" | "lunch" | "dinner" | "snack",
-      newRecipe: Recipe
+      newRecipe: Recipe,
+      dishIndex?: number
     ) => {
       const userId = String(activeProfile.id || "");
-      // Đổi món thì tính lại theo kcal mục tiêu của chính thực đơn đang xem (backend trả về lúc lập).
       const targetCalories =
-        (planType === "weekly" ? weeklyPlan?.targetCalories : monthlyPlan?.targetCalories) ??
+        ((planType === "weekly" || planType === "daily") ? weeklyPlan?.targetCalories : monthlyPlan?.targetCalories) ??
         nutritionSummary.dailyCalorieTarget;
 
-      if (planType === "weekly" && weeklyPlan) {
+      if ((planType === "weekly" || planType === "daily") && weeklyPlan) {
         const updatedDays = [...weeklyPlan.days];
         const day = updatedDays[dayIdx];
         if (!day) return;
 
+        const currentSlot = day[mealSlot];
+        let updatedRecipes = currentSlot.recipes ? [...currentSlot.recipes] : [currentSlot.recipe];
+        if (dishIndex !== undefined && dishIndex >= 0 && dishIndex < updatedRecipes.length) {
+          updatedRecipes[dishIndex] = newRecipe;
+        } else {
+          updatedRecipes = [newRecipe];
+        }
+
         const updatedDay: DayMealPlan = {
           ...day,
           [mealSlot]: {
-            recipe: newRecipe,
-            time: `${newRecipe.prepTime + newRecipe.cookTime} min`,
+            recipe: updatedRecipes[0],
+            recipes: updatedRecipes,
+            time: `${Math.max(...updatedRecipes.map(r => (r.prepTime || 10) + (r.cookTime || 15)))} min`,
           },
         };
 
-        const recalculated = mealPlannerService.recalculateDay(
-          updatedDay,
-          targetCalories,
-          userId
-        );
-        updatedDays[dayIdx] = recalculated;
+        const recomputedDay = mealPlannerService.recalculateDay(updatedDay, targetCalories, userId);
+        updatedDays[dayIdx] = recomputedDay;
 
         const totalKcal = updatedDays.reduce((sum, d) => sum + d.totalCalories, 0);
         const totalProtein = updatedDays.reduce((sum, d) => sum + d.totalProtein, 0);
         const totalCost = updatedDays.reduce((sum, d) => sum + d.estimatedCost, 0);
 
-        setWeeklyPlan({
+        const newWeeklyPlan: WeeklyMealPlan = {
+          ...weeklyPlan,
           days: updatedDays,
           averageDailyCalories: Math.round(totalKcal / updatedDays.length),
           averageProtein: Math.round(totalProtein / updatedDays.length),
-          targetCalories,
           totalEstimatedCost: totalCost,
           averageDailyCost: Math.round(totalCost / updatedDays.length),
+          ingredient_summary: mealPlannerService.aggregateIngredientsByGram(updatedDays),
+        };
+
+        setWeeklyPlan(newWeeklyPlan);
+        storage.setItem(STORAGE_KEYS.GENERATED_PLAN, {
+          planType,
+          weeklyPlan: newWeeklyPlan,
+          monthlyPlan: null,
+          activeDayIndex: dayIdx,
         });
       } else if (planType === "monthly" && monthlyPlan) {
         const updatedDays = [...monthlyPlan.days];
         const day = updatedDays[dayIdx];
         if (!day) return;
 
+        const currentSlot = day[mealSlot];
+        let updatedRecipes = currentSlot.recipes ? [...currentSlot.recipes] : [currentSlot.recipe];
+        if (dishIndex !== undefined && dishIndex >= 0 && dishIndex < updatedRecipes.length) {
+          updatedRecipes[dishIndex] = newRecipe;
+        } else {
+          updatedRecipes = [newRecipe];
+        }
+
         const updatedDay: CalendarDayMealPlan = {
           ...day,
           [mealSlot]: {
-            recipe: newRecipe,
-            time: `${newRecipe.prepTime + newRecipe.cookTime} min`,
+            recipe: updatedRecipes[0],
+            recipes: updatedRecipes,
+            time: `${Math.max(...updatedRecipes.map(r => (r.prepTime || 10) + (r.cookTime || 15)))} min`,
           },
         };
 
-        const recalculated = mealPlannerService.recalculateDay(
-          updatedDay,
-          targetCalories,
-          userId
-        );
+        const recomputedDay = mealPlannerService.recalculateDay(updatedDay, targetCalories, userId) as CalendarDayMealPlan;
+        recomputedDay.dayOfMonth = day.dayOfMonth;
+        recomputedDay.month = day.month;
+        recomputedDay.year = day.year;
+        recomputedDay.dateKey = day.dateKey;
+        recomputedDay.isCurrentMonth = day.isCurrentMonth;
 
-        updatedDays[dayIdx] = {
-          ...recalculated,
-          dayOfMonth: day.dayOfMonth,
-          month: day.month,
-          year: day.year,
-          dateKey: day.dateKey,
-          isCurrentMonth: day.isCurrentMonth,
-        };
+        updatedDays[dayIdx] = recomputedDay;
 
         const totalKcal = updatedDays.reduce((sum, d) => sum + d.totalCalories, 0);
         const totalCost = updatedDays.reduce((sum, d) => sum + d.estimatedCost, 0);
 
-        setMonthlyPlan({
+        const newMonthlyPlan: MonthlyMealPlan = {
           ...monthlyPlan,
           days: updatedDays,
-          totalEstimatedCost: totalCost,
           averageDailyCalories: Math.round(totalKcal / updatedDays.length),
+          totalEstimatedCost: totalCost,
           averageDailyCost: Math.round(totalCost / updatedDays.length),
+          ingredient_summary: mealPlannerService.aggregateIngredientsByGram(updatedDays),
+        };
+
+        setMonthlyPlan(newMonthlyPlan);
+        storage.setItem(STORAGE_KEYS.GENERATED_PLAN, {
+          planType: "monthly",
+          weeklyPlan: null,
+          monthlyPlan: newMonthlyPlan,
+          activeDayIndex: dayIdx,
         });
       }
     },
     [planType, weeklyPlan, monthlyPlan, activeProfile, nutritionSummary]
   );
 
-  /**
-   * Regenerates a single day with random variation (Requirement 3, 4)
-   */
   const regenerateSingleDay = useCallback(
     (index: number) => {
-      const targetDay =
-        planType === "weekly"
-          ? weeklyPlan?.days[index]
-          : monthlyPlan?.days[index];
+      const targetDay = (planType === "weekly" || planType === "daily") ? weeklyPlan?.days[index] : monthlyPlan?.days[index];
       if (!targetDay) return;
 
       const dayInfo = {
@@ -439,7 +536,7 @@ export function useMealPlanner() {
         randomOffset
       );
 
-      if (planType === "weekly" && weeklyPlan) {
+      if ((planType === "weekly" || planType === "daily") && weeklyPlan) {
         const updatedDays = [...weeklyPlan.days];
         updatedDays[index] = regenerated;
         const totalKcal = updatedDays.reduce((sum, d) => sum + d.totalCalories, 0);
@@ -453,6 +550,7 @@ export function useMealPlanner() {
           targetCalories: weeklyPlan.targetCalories,
           totalEstimatedCost: totalCost,
           averageDailyCost: Math.round(totalCost / updatedDays.length),
+          ingredient_summary: mealPlannerService.aggregateIngredientsByGram(updatedDays),
         });
       } else if (planType === "monthly" && monthlyPlan) {
         const calDay = targetDay as CalendarDayMealPlan;
@@ -475,6 +573,7 @@ export function useMealPlanner() {
           totalEstimatedCost: totalCost,
           averageDailyCalories: Math.round(totalKcal / updatedDays.length),
           averageDailyCost: Math.round(totalCost / updatedDays.length),
+          ingredient_summary: mealPlannerService.aggregateIngredientsByGram(updatedDays),
         });
       }
     },
@@ -486,13 +585,10 @@ export function useMealPlanner() {
    */
   const saveCurrentMealPlan = useCallback(
     async (name: string): Promise<SavedMealPlan | null> => {
-      const days = planType === "weekly" ? weeklyPlan?.days : monthlyPlan?.days;
+      const days = (planType === "weekly" || planType === "daily") ? weeklyPlan?.days : monthlyPlan?.days;
       if (!days || days.length === 0) return null;
 
-      const totalCost =
-        planType === "weekly"
-          ? weeklyPlan?.totalEstimatedCost || 0
-          : monthlyPlan?.totalEstimatedCost || 0;
+      const totalCost = (planType === "weekly" || planType === "daily") ? weeklyPlan?.totalEstimatedCost || 0 : monthlyPlan?.totalEstimatedCost || 0;
 
       const saved = await favoriteService.saveMealPlan(String(profile.id || "u1"), {
         name,
@@ -511,7 +607,7 @@ export function useMealPlanner() {
    * Load a saved meal plan as current active plan (Requirement 1)
    */
   const loadSavedPlan = useCallback((saved: SavedMealPlan) => {
-    if (saved.planType === "weekly") {
+    if (saved.planType === "weekly" || saved.planType === "daily") {
       const totalKcal = saved.days.reduce((sum, d) => sum + d.totalCalories, 0);
       const totalProtein = saved.days.reduce((sum, d) => sum + d.totalProtein, 0);
       const totalCost = saved.days.reduce((sum, d) => sum + d.estimatedCost, 0);
@@ -523,17 +619,46 @@ export function useMealPlanner() {
         targetCalories: saved.targetCalories,
         totalEstimatedCost: totalCost,
         averageDailyCost: Math.round(totalCost / saved.days.length),
+        ingredient_summary: mealPlannerService.aggregateIngredientsByGram(saved.days),
       };
 
       setWeeklyPlan(newPlan);
-      setPlanType("weekly");
+      setPlanType(saved.planType);
       setHasGenerated(true);
       setActiveDayIndex(0);
 
       storage.setItem(STORAGE_KEYS.GENERATED_PLAN, {
-        planType: "weekly",
+        planType: saved.planType,
         weeklyPlan: newPlan,
         monthlyPlan: null,
+        activeDayIndex: 0,
+      });
+    } else if (saved.planType === "monthly") {
+      const totalKcal = saved.days.reduce((sum, d) => sum + d.totalCalories, 0);
+      const totalCost = saved.days.reduce((sum, d) => sum + d.estimatedCost, 0);
+      const now = new Date();
+
+      const newMonthlyPlan: MonthlyMealPlan = {
+        month: now.getMonth(),
+        year: now.getFullYear(),
+        monthName: `${now.toLocaleString("en-US", { month: "long" })} ${now.getFullYear()}`,
+        days: saved.days as CalendarDayMealPlan[],
+        totalEstimatedCost: totalCost,
+        averageDailyCalories: Math.round(totalKcal / saved.days.length),
+        averageDailyCost: Math.round(totalCost / saved.days.length),
+        targetCalories: saved.targetCalories,
+        ingredient_summary: mealPlannerService.aggregateIngredientsByGram(saved.days),
+      };
+
+      setMonthlyPlan(newMonthlyPlan);
+      setPlanType("monthly");
+      setHasGenerated(true);
+      setActiveDayIndex(0);
+
+      storage.setItem(STORAGE_KEYS.GENERATED_PLAN, {
+        planType: "monthly",
+        weeklyPlan: null,
+        monthlyPlan: newMonthlyPlan,
         activeDayIndex: 0,
       });
     }
@@ -573,6 +698,7 @@ export function useMealPlanner() {
           averageProtein: Math.round(totalProtein / updatedDays.length),
           totalEstimatedCost: totalCost,
           averageDailyCost: Math.round(totalCost / updatedDays.length),
+          ingredient_summary: mealPlannerService.aggregateIngredientsByGram(updatedDays),
         };
 
         setWeeklyPlan(updatedPlan);
@@ -612,6 +738,7 @@ export function useMealPlanner() {
     setSelectedMonth,
     selectedYear,
     setSelectedYear,
+    generateDaily,
     generateWeekly,
     generateMonthly,
     replaceMeal,

@@ -204,7 +204,7 @@ describe('MealPlanService.generateMealPlanForSomeone - không lưu DB', () => {
 
     // 7 ngày x 3 bữa = 21 bữa
     expect(dailyMeals).toHaveLength(21);
-    expect(dailyMeals[0].meal_items).toHaveLength(1);
+    expect(dailyMeals[0].meal_items.length).toBeGreaterThanOrEqual(2);
     expect(dailyMeals[0].meal_items[0].recipe.title).toBeTruthy();
     expect(dailyMeals[0].meal_items[0].recipe.ingredients).toBeDefined();
   });

@@ -125,9 +125,30 @@ export function GenerationSettingsModal({
             <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-2">
               Thời hạn kế hoạch:
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <label
-                className={`p-3.5 rounded-2xl border flex items-center gap-3 cursor-pointer transition-all ${
+                className={`p-3 rounded-2xl border flex items-center gap-2.5 cursor-pointer transition-all ${
+                  planType === "daily"
+                    ? "bg-emerald-50 border-emerald-500 text-emerald-950 font-bold shadow-2xs"
+                    : "bg-white border-stone-200 hover:bg-stone-50 text-stone-700 font-medium"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="planType"
+                  value="daily"
+                  checked={planType === "daily"}
+                  onChange={() => setPlanType("daily")}
+                  className="accent-emerald-700"
+                />
+                <div>
+                  <div className="text-sm">Thực đơn Ngày</div>
+                  <div className="text-[11px] font-normal text-stone-500">1 ngày (2-3 món/bữa)</div>
+                </div>
+              </label>
+
+              <label
+                className={`p-3 rounded-2xl border flex items-center gap-2.5 cursor-pointer transition-all ${
                   planType === "weekly"
                     ? "bg-emerald-50 border-emerald-500 text-emerald-950 font-bold shadow-2xs"
                     : "bg-white border-stone-200 hover:bg-stone-50 text-stone-700 font-medium"
@@ -143,12 +164,12 @@ export function GenerationSettingsModal({
                 />
                 <div>
                   <div className="text-sm">Kế hoạch Tuần</div>
-                  <div className="text-[11px] font-normal text-stone-500">7 ngày (Thứ 2 - Chủ nhật)</div>
+                  <div className="text-[11px] font-normal text-stone-500">7 ngày (Thứ 2 - CN)</div>
                 </div>
               </label>
 
               <label
-                className={`p-3.5 rounded-2xl border flex items-center gap-3 cursor-pointer transition-all ${
+                className={`p-3 rounded-2xl border flex items-center gap-2.5 cursor-pointer transition-all ${
                   planType === "monthly"
                     ? "bg-emerald-50 border-emerald-500 text-emerald-950 font-bold shadow-2xs"
                     : "bg-white border-stone-200 hover:bg-stone-50 text-stone-700 font-medium"
@@ -164,7 +185,7 @@ export function GenerationSettingsModal({
                 />
                 <div>
                   <div className="text-sm">Kế hoạch Tháng</div>
-                  <div className="text-[11px] font-normal text-stone-500">Xem toàn bộ lịch trong tháng</div>
+                  <div className="text-[11px] font-normal text-stone-500">Toàn bộ lịch tháng</div>
                 </div>
               </label>
             </div>
@@ -274,7 +295,7 @@ export function GenerationSettingsModal({
                       className="w-full h-10 px-3.5 pr-28 rounded-xl border border-stone-200 bg-stone-50 text-xs font-bold text-stone-900 focus:bg-white focus:border-emerald-600 outline-none"
                     />
                     <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-500">
-                      VNĐ / {planType === "weekly" ? "tuần" : "tháng"}
+                      VNĐ / {planType === "daily" ? "ngày" : planType === "weekly" ? "tuần" : "tháng"}
                     </span>
                   </div>
                   <p className="text-[11px] text-stone-500 mt-1">
@@ -351,7 +372,7 @@ export function GenerationSettingsModal({
               className="h-11 px-6 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-2"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
-              Tạo thực đơn {planType === "weekly" ? "Tuần" : "Tháng"}
+              Tạo thực đơn {planType === "daily" ? "Ngày" : planType === "weekly" ? "Tuần" : "Tháng"}
             </button>
           </div>
         </form>

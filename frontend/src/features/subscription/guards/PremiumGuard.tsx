@@ -36,13 +36,7 @@ export function PremiumGuard({
               · 99.000 VNĐ / tháng
             </span>
           </div>
-          <button
-            onClick={() => toggle()}
-            className="text-[11px] font-medium text-emerald-800 hover:text-red-700 underline underline-offset-2 transition-colors cursor-pointer"
-            title="Nhấn để chuyển sang gói Miễn phí (kiểm thử)"
-          >
-            [Thử nghiệm: Về gói Thường]
-          </button>
+
         </div>
         {children}
       </div>
@@ -99,12 +93,7 @@ export function PremiumGuard({
                 Nâng cấp Premium
                 <ArrowRight className="w-4 h-4" />
               </button>
-              <button
-                onClick={() => toggle()}
-                className="text-xs text-stone-500 hover:text-stone-800 underline underline-offset-2 py-2 px-3 cursor-pointer"
-              >
-                [Thử nghiệm: Mở nhanh]
-              </button>
+
             </div>
 
             <p className="text-xs text-stone-400 mt-4">
@@ -163,12 +152,7 @@ export function PremiumGuard({
             Nâng cấp Premium
             <ArrowRight className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => toggle()}
-            className="text-xs text-stone-500 hover:text-stone-800 underline underline-offset-2 py-2 px-3 cursor-pointer"
-          >
-            [Thử nghiệm: Mở nhanh]
-          </button>
+
         </div>
 
         <p className="text-xs text-stone-400 mt-4">

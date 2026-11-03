@@ -29,11 +29,13 @@ export function SubscriptionPlans() {
           message: "Đã chuyển về gói Miễn phí thành công.",
         });
       } else {
-        await purchase("premium");
-        setAlert({
-          type: "success",
-          message: "Chúc mừng! Đã chuyển sang gói Premium thành công. Toàn bộ tính năng đã được mở khóa!",
-        });
+        // Tạo giao dịch thanh toán VietQR thật qua PayOS và chuyển hướng
+        const res = await subscriptionService.createCheckout();
+        if (res?.payment_url) {
+          window.location.href = res.payment_url;
+          return;
+        }
+        throw new Error("Không nhận được link thanh toán VietQR từ hệ thống.");
       }
     } catch (err: any) {
       setAlert({

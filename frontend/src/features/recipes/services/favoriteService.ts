@@ -10,7 +10,7 @@ import { tokenStorage } from "@/lib/tokenStorage";
 export interface SavedMealPlan {
   id: string;
   name: string;
-  planType: "weekly" | "monthly";
+  planType: "daily" | "weekly" | "monthly";
   createdAt: string;
   targetCalories: number;
   totalEstimatedCost: number;
@@ -205,7 +205,7 @@ export const favoriteService = {
     userId: string,
     planData: {
       name: string;
-      planType: "weekly" | "monthly";
+      planType: "daily" | "weekly" | "monthly";
       targetCalories: number;
       totalEstimatedCost: number;
       days: DayMealPlan[];
@@ -217,15 +217,74 @@ export const favoriteService = {
     // Chuẩn bị payload cho backend
     const now = new Date();
     const startDateStr = now.toISOString().split("T")[0];
-    const endDays = planData.planType === "monthly" ? 30 : 7;
+    const endDays = planData.planType === "monthly" ? 29 : planData.planType === "daily" ? 0 : 6;
     const endDate = new Date(now.getTime() + endDays * 24 * 60 * 60 * 1000);
     const endDateStr = endDate.toISOString().split("T")[0];
 
     const token = tokenStorage.getToken();
     if (token) {
       try {
+        const daily_meals: any[] = [];
+        (planData.days || []).forEach((day, dIdx) => {
+          const dDate = new Date(now.getTime() + dIdx * 24 * 60 * 60 * 1000);
+          const meal_date = dDate.toISOString().split("T")[0];
+
+          const extractItems = (slot?: any) => {
+            if (!slot) return [];
+            const recipes = slot.recipes && slot.recipes.length > 0 ? slot.recipes : (slot.recipe ? [slot.recipe] : []);
+            const res: any[] = [];
+            for (const r of recipes) {
+              const num = parseInt(String(r.id).replace(/\D/g, ""), 10);
+              if (!isNaN(num) && num > 0) {
+                res.push({ recipe_id: num, portion_multiplier: 1 });
+              }
+            }
+            return res;
+          };
+
+          const bItems = extractItems(day.breakfast);
+          if (bItems.length > 0) {
+            daily_meals.push({
+              meal_date,
+              meal_type: "breakfast",
+              target_calories: Math.round((day.targetCalories || 2000) * 0.25),
+              meal_items: bItems,
+            });
+          }
+
+          const lItems = extractItems(day.lunch);
+          if (lItems.length > 0) {
+            daily_meals.push({
+              meal_date,
+              meal_type: "lunch",
+              target_calories: Math.round((day.targetCalories || 2000) * 0.35),
+              meal_items: lItems,
+            });
+          }
+
+          const dItems = extractItems(day.dinner);
+          if (dItems.length > 0) {
+            daily_meals.push({
+              meal_date,
+              meal_type: "dinner",
+              target_calories: Math.round((day.targetCalories || 2000) * 0.30),
+              meal_items: dItems,
+            });
+          }
+
+          const sItems = extractItems(day.snack);
+          if (sItems.length > 0) {
+            daily_meals.push({
+              meal_date,
+              meal_type: "snack",
+              target_calories: Math.round((day.targetCalories || 2000) * 0.10),
+              meal_items: sItems,
+            });
+          }
+        });
+
         const dto: any = {
-          plan_type: planData.planType === "monthly" ? "monthly" : "weekly",
+          plan_type: planData.planType,
           start_date: startDateStr,
           end_date: endDateStr,
           has_budget: Boolean(planData.totalEstimatedCost && planData.totalEstimatedCost > 0),
@@ -237,32 +296,8 @@ export const favoriteService = {
               start_date: startDateStr,
               end_date: endDateStr,
               week_budget: planData.totalEstimatedCost ? Math.round(planData.totalEstimatedCost) : undefined,
-              week_calorie_target: planData.targetCalories ? Math.round(planData.targetCalories) : undefined,
-              daily_meals: (planData.days || []).map((day, dIdx) => {
-                const dDate = new Date(now.getTime() + dIdx * 24 * 60 * 60 * 1000);
-                const meal_date = dDate.toISOString().split("T")[0];
-                const items: any[] = [];
-
-                const addSlot = (rec?: Recipe) => {
-                  if (!rec) return;
-                  const num = parseInt(String(rec.id).replace(/\D/g, ""), 10);
-                  if (!isNaN(num) && num > 0) {
-                    items.push({ recipe_id: num, portion_multiplier: 1 });
-                  }
-                };
-
-                addSlot(day.breakfast?.recipe);
-                addSlot(day.lunch?.recipe);
-                addSlot(day.dinner?.recipe);
-                addSlot(day.snack?.recipe);
-
-                return {
-                  meal_date,
-                  meal_type: "lunch",
-                  target_calories: day.targetCalories || 500,
-                  meal_items: items.length > 0 ? items : [{ recipe_id: 1, portion_multiplier: 1 }],
-                };
-              }),
+              week_calorie_target: planData.targetCalories ? Math.round(planData.targetCalories * (planData.days?.length || 1)) : undefined,
+              daily_meals,
             },
           ],
         };
