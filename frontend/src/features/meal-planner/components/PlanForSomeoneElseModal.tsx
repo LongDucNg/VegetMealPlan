@@ -271,7 +271,6 @@ export function PlanForSomeoneElseModal({
                 <option value="lose_weight">Giảm cân (-500 kcal)</option>
                 <option value="maintain_weight">Giữ cân (Cân bằng)</option>
                 <option value="gain_weight">Tăng cơ / tăng cân (+350 kcal)</option>
-                <option value="healthy_eating">Ăn uống lành mạnh</option>
               </select>
               {bmiInfo && bmiInfo.category === "Underweight" && healthGoal === "maintain_weight" && (
                 <p className="text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200 mt-2 leading-relaxed">

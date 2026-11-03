@@ -30,32 +30,30 @@ function buildRepo(initial: any[] = []) {
 }
 
 describe('HealthGoalService - khởi tạo health_goals', () => {
-  it('bảng RỖNG -> tự thêm đủ 4 mục tiêu chuẩn', async () => {
+  it('bảng RỖNG -> tự thêm đủ 3 mục tiêu chuẩn', async () => {
     const repo = buildRepo([]);
     const service = new HealthGoalService(repo as any);
 
     await service.ensureMasterData();
 
-    expect(repo.rows).toHaveLength(4);
+    expect(repo.rows).toHaveLength(3);
     expect(repo.rows.map((r) => r.name).sort()).toEqual([
       'gain_muscle',
-      'healthy_eating',
       'lose_weight',
       'maintain',
     ]);
   });
 
-  it('bảng RỖNG -> findAll() trả về 4 mục tiêu (frontend có dữ liệu để chọn)', async () => {
+  it('bảng RỖNG -> findAll() trả về 3 mục tiêu (frontend có dữ liệu để chọn)', async () => {
     const repo = buildRepo([]);
     const service = new HealthGoalService(repo as any);
 
     const goals = await service.findAll();
 
-    expect(goals).toHaveLength(4);
+    expect(goals).toHaveLength(3);
     expect(goals.map((g) => g.name)).toContain('lose_weight');
     expect(goals.map((g) => g.name)).toContain('gain_muscle');
     expect(goals.map((g) => g.name)).toContain('maintain');
-    expect(goals.map((g) => g.name)).toContain('healthy_eating');
   });
 
   it('bảng ĐÃ có dữ liệu -> không thêm trùng (idempotent)', async () => {
@@ -63,27 +61,25 @@ describe('HealthGoalService - khởi tạo health_goals', () => {
       { goal_id: 1, name: 'lose_weight', description: 'Giảm cân' },
       { goal_id: 2, name: 'gain_muscle', description: 'Tăng cơ' },
       { goal_id: 3, name: 'maintain', description: 'Duy trì cân nặng' },
-      { goal_id: 4, name: 'healthy_eating', description: 'Ăn uống lành mạnh' },
     ]);
     const service = new HealthGoalService(repo as any);
 
     await service.ensureMasterData();
 
-    expect(repo.rows).toHaveLength(4);
+    expect(repo.rows).toHaveLength(3);
   });
 
   it('bảng THIẾU một dòng -> chỉ thêm đúng dòng còn thiếu', async () => {
     const repo = buildRepo([
       { goal_id: 1, name: 'lose_weight', description: 'Giảm cân' },
       { goal_id: 2, name: 'gain_muscle', description: 'Tăng cơ' },
-      { goal_id: 3, name: 'maintain', description: 'Duy trì cân nặng' },
     ]);
     const service = new HealthGoalService(repo as any);
 
     await service.ensureMasterData();
 
-    expect(repo.rows).toHaveLength(4);
-    expect(repo.rows.find((r) => r.name === 'healthy_eating')).toBeDefined();
+    expect(repo.rows).toHaveLength(3);
+    expect(repo.rows.find((r) => r.name === 'maintain')).toBeDefined();
   });
 
   it('KHÔNG xoá dòng nào đã có', async () => {
@@ -97,13 +93,12 @@ describe('HealthGoalService - khởi tạo health_goals', () => {
 
     // Dòng custom vẫn còn, không bị xoá.
     expect(repo.rows.find((r) => r.name === 'custom_goal')).toBeDefined();
-    expect(repo.rows).toHaveLength(5);
+    expect(repo.rows).toHaveLength(4);
   });
 
-  it('HEALTH_GOAL_DEFINITIONS khớp với 4 tên mục tiêu mà backend dùng', () => {
+  it('HEALTH_GOAL_DEFINITIONS khớp với 3 tên mục tiêu mà backend dùng', () => {
     expect(HEALTH_GOAL_DEFINITIONS.map((g) => g.name).sort()).toEqual([
       'gain_muscle',
-      'healthy_eating',
       'lose_weight',
       'maintain',
     ]);

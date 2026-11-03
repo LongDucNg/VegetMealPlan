@@ -435,6 +435,63 @@ export const mealPlannerService = {
   },
 
   /**
+   * Tạo lịch trống ban đầu khi người dùng mới vào trang kế hoạch mà chưa bấm nút tạo thực đơn
+   */
+  createEmptyMonthlyPlan(
+    year: number = new Date().getFullYear(),
+    month: number = new Date().getMonth()
+  ): MonthlyMealPlan {
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
+    ];
+    const dayNames = [
+      "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+    ];
+    const shortDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    const days: CalendarDayMealPlan[] = [];
+    for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
+      const dateObj = new Date(year, month, dayNum);
+      const dayOfWeekIdx = dateObj.getDay();
+      days.push({
+        dayOfMonth: dayNum,
+        month,
+        year,
+        isCurrentMonth: true,
+        dateKey: `${year}-${String(month + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`,
+        dayName: dayNames[dayOfWeekIdx],
+        shortDay: shortDays[dayOfWeekIdx],
+        dateText: `${monthNames[month].substring(0, 3)} ${dayNum}`,
+        breakfast: { time: "07:30", recipe: null as any, recipes: [] },
+        lunch: { time: "12:30", recipe: null as any, recipes: [] },
+        dinner: { time: "19:00", recipe: null as any, recipes: [] },
+        snack: { time: "16:00", recipe: null as any, recipes: [] },
+        totalCalories: 0,
+        totalProtein: 0,
+        totalCarbs: 0,
+        totalFat: 0,
+        targetCalories: 0,
+        remainingCalories: 0,
+        estimatedCost: 0,
+        ingredient_summary: [],
+      });
+    }
+
+    return {
+      month,
+      year,
+      monthName: `${monthNames[month]} ${year}`,
+      days,
+      totalEstimatedCost: 0,
+      averageDailyCalories: 0,
+      averageDailyCost: 0,
+      targetCalories: 0,
+    };
+  },
+
+  /**
    * Creates a meal plan from user-selected favorites with validation (Requirement 2)
    */
   validateAndCreateFromFavorites(

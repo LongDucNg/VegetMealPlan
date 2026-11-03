@@ -48,13 +48,13 @@ export function MonthlyCalendarView({
           <div className="bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200">
             <span className="text-stone-400 block text-[10px]">Tổng chi phí tháng:</span>
             <span className="font-bold text-emerald-800">
-              ~{totalEstimatedCost.toLocaleString("vi-VN")} VNĐ
+              {totalEstimatedCost > 0 ? `~${totalEstimatedCost.toLocaleString("vi-VN")} VNĐ` : "0 VNĐ"}
             </span>
           </div>
           <div className="bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200">
             <span className="text-amber-600 block text-[10px]">Trung bình ngày:</span>
             <span className="font-bold text-amber-900">
-              ~{Math.round(Number(averageDailyCalories) * 100) / 100} kcal/ngày
+              {averageDailyCalories > 0 ? `~${Math.round(Number(averageDailyCalories) * 100) / 100} kcal/ngày` : "0 kcal/ngày"}
             </span>
           </div>
         </div>
@@ -112,21 +112,33 @@ export function MonthlyCalendarView({
 
               {/* Day Metrics Mini */}
               <div className="hidden sm:block space-y-0.5 text-[10px] w-full">
-                <div
-                  className={`flex items-center gap-1 font-semibold truncate ${
-                    isSelected ? "text-amber-200" : "text-amber-700"
-                  }`}
-                >
-                  <Flame className="w-2.5 h-2.5 shrink-0" />
-                  <span>~{Math.round(Number(day.totalCalories) * 100) / 100} kcal</span>
-                </div>
-                <div
-                  className={`truncate font-medium ${
-                    isSelected ? "text-emerald-100" : "text-stone-500"
-                  }`}
-                >
-                  ~{day.estimatedCost.toLocaleString("vi-VN")} VNĐ
-                </div>
+                {day.totalCalories > 0 ? (
+                  <>
+                    <div
+                      className={`flex items-center gap-1 font-semibold truncate ${
+                        isSelected ? "text-amber-200" : "text-amber-700"
+                      }`}
+                    >
+                      <Flame className="w-2.5 h-2.5 shrink-0" />
+                      <span>~{Math.round(Number(day.totalCalories) * 100) / 100} kcal</span>
+                    </div>
+                    <div
+                      className={`truncate font-medium ${
+                        isSelected ? "text-emerald-100" : "text-stone-500"
+                      }`}
+                    >
+                      ~{day.estimatedCost.toLocaleString("vi-VN")} VNĐ
+                    </div>
+                  </>
+                ) : (
+                  <div
+                    className={`italic truncate pt-1 ${
+                      isSelected ? "text-emerald-200 font-semibold" : "text-stone-400"
+                    }`}
+                  >
+                    Trống
+                  </div>
+                )}
               </div>
 
               {/* Mobile Indicator Dot */}
