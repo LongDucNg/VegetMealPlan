@@ -154,7 +154,7 @@ export function AdminRecipeDetailModal({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-100 text-center">
               <p className="text-xs text-stone-500 font-medium">Calo</p>
-              <p className="font-serif font-bold text-lg text-amber-700 mt-0.5">{recipe.calories} kcal</p>
+              <p className="font-serif font-bold text-lg text-amber-700 mt-0.5">~{Math.round(Number(recipe.calories) * 100) / 100} kcal</p>
             </div>
             <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-center">
               <p className="text-xs text-stone-500 font-medium">Chất đạm</p>
@@ -238,7 +238,7 @@ export function AdminRecipeDetailModal({
                         </span>
                         <span className="text-stone-300">·</span>
                         <span className="text-amber-700 font-semibold">
-                          {calPer100} kcal/100g
+                          {Math.round(Number(calPer100) * 100) / 100} kcal/100g
                         </span>
                       </div>
                     </div>
@@ -247,7 +247,7 @@ export function AdminRecipeDetailModal({
                         {ing.quantity} {ing.unit}
                       </span>
                       <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60 inline-block mt-0.5">
-                        ~{calculatedKcal} kcal
+                        ~{Math.round(Number(calculatedKcal) * 100) / 100} kcal
                       </span>
                     </div>
                   </li>

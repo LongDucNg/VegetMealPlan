@@ -18,33 +18,33 @@ export function getIngredientCaloriesPer100g(
     !isNaN(Number(givenCalPer100)) &&
     Number(givenCalPer100) >= 0
   ) {
-    return Number(givenCalPer100);
+    return Math.round(Number(givenCalPer100) * 100) / 100;
   }
   if (!name) return 0;
 
   // 1. Khớp chính xác tên gốc
   if (SYSTEM_INGREDIENT_CALORIES[name] !== undefined) {
-    return SYSTEM_INGREDIENT_CALORIES[name];
+    return Math.round(SYSTEM_INGREDIENT_CALORIES[name] * 100) / 100;
   }
 
   const n = normalizeIngredientName(name);
 
   // 2. Khớp case-insensitive
   for (const [k, v] of Object.entries(SYSTEM_INGREDIENT_CALORIES)) {
-    if (normalizeIngredientName(k) === n) return v;
+    if (normalizeIngredientName(k) === n) return Math.round(v * 100) / 100;
   }
 
   // 3. Khớp chuỗi con
   for (const [k, v] of Object.entries(SYSTEM_INGREDIENT_CALORIES)) {
     const kn = normalizeIngredientName(k);
-    if (n.includes(kn) || kn.includes(n)) return v;
+    if (n.includes(kn) || kn.includes(n)) return Math.round(v * 100) / 100;
   }
 
   return 0;
 }
 
 /**
- * Tính tổng calo cho lượng nguyên liệu tương ứng theo đơn vị.
+ * Tính tổng calo cho lượng nguyên liệu tương ứng theo đơn vị (làm tròn tối đa 2 chữ số thập phân).
  */
 export function calculateIngredientCalories(
   quantityRaw: number | string,
@@ -84,6 +84,16 @@ export function calculateIngredientCalories(
     grams = qty >= 10 ? qty : qty * 80;
   }
 
-  return Math.round((grams / 100) * caloriesPer100g);
+  return Math.round(((grams / 100) * caloriesPer100g) * 100) / 100;
 }
 
+/**
+ * Định dạng calo làm tròn tối đa 2 chữ số thập phân và thêm tiền tố ~ (ví dụ: ~302.47 kcal, ~15 kcal)
+ */
+export function formatCalories(val: number | string | null | undefined): string {
+  if (val === undefined || val === null || val === "") return "~0 kcal";
+  const n = typeof val === "number" ? val : parseFloat(String(val).replace(/[^0-9.-]/g, ""));
+  if (isNaN(n) || n <= 0) return "~0 kcal";
+  const rounded = Math.round(n * 100) / 100;
+  return `~${rounded} kcal`;
+}
