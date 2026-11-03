@@ -6,6 +6,7 @@ import {
   X,
   Heart,
   CalendarDays,
+  Calendar,
   Sparkles,
   Check,
   AlertTriangle,
@@ -29,7 +30,7 @@ interface FavoritesModalProps {
   isOpen: boolean;
   onClose: () => void;
   profile: UserProfile;
-  onApplyPlan: (dayPlan: DayMealPlan) => void;
+  onApplyPlan: (dayPlan: DayMealPlan, targetDateKey?: string) => void;
   onLoadSavedPlan: (plan: SavedMealPlan) => void;
   onSelectFavoriteRecipe?: (recipe: Recipe) => void;
   onGenerateWeeklyWithFavorites?: (favoriteRecipeIds: string[]) => void;
@@ -144,9 +145,40 @@ export function FavoritesModal({
   const dinnerOptions = groupedRecipes.dinner.length > 0 ? groupedRecipes.dinner : favRecipes;
   const snackOptions = groupedRecipes.snack.length > 0 ? groupedRecipes.snack : favRecipes;
 
+  // Lựa chọn ngày áp dụng: Chỉ cho phép từ hôm nay đến 2 tháng tới, không cho tạo trong quá khứ
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    return now.toISOString().split("T")[0];
+  }, []);
+
+  const maxDateStr = useMemo(() => {
+    const max = new Date();
+    max.setDate(max.getDate() + 60); // 2 tháng (60 ngày) đổ lại
+    return max.toISOString().split("T")[0];
+  }, []);
+
+  const [targetDateStr, setTargetDateStr] = useState<string>(() => {
+    const now = new Date();
+    return now.toISOString().split("T")[0];
+  });
+
+  const getDayInfoForDate = (dateStr: string) => {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const shortDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const monthShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return {
+      day: dayNames[dateObj.getDay()],
+      short: shortDays[dateObj.getDay()],
+      date: `${monthShort[m - 1]} ${d}`,
+    };
+  };
+
   if (!isOpen) return null;
 
   const handleValidateSelection = async () => {
+    const dayInfo = getDayInfoForDate(targetDateStr);
     const result = mealPlannerService.validateAndCreateFromFavorites(
       {
         breakfast: selectedBreakfast || undefined,
@@ -157,7 +189,10 @@ export function FavoritesModal({
       profile
     );
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    result.dayPlan.dayName = dayInfo.day;
+    result.dayPlan.shortDay = dayInfo.short;
+    result.dayPlan.dateText = dayInfo.date;
+
     const mealsToValidate = [
       selectedBreakfast?.id ? { recipe_id: Number(selectedBreakfast.id), servings: 1 } : null,
       selectedLunch?.id ? { recipe_id: Number(selectedLunch.id), servings: 1 } : null,
@@ -169,9 +204,9 @@ export function FavoritesModal({
     if (mealsToValidate.length > 0) {
       try {
         const backendCheck = await mealPlanApiService.validateMealPlan({
-          start_date: todayStr,
-          end_date: todayStr,
-          days: [{ date: todayStr, meals: mealsToValidate }],
+          start_date: targetDateStr,
+          end_date: targetDateStr,
+          days: [{ date: targetDateStr, meals: mealsToValidate }],
         });
 
         if (backendCheck && !backendCheck.valid && Array.isArray(backendCheck.errors) && backendCheck.errors.length > 0) {
@@ -192,36 +227,46 @@ export function FavoritesModal({
     setValidationResult(finalResult);
 
     if (finalResult.isCompatible) {
-      onApplyPlan(finalResult.dayPlan);
+      onApplyPlan(finalResult.dayPlan, targetDateStr);
       onClose();
     }
   };
 
   const handleKeepMySelection = () => {
     if (validationResult) {
-      onApplyPlan(validationResult.dayPlan);
+      const dayInfo = getDayInfoForDate(targetDateStr);
+      const planToApply = {
+        ...validationResult.dayPlan,
+        dayName: dayInfo.day,
+        shortDay: dayInfo.short,
+        dateText: dayInfo.date,
+      };
+      onApplyPlan(planToApply, targetDateStr);
       onClose();
     }
   };
 
   const handleAdjustAutomatically = () => {
     if (validationResult) {
-      const favIds = [
-        selectedBreakfast?.id,
-        selectedLunch?.id,
-        selectedDinner?.id,
-        selectedSnack?.id,
-      ].filter(Boolean) as string[];
-
-      const adjusted = mealPlannerService.generateDayPlan(
-        { day: "Adjusted Day", short: "Adj", date: "AI Balanced" },
+      const dayInfo = getDayInfoForDate(targetDateStr);
+      // Giữ nguyên 100% công thức người dùng đã chọn cho từng bữa, AI chỉ bù món còn thiếu
+      // Vẫn giữ thứ bình thường (ví dụ: Wed), ghi chú AI Balanced ở dưới
+      const adjusted = mealPlannerService.balanceDayFromFavorites(
+        {
+          breakfast: selectedBreakfast || undefined,
+          lunch: selectedLunch || undefined,
+          dinner: selectedDinner || undefined,
+          snack: selectedSnack || undefined,
+        },
         profile,
-        0,
-        1,
-        { planType: "weekly", favoriteRecipeIds: favIds }
+        {
+          day: dayInfo.day,
+          short: dayInfo.short,
+          date: "AI Balanced",
+        }
       );
 
-      onApplyPlan(adjusted);
+      onApplyPlan(adjusted, targetDateStr);
       onClose();
     }
   };
@@ -449,14 +494,34 @@ export function FavoritesModal({
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-end gap-3 pt-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-emerald-100">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span className="text-xs font-semibold text-emerald-950">
+                        Chọn ngày tạo lịch (tối đa 2 tháng tới):
+                      </span>
+                      <input
+                        type="date"
+                        min={todayStr}
+                        max={maxDateStr}
+                        value={targetDateStr}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val >= todayStr && val <= maxDateStr) {
+                            setTargetDateStr(val);
+                          }
+                        }}
+                        className="px-2.5 py-1 text-xs font-bold bg-white border border-emerald-300 rounded-xl text-stone-800 shadow-2xs focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                      />
+                    </div>
+
                     <button
                       onClick={handleValidateSelection}
                       disabled={!selectedBreakfast && !selectedLunch && !selectedDinner && !selectedSnack}
-                      className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                      className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                     >
                       <Check className="w-3.5 h-3.5" />
-                      <span>Kiểm tra & Áp dụng vào ngày hôm nay</span>
+                      <span>Kiểm tra & Áp dụng ({targetDateStr.split("-").reverse().join("/")})</span>
                     </button>
                   </div>
 
@@ -566,6 +631,29 @@ export function FavoritesModal({
         {/* Tab 2: Saved Meal Plans */}
         {activeTab === "plans" && (
           <div className="p-6 overflow-y-auto space-y-4 flex-1">
+            {/* Lựa chọn ngày áp dụng thực đơn mẫu */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-emerald-50/60 border border-emerald-200 rounded-2xl">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span className="text-xs font-semibold text-emerald-950">
+                  Chọn ngày lịch để áp dụng thực đơn (từ hôm nay đến 2 tháng tới):
+                </span>
+              </div>
+              <input
+                type="date"
+                min={todayStr}
+                max={maxDateStr}
+                value={targetDateStr}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val >= todayStr && val <= maxDateStr) {
+                    setTargetDateStr(val);
+                  }
+                }}
+                className="px-2.5 py-1 text-xs font-bold bg-white border border-emerald-300 rounded-xl text-stone-800 shadow-2xs focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+              />
+            </div>
+
             {savedPlans.length === 0 ? (
               <div className="p-12 text-center text-stone-400">
                 <CalendarDays className="w-10 h-10 mx-auto mb-2 text-stone-300" />
@@ -602,14 +690,14 @@ export function FavoritesModal({
                         <button
                           type="button"
                           onClick={() => {
-                            onApplyPlan(plan.days[0]);
+                            onApplyPlan(plan.days[0], targetDateStr);
                             onClose();
                           }}
                           className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
-                          title="Áp dụng 4 bữa của ngày đầu tiên trong mẫu này vào ngày đang xem"
+                          title={`Áp dụng 4 bữa của thực đơn này vào ngày ${targetDateStr.split("-").reverse().join("/")}`}
                         >
                           <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-                          <span>Thay thế vào ngày đang xem</span>
+                          <span>Áp dụng vào ngày {targetDateStr.split("-").reverse().join("/")}</span>
                         </button>
                       )}
 
