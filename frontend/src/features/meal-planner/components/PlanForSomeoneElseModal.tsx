@@ -273,6 +273,21 @@ export function PlanForSomeoneElseModal({
                 <option value="gain_weight">Tăng cơ / tăng cân (+350 kcal)</option>
                 <option value="healthy_eating">Ăn uống lành mạnh</option>
               </select>
+              {bmiInfo && bmiInfo.category === "Underweight" && healthGoal === "maintain_weight" && (
+                <p className="text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200 mt-2 leading-relaxed">
+                  ⚠ <strong>Cảnh báo dinh dưỡng:</strong> Thể trạng đang thiếu cân (BMI {bmiInfo.formattedBMI}). Việc giữ cân ở mức này không hợp lý vì cơ thể cần nạp thêm dinh dưỡng; khuyến nghị chọn mục tiêu <strong>Tăng cơ / tăng cân</strong>.
+                </p>
+              )}
+              {bmiInfo && bmiInfo.category === "Underweight" && healthGoal === "lose_weight" && (
+                <p className="text-[11px] text-red-800 bg-red-50 p-2.5 rounded-xl border border-red-200 mt-2 leading-relaxed">
+                  ⚠ <strong>Báo động sức khỏe:</strong> Đang thiếu cân (BMI {bmiInfo.formattedBMI}), không nên chọn Giảm cân vì nguy cơ suy kiệt cơ thể.
+                </p>
+              )}
+              {bmiInfo && bmiInfo.category === "Overweight" && healthGoal === "maintain_weight" && (
+                <p className="text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200 mt-2 leading-relaxed">
+                  ⚠ <strong>Cảnh báo:</strong> Thể trạng đang thừa cân (BMI {bmiInfo.formattedBMI}); khuyến nghị nên chọn mục tiêu <strong>Giảm cân</strong> để đưa thể trạng về ngưỡng chuẩn.
+                </p>
+              )}
             </div>
           </div>
 

@@ -81,10 +81,11 @@ export function Hero() {
       : recipe?.difficulty === "medium"
         ? "Vừa phải"
         : "Dễ làm";
+  const rawCalories = Number(recipe?.nutrition?.calories ?? recipe?.calories);
   const calories =
-    recipe?.nutrition?.calories || recipe?.calories
-      ? `${recipe?.nutrition?.calories || recipe?.calories} kcal`
-      : "380 kcal";
+    !isNaN(rawCalories) && rawCalories > 0
+      ? `~${Math.round(rawCalories * 100) / 100} kcal`
+      : "~380 kcal";
   const dietLabel =
     recipe?.diet_type === "vegan"
       ? "Thuần chay"

@@ -31,6 +31,7 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 
 export function ProfileEditor() {
@@ -370,17 +371,15 @@ export function ProfileEditor() {
     return item;
   };
 
-  const handleDeclareNoAllergies = async () => {
+  const handleDeclareNoAllergies = () => {
+    // Nếu chưa chọn dị ứng nào thì không làm gì cả
+    if (!allergies || allergies.length === 0) {
+      return;
+    }
+    // Xóa hết dị ứng trong form hiện tại (không ảnh hưởng đến mục tiêu sức khỏe và trường phái ăn chay)
     setAllergies([]);
     setCustomAllergyInput("");
     setCustomAllergyError(null);
-    const cur = profileService.getProfile();
-    storage.setItem(STORAGE_KEYS.USER_PROFILE, { ...cur, allergies: [], allergenGroups: [] });
-    try {
-      await profileService.declareNoAllergies();
-    } catch {
-      // Nếu offline hoặc chờ submit thì form submit sẽ lưu
-    }
   };
 
   const removeEggAllergies = () => {
@@ -850,6 +849,20 @@ export function ProfileEditor() {
                           Không phù hợp
                         </span>
                       );
+                    } else if (isMaintainWeight && isSevereUnderweight) {
+                      cardStyle = "border-red-500 bg-red-50 text-red-950 font-bold";
+                      badge = (
+                        <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded shrink-0">
+                          Không an toàn
+                        </span>
+                      );
+                    } else if (isMaintainWeight && isUnderweight) {
+                      cardStyle = "border-amber-500 bg-amber-50 text-amber-950 font-bold";
+                      badge = (
+                        <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded shrink-0">
+                          Không phù hợp
+                        </span>
+                      );
                     } else if (isMaintainWeight && isOverweight) {
                       cardStyle = "border-amber-500 bg-amber-50 text-amber-950 font-bold";
                       badge = (
@@ -903,6 +916,7 @@ export function ProfileEditor() {
             {bmiInfo && (() => {
               const hasConflict =
                 (isUnderweight && healthGoal === "lose_weight") ||
+                (isUnderweight && healthGoal === "maintain_weight") ||
                 (isOverweight && healthGoal === "gain_weight") ||
                 (isOverweight && healthGoal === "maintain_weight");
 
@@ -914,16 +928,18 @@ export function ProfileEditor() {
                   <div className="p-4 rounded-2xl bg-red-50 border border-red-300 text-red-950 space-y-2.5 animate-in fade-in">
                     <div className="flex items-start gap-2.5">
                       <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-                      <div className="space-y-1 flex-1">
-                        <span className="text-xs font-bold text-red-900">
+                      <div className="space-y-1.5 flex-1">
+                        <span className="text-xs font-bold text-red-900 block">
                           Báo động sức khỏe: Thể trạng thiếu cân nghiêm trọng (BMI {bmiInfo.formattedBMI} &lt; 16.5)
                         </span>
                         <p className="text-[11px] leading-relaxed text-red-800">
                           Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Mức suy dinh dưỡng nặng, dưới ngưỡng an toàn 18.5 rất nhiều). Việc nạp thâm hụt calo để <strong>Giảm cân</strong> lúc này sẽ làm suy kiệt cơ bắp, rối loạn trao đổi chất và suy giảm miễn dịch nghiêm trọng. Hệ thống yêu cầu bạn chọn chế độ dinh dưỡng an toàn hơn để bảo vệ sức khỏe.
                         </p>
+                        <div className="pt-1">
+
+                        </div>
                       </div>
                     </div>
-
                   </div>
                 );
               }
@@ -934,58 +950,120 @@ export function ProfileEditor() {
                   <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-2 animate-in fade-in">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                      <div className="space-y-1 flex-1">
-                        <span className="text-xs font-bold text-amber-900">
+                      <div className="space-y-1.5 flex-1">
+                        <span className="text-xs font-bold text-amber-900 block">
                           Cảnh báo dinh dưỡng: Đang thiếu cân nhưng chọn Giảm cân
                         </span>
                         <p className="text-[11px] leading-relaxed text-amber-800">
-                          Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Thiếu cân). Thâm hụt calo trong lúc thiếu cân có thể gây mệt mỏi, suy nhược và thiếu hụt vi chất. Khuyến nghị bạn nên chuyển sang mục tiêu <strong>Tăng cân</strong> hoặc <strong>Duy trì</strong> để đạt thể trạng cân đối trước.
+                          Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Thiếu cân). Thâm hụt calo trong lúc thiếu cân có thể gây mệt mỏi, suy nhược và thiếu hụt vi chất. Khuyến nghị bạn nên chuyển sang mục tiêu <strong>Tăng cơ / Tăng cân</strong> để đạt thể trạng cân đối trước.
                         </p>
+                        <div className="pt-1">
+
+                        </div>
                       </div>
                     </div>
-
                   </div>
                 );
               }
 
-              // Trường hợp 3: Thừa cân nhưng chọn Tăng cân
+              // Trường hợp 3: Quá nhẹ cân / Thiếu cân nghiêm trọng (BMI < 16.5) mà chọn Duy trì vóc dáng
+              if (isSevereUnderweight && healthGoal === "maintain_weight") {
+                return (
+                  <div className="p-4 rounded-2xl bg-red-50 border border-red-300 text-red-950 space-y-2.5 animate-in fade-in">
+                    <div className="flex items-start gap-2.5">
+                      <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                      <div className="space-y-1.5 flex-1">
+                        <span className="text-xs font-bold text-red-900 block">
+                          Cảnh báo sức khỏe: Thể trạng quá nhẹ cân (BMI {bmiInfo.formattedBMI} &lt; 16.5) không nên chọn Duy trì vóc dáng
+                        </span>
+                        <p className="text-[11px] leading-relaxed text-red-800">
+                          Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Mức thiếu cân nghiêm trọng, thấp hơn nhiều so với ngưỡng an toàn 18.5). Việc chọn <strong>Duy trì vóc dáng</strong> ở mức thể trạng này là không hợp lý và không an toàn vì cơ thể đang trong tình trạng suy kiệt dinh dưỡng, giảm sức đề kháng và có nguy cơ ảnh hưởng xấu đến sức khỏe lâu dài. Khuyến nghị bạn nên chọn mục tiêu <strong>Tăng cơ / Tăng cân</strong> để nạp đủ năng lượng và hồi phục thể trạng an toàn.
+                        </p>
+                        <div className="pt-1">
+
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Trường hợp 4: Thiếu cân (16.5 <= BMI < 18.5) mà chọn Duy trì vóc dáng
+              if (isUnderweight && healthGoal === "maintain_weight") {
+                return (
+                  <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-2 animate-in fade-in">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="space-y-1.5 flex-1">
+                        <span className="text-xs font-bold text-amber-900 block">
+                          Cảnh báo dinh dưỡng: Thể trạng nhẹ cân nhưng chọn Duy trì vóc dáng
+                        </span>
+                        <p className="text-[11px] leading-relaxed text-amber-800">
+                          Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Thể trạng thiếu cân, dưới mức chuẩn 18.5). Việc chọn <strong>Duy trì vóc dáng</strong> ở mức này không thực sự hợp lý vì cơ thể cần đạt ngưỡng cân đối (BMI từ 18.5 - 22.9) để đảm bảo mật độ xương, cơ bắp và hệ miễn dịch tối ưu. Bạn nên chuyển sang mục tiêu <strong>Tăng cơ / Tăng cân</strong> để xây dựng thực đơn giàu dinh dưỡng hơn.
+                        </p>
+                        <div className="pt-1">
+
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Trường hợp 5: Thừa cân nhưng chọn Tăng cân
               if (isOverweight && healthGoal === "gain_weight") {
                 return (
                   <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-2 animate-in fade-in">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                      <div className="space-y-1 flex-1">
-                        <span className="text-xs font-bold text-amber-900">
+                      <div className="space-y-1.5 flex-1">
+                        <span className="text-xs font-bold text-amber-900 block">
                           Cảnh báo dinh dưỡng: Thể trạng thừa cân nhưng chọn Tăng cân
                         </span>
                         <p className="text-[11px] leading-relaxed text-amber-800">
                           Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Thừa cân / Béo phì). Việc nạp calo thặng dư để tăng cân có thể gia tăng mỡ nội tạng và áp lực lên tim mạch.
                         </p>
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setHealthGoal("lose_weight")}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                            Chuyển sang mục tiêu: Giảm cân lành mạnh
+                          </button>
+                        </div>
                       </div>
                     </div>
-
-
                   </div>
                 );
               }
 
-              // Trường hợp 4: Thừa cân nhưng chọn Duy trì vóc dáng
+              // Trường hợp 6: Thừa cân nhưng chọn Duy trì vóc dáng
               if (isOverweight && healthGoal === "maintain_weight") {
                 return (
                   <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-2 animate-in fade-in">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                      <div className="space-y-1 flex-1">
-                        <span className="text-xs font-bold text-amber-900">
+                      <div className="space-y-1.5 flex-1">
+                        <span className="text-xs font-bold text-amber-900 block">
                           Cảnh báo dinh dưỡng: Thể trạng thừa cân nhưng chọn Duy trì vóc dáng
                         </span>
                         <p className="text-[11px] leading-relaxed text-amber-800">
                           Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Thừa cân / Béo phì). Việc duy trì mức cân nặng này không phù hợp vì có thể duy trì áp lực lên hệ xương khớp, tim mạch và nguy cơ rối loạn chuyển hóa. Khuyến nghị bạn nên chọn mục tiêu <strong>Giảm cân lành mạnh</strong> để đưa cân nặng về ngưỡng chuẩn an toàn (BMI 18.5 - 22.9).
                         </p>
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setHealthGoal("lose_weight")}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                            Chuyển sang mục tiêu: Giảm cân lành mạnh
+                          </button>
+                        </div>
                       </div>
                     </div>
-
-
                   </div>
                 );
               }
@@ -1059,7 +1137,12 @@ export function ProfileEditor() {
                 <button
                   type="button"
                   onClick={handleDeclareNoAllergies}
-                  className="text-[11px] text-emerald-700 hover:text-emerald-900 font-semibold underline cursor-pointer"
+                  className={`text-[11px] font-semibold transition-colors ${
+                    allergies && allergies.length > 0
+                      ? "text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
+                      : "text-stone-400 cursor-default"
+                  }`}
+                  title={allergies && allergies.length > 0 ? "Bỏ chọn tất cả dị ứng" : "Chưa chọn dị ứng nào"}
                 >
                   Tôi không dị ứng gì
                 </button>
