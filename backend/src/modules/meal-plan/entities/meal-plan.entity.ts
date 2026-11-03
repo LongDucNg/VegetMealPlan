@@ -13,6 +13,7 @@ import { WeeklyPlan } from './weekly-plan.entity';
 import { MealPlanProfile } from './meal-plan-profile.entity';
 
 export enum PlanType {
+  DAILY = 'daily',
   WEEKLY = 'weekly',
   MONTHLY = 'monthly',
 }
