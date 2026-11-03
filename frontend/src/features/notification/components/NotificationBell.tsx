@@ -7,6 +7,7 @@ import {
   Bell,
   Check,
   CheckCheck,
+  CheckCircle2,
   Clock,
   Sparkles,
   AlertCircle,
@@ -14,6 +15,9 @@ import {
   Heart,
   Trash2,
   ExternalLink,
+  Leaf,
+  Utensils,
+  FileText,
 } from "lucide-react";
 import { useNotifications } from "../hooks/useNotifications";
 import { formatTimeAgo, getNotificationLink } from "../utils";
@@ -56,6 +60,34 @@ export function NotificationBell() {
 
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
+      case "RECIPE_APPROVED":
+      case "FORUM_POST_APPROVED":
+        return (
+          <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-4 h-4" />
+          </div>
+        );
+      case "RECIPE_REJECTED":
+      case "FORUM_POST_REJECTED":
+        return (
+          <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+            <AlertCircle className="w-4 h-4" />
+          </div>
+        );
+      case "RECIPE_SUBMITTED":
+      case "FORUM_POST_SUBMITTED":
+        return (
+          <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+            <Clock className="w-4 h-4" />
+          </div>
+        );
+      case "SYSTEM_WELCOME":
+      case "SYSTEM_ANNOUNCEMENT":
+        return (
+          <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center shrink-0">
+            <Sparkles className="w-4 h-4" />
+          </div>
+        );
       case "SUBSCRIPTION_SUCCESS":
         return (
           <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
