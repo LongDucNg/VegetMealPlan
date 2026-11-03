@@ -27,6 +27,7 @@ export interface AdminContentItem {
   date: string;
   reports: number;
   status: "Published" | "Under Review" | "Removed";
+  rejectReason?: string | null;
 }
 
 export interface ModerationItem {
@@ -49,8 +50,9 @@ export interface CategoryItem {
   id: string;
   name: string;
   slug: string;
-  type: "Food Type" | "Recipe Category";
+  type: "Food Type" | "Recipe Category" | "Forum Category";
   recipeCount: number;
+  postCount?: number;
   status: "Active" | "Archived";
   description?: string;
 }
@@ -65,6 +67,7 @@ export interface BackendCategory {
   created_at: string;
   updated_at: string;
   recipe_count?: number;
+  post_count?: number;
 }
 
 export interface CreateCategoryPayload {

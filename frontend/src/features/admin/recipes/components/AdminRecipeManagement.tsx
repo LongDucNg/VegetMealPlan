@@ -24,7 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { useRecipes } from "@/features/recipes/hooks/useRecipes";
-import { Recipe, RecipeStatus, formatMealType } from "@/features/recipes";
+import { Recipe, RecipeStatus, formatMealType, isMealTypeMatch } from "@/features/recipes";
 import { formatVegetarianType } from "@/features/profile/types";
 import { AdminRecipeModal } from "./AdminRecipeModal";
 import { AdminRecipeDetailModal } from "./AdminRecipeDetailModal";
@@ -60,6 +60,11 @@ export function AdminRecipeManagement() {
     "Nội dung chưa đầy đủ hoặc không phù hợp tiêu chuẩn cộng đồng"
   );
   const [isSubmittingReject, setIsSubmittingReject] = useState<boolean>(false);
+
+  // Inline rejection state
+  const [rejectingRecipeId, setRejectingRecipeId] = useState<string | null>(null);
+  const [inlineRejectReason, setInlineRejectReason] = useState<string>("");
+  const [isSubmittingInlineReject, setIsSubmittingInlineReject] = useState<boolean>(false);
 
   const [deleteModalRecipe, setDeleteModalRecipe] = useState<{ id: string; title: string } | null>(null);
   const [isSubmittingDelete, setIsSubmittingDelete] = useState<boolean>(false);
@@ -141,15 +146,16 @@ export function AdminRecipeManagement() {
     const numId = parseInt(rejectModalRecipe.id.replace(/\D/g, ""), 10);
     setIsSubmittingReject(true);
     try {
+      const reasonText = rejectReason.trim() ? rejectReason.trim() : undefined;
       if (!isNaN(numId)) {
-        await recipeApiService.reviewRecipe(
-          numId,
-          "rejected",
-          rejectReason.trim() ? rejectReason.trim() : undefined
-        );
+        await recipeApiService.reviewRecipe(numId, "rejected", reasonText);
       }
       try {
-        recipeService.updateRecipe(rejectModalRecipe.id, { status: "REJECTED" });
+        recipeService.updateRecipe(rejectModalRecipe.id, {
+          status: "REJECTED",
+          review_reason: reasonText,
+          reviewReason: reasonText,
+        });
       } catch {
         // Recipe tồn tại trên database server nhưng chưa có trong mock localStorage
       }
@@ -164,6 +170,37 @@ export function AdminRecipeManagement() {
     }
   };
 
+  const handleConfirmInlineReject = async (recipe: Recipe) => {
+    const numId = parseInt(recipe.id.replace(/\D/g, ""), 10);
+    setIsSubmittingInlineReject(true);
+    try {
+      const finalReason =
+        inlineRejectReason.trim() ||
+        "Nội dung chưa đầy đủ hoặc không phù hợp tiêu chuẩn cộng đồng";
+      if (!isNaN(numId)) {
+        await recipeApiService.reviewRecipe(numId, "rejected", finalReason);
+      }
+      try {
+        recipeService.updateRecipe(recipe.id, {
+          status: "REJECTED",
+          review_reason: finalReason,
+          reviewReason: finalReason,
+        });
+      } catch {
+        // Ignored
+      }
+      await loadAdminRecipes();
+      refresh();
+      showToast("success", `Đã từ chối công thức "${recipe.name || recipe.title}"!`);
+      setRejectingRecipeId(null);
+      setInlineRejectReason("");
+    } catch (err: any) {
+      showToast("error", err?.message || "Không thể từ chối công thức này");
+    } finally {
+      setIsSubmittingInlineReject(false);
+    }
+  };
+
   // Filtered recipes
   const filtered = allRecipes.filter((r) => {
     if (search.trim()) {
@@ -174,7 +211,7 @@ export function AdminRecipeManagement() {
         (r.ingredients || []).some((ing) => ing.name.toLowerCase().includes(q));
       if (!match) return false;
     }
-    if (selectedMealType !== "all" && r.mealType !== selectedMealType) {
+    if (selectedMealType !== "all" && !isMealTypeMatch(r.mealType, selectedMealType)) {
       return false;
     }
     if (selectedDiet !== "all" && r.vegetarianType !== selectedDiet) {
@@ -422,8 +459,7 @@ export function AdminRecipeManagement() {
         <span className="font-semibold text-stone-500 mr-1">Bữa ăn:</span>
         {[
           { id: "all", label: "Tất cả" },
-          { id: "breakfast", label: "Bữa sáng" },
-          { id: "lunch", label: "Bữa trưa" },
+          { id: "breakfast_lunch", label: "Bữa sáng / trưa" },
           { id: "dinner", label: "Bữa tối" },
           { id: "snack", label: "Bữa phụ" },
         ].map((m) => (
@@ -548,165 +584,296 @@ export function AdminRecipeManagement() {
             return (
               <div
                 key={recipe.id}
-                className={`p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-colors ${isChecked ? "bg-emerald-50/40" : "hover:bg-stone-50/50"
+                className={`p-4 sm:p-5 flex flex-col transition-colors ${isChecked ? "bg-emerald-50/40" : "hover:bg-stone-50/50"
                   }`}
               >
-                <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                  {/* Row Checkbox */}
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => handleToggleSelectRecipe(numId)}
-                    className="w-4 h-4 rounded text-emerald-700 focus:ring-emerald-500 cursor-pointer shrink-0"
-                    title={`Chọn món #${numId}`}
-                  />
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+                  <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                    {/* Row Checkbox */}
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => handleToggleSelectRecipe(numId)}
+                      className="w-4 h-4 rounded text-emerald-700 focus:ring-emerald-500 cursor-pointer shrink-0"
+                      title={`Chọn món #${numId}`}
+                    />
 
-                  {/* Thumbnail */}
-                  <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-stone-100 shrink-0">
-                    {recipe.image ? (
-                      <Image
-                        src={recipe.image}
-                        alt={recipe.title}
-                        fill
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs text-stone-400">
-                        Không có ảnh
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Details */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-200">
-                        {formatMealType(recipe.mealType)}
-                      </span>
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-stone-100 text-stone-700">
-                        {formatVegetarianType(recipe.vegetarianType)}
-                      </span>
-                      <span
-                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${status === "APPROVED"
-                          ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                          : status === "PENDING_REVIEW"
-                            ? "bg-amber-100 text-amber-900 border border-amber-300"
-                            : status === "REJECTED"
-                              ? "bg-rose-100 text-rose-900 border border-rose-300"
-                              : "bg-stone-200 text-stone-700"
-                          }`}
-                      >
-                        {status === "APPROVED"
-                          ? "Đã duyệt"
-                          : status === "PENDING_REVIEW"
-                            ? "Chờ duyệt"
-                            : status === "REJECTED"
-                              ? "Đã từ chối"
-                              : "Bản nháp"}
-                      </span>
-                      <span className="text-xs text-stone-400">· {recipe.category}</span>
-                    </div>
-
-                    <Link
-                      href={`/recipes/${recipe.id}`}
-                      className="font-semibold text-stone-900 text-base truncate block hover:text-emerald-700 hover:underline transition-colors"
-                    >
-                      {recipe.name || recipe.title}
-                    </Link>
-
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500 mt-1">
-                      <span className="flex items-center gap-1 font-semibold text-amber-700">
-                        <Flame className="w-3.5 h-3.5 text-amber-500" />
-                        {recipe.calories} kcal
-                      </span>
-                      <span>Đạm: {recipe.protein}g · Tinh bột: {recipe.carbs}g · Béo: {recipe.fat}g</span>
-                      <span className="font-bold text-emerald-800">
-                        {priceService.formatEstimatedPrice(cost)}
-                      </span>
-                      {recipe.source && (
-                        <span className="text-[11px] text-stone-400">
-                          Nguồn: {recipe.source.name}
-                        </span>
+                    {/* Thumbnail */}
+                    <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-stone-100 shrink-0">
+                      {recipe.image ? (
+                        <Image
+                          src={recipe.image}
+                          alt={recipe.title}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs text-stone-400">
+                          Không có ảnh
+                        </div>
                       )}
                     </div>
+
+                    {/* Details */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-200">
+                          {formatMealType(recipe.mealType)}
+                        </span>
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-stone-100 text-stone-700">
+                          {formatVegetarianType(recipe.vegetarianType)}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${status === "APPROVED"
+                            ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                            : status === "PENDING_REVIEW"
+                              ? "bg-amber-100 text-amber-900 border border-amber-300"
+                              : status === "REJECTED"
+                                ? "bg-rose-100 text-rose-900 border border-rose-300"
+                                : "bg-stone-200 text-stone-700"
+                            }`}
+                        >
+                          {status === "APPROVED"
+                            ? "Đã duyệt"
+                            : status === "PENDING_REVIEW"
+                              ? "Chờ duyệt"
+                              : status === "REJECTED"
+                                ? "Đã từ chối"
+                                : "Bản nháp"}
+                        </span>
+                        {recipe.category === "un-category" || !recipe.category ? (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-stone-100 text-stone-600 border border-stone-200">
+                            un-category
+                          </span>
+                        ) : (
+                          <span className="text-xs text-stone-400">· {recipe.category}</span>
+                        )}
+                      </div>
+
+                      <Link
+                        href={`/recipes/${recipe.id}`}
+                        className="font-semibold text-stone-900 text-base truncate block hover:text-emerald-700 hover:underline transition-colors"
+                      >
+                        {recipe.name || recipe.title}
+                      </Link>
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500 mt-1">
+                        <span className="flex items-center gap-1 font-semibold text-amber-700">
+                          <Flame className="w-3.5 h-3.5 text-amber-500" />
+                          {recipe.calories} kcal
+                        </span>
+                        <span>Đạm: {recipe.protein}g · Tinh bột: {recipe.carbs}g · Béo: {recipe.fat}g</span>
+                        <span className="font-bold text-emerald-800">
+                          {priceService.formatEstimatedPrice(cost)}
+                        </span>
+                        {recipe.source && (
+                          <span className="text-[11px] text-stone-400">
+                            Nguồn: {recipe.source.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
+                    {status === "PENDING_REVIEW" && (
+                      <>
+                        <button
+                          onClick={() => handleApprove(recipe)}
+                          title="Duyệt công thức công khai"
+                          className="h-8 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1 transition-colors shadow-2xs cursor-pointer"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Duyệt</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (rejectingRecipeId === recipe.id) {
+                              setRejectingRecipeId(null);
+                            } else {
+                              setRejectingRecipeId(recipe.id);
+                              setInlineRejectReason("");
+                            }
+                          }}
+                          title="Nhập lý do từ chối công thức"
+                          className={`h-8 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${rejectingRecipeId === recipe.id
+                              ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                              : "bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200"
+                            }`}
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Từ chối</span>
+                        </button>
+                      </>
+                    )}
+
+                    {status === "REJECTED" && (
+                      <>
+                        <button
+                          onClick={() => handleApprove(recipe)}
+                          title="Duyệt lại công thức"
+                          className="h-8 px-2.5 rounded-xl bg-stone-100 hover:bg-emerald-50 text-stone-700 hover:text-emerald-800 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Duyệt lại</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (rejectingRecipeId === recipe.id) {
+                              setRejectingRecipeId(null);
+                            } else {
+                              setRejectingRecipeId(recipe.id);
+                              setInlineRejectReason(recipe.review_reason || recipe.reviewReason || "");
+                            }
+                          }}
+                          title="Sửa lý do từ chối"
+                          className="h-8 px-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          <span>Sửa lý do</span>
+                        </button>
+                      </>
+                    )}
+
+                    {/* <Link
+                      href={`/recipes/${recipe.id}`}
+                      title="Xem trang công thức"
+                      className="p-2 rounded-xl text-stone-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </Link> */}
+
+                    {/* Quick Export Single Recipe Button - Chỉ hiện khi món ĐÃ ĐƯỢC DUYỆT */}
+                    {status === "APPROVED" && (
+                      <button
+                        onClick={() => handleQuickExportSingle(recipe)}
+                        title={`Xuất riêng món "${recipe.name || recipe.title}" ra file Excel (.xlsx)`}
+                        className="p-2 rounded-xl text-stone-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+                      >
+                        <FileDown className="w-4 h-4" />
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => setViewingRecipe(recipe)}
+                      title="Xem nhanh chi tiết"
+                      className="p-2 rounded-xl text-stone-500 hover:text-stone-900 hover:bg-stone-100 transition-colors cursor-pointer"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleOpenEdit(recipe)}
+                      title="Chỉnh sửa công thức"
+                      className="p-2 rounded-xl text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 transition-colors cursor-pointer"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleOpenDeleteModal(recipe.id, recipe.name || recipe.title)}
+                      title="Xóa công thức"
+                      className="p-2 rounded-xl text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
-                  {status === "PENDING_REVIEW" && (
-                    <>
+                {/* Rejection reason display if REJECTED */}
+                {status === "REJECTED" && (
+                  <div className="w-full mt-3 p-3 rounded-2xl bg-rose-50/80 border border-rose-200 text-rose-900 text-xs flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <span className="font-bold text-rose-800">Lý do từ chối: </span>
+                      <span className="font-medium text-stone-700">
+                        {recipe.review_reason || recipe.reviewReason || "Nội dung chưa đầy đủ hoặc không phù hợp tiêu chuẩn cộng đồng"}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Inline rejection input box */}
+                {rejectingRecipeId === recipe.id && (
+                  <div className="w-full mt-3 p-4 rounded-2xl bg-rose-50 border border-rose-200 animate-in fade-in space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-rose-900 font-bold text-xs">
+                        <XCircle className="w-4 h-4 text-rose-600" />
+                        <span>Nhập lý do từ chối công thức &quot;{recipe.name || recipe.title}&quot;:</span>
+                      </div>
                       <button
-                        onClick={() => handleApprove(recipe)}
-                        title="Duyệt công thức công khai"
-                        className="h-8 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1 transition-colors shadow-2xs cursor-pointer"
+                        type="button"
+                        onClick={() => setRejectingRecipeId(null)}
+                        className="text-stone-400 hover:text-stone-700 p-1 rounded-md"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Duyệt</span>
+                        <X className="w-3.5 h-3.5" />
                       </button>
-                      <button
-                        onClick={() => handleOpenRejectModal(recipe)}
-                        title="Từ chối công thức"
-                        className="h-8 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                      >
-                        <XCircle className="w-3.5 h-3.5" />
-                        <span>Từ chối</span>
-                      </button>
-                    </>
-                  )}
+                    </div>
 
-                  {status === "REJECTED" && (
-                    <button
-                      onClick={() => handleApprove(recipe)}
-                      title="Duyệt lại công thức"
-                      className="h-8 px-2.5 rounded-xl bg-stone-100 hover:bg-emerald-50 text-stone-700 hover:text-emerald-800 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Duyệt lại</span>
-                    </button>
-                  )}
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={inlineRejectReason}
+                        onChange={(e) => setInlineRejectReason(e.target.value)}
+                        placeholder="Nhập lý do từ chối công thức này..."
+                        className="flex-1 px-3.5 py-2 rounded-xl border border-rose-300 bg-white text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-200"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleConfirmInlineReject(recipe);
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleConfirmInlineReject(recipe)}
+                          disabled={isSubmittingInlineReject}
+                          className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer shrink-0 flex items-center gap-1.5"
+                        >
+                          {isSubmittingInlineReject ? (
+                            <>
+                              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              <span>Đang xử lý...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Xác nhận từ chối</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRejectingRecipeId(null)}
+                          className="px-3.5 py-2 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-600 text-xs font-semibold cursor-pointer shrink-0 transition-colors"
+                        >
+                          Hủy
+                        </button>
+                      </div>
+                    </div>
 
-                  <Link
-                    href={`/recipes/${recipe.id}`}
-                    title="Xem trang công thức"
-                    className="p-2 rounded-xl text-stone-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                  </Link>
-
-                  {/* Quick Export Single Recipe Button - Chỉ hiện khi món ĐÃ ĐƯỢC DUYỆT */}
-                  {status === "APPROVED" && (
-                    <button
-                      onClick={() => handleQuickExportSingle(recipe)}
-                      title={`Xuất riêng món "${recipe.name || recipe.title}" ra file Excel (.xlsx)`}
-                      className="p-2 rounded-xl text-stone-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
-                    >
-                      <FileDown className="w-4 h-4" />
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => setViewingRecipe(recipe)}
-                    title="Xem nhanh chi tiết"
-                    className="p-2 rounded-xl text-stone-500 hover:text-stone-900 hover:bg-stone-100 transition-colors cursor-pointer"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleOpenEdit(recipe)}
-                    title="Chỉnh sửa công thức"
-                    className="p-2 rounded-xl text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 transition-colors cursor-pointer"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleOpenDeleteModal(recipe.id, recipe.name || recipe.title)}
-                    title="Xóa công thức"
-                    className="p-2 rounded-xl text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                    {/* Quick reason suggestions */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                      <span className="text-[11px] text-stone-500 font-medium">Gợi ý lý do:</span>
+                      {[
+                        "Nội dung chưa đầy đủ hoặc không phù hợp tiêu chuẩn cộng đồng",
+                        "Nguyên liệu chứa thành phần không thuần chay",
+                        "Ảnh món ăn bị mờ hoặc không đúng với món",
+                        "Hướng dẫn nấu chưa chi tiết hoặc sai định lượng",
+                      ].map((preset, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setInlineRejectReason(preset)}
+                          className="px-2.5 py-1 rounded-lg text-[11px] bg-white text-rose-800 border border-rose-200 hover:bg-rose-100 transition-colors cursor-pointer text-left"
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -826,7 +993,7 @@ export function AdminRecipeManagement() {
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-xs font-medium">
               Đã chọn <strong className="text-emerald-400 font-bold">{selectedIds.length}</strong> món
-              
+
             </span>
           </div>
 
@@ -861,13 +1028,12 @@ export function AdminRecipeManagement() {
       {toast && (
         <div className="fixed top-5 right-5 sm:right-8 z-50 max-w-md w-full animate-in slide-in-from-top-3 fade-in duration-200">
           <div
-            className={`p-4 rounded-2xl shadow-xl border flex items-start gap-3 backdrop-blur-md ${
-              toast.type === "success"
+            className={`p-4 rounded-2xl shadow-xl border flex items-start gap-3 backdrop-blur-md ${toast.type === "success"
                 ? "bg-emerald-50/95 border-emerald-200 text-emerald-950"
                 : toast.type === "error"
-                ? "bg-rose-50/95 border-rose-200 text-rose-950"
-                : "bg-amber-50/95 border-amber-200 text-amber-950"
-            }`}
+                  ? "bg-rose-50/95 border-rose-200 text-rose-950"
+                  : "bg-amber-50/95 border-amber-200 text-amber-950"
+              }`}
           >
             {toast.type === "success" && (
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
@@ -884,8 +1050,8 @@ export function AdminRecipeManagement() {
                 {toast.type === "success"
                   ? "Thành công"
                   : toast.type === "error"
-                  ? "Đã xảy ra lỗi"
-                  : "Thông báo"}
+                    ? "Đã xảy ra lỗi"
+                    : "Thông báo"}
               </p>
               <p className="text-xs mt-0.5 leading-relaxed text-stone-700 font-medium">
                 {toast.message}

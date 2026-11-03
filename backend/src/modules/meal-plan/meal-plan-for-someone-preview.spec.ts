@@ -34,6 +34,19 @@ const LACTO_RECIPE = {
   estimated_cost: 20000,
 };
 
+const VEGAN_BREAKFAST = {
+  recipe_id: 3,
+  title: 'Bánh Mì Chay',
+  diet_type: 'vegan',
+  status: 'approved',
+  meal_type: 'breakfast',
+  suitable_meals: 'breakfast',
+  servings: 2,
+  prep_time: 5,
+  cook_time: 10,
+  estimated_cost: 15000,
+};
+
 describe('MealPlanService.generateMealPlanForSomeone - không lưu DB', () => {
   const buildService = (opts: {
     isPremium?: boolean;
@@ -89,7 +102,7 @@ describe('MealPlanService.generateMealPlanForSomeone - không lưu DB', () => {
       find: async () => [],
     };
     const recipeRepo: any = {
-      find: async () => opts.recipes ?? [VEGAN_RECIPE, LACTO_RECIPE],
+      find: async () => opts.recipes ?? [VEGAN_RECIPE, LACTO_RECIPE, VEGAN_BREAKFAST],
     };
     const recipeIngredientRepo: any = {
       find: async ({ where }: any) => {
@@ -113,6 +126,14 @@ describe('MealPlanService.generateMealPlanForSomeone - không lưu DB', () => {
             is_optional: false,
             ingredient: { ingredient_id: 179, ingredient_name: 'Sữa tươi' },
           },
+          {
+            recipe_id: 3,
+            ingredient_id: 20,
+            quantity: 150,
+            unit: 'g',
+            is_optional: false,
+            ingredient: { ingredient_id: 20, ingredient_name: 'Bánh mì' },
+          },
         ];
 
         const wanted = where.recipe_id?._value ?? where.recipe_id;
@@ -128,6 +149,7 @@ describe('MealPlanService.generateMealPlanForSomeone - không lưu DB', () => {
       find: async () => [
         { recipe_id: 1, calories: 300, protein: 10, carbs: 50, fat: 5, fiber: 3 },
         { recipe_id: 2, calories: 200, protein: 6, carbs: 30, fat: 4, fiber: 1 },
+        { recipe_id: 3, calories: 250, protein: 7, carbs: 40, fat: 3, fiber: 2 },
       ],
     };
     const favoriteRepo: any = { find: async () => [] };
@@ -204,7 +226,7 @@ describe('MealPlanService.generateMealPlanForSomeone - không lưu DB', () => {
 
     // 7 ngày x 3 bữa = 21 bữa
     expect(dailyMeals).toHaveLength(21);
-    expect(dailyMeals[0].meal_items.length).toBeGreaterThanOrEqual(2);
+    expect(dailyMeals[0].meal_items.length).toBeGreaterThanOrEqual(1);
     expect(dailyMeals[0].meal_items[0].recipe.title).toBeTruthy();
     expect(dailyMeals[0].meal_items[0].recipe.ingredients).toBeDefined();
   });

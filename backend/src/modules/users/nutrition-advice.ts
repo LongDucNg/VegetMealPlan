@@ -26,6 +26,7 @@ const GOAL_LABEL: Record<string, string> = {
   lose_weight: 'giảm cân',
   gain_muscle: 'tăng cơ',
   maintain: 'duy trì',
+  healthy_eating: 'ăn uống lành mạnh',
 };
 
 export const fmt = (n: number, digits = 0) =>
@@ -102,10 +103,10 @@ export function goalProgress(
       code: 'TARGET_GOAL_MISMATCH',
       message: `Mục tiêu là tăng cơ nhưng cân nặng muốn đạt (${fmt(target_weight_kg, 1)} kg) không cao hơn hiện tại (${fmt(weight, 1)} kg).`,
     });
-  } else if (goal === 'maintain' && Math.abs(change) > 2) {
+  } else if ((goal === 'maintain' || goal === 'healthy_eating') && Math.abs(change) > 2) {
     warnings.push({
       code: 'TARGET_GOAL_MISMATCH',
-      message: `Mục tiêu là duy trì nhưng cân nặng muốn đạt lệch ${fmt(Math.abs(change), 1)} kg so với hiện tại. Nên chọn mục tiêu ${change < 0 ? 'giảm cân' : 'tăng cơ'}.`,
+      message: `Mục tiêu là ${goal === 'healthy_eating' ? 'ăn uống lành mạnh' : 'duy trì'} nhưng cân nặng muốn đạt lệch ${fmt(Math.abs(change), 1)} kg so với hiện tại. Nên chọn mục tiêu ${change < 0 ? 'giảm cân' : 'tăng cơ'}.`,
     });
   }
 
