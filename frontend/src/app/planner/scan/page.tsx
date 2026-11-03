@@ -9,6 +9,7 @@ import { Dropzone } from "@/components/ui/Dropzone";
 import { recipeApiService } from "@/features/recipes/services/recipeApiService";
 import { apiClient } from "@/lib/apiClient";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
+import { PremiumGuard } from "@/features/subscription/guards/PremiumGuard";
 import { useRole } from "@/context/RoleContext";
 import { photoScanService, DetectedIngredientItem } from "@/features/meal-planner/services/photoScanService";
 import { profileService } from "@/features/profile/services/profileService";
@@ -204,7 +205,7 @@ function getRecipeAllergens(
   return Array.from(detected);
 }
 
-export function isIngredientAllergenMatch(
+function isIngredientAllergenMatch(
   ingName: string,
   ingId: number,
   allergies?: UserAllergyState
@@ -1034,7 +1035,7 @@ function PantryManager({
                           )}
                         </div>
                         <span className="text-[11px] text-stone-400">
-                          {ing.unit} · {ing.calories_per_100g ? `${Math.round(Number(ing.calories_per_100g) * 100) / 100} kcal/100g` : "Chuẩn chay"}
+                          {ing.unit} · {ing.calories_per_100g ? `~${Math.round(Number(ing.calories_per_100g) * 100) / 100} kcal/100g` : "Chuẩn chay"}
                         </span>
                       </button>
                     );
@@ -1478,7 +1479,9 @@ export default function PlannerScanPage() {
         ) : isGuest ? (
           <LockedState reason="guest" />
         ) : (
-          <ScanContent />
+          <PremiumGuard feature="smart-fridge">
+            <ScanContent />
+          </PremiumGuard>
         )}
       </div>
     </AppShell>

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { useRole } from "@/context/RoleContext";
+import { useSubscription } from "@/features/subscription/hooks/useSubscription";
 
 interface NavItem {
   label: string;
@@ -44,7 +45,16 @@ interface NavItem {
 export function Sidebar() {
   const pathname = usePathname();
   const { role, isGuest, isAdmin, user, logout } = useRole();
+  const { isPremium } = useSubscription();
   const isAdminRoute = pathname.startsWith("/admin");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const effectiveIsPremium = mounted ? isPremium : false;
+  const effectiveIsGuest = mounted ? isGuest : true;
 
   // Navigation for Normal User App
   const exploreNavItems: NavItem[] = [
@@ -65,7 +75,8 @@ export function Sidebar() {
       href: "/planner/scan",
       icon: ScanLine,
       active: pathname.startsWith("/planner/scan"),
-      badge: "AI Match",
+      badge: effectiveIsPremium ? "AI Match" : "Premium",
+      lock: effectiveIsGuest || !effectiveIsPremium,
     },
   ];
 
@@ -75,7 +86,7 @@ export function Sidebar() {
       href: "/planner",
       icon: CalendarDays,
       active: pathname === "/planner",
-      lock: isGuest,
+      lock: effectiveIsGuest,
     },
     {
       label: "Diễn đàn cộng đồng",
