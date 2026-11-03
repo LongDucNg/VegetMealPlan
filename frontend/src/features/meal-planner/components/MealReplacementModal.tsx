@@ -88,13 +88,13 @@ export function MealReplacementModal({
           </div>
 
           {suggestions.map((recipe) => {
-            const calDiff = recipe.calories - originalRecipe.calories;
+            const rawDiff = Number(recipe.calories || 0) - Number(originalRecipe.calories || 0);
+            const calDiff = Number(rawDiff.toFixed(2));
+            const formattedDiff = calDiff > 0 ? `+${calDiff}` : `${calDiff}`;
             const diffText =
-              calDiff === 0
+              Math.abs(calDiff) === 0
                 ? "Chuẩn xác calo"
-                : calDiff > 0
-                ? `+${calDiff} kcal`
-                : `${calDiff} kcal`;
+                : `${formattedDiff} kcal`;
 
             const diffColor =
               Math.abs(calDiff) <= 25
@@ -150,7 +150,9 @@ export function MealReplacementModal({
                         <Flame className="w-3 h-3 fill-amber-500 text-amber-500" />
                         ~{Math.round(Number(recipe.calories) * 100) / 100} kcal
                       </span>
-                      <span>Đạm: {recipe.protein}g · Đường bột: {recipe.carbs}g · Béo: {recipe.fat}g</span>
+                      <span>
+                        Đạm: {Math.round(Number(recipe.protein || 0) * 10) / 10}g · Đường bột: {Math.round(Number(recipe.carbs || 0) * 10) / 10}g · Béo: {Math.round(Number(recipe.fat || 0) * 10) / 10}g
+                      </span>
                       <span className="text-emerald-800 font-medium">{costInfo.formatted}</span>
                     </div>
                   </div>
