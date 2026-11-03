@@ -26,21 +26,21 @@ export function LockedState({
         </div>
 
         <h2 className="font-serif font-bold text-[30px] text-stone-900 tracking-tight leading-tight mb-3">
-          {title || "Admin Access Required"}
+          {title || "Yêu cầu quyền Quản trị viên (Admin)"}
         </h2>
 
         <p className="text-base text-stone-600 max-w-md mx-auto leading-relaxed mb-8">
           {description ||
-            "This section is restricted to VeggieHub administrators. Please use the 'Preview as' switcher at the bottom of the sidebar to test Admin features."}
+            "Khu vực này chỉ dành riêng cho quản trị viên VeggieHub. Vui lòng đăng nhập bằng tài khoản Quản trị viên để truy cập."}
         </p>
 
         <div className="flex items-center justify-center gap-4">
           <Link
             href="/"
-            className="h-10 px-6 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-base font-semibold inline-flex items-center gap-2 transition-colors shadow-sm cursor-pointer"
+            className="h-10 px-6 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white text-base font-semibold inline-flex items-center gap-2 transition-colors shadow-sm cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" strokeWidth={2} />
-            <span>Return to Discover</span>
+            <span>Về trang chủ</span>
           </Link>
         </div>
       </Card>
@@ -54,26 +54,26 @@ export function LockedState({
       </div>
 
       <h2 className="font-serif font-bold text-[30px] text-stone-900 tracking-tight leading-tight mb-3">
-        {title || "Join VeggieHub to unlock this feature"}
+        {title || "Đăng nhập để mở khóa tính năng này"}
       </h2>
 
       <p className="text-base text-stone-600 max-w-md mx-auto leading-relaxed mb-8">
         {description ||
-          "Personalized weekly meal plans, AI nutrition consultations, recipe saving, and community discussion are free forever for registered members."}
+          "Kế hoạch thực đơn chay cá nhân hoá theo tuần và tháng, tính toán calo BMR/TDEE và tự động loại trừ nguyên liệu dị ứng là tính năng dành riêng cho thành viên VeggieHub. Vui lòng đăng nhập hoặc đăng ký tài khoản để trải nghiệm."}
       </p>
 
       <div className="flex flex-wrap items-center justify-center gap-4">
         <Link
           href="/register"
-          className="h-11 px-7 rounded-full bg-amber-400 hover:bg-amber-500 text-amber-950 text-base font-medium inline-flex items-center justify-center transition-colors shadow-xs cursor-pointer"
+          className="h-11 px-7 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white text-base font-semibold inline-flex items-center justify-center transition-colors shadow-xs cursor-pointer"
         >
-          Create free account
+          Đăng ký miễn phí
         </Link>
         <Link
           href="/login"
-          className="h-11 px-6 rounded-full text-stone-700 hover:text-stone-900 hover:bg-stone-100 text-base font-medium inline-flex items-center justify-center transition-colors cursor-pointer"
+          className="h-11 px-6 rounded-full text-stone-700 hover:text-stone-900 hover:bg-stone-100 border border-stone-200 text-base font-semibold inline-flex items-center justify-center transition-colors cursor-pointer"
         >
-          Log in
+          Đăng nhập ngay
         </Link>
       </div>
     </Card>

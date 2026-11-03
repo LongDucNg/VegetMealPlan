@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { GatedSkeleton } from "@/components/ui/LockedState";
+import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
 import { useMealPlanner } from "@/features/meal-planner/hooks/useMealPlanner";
 import { MealCard } from "@/features/meal-planner/components/MealCard";
@@ -300,7 +300,7 @@ function PlannerContent() {
           <p className="text-xs text-stone-500 mt-1 max-w-xl leading-relaxed">
             Tạo thực đơn chay cân bằng dinh dưỡng phù hợp với{" "}
             <strong className="text-stone-700">
-              mục tiêu {nutritionSummary.dailyCalorieTarget.toLocaleString()} kcal của {activeProfile.name}
+              mục tiêu ~{Math.round(Number(nutritionSummary.dailyCalorieTarget) * 100) / 100} kcal của {activeProfile.name}
             </strong>
             , trường phái ăn chay và dị ứng thực phẩm.
           </p>
@@ -633,7 +633,7 @@ function PlannerContent() {
                 </h3>
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-medium text-stone-500">
-                    Tổng {activeDay.totalCalories} kcal · 4 bữa
+                    Tổng ~{Math.round(Number(activeDay.totalCalories) * 100) / 100} kcal · 4 bữa
                   </span>
                   {!isPremium && (
                     <span className="text-[11px] font-semibold text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
@@ -895,7 +895,7 @@ function PlannerContent() {
 }
 
 export default function PlannerPage() {
-  const { ready } = useRole();
+  const { isGuest, ready } = useRole();
 
   return (
     <AppShell showRightRail={false}>
@@ -911,7 +911,17 @@ export default function PlannerPage() {
           }
         />
 
-        {!ready ? <GatedSkeleton /> : <PlannerContent />}
+        {!ready ? (
+          <GatedSkeleton />
+        ) : isGuest ? (
+          <LockedState
+            reason="guest"
+            title="Đăng nhập để xem Kế hoạch Thực đơn"
+            description="Kế hoạch thực đơn chay cá nhân hóa theo tuần và tháng, tính toán calo BMR/TDEE và loại trừ nguyên liệu dị ứng tự động là tính năng dành riêng cho thành viên VeggieHub. Vui lòng đăng nhập hoặc đăng ký tài khoản để trải nghiệm."
+          />
+        ) : (
+          <PlannerContent />
+        )}
       </div>
     </AppShell>
   );
