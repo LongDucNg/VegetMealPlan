@@ -660,7 +660,7 @@ export function AdminRecipeManagement() {
                       <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500 mt-1">
                         <span className="flex items-center gap-1 font-semibold text-amber-700">
                           <Flame className="w-3.5 h-3.5 text-amber-500" />
-                          {recipe.calories} kcal
+                          ~{Math.round(Number(recipe.calories) * 100) / 100} kcal
                         </span>
                         <span>Đạm: {recipe.protein}g · Tinh bột: {recipe.carbs}g · Béo: {recipe.fat}g</span>
                         <span className="font-bold text-emerald-800">

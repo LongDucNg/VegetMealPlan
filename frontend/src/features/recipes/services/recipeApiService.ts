@@ -123,8 +123,8 @@ export const recipeApiService = {
   },
 
   // API GET /categories - Danh mục công thức
-  getCategories() {
-    return apiClient.get<any>("/categories");
+  getCategories(type: string = "recipe") {
+    return apiClient.get<any>(`/categories?type=${type}`);
   },
 
   // API GET /categories/:id - Chi tiết một danh mục

@@ -755,7 +755,7 @@ function ProfileContent() {
                           </Link>
 
                           <div className="flex items-center gap-2 text-xs text-stone-500 mt-1">
-                            <span className="text-amber-700 font-bold">{recipe.calories} kcal</span>
+                            <span className="text-amber-700 font-bold">~{Math.round(Number(recipe.calories) * 100) / 100} kcal</span>
                             <span>·</span>
                             <span>{recipe.protein}g đạm</span>
                           </div>
@@ -992,7 +992,7 @@ function ProfileContent() {
                               {recipe.description || "Công thức món ăn thanh đạm, dinh dưỡng."}
                             </p>
                             <div className="flex items-center gap-2 text-xs text-stone-500 mt-2">
-                              <span className="text-amber-700 font-bold">{recipe.calories} kcal</span>
+                              <span className="text-amber-700 font-bold">~{Math.round(Number(recipe.calories) * 100) / 100} kcal</span>
                               <span>·</span>
                               <span>{recipe.protein}g đạm</span>
                               <span>·</span>
@@ -1781,7 +1781,7 @@ function ProfileContent() {
                           {r.name || r.title}
                         </h4>
                         <p className="text-xs text-stone-500">
-                          {r.mealType} · {r.calories} kcal
+                          {r.mealType} · ~{Math.round(Number(r.calories) * 100) / 100} kcal
                         </p>
                       </div>
                     </div>
