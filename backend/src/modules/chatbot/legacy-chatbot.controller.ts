@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiExcludeController, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ChatbotService } from './chatbot.service';
 import { AskChatbotDto } from './dto/ask-chatbot.dto';
 import { Public } from '../../common/decorators/public.decorator';
@@ -7,6 +7,7 @@ import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guar
 import { CurrentUser, AuthUser } from '../../common/decorators/current-user.decorator';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
 
+@ApiExcludeController()
 @ApiTags('chatbot')
 @Controller('chatbot')
 export class LegacyChatbotController {
