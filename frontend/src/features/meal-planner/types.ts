@@ -70,7 +70,7 @@ export interface MonthlyMealPlan {
 }
 
 export interface GenerationPlanOptions {
-  planType: MealPlanType;
+  planType?: MealPlanType;
   isSomeoneElse?: boolean;
   targetProfile?: UserProfile;
   budgetLimit?: number; // e.g. 500,000 VND
@@ -78,6 +78,8 @@ export interface GenerationPlanOptions {
   selectedYear?: number;
   favoriteRecipeIds?: string[];
   seed?: number;
+  recentRecipeIds?: string[]; // Danh sách món đã dùng trong 14 ngày (2 tuần) gần nhất
+  excludedRecipeIds?: string[];
 }
 
 export interface MealItem {

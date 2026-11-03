@@ -432,6 +432,19 @@ export function useMealPlanner() {
 
         const newMap = { ...generatedDays };
         let generatedCount = 0;
+        const rollingRecentIds: string[] = [];
+
+        // Thu thập trước các món từ 14 ngày gần nhất trong lịch để không bị trùng lặp
+        Object.values(generatedDays).forEach((gd) => {
+          if (gd) {
+            [
+              ...(gd.breakfast.recipes || [gd.breakfast.recipe]),
+              ...(gd.lunch.recipes || [gd.lunch.recipe]),
+              ...(gd.dinner.recipes || [gd.dinner.recipe]),
+              ...(gd.snack.recipes || [gd.snack.recipe]),
+            ].forEach((d) => d && rollingRecentIds.push(d.id));
+          }
+        });
 
         for (let idx = 0; idx < 7; idx++) {
           const cur = new Date(monday);
@@ -458,8 +471,17 @@ export function useMealPlanner() {
               planType: "weekly",
               budgetLimit: options?.budgetLimit ?? budgetLimit,
               favoriteRecipeIds: options?.favoriteRecipeIds,
+              recentRecipeIds: rollingRecentIds,
             }
           );
+
+          const dayDishes = [
+            ...(dayPlan.breakfast.recipes || [dayPlan.breakfast.recipe]),
+            ...(dayPlan.lunch.recipes || [dayPlan.lunch.recipe]),
+            ...(dayPlan.dinner.recipes || [dayPlan.dinner.recipe]),
+            ...(dayPlan.snack.recipes || [dayPlan.snack.recipe]),
+          ].filter(Boolean);
+          dayDishes.forEach((d) => rollingRecentIds.push(d.id));
 
           newMap[dateKey] = {
             ...dayPlan,
@@ -528,6 +550,21 @@ export function useMealPlanner() {
 
         const newMap = { ...generatedDays };
         let generatedCount = 0;
+        const rolling14Days: string[][] = [];
+
+        // Thu thập trước các món từ các ngày đã tồn tại
+        const existingIds = Object.values(generatedDays)
+          .flatMap((gd) => gd ? [
+            ...(gd.breakfast.recipes || [gd.breakfast.recipe]),
+            ...(gd.lunch.recipes || [gd.lunch.recipe]),
+            ...(gd.dinner.recipes || [gd.dinner.recipe]),
+            ...(gd.snack.recipes || [gd.snack.recipe]),
+          ] : [])
+          .filter(Boolean)
+          .map((d) => d.id);
+        if (existingIds.length > 0) {
+          rolling14Days.push(existingIds.slice(-28));
+        }
 
         for (let d = 1; d <= daysInMonth; d++) {
           const curDate = new Date(year, month, d);
@@ -553,8 +590,20 @@ export function useMealPlanner() {
               planType: "monthly",
               budgetLimit: options?.budgetLimit ?? budgetLimit,
               favoriteRecipeIds: options?.favoriteRecipeIds,
+              recentRecipeIds: rolling14Days.flat(),
             }
           );
+
+          const dayDishes = [
+            ...(dayPlan.breakfast.recipes || [dayPlan.breakfast.recipe]),
+            ...(dayPlan.lunch.recipes || [dayPlan.lunch.recipe]),
+            ...(dayPlan.dinner.recipes || [dayPlan.dinner.recipe]),
+            ...(dayPlan.snack.recipes || [dayPlan.snack.recipe]),
+          ].filter(Boolean);
+          rolling14Days.push(dayDishes.map((x) => x.id));
+          if (rolling14Days.length > 14) {
+            rolling14Days.shift(); // Luôn giữ cửa sổ đúng 14 ngày (2 tuần)
+          }
 
           newMap[dateKey] = {
             ...dayPlan,
@@ -755,24 +804,100 @@ export function useMealPlanner() {
   }, [generatedDays, saveGeneratedDays]);
 
   const applyFavoriteDayPlan = useCallback(
-    (dayPlan: DayMealPlan) => {
-      const targetDateKey = selectedDateKey < toDateKey(new Date()) ? toDateKey(new Date()) : selectedDateKey;
-      const [y, m, d] = targetDateKey.split("-").map(Number);
+    (dayPlan: DayMealPlan, targetDateKey?: string) => {
+      const chosenKey = targetDateKey || (selectedDateKey < toDateKey(new Date()) ? toDateKey(new Date()) : selectedDateKey);
+      const [y, m, d] = chosenKey.split("-").map(Number);
+      const dateObj = new Date(y, m - 1, d);
+      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const shortDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const monthShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+      const isAIBalanced = dayPlan.dateText?.includes("AI Balanced");
       const calDay: CalendarDayMealPlan = {
         ...dayPlan,
+        dayName:
+          dayPlan.dayName && dayPlan.dayName !== "Adjusted Day" && dayPlan.dayName !== "Selected Day"
+            ? dayPlan.dayName
+            : dayNames[dateObj.getDay()],
+        shortDay:
+          dayPlan.shortDay && dayPlan.shortDay !== "Adj" && dayPlan.shortDay !== "Fav"
+            ? dayPlan.shortDay
+            : shortDays[dateObj.getDay()],
+        dateText: isAIBalanced ? "AI Balanced" : `${monthShort[m - 1]} ${d}`,
         dayOfMonth: d,
         month: m - 1,
         year: y,
-        dateKey: targetDateKey,
+        dateKey: chosenKey,
         isCurrentMonth: true,
       };
       saveGeneratedDays({
         ...generatedDays,
-        [targetDateKey]: calDay,
+        [chosenKey]: calDay,
       });
+      setSelectedDateKey(chosenKey);
       setPlanType("daily");
     },
-    [selectedDateKey, generatedDays, saveGeneratedDays]
+    [selectedDateKey, generatedDays, saveGeneratedDays, setSelectedDateKey, setPlanType]
+  );
+
+  const addDishToMeal = useCallback(
+    (
+      mealSlotType: "breakfast" | "lunch" | "dinner" | "snack",
+      newRecipe: Recipe
+    ) => {
+      const curKey = selectedDateKey;
+      const curDay = generatedDays[curKey];
+      if (!curDay) return;
+
+      const slot = curDay[mealSlotType];
+      const existingDishes =
+        slot.recipes && slot.recipes.length > 0
+          ? [...slot.recipes]
+          : slot.recipe
+          ? [slot.recipe]
+          : [];
+      const updatedDishes = [...existingDishes, newRecipe];
+
+      const maxTime = Math.max(
+        ...updatedDishes.map((d) => (d.prepTime || 0) + (d.cookTime || 0)) || [25]
+      );
+
+      const updatedSlot = {
+        ...slot,
+        recipe: updatedDishes[0],
+        recipes: updatedDishes,
+        time: `${maxTime} min`,
+      };
+
+      const updatedDay: DayMealPlan = {
+        ...curDay,
+        [mealSlotType]: updatedSlot,
+      };
+
+      const recalculated = mealPlannerService.recalculateDay(
+        updatedDay,
+        curDay.targetCalories,
+        String(activeProfile.id || "")
+      );
+
+      const finalCalDay: CalendarDayMealPlan = {
+        ...recalculated,
+        dayOfMonth: curDay.dayOfMonth,
+        month: curDay.month,
+        year: curDay.year,
+        dateKey: curDay.dateKey,
+        isCurrentMonth: curDay.isCurrentMonth,
+      };
+
+      saveGeneratedDays({
+        ...generatedDays,
+        [curKey]: finalCalDay,
+      });
+
+      setGenerationFeedback(`✓ Đã thêm "${newRecipe.title || newRecipe.name}" vào thực đơn!`);
+      setTimeout(() => setGenerationFeedback(null), 3000);
+    },
+    [selectedDateKey, generatedDays, activeProfile, saveGeneratedDays]
   );
 
   return {
@@ -819,6 +944,7 @@ export function useMealPlanner() {
     saveCurrentMealPlan,
     loadSavedPlan,
     applyFavoriteDayPlan,
+    addDishToMeal,
   };
 }
 
