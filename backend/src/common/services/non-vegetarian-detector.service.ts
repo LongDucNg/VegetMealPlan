@@ -92,6 +92,30 @@ export const EGG_NAME_EXCEPTIONS = [
   'trứng cút',
 ];
 
+export function removeVietnameseTones(str: string): string {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D');
+}
+
+export const HASHTAG_NON_VEG_ROOTS = [
+  'thit', 'heo', 'lon', 'bo', 'ga', 'vit', 'ca', 'tom', 'cua', 'ghe',
+  'muc', 'bachtuoc', 'oc', 'so', 'hau', 'ngheu', 'ngao', 'hen',
+  'suon', 'xuong', 'mam', 'chalua', 'giothu', 'gioheo', 'changio',
+  'lapxuong', 'dambong', 'xucxich', 'bacon', 'salami', 'luon', 'ech',
+  'bachi', 'baroi'
+];
+
+export const UNACCENTED_NON_VEG_WORDS = [
+  'thit', 'thit heo', 'thit bo', 'thit ga', 'thit vit', 'thit cuu',
+  'thit de', 'thit lon', 'heo quay', 'thit quay', 'thit kho', 'thit nuong',
+  'ca kho', 'ca chien', 'ca hap', 'ca hoi', 'ga ran', 'ga luoc',
+  'vit quay', 'xuc xich', 'lap xuong', 'dam bong', 'ba chi', 'ba roi',
+  'bach tuoc', 'muc ong', 'suon non'
+];
+
 export interface NonVegCheckResult {
   isClean: boolean;
   violations: string[];
@@ -291,6 +315,51 @@ export class NonVegetarianDetectorService {
           // Xuất hiện từ khóa mặn mà không đi kèm chữ "chay" ngay sau nó -> Vi phạm!
           violationsSet.add(kw);
           break; // Chỉ cần ghi nhận 1 lần vi phạm cho từ khóa này
+        }
+      }
+    }
+
+    // 5. Quét thông minh cho Hashtag (ví dụ: #thitkhotau, #cahoi)
+    const hashtagMatches = text.match(/#[\p{L}\p{N}_-]+/gu) || [];
+    for (const tag of hashtagMatches) {
+      const rawTag = removeVietnameseTones(tag.toLowerCase().replace(/^#/, ''));
+      if (rawTag.includes('chay')) continue;
+
+      let isException = false;
+      for (const exc of this.exceptions) {
+        const cleanExc = removeVietnameseTones(exc.toLowerCase()).replace(/\s+/g, '');
+        if (rawTag.includes(cleanExc)) {
+          isException = true;
+          break;
+        }
+      }
+      if (isException) continue;
+
+      for (const root of HASHTAG_NON_VEG_ROOTS) {
+        if (rawTag.includes(root)) {
+          violationsSet.add(tag);
+          break;
+        }
+      }
+    }
+
+    // 6. Quét tiếng Việt không dấu trong nội dung
+    let unaccentedText = removeVietnameseTones(text.toLowerCase());
+    for (const exc of this.exceptions) {
+      const excNorm = removeVietnameseTones(exc.toLowerCase());
+      unaccentedText = unaccentedText.split(excNorm).join(' ');
+    }
+
+    for (const kw of UNACCENTED_NON_VEG_WORDS) {
+      const pattern = new RegExp(
+        `(?<![\\p{L}\\p{N}])(${kw})(?![\\p{L}\\p{N}])(?:(\\s+chay)(?![\\p{L}\\p{N}]))?`,
+        'gui',
+      );
+      let match: RegExpExecArray | null;
+      while ((match = pattern.exec(unaccentedText)) !== null) {
+        if (!match[2]) {
+          violationsSet.add(kw);
+          break;
         }
       }
     }
