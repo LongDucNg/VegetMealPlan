@@ -1,11 +1,19 @@
 import { Recipe } from "@/features/recipes/types";
 import { UserProfile } from "@/features/profile/types";
 
-export type MealPlanType = "weekly" | "monthly";
+export type MealPlanType = "daily" | "weekly" | "monthly";
+
+export interface MealIngredientSummaryItem {
+  ingredient_name: string;
+  quantity_g: number;
+  note: string;
+}
 
 export interface MealSlotItem {
   recipe: Recipe;
+  recipes?: Recipe[];
   time: string;
+  portion?: number;
 }
 
 export interface DayMealPlan {
@@ -23,6 +31,8 @@ export interface DayMealPlan {
   targetCalories: number;
   remainingCalories: number;
   estimatedCost: number; // in VND (Requirement 4, 7)
+  ingredient_summary?: MealIngredientSummaryItem[];
+  ai_cookability_notes?: string;
 }
 
 export interface WeeklyMealPlan {
@@ -34,6 +44,7 @@ export interface WeeklyMealPlan {
   averageDailyCost: number;
   budgetLimit?: number;
   ai_cookability_notes?: string;
+  ingredient_summary?: MealIngredientSummaryItem[];
 }
 
 export interface CalendarDayMealPlan extends DayMealPlan {
@@ -55,6 +66,7 @@ export interface MonthlyMealPlan {
   targetCalories: number;
   budgetLimit?: number;
   ai_cookability_notes?: string;
+  ingredient_summary?: MealIngredientSummaryItem[];
 }
 
 export interface GenerationPlanOptions {
@@ -102,4 +114,3 @@ export interface ScanPreset {
   detected: DetectedIngredient[];
   matchingRecipeIds: string[];
 }
-

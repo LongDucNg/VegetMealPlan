@@ -2,12 +2,13 @@
 
 import React, { useState } from "react";
 import { X, Heart, Check, CalendarDays } from "lucide-react";
+import { MealPlanType } from "../types";
 
 interface SaveMealPlanModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (name: string) => void;
-  planType: "weekly" | "monthly";
+  planType: MealPlanType;
   targetCalories: number;
   totalCost: number;
 }
@@ -21,7 +22,7 @@ export function SaveMealPlanModal({
   totalCost,
 }: SaveMealPlanModalProps) {
   const [name, setName] = useState(
-    `${planType === "weekly" ? "Kế hoạch tuần" : "Kế hoạch tháng"} (${new Date().toLocaleDateString("vi-VN")})`
+    `${planType === "daily" ? "Thực đơn ngày" : planType === "weekly" ? "Kế hoạch tuần" : "Kế hoạch tháng"} (${new Date().toLocaleDateString("vi-VN")})`
   );
 
   if (!isOpen) return null;

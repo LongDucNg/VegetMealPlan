@@ -8,6 +8,7 @@ import {
   BackendSubscriptionPlan,
   CheckoutResponse,
   PremiumStatusResponse,
+  PaymentReturnResponse,
   VnpayReturnResponse,
 } from "../types";
 import { DEFAULT_SUBSCRIPTION, MOCK_PLANS } from "../data/mockSubscriptions";
@@ -166,20 +167,41 @@ export const subscriptionService = {
   },
 
   /**
-   * Tạo giao dịch VNPay thật:
+   * Tạo giao dịch thanh toán VietQR qua PayOS:
    * POST /subscriptions/checkout
-   * Trả về { payment_url, gateway_txn_ref, amount, expires_in_minutes }
+   * Trả về { payment_url, qr_code, order_code, gateway_txn_ref, amount, expires_in_minutes }
    */
   async createCheckout(): Promise<CheckoutResponse> {
     return apiClient.post<CheckoutResponse>("/subscriptions/checkout");
   },
 
   /**
-   * Xác nhận kết quả thanh toán từ VNPay Return URL:
-   * GET /subscriptions/vnpay-return
+   * Tra cứu trạng thái giao dịch thanh toán PayOS:
+   * GET /subscriptions/transactions/:orderCode
    */
-  async verifyVnpayReturn(params: Record<string, string>): Promise<VnpayReturnResponse> {
-    return apiClient.get<VnpayReturnResponse>("/subscriptions/vnpay-return", { params });
+  async checkTransactionStatus(orderCode: string): Promise<PaymentReturnResponse> {
+    return apiClient.get<PaymentReturnResponse>(`/subscriptions/transactions/${orderCode}`);
+  },
+
+  /**
+   * Xác nhận kết quả thanh toán từ Return URL (PayOS / VietQR):
+   */
+  async verifyVnpayReturn(params: Record<string, string>): Promise<PaymentReturnResponse> {
+    const orderCode = params.orderCode || params.vnp_TxnRef || "";
+    if (orderCode) {
+      try {
+        return await this.checkTransactionStatus(orderCode);
+      } catch (err) {
+        console.warn("[subscriptionService] checkTransactionStatus error:", err);
+      }
+    }
+    const isCancelled = params.cancel === "true" || params.status === "CANCELLED";
+    return {
+      status: isCancelled ? "failed" : "success",
+      txn_ref: orderCode || null,
+      premium_until: null,
+      message: isCancelled ? "Giao dịch đã bị hủy" : "Đã nhận kết quả thanh toán",
+    };
   },
 
   /**
@@ -198,8 +220,10 @@ export const subscriptionService = {
       expiresAt: premiumUntil || undefined,
       autoRenew: false,
     };
+
     storage.setItem(STORAGE_KEYS.SUBSCRIPTION, updated);
 
+    // Lưu vào user profile nếu đang đăng nhập
     const authUser = tokenStorage.getUser();
     if (authUser) {
       authUser.is_premium = true;
@@ -213,12 +237,59 @@ export const subscriptionService = {
   },
 
   /**
-   * Kích hoạt Demo / Test khi cổng thanh toán chưa được cấu hình
+   * Kích hoạt gói Premium trực tiếp (không qua thanh toán)
    */
+  async activateDirect(): Promise<{ success: boolean; isPremium: boolean; premium_until?: string; message: string }> {
+    const res = await apiClient.post<any>("/subscriptions/activate-free");
+    if (res?.success && res?.isPremium) {
+      this.setPremiumActive(res.premium_until);
+    }
+    return res;
+  },
+
   /**
-   * Kích hoạt gói Premium trực tiếp (không qua thanh toán VNPay)
-   * Đồng bộ lên server database và cập nhật local cache.
+   * Chuyển về gói Miễn phí
    */
+  async switchFree(): Promise<{ success: boolean; isPremium: boolean; message: string }> {
+    const res = await apiClient.post<any>("/subscriptions/switch-free");
+    if (res?.success) {
+      this.setFreeActive();
+    }
+    return res;
+  },
+
+  setFreeActive(): UserSubscription {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(SUBSCRIPTION_PLAN_KEY, "free");
+    }
+
+    const updated: UserSubscription = {
+      ...DEFAULT_SUBSCRIPTION,
+    };
+
+    storage.setItem(STORAGE_KEYS.SUBSCRIPTION, updated);
+
+    const authUser = tokenStorage.getUser();
+    if (authUser) {
+      authUser.is_premium = false;
+      authUser.premium_until = undefined;
+      tokenStorage.setUser(authUser);
+    }
+
+    return updated;
+  },
+
+  async togglePremium(): Promise<UserSubscription> {
+    const current = this.getSubscriptionPlan();
+    if (current === "premium") {
+      await this.switchFree();
+      return this.getSubscription();
+    } else {
+      await this.activateDirect();
+      return this.getSubscription();
+    }
+  },
+
   async purchasePlan(planId: SubscriptionTier = "premium"): Promise<UserSubscription> {
     const token = tokenStorage.getToken();
     let backendUntil: string | null = null;
@@ -245,10 +316,6 @@ export const subscriptionService = {
     return this.purchasePlan("premium");
   },
 
-  /**
-   * Chuyển về gói Miễn phí (hoặc Hủy gói Premium):
-   * Đồng bộ reset trên server và local cache.
-   */
   async cancelSubscription(id: number = 1): Promise<UserSubscription> {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(SUBSCRIPTION_PLAN_KEY, "free");
@@ -274,22 +341,10 @@ export const subscriptionService = {
       try {
         await apiClient.post("/subscriptions/switch-free");
       } catch (err) {
-        console.warn("[subscriptionService] switch-free error, trying delete:", err);
-        try {
-          await apiClient.delete(`/subscriptions/${id}`);
-        } catch {
-          // ignore
-        }
+        console.warn("[subscriptionService] switch-free error:", err);
       }
     }
 
     return updated;
-  },
-
-  async togglePremium(): Promise<UserSubscription> {
-    if (this.isPremium()) {
-      return this.cancelSubscription();
-    }
-    return this.upgradeToPremium();
   },
 };
