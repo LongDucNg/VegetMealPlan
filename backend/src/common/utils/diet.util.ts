@@ -6,8 +6,12 @@
 const ALLOWED_RECIPE_DIETS: Record<string, string[]> = {
   vegan: ['vegan'],
   lacto: ['vegan', 'lacto'],
+  lacto_vegetarian: ['vegan', 'lacto'],
   ovo: ['vegan', 'ovo'],
+  ovo_vegetarian: ['vegan', 'ovo'],
   ovo_lacto: ['vegan', 'lacto', 'ovo', 'ovo_lacto'],
+  lacto_ovo_vegetarian: ['vegan', 'lacto', 'ovo', 'ovo_lacto'],
+  lacto_ovo: ['vegan', 'lacto', 'ovo', 'ovo_lacto'],
 };
 
 export function isRecipeDietCompatible(

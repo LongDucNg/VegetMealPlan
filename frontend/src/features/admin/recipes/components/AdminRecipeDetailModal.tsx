@@ -238,7 +238,7 @@ export function AdminRecipeDetailModal({
                         </span>
                         <span className="text-stone-300">·</span>
                         <span className="text-amber-700 font-semibold">
-                          {Math.round(Number(calPer100) * 100) / 100} kcal/100g
+                          ~{Math.round(Number(calPer100) * 100) / 100} kcal/100g
                         </span>
                       </div>
                     </div>

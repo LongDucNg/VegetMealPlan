@@ -162,8 +162,19 @@ export const profileService = {
    * Lấy hồ sơ người dùng hiện tại (đồng bộ tức thì từ cache)
    */
   getProfile(): UserProfile {
-    const raw = storage.getItem<UserProfile | null>(STORAGE_KEYS.USER_PROFILE, null);
+    const token = tokenStorage.getToken();
     const authUser = tokenStorage.getUser();
+
+    // Khách vãng lai (chưa đăng nhập): Tuyệt đối không hiển thị dị ứng hoặc thông tin cá nhân cũ
+    if (!token || !authUser) {
+      return {
+        ...DEFAULT_MOCK_PROFILE,
+        id: "guest",
+        allergies: [],
+      };
+    }
+
+    const raw = storage.getItem<UserProfile | null>(STORAGE_KEYS.USER_PROFILE, null);
 
     // If cache contains legacy mock data, purge it
     if (raw && (raw.name === "Demo User" || raw.email === "demo@veggiehub.vn" || raw.handle === "demouser")) {

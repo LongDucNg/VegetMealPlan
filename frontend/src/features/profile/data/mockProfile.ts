@@ -31,10 +31,10 @@ export const ALLERGY_MASTER_LIST = [
 ];
 
 export const VEGETARIAN_TYPE_OPTIONS: { id: UserProfile["vegetarianType"]; label: string; desc: string }[] = [
-  { id: "vegan", label: "Thuần chay (Vegan)", desc: "100% nguồn gốc thực vật, không dùng sản phẩm động vật" },
-  { id: "lacto_vegetarian", label: "Chay có sữa (Lacto)", desc: "Ăn thực vật + các chế phẩm từ sữa" },
-  { id: "ovo_vegetarian", label: "Chay có trứng (Ovo)", desc: "Ăn thực vật + trứng gà/vịt" },
-  { id: "lacto_ovo_vegetarian", label: "Chay có trứng & sữa (Ovo-Lacto)", desc: "Ăn thực vật + trứng + sữa" },
+  { id: "vegan", label: "Thuần chay (Vegan)", desc: "100% nguồn gốc thực vật, tự động né Trứng & Sữa" },
+  { id: "lacto_vegetarian", label: "Chay có sữa (Lacto)", desc: "Ăn thực vật + chế phẩm sữa (tự động né Trứng)" },
+  { id: "ovo_vegetarian", label: "Chay có trứng (Ovo)", desc: "Ăn thực vật + trứng gà/vịt (tự động né Sữa)" },
+  { id: "lacto_ovo_vegetarian", label: "Chay có trứng & sữa (Ovo-Lacto)", desc: "Ăn thực vật + dùng được cả Trứng và Sữa" },
 ];
 
 export const HEALTH_GOAL_OPTIONS: { id: UserProfile["healthGoal"]; label: string; desc: string }[] = [
