@@ -48,8 +48,8 @@
     "match": "generic"
   },
   "Bún thang chay": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697658/vegetmealplan/seed/bun-thang-chay.jpg",
-    "original_url": "https://cdn.tgdd.vn/2021/11/CookDish/2-cach-nau-canh-bau-chay-thom-ngon-thanh-dam-cho-ngay-chay-avt-1200x676-1.jpg",
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698916/vegetmealplan/seed/bun-thang-chay.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/11/CookRecipe/CookUtensilandNotes/bun-thang-chay-note-1200x676.jpg",
     "provider": "serper",
     "match": "exact",
     "description": "Bún thang chay"
@@ -3891,8 +3891,8 @@
     "match": "generic"
   },
   "Canh bắp cải cuộn": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698001/vegetmealplan/seed/canh-bap-cai-cuon.jpg",
-    "original_url": "https://cdn.tgdd.vn/2021/01/CookRecipe/Avatar/mi-quang-tron-chay-thumbnail.jpg",
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698922/vegetmealplan/seed/canh-bap-cai-cuon.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/08/CookRecipe/Avatar/bap-cai-cuon-chay-thumbnail.jpg",
     "provider": "serper",
     "match": "exact",
     "description": "Canh bắp cải cuộn"
@@ -4835,8 +4835,8 @@
     "description": "Canh cải thìa nấm đông cô"
   },
   "Canh bắp cải khoai tây": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698005/vegetmealplan/seed/canh-bap-cai-khoai-tay.jpg",
-    "original_url": "https://cdn.tgdd.vn/2021/01/CookRecipe/Avatar/mi-quang-tron-chay-thumbnail.jpg",
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698923/vegetmealplan/seed/canh-bap-cai-khoai-tay.jpg",
+    "original_url": "https://storage.googleapis.com/onelife-public/blog.onelife.vn/2026/08/05b248fa-4.jpg",
     "provider": "serper",
     "match": "exact",
     "description": "Canh bắp cải khoai tây"
@@ -6226,8 +6226,8 @@
     "match": "similar"
   },
   "Bún thang chay trứng": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697708/vegetmealplan/seed/bun-thang-chay-trung.jpg",
-    "original_url": "https://cdn.tgdd.vn/2021/11/CookDish/2-cach-nau-canh-bau-chay-thom-ngon-thanh-dam-cho-ngay-chay-avt-1200x676-1.jpg",
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698919/vegetmealplan/seed/bun-thang-chay-trung.jpg",
+    "original_url": "https://www.huongnghiepaau.com/wp-content/uploads/2016/04/mon-bun-thang.jpg",
     "provider": "serper",
     "match": "exact",
     "description": "Bún thang chay trứng"
@@ -6740,8 +6740,8 @@
     "description": "Củ sen hầm hạt sen"
   },
   "Củ sen kho tiêu": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698014/vegetmealplan/seed/cu-sen-kho-tieu.jpg",
-    "original_url": "https://cdn.tgdd.vn/2021/03/CookRecipe/GalleryStep/thanh-pham-1159.jpg",
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698928/vegetmealplan/seed/cu-sen-kho-tieu.jpg",
+    "original_url": "http://cdn.hstatic.net/files/200000700229/article/cu-sen-kho-tieu-1_94699c75fc2c47d68cbe7130a132e4a7.jpg",
     "provider": "serper",
     "match": "exact",
     "description": "Củ sen kho tiêu"
