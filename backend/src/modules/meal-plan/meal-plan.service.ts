@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   Optional,
 } from '@nestjs/common';
@@ -29,7 +30,7 @@ import {
   RecipeStatus,
 } from '../recipe/entities/recipe.entity';
 import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
-import { calculateIngredientCost } from '../recipe/recipe-cost.util';
+import { calculateIngredientCost, normalizeUnit } from '../recipe/recipe-cost.util';
 import { isRecipeSuitableForMeal } from '../recipe/recipe-meals.util';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { FavoriteRecipe } from '../recipe/entities/favorite-recipe.entity';
@@ -94,6 +95,7 @@ interface PlannedMeal {
   calories: number;
   recipe: Recipe;
   portion: number;
+  itemIndex: number;
 }
 
 /** Một dòng nguyên liệu của công thức (dùng cho response xem/in). */
@@ -107,6 +109,8 @@ interface RecipeIngredientRow {
 
 @Injectable()
 export class MealPlanService {
+  private readonly logger = new Logger(MealPlanService.name);
+
   constructor(
     @InjectRepository(MealPlan)
     private readonly mealPlanRepo: Repository<MealPlan>,
@@ -511,94 +515,125 @@ export class MealPlanService {
 
       for (let mealIndex = 0; mealIndex < mealEntries.length; mealIndex++) {
         const [mealType, baseCalories] = mealEntries[mealIndex];
-        // Bữa cuối ngày bù phần calo các bữa trước còn thiếu/thừa để tổng ngày bám mục tiêu.
-        const calories =
+        // Bữa cuối ngày bù phần calo các bữa trước còn thiếu/thừa để tổng ngày bám sát mục tiêu.
+        const mealCalories =
           mealIndex === mealEntries.length - 1
             ? Math.max(dayTarget - dayCalories, baseCalories * 0.5)
             : baseCalories;
-        let candidates = recipes.filter((recipe) =>
-          this.isSuitableForMeal(recipe, mealType),
-        );
 
-        if (candidates.length === 0) {
-          if (budget) budget.slotsLeft--;
-          continue;
-        }
+        // 3 buổi chính (sáng, trưa, chiều/tối) bố trí 2-3 món để cân bằng dinh dưỡng; bữa phụ (snack) 1 món
+        const isMainMeal = mealType === 'breakfast' || mealType === 'lunch' || mealType === 'dinner';
+        const itemsPerMeal = isMainMeal
+          ? (((dayIndex * 7 + mealIndex * 3 + globalDay) % 2 === 0) ? 2 : 3)
+          : 1;
 
-        if (budget) {
-          const maxCost = budget.remaining / Math.max(budget.slotsLeft, 1);
+        // Calo mỗi món = calo bữa / số món
+        const caloriesPerItem = Math.round(mealCalories / itemsPerMeal);
+        let mealActualCalories = 0; // tổng calo thực tế các món trong bữa này
+        const mealSelectedRecipeIds = new Set<number>(); // Đảm bảo trong cùng 1 bữa không bị trùng món!
 
-          candidates = candidates.filter((recipe) => {
-            const cost = costMap.get(recipe.recipe_id);
-            return cost !== undefined && cost <= maxCost;
-          });
+        for (let itemIndex = 0; itemIndex < itemsPerMeal; itemIndex++) {
+          // Món cuối trong bữa bù calo để tổng bữa bám sát chính xác lượng calo của bữa
+          const calories =
+            itemIndex === itemsPerMeal - 1
+              ? Math.max(mealCalories - mealActualCalories, caloriesPerItem * 0.5)
+              : caloriesPerItem;
+
+          // Lọc công thức phù hợp với bữa và chưa chọn trong cùng bữa ăn này
+          let candidates = recipes.filter((recipe) =>
+            this.isSuitableForMeal(recipe, mealType) && !mealSelectedRecipeIds.has(recipe.recipe_id),
+          );
 
           if (candidates.length === 0) {
-            throw new BadRequestException(
-              'Ngân sách không đủ để tạo thực đơn: không có công thức nào phù hợp chi phí mỗi bữa. Hãy tăng ngân sách.',
+            candidates = recipes.filter((recipe) =>
+              this.isSuitableForMeal(recipe, mealType),
             );
           }
+
+          if (candidates.length === 0) {
+            if (budget) budget.slotsLeft--;
+            continue;
+          }
+
+          if (budget) {
+            const maxCost = budget.remaining / Math.max(budget.slotsLeft, 1);
+
+            candidates = candidates.filter((recipe) => {
+              const cost = costMap.get(recipe.recipe_id);
+              return cost !== undefined && cost <= maxCost;
+            });
+
+            if (candidates.length === 0) {
+              throw new BadRequestException(
+                'Ngân sách không đủ để tạo thực đơn: không có công thức nào phù hợp chi phí mỗi bữa. Hãy tăng ngân sách.',
+              );
+            }
+          }
+
+          // Đánh giá điểm độ phù hợp của món ăn:
+          // 1. So khớp calo sau khi tính tỷ lệ khẩu phần khả dĩ (0.85x - 1.25x).
+          // 2. Phạt nhẹ các món đã dùng trước đó và món vừa ăn gần đây để luân phiên món.
+          // 3. Ưu tiên cao việc khớp calo để tổng ngày không bị hụt mục tiêu dinh dưỡng.
+          const score = (recipe: Recipe) => {
+            const recipeCalories = Number(nutritionMap.get(recipe.recipe_id)?.calories ?? 0);
+            // Khẩu phần cân đối theo số món trong bữa: nhiều món thì mỗi món khẩu phần vừa phải (0.25x - 1.0x) để tổng bữa khớp calo
+            const minPortion = itemsPerMeal >= 3 ? 0.25 : itemsPerMeal === 2 ? 0.35 : 0.75;
+            const maxPortion = itemsPerMeal >= 3 ? 0.95 : itemsPerMeal === 2 ? 1.15 : 1.25;
+            let testPortion = recipeCalories > 0 ? Math.min(maxPortion, Math.max(minPortion, calories / recipeCalories)) : 1;
+            testPortion = Math.round(testPortion * 10) / 10;
+            const effectiveCalories = recipeCalories * testPortion;
+            const calDiff = Math.abs(effectiveCalories - calories);
+
+            const timesUsed = usedCounts.get(recipe.recipe_id) ?? 0;
+            const lastUsedDay = recentDays.get(recipe.recipe_id);
+            const daysSinceLastUsed = lastUsedDay !== undefined ? (globalDay - lastUsedDay) : 999;
+
+            const recencyPenalty =
+              daysSinceLastUsed === 0 ? 8000 :
+              daysSinceLastUsed === 1 ? 3000 :
+              daysSinceLastUsed === 2 ? 1000 : 0;
+
+            const frequencyPenalty = timesUsed * 800;
+            const jitter = ((recipe.recipe_id * 17 + globalDay * 31 + itemIndex * 13) % 100) * 0.1;
+
+            return (calDiff * 4) + frequencyPenalty + recencyPenalty + jitter;
+          };
+
+          const pool = [...candidates].sort((x, y) => score(x) - score(y));
+
+          const selected = pool[0];
+          usedCounts.set(selected.recipe_id, (usedCounts.get(selected.recipe_id) ?? 0) + 1);
+          recentDays.set(selected.recipe_id, globalDay);
+          mealSelectedRecipeIds.add(selected.recipe_id);
+
+          // Khẩu phần thực tế được giữ trong khoảng ẩm thực hợp lý theo số món trong bữa
+          const recipeCalories = Number(nutritionMap.get(selected.recipe_id)?.calories ?? 0);
+          const minPortion = itemsPerMeal >= 3 ? 0.25 : itemsPerMeal === 2 ? 0.35 : 0.75;
+          const maxPortion = itemsPerMeal >= 3 ? 0.95 : itemsPerMeal === 2 ? 1.15 : 1.25;
+          let portion =
+            recipeCalories > 0
+              ? Math.min(maxPortion, Math.max(minPortion, Math.round((calories / recipeCalories) * 10) / 10))
+              : 1.0;
+          const unitCost = costMap.get(selected.recipe_id) ?? 0;
+
+          if (budget) {
+            const maxCost = budget.remaining / Math.max(budget.slotsLeft, 1);
+            if (unitCost > 0) portion = Math.min(portion, maxCost / unitCost);
+          }
+          portion = Math.round(portion * 10) / 10;
+          if (portion <= 0) portion = 0.85;
+
+          mealActualCalories += recipeCalories * portion;
+
+          if (budget) {
+            budget.remaining -= unitCost * portion;
+            budget.slotsLeft--;
+          }
+
+          planned.push({ dayIndex, mealType, calories, recipe: selected, portion, itemIndex });
         }
 
-        // Đánh giá điểm độ phù hợp của món ăn:
-        // 1. So khớp calo sau khi tính tỷ lệ khẩu phần khả dĩ (0.4x - 3.0x tuỳ calo gốc).
-        // 2. Phạt nhẹ các món đã dùng trước đó và món vừa ăn gần đây để luân phiên món.
-        // 3. Ưu tiên cao việc khớp calo để tổng ngày không bị hụt mục tiêu dinh dưỡng.
-        const score = (recipe: Recipe) => {
-          const recipeCalories = Number(nutritionMap.get(recipe.recipe_id)?.calories ?? 0);
-          // Giới hạn khẩu phần thử nghiệm trong khoảng ẩm thực an toàn (0.85x - 1.25x), không tăng gấp đôi/gấp ba nguyên liệu
-          const maxPortion = 1.25;
-          let testPortion = recipeCalories > 0 ? Math.min(maxPortion, Math.max(0.85, calories / recipeCalories)) : 1;
-          testPortion = Math.round(testPortion * 10) / 10;
-          const effectiveCalories = recipeCalories * testPortion;
-          const calDiff = Math.abs(effectiveCalories - calories);
-
-          const timesUsed = usedCounts.get(recipe.recipe_id) ?? 0;
-          const lastUsedDay = recentDays.get(recipe.recipe_id);
-          const daysSinceLastUsed = lastUsedDay !== undefined ? (globalDay - lastUsedDay) : 999;
-
-          const recencyPenalty =
-            daysSinceLastUsed === 0 ? 8000 :
-            daysSinceLastUsed === 1 ? 3000 :
-            daysSinceLastUsed === 2 ? 1000 : 0;
-
-          const frequencyPenalty = timesUsed * 800;
-          const jitter = ((recipe.recipe_id * 17 + globalDay * 31) % 100) * 0.1;
-
-          // Ưu tiên món tự nhiên hợp lý với bữa ăn, phạt nhẹ calDiff (nhân 4 thay vì nhân 12)
-          return (calDiff * 4) + frequencyPenalty + recencyPenalty + jitter;
-        };
-
-        const pool = [...candidates].sort((x, y) => score(x) - score(y));
-
-        const selected = pool[0];
-        usedCounts.set(selected.recipe_id, (usedCounts.get(selected.recipe_id) ?? 0) + 1);
-        recentDays.set(selected.recipe_id, globalDay);
-
-        // Khẩu phần thực tế được giữ trong khoảng ẩm thực hợp lý (0.85x - 1.25x), tránh tăng nguyên liệu vô tội vạ
-        const recipeCalories = Number(nutritionMap.get(selected.recipe_id)?.calories ?? 0);
-        const maxPortion = 1.25;
-        let portion =
-          recipeCalories > 0
-            ? Math.min(maxPortion, Math.max(0.85, Math.round((calories / recipeCalories) * 10) / 10))
-            : 1.0;
-        const unitCost = costMap.get(selected.recipe_id) ?? 0;
-
-        if (budget) {
-          const maxCost = budget.remaining / Math.max(budget.slotsLeft, 1);
-          if (unitCost > 0) portion = Math.min(portion, maxCost / unitCost);
-        }
-        portion = Math.round(portion * 10) / 10;
-        if (portion <= 0) portion = 0.85;
-
-        dayCalories += recipeCalories * portion;
-
-        if (budget) {
-          budget.remaining -= unitCost * portion;
-          budget.slotsLeft--;
-        }
-
-        planned.push({ dayIndex, mealType, calories, recipe: selected, portion });
+        dayCalories += mealActualCalories;
       }
 
       // Giữ khẩu phần thực tế, không nhân ép mù quáng: không ép tăng nguyên liệu làm hỏng món ăn
@@ -609,68 +644,216 @@ export class MealPlanService {
   }
 
   /**
-   * Thẩm định và tối ưu tính khả thi khi nấu nướng (Cookability) bằng AI Groq.
-   * Đảm bảo không tăng nguyên liệu/gia vị vô tội vạ chỉ để ép đủ số kcal.
+   * Thẩm định và xét duyệt thực đơn bằng AI (Gemini / Groq).
+   * Kiểm tra 3 buổi chính (sáng, trưa, chiều 2-3 món), cân đối calo,
+   * và tính khả thi khi nấu nướng với định lượng nguyên liệu theo gam.
+   */
+  private async reviewMealPlanWithAI(
+    plannedMeals: PlannedMeal[],
+    targetCaloriesPerDay: number,
+    planType: 'daily' | 'weekly' | 'monthly',
+    ingredientSummary?: string,
+  ): Promise<{ chef_advice: string; is_cookable: boolean }> {
+    const defaultAdvice =
+      `Bếp trưởng AI: Thực đơn 3 buổi sáng, trưa, chiều (2-3 món/bữa) đã được xét duyệt đạt ~${Math.round(targetCaloriesPerDay)} kcal/ngày. Định lượng nguyên liệu theo gam hợp lý, cân bằng đạm và xơ thực vật, không tăng gia vị ảo và hoàn toàn khả thi khi nấu nướng tại nhà.`;
+
+    const uniqueRecipeMap = new Map<number, { title: string; portion: number; calories: number }>();
+    for (const p of plannedMeals) {
+      if (!uniqueRecipeMap.has(p.recipe.recipe_id)) {
+        uniqueRecipeMap.set(p.recipe.recipe_id, {
+          title: p.recipe.title,
+          portion: p.portion,
+          calories: Math.round(p.calories),
+        });
+      }
+      if (uniqueRecipeMap.size >= 8) break;
+    }
+
+    const mealSummary = Array.from(uniqueRecipeMap.values())
+      .map((m) => '- ' + m.title + ': khẩu phần ' + m.portion + 'x (~' + m.calories + ' kcal)')
+      .join('\n');
+
+    const systemInstruction =
+      'Bạn là Bếp trưởng & Chuyên gia Dinh dưỡng Chay VeggieHub. ' +
+      'Nhiệm vụ: Xét duyệt thực đơn món chay 3 buổi (sáng, trưa, chiều mỗi bữa 2-3 món) để đảm bảo khớp lượng calo mục tiêu. ' +
+      'Nguyên tắc: Tuyệt đối không ép tăng gia vị, dầu mỡ vô lý làm hỏng món ăn. Khẩu phần mỗi món phải giữ ở mức ăn thực tế (0.4x - 1.25x). ' +
+      'Trả về định dạng JSON thuần túy: { "is_cookable": true, "chef_advice": "Lời xét duyệt và lời khuyên ngắn gọn (2 câu) về dinh dưỡng, mẹo nấu và cân bằng calo." }';
+
+    const userMessage =
+      `Calo mục tiêu mỗi ngày: ~${targetCaloriesPerDay} kcal.\n` +
+      `Loại thực đơn: ${planType === 'daily' ? 'Ngày (1 ngày)' : planType === 'weekly' ? 'Tuần (7 ngày)' : 'Tháng (Lịch cả tháng)'}.\n` +
+      `Mỗi bữa sáng, trưa, chiều có 2-3 món để đảm bảo dinh dưỡng và khớp lượng calo.\n` +
+      `Danh sách món ăn đại diện:\n${mealSummary}` +
+      (ingredientSummary ? `\n\nTổng hợp nguyên liệu theo gam (có ~):\n${ingredientSummary.slice(0, 500)}` : '') +
+      '\nHãy xét duyệt thực đơn và đưa ra nhận xét.';
+
+    // 1. Thử gọi Gemini AI nếu có cấu hình GEMINI_API_KEY
+    const geminiKey = (process.env.GEMINI_API_KEY || '').trim();
+    if (geminiKey) {
+      try {
+        let currentModel = (process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite').trim();
+        if (currentModel.includes('2.5') || currentModel === 'gemini-2.5-flash') {
+          currentModel = 'gemini-3.5-flash-lite';
+        }
+        const timeoutMs = Number(process.env.GEMINI_TIMEOUT_MS) || 15000;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(currentModel)}:generateContent`;
+        const res = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': geminiKey,
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: `${systemInstruction}\n\n${userMessage}` },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseMimeType: 'application/json',
+            },
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timer);
+
+        if (res.ok) {
+          const data = await res.json();
+          const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const jsonMatch = rawText.match(/\{[\s\S]*?\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.chef_advice) {
+              this.logger.log('Bếp trưởng AI (Gemini) đã xét duyệt thành công thực đơn.');
+              return {
+                chef_advice: parsed.chef_advice,
+                is_cookable: parsed.is_cookable !== false,
+              };
+            }
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Bếp trưởng AI (Gemini) không phản hồi (${err?.message || err}), thử chuyển sang Groq...`);
+      }
+    }
+
+    // 2. Thử gọi Groq AI nếu có GroqAiProvider
+    if (this.groqAiProvider) {
+      try {
+        const responseText = await this.groqAiProvider.generateResponse({
+          systemInstruction,
+          userMessage,
+        });
+
+        const jsonMatch = responseText.match(/\{[\s\S]*?\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.chef_advice) {
+            this.logger.log('Bếp trưởng AI (Groq) đã xét duyệt thành công thực đơn.');
+            return {
+              chef_advice: parsed.chef_advice,
+              is_cookable: parsed.is_cookable !== false,
+            };
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Bếp trưởng AI (Groq) không phản hồi: ${err?.message || err}`);
+      }
+    }
+
+    // 3. Fallback mặc định
+    return { chef_advice: defaultAdvice, is_cookable: true };
+  }
+
+  /**
+   * Giữ alias tương thích ngược với các hàm gọi cũ
    */
   private async reviewAndOptimizeWithGroq(
     plannedMeals: PlannedMeal[],
     targetCaloriesPerDay: number,
-    planType: 'weekly' | 'monthly',
+    planType: 'daily' | 'weekly' | 'monthly',
+    ingredientSummary?: string,
   ): Promise<{ chef_advice: string; is_cookable: boolean }> {
-    const defaultAdvice =
-      'Bếp trưởng AI (Groq): Khẩu phần món ăn đã được kiểm tra và giữ trong ngưỡng chuẩn 0.85x - 1.25x để đảm bảo định lượng nguyên liệu, gia vị hài hòa và nấu được thực tế. Nếu cần thêm năng lượng, bạn có thể ăn thêm 1 chén cơm trắng hoặc hoa quả tươi thay vì tăng gia vị món chính.';
+    return this.reviewMealPlanWithAI(plannedMeals, targetCaloriesPerDay, planType, ingredientSummary);
+  }
 
-    if (!this.groqAiProvider) {
-      return { chef_advice: defaultAdvice, is_cookable: true };
+  // =========================================================
+  // HELPER: TỔNG HỢP NGUYÊN LIỆU THEO ĐƠN VỊ GAM
+  // =========================================================
+
+  /**
+   * Lấy đơn vị khối lượng nhỏ nhất như gam để tính cho các nguyên liệu rồi sum lại (có dấu áng chừng ~).
+   * Dùng để cung cấp cho Bếp trưởng AI (Groq) xét duyệt và trả về response ingredient_summary.
+   */
+  private aggregateIngredientsByGram(
+    plannedMeals: PlannedMeal[],
+    ingredientsMap: Map<number, RecipeIngredientRow[]>,
+  ): { ingredient_name: string; quantity_g: number; note: string }[] {
+    const totals = new Map<string, number>();
+
+    for (const meal of plannedMeals) {
+      const rows = ingredientsMap.get(meal.recipe.recipe_id) ?? [];
+      for (const row of rows) {
+        const name = row.ingredient_name || `ingredient_${row.ingredient_id}`;
+        const quantityInRecipe = Number(row.quantity ?? 0) * meal.portion;
+        if (quantityInRecipe <= 0) continue;
+
+        // Chuẩn hoá đơn vị (bỏ dấu tiếng Việt, chữ thường)
+        const unit = normalizeUnit(row.unit);
+        let grams: number = 0;
+
+        // Quy đổi về đơn vị khối lượng nhỏ nhất là gam (g)
+        if (unit === 'g' || unit === 'gram' || unit === 'gam' || unit === 'gr') {
+          grams = quantityInRecipe;
+        } else if (unit === 'kg' || unit === 'kilo' || unit === 'kilogram') {
+          grams = quantityInRecipe * 1000;
+        } else if (unit === 'mg' || unit === 'miligram') {
+          grams = quantityInRecipe / 1000;
+        } else if (unit === 'l' || unit === 'lit' || unit === 'liter' || unit === 'litre') {
+          grams = quantityInRecipe * 1000; // 1 lít nước/chất lỏng ~ 1000g
+        } else if (unit === 'ml' || unit === 'mililit' || unit === 'milliliter') {
+          grams = quantityInRecipe; // 1 ml ~ 1g
+        } else if (unit === 'tbsp' || unit === 'thia canh' || unit === 'muong canh' || unit === 'thia' || unit === 'muong') {
+          grams = quantityInRecipe * 15; // 1 thìa canh ~ 15g
+        } else if (unit === 'tsp' || unit === 'thia ca phe' || unit === 'muong ca phe' || unit === 'thia nho') {
+          grams = quantityInRecipe * 5; // 1 thìa cà phê ~ 5g
+        } else if (unit === 'chen' || unit === 'bat') {
+          grams = quantityInRecipe * 150; // 1 chén/bát ~ 150g
+        } else if (unit === 'nhanh' || unit === 'tep') {
+          grams = quantityInRecipe * 5; // 1 tép tỏi, nhánh gừng ~ 5g
+        } else if (unit === 'qua' || unit === 'cu' || unit === 'trai' || unit === 'bap') {
+          grams = quantityInRecipe * 100; // 1 quả/củ trung bình ~ 100g
+        } else if (unit === 'mieng' || unit === 'lat') {
+          grams = quantityInRecipe * 50; // 1 miếng/lát ~ 50g
+        } else if (unit === 'cay') {
+          grams = quantityInRecipe * 30; // 1 cây sả, hành ~ 30g
+        } else if (unit === 'goi') {
+          grams = quantityInRecipe * 50;
+        } else {
+          // Các đơn vị khác: tạm tính ước lượng 10g mỗi đơn vị nếu có số lượng
+          grams = quantityInRecipe * 10;
+        }
+
+        if (grams > 0) {
+          totals.set(name, (totals.get(name) ?? 0) + grams);
+        }
+      }
     }
 
-    try {
-      const uniqueRecipeMap = new Map<number, { title: string; portion: number; calories: number }>();
-      for (const p of plannedMeals) {
-        if (!uniqueRecipeMap.has(p.recipe.recipe_id)) {
-          uniqueRecipeMap.set(p.recipe.recipe_id, {
-            title: p.recipe.title,
-            portion: p.portion,
-            calories: Math.round(p.calories),
-          });
-        }
-        if (uniqueRecipeMap.size >= 8) break;
-      }
-
-      const mealSummary = Array.from(uniqueRecipeMap.values())
-        .map((m) => '- ' + m.title + ': khẩu phần ' + m.portion + 'x (~' + m.calories + ' kcal)')
-        .join('\n');
-
-      const systemInstruction =
-        'Bạn là Bếp trưởng & Chuyên gia Dinh dưỡng Chay VeggieHub. ' +
-        'Kiểm tra thực đơn: Tuyệt đối không tăng nguyên liệu hay khẩu phần vô tội vạ (như x2, x3 gia vị, dầu ăn) chỉ để ép đủ calo, ' +
-        'vì sẽ làm hỏng công thức và không thể nấu được! Khẩu phần mỗi món phải giữ ở mức ăn thực tế (0.85x - 1.25x). ' +
-        'Trả về định dạng JSON thuần túy: { "is_cookable": true, "chef_advice": "Lời khuyên ngắn gọn (2 câu) về cách nấu cân bằng và bổ sung calo tự nhiên nếu cần." }';
-
-      const userMessage =
-        'Calo mục tiêu mỗi ngày: ~' + targetCaloriesPerDay + ' kcal.\nDanh sách món ăn dự kiến:\n' + mealSummary +
-        '\nHãy kiểm tra tính khả thi khi nấu và đưa ra nhận xét.';
-
-      const responseText = await this.groqAiProvider.generateResponse({
-        systemInstruction,
-        userMessage,
-      });
-
-      const jsonMatch = responseText.match(/\{[\s\S]*?\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        if (parsed.chef_advice) {
-          return {
-            chef_advice: parsed.chef_advice,
-            is_cookable: parsed.is_cookable !== false,
-          };
-        }
-      }
-
-      return { chef_advice: defaultAdvice, is_cookable: true };
-    } catch {
-      return { chef_advice: defaultAdvice, is_cookable: true };
-    }
+    return Array.from(totals.entries())
+      .filter(([, qty]) => qty > 0)
+      .map(([name, qty]) => ({
+        ingredient_name: name,
+        quantity_g: Math.round(qty),
+        // Có tiền tố áng chừng ~ theo yêu cầu người dùng
+        note: `~${Math.round(qty)}g`,
+      }))
+      .sort((a, b) => b.quantity_g - a.quantity_g); // sort nhiều nhất trước
   }
 
   // =========================================================
@@ -722,18 +905,47 @@ export class MealPlanService {
       }
     }
 
+    let ingredientSummary: Array<{ ingredient_name: string; quantity_g: number; note: string }> = [];
     if (allRecipes.length > 0) {
       const recipeIds = [...new Set(allRecipes.map((r) => r.recipe_id))];
       const nutritions = await this.nutritionRepo.find({
         where: { recipe_id: In(recipeIds) },
       });
       const nutritionMap = new Map(nutritions.map((n) => [n.recipe_id, n]));
+      const ingredientsMap = await this.getIngredientsMap(recipeIds);
+
       for (const r of allRecipes as any[]) {
         r.nutrition = nutritionMap.get(r.recipe_id) || null;
+        r.ingredients = ingredientsMap.get(r.recipe_id) || [];
       }
+
+      // Tạo mảng PlannedMeal giả định để tính tổng hợp nguyên liệu theo gam
+      const simulatedPlannedMeals: PlannedMeal[] = [];
+      for (const wp of mealPlan.weekly_plans || []) {
+        for (const dm of wp.daily_meals || []) {
+          for (let idx = 0; idx < (dm.meal_items || []).length; idx++) {
+            const mi = dm.meal_items[idx];
+            if (mi.recipe) {
+              simulatedPlannedMeals.push({
+                dayIndex: 0,
+                mealType: dm.meal_type,
+                calories: Number(dm.target_calories || 0),
+                recipe: mi.recipe,
+                portion: Number(mi.portion_multiplier || 1),
+                itemIndex: idx,
+              });
+            }
+          }
+        }
+      }
+
+      ingredientSummary = this.aggregateIngredientsByGram(simulatedPlannedMeals, ingredientsMap);
     }
 
-    return mealPlan;
+    return {
+      ...mealPlan,
+      ingredient_summary: ingredientSummary,
+    };
   }
 
   // =========================================================
@@ -1466,6 +1678,105 @@ export class MealPlanService {
   }
 
   // =========================================================
+  // POST /meal-plans/generate/daily
+  // =========================================================
+
+  async generateDailyMealPlan(
+    user_id: number,
+    dto: GenerateMealPlanDto = {},
+  ) {
+    const { user, targetCalories, safeRecipes, nutritionMap, mealTargets, goalId, assessment } =
+      await this.prepareUserGeneration(user_id, dto);
+
+    const hasBudget = dto.total_budget !== undefined;
+
+    const costMap = hasBudget
+      ? await this.getRecipeCostMap(safeRecipes)
+      : new Map<number, number>();
+
+    // Chọn món cho 1 ngày (3 buổi sáng trưa chiều có 2-3 món, bữa phụ 1 món)
+    const plannedMeals = this.planMeals({
+      dayCount: 1,
+      mealTargets,
+      recipes: safeRecipes,
+      nutritionMap,
+      costMap,
+      usedRecipeCounts: new Map<number, number>(),
+      recentUsedDays: new Map<number, number>(),
+      dayOffset: 0,
+      budget: hasBudget
+        ? { remaining: dto.total_budget!, slotsLeft: 1 * Object.keys(mealTargets).length * 2 }
+        : undefined,
+    });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const mealPlan = new MealPlan();
+    mealPlan.user_id = user_id;
+    mealPlan.goal_id = goalId ?? user.current_goal_id ?? null;
+    mealPlan.bmi_snapshot = user.bmi ?? null;
+    mealPlan.plan_type = PlanType.DAILY;
+    mealPlan.start_date = today;
+    mealPlan.end_date = today;
+    mealPlan.has_budget = hasBudget;
+    if (hasBudget) {
+      mealPlan.total_budget = dto.total_budget!;
+    }
+    mealPlan.target_calories_per_day = targetCalories;
+    mealPlan.status = MealPlanStatus.ACTIVE;
+    mealPlan.generated_by = 'AI';
+
+    // Tổng hợp nguyên liệu theo gam (có ~) để cung cấp cho Bếp trưởng AI xét duyệt và trả về response
+    const dailyIngredientsMap = await this.getIngredientsMap(
+      plannedMeals.map((m) => m.recipe.recipe_id),
+    );
+    const dailyIngredientAgg = this.aggregateIngredientsByGram(plannedMeals, dailyIngredientsMap);
+    const dailyIngredientSummary = dailyIngredientAgg
+      .map((i) => '- ' + i.ingredient_name + ': ~' + i.quantity_g + 'g')
+      .join('\n');
+
+    const aiReview = await this.reviewMealPlanWithAI(plannedMeals, targetCalories, 'daily', dailyIngredientSummary);
+    mealPlan.ai_cookability_notes = aiReview.chef_advice;
+
+    const savedMealPlanId = await this.dataSource.transaction(async (manager) => {
+      const mealPlanRepo = manager.getRepository(MealPlan);
+      const weeklyPlanRepo = manager.getRepository(WeeklyPlan);
+      const dailyMealRepo = manager.getRepository(DailyMeal);
+      const mealItemRepo = manager.getRepository(MealItem);
+
+      const savedMealPlan = await mealPlanRepo.save(mealPlan);
+
+      const weeklyPlan = new WeeklyPlan();
+      weeklyPlan.meal_plan_id = savedMealPlan.meal_plan_id;
+      weeklyPlan.week_number = 1;
+      weeklyPlan.start_date = today;
+      weeklyPlan.end_date = today;
+      weeklyPlan.rollover_amount = 0;
+      weeklyPlan.week_calorie_target = targetCalories;
+
+      const savedWeeklyPlan = await weeklyPlanRepo.save(weeklyPlan);
+
+      await this.savePlannedMeals(
+        savedWeeklyPlan.weekly_plan_id,
+        today,
+        plannedMeals,
+        dailyMealRepo,
+        mealItemRepo,
+      );
+
+      return savedMealPlan.meal_plan_id;
+    });
+
+    const detail = await this.findMyMealPlanDetail(
+      user_id,
+      savedMealPlanId,
+    );
+
+    return { ...detail, goal_assessment: assessment, ingredient_summary: dailyIngredientAgg };
+  }
+
+  // =========================================================
   // POST /meal-plans/generate/weekly
   // =========================================================
 
@@ -1493,7 +1804,7 @@ export class MealPlanService {
       recentUsedDays: new Map<number, number>(),
       dayOffset: 0,
       budget: hasBudget
-        ? { remaining: dto.total_budget!, slotsLeft: 7 * Object.keys(mealTargets).length }
+        ? { remaining: dto.total_budget!, slotsLeft: 7 * Object.keys(mealTargets).length * 2 }
         : undefined,
     });
 
@@ -1526,7 +1837,16 @@ export class MealPlanService {
     mealPlan.status = MealPlanStatus.ACTIVE;
     mealPlan.generated_by = 'AI';
 
-    const groqReview = await this.reviewAndOptimizeWithGroq(plannedMeals, targetCalories, 'weekly');
+    // Tổng hợp nguyên liệu theo gam (có ~) để cung cấp cho Bếp trưởng AI (Groq) và trả về response
+    const weeklyIngredientsMap = await this.getIngredientsMap(
+      plannedMeals.map((m) => m.recipe.recipe_id),
+    );
+    const weeklyIngredientAgg = this.aggregateIngredientsByGram(plannedMeals, weeklyIngredientsMap);
+    const weeklyIngredientSummary = weeklyIngredientAgg
+      .map((i) => '- ' + i.ingredient_name + ': ~' + i.quantity_g + 'g')
+      .join('\n');
+
+    const groqReview = await this.reviewAndOptimizeWithGroq(plannedMeals, targetCalories, 'weekly', weeklyIngredientSummary);
     mealPlan.ai_cookability_notes = groqReview.chef_advice;
 
     // Ghi MealPlan + WeeklyPlan + DailyMeal + MealItem trong 1 transaction để
@@ -1569,10 +1889,8 @@ export class MealPlanService {
       savedMealPlanId,
     );
 
-    // Trả kèm kết quả đánh giá mục tiêu (BMI/BMR/TDEE/kcal + cảnh báo) để
-    // client biết thực đơn dựa trên ước tính nào. Cảnh báo KHÔNG chặn —
-    // thực đơn vẫn được sinh, chỉ kèm thông tin để người dùng tự quyết định.
-    return { ...detail, goal_assessment: assessment };
+    // Trả kèm kết quả đánh giá mục tiêu và danh sách nguyên liệu tổng hợp theo gam (có ~)
+    return { ...detail, goal_assessment: assessment, ingredient_summary: weeklyIngredientAgg };
   }
 
   // =========================================================
@@ -1586,29 +1904,41 @@ export class MealPlanService {
     dailyMealRepo: Repository<DailyMeal> = this.dailyMealRepo,
     mealItemRepo: Repository<MealItem> = this.mealItemRepo,
   ) {
+    // Nhóm các món theo bữa ăn trong từng ngày (dayIndex + mealType)
+    // để mỗi bữa là 1 DailyMeal chứa 2-3 MealItem
+    const mealGroups = new Map<string, PlannedMeal[]>();
     for (const planned of plannedMeals) {
+      const key = planned.dayIndex + '_' + planned.mealType;
+      const list = mealGroups.get(key) ?? [];
+      list.push(planned);
+      mealGroups.set(key, list);
+    }
+
+    for (const group of mealGroups.values()) {
+      if (group.length === 0) continue;
+      const first = group[0];
       const mealDate = new Date(firstDate);
-      mealDate.setDate(firstDate.getDate() + planned.dayIndex);
+      mealDate.setDate(firstDate.getDate() + first.dayIndex);
       mealDate.setHours(0, 0, 0, 0);
 
       const dailyMeal = new DailyMeal();
-
       dailyMeal.weekly_plan_id = weeklyPlanId;
       dailyMeal.meal_date = mealDate;
-      dailyMeal.meal_type = planned.mealType;
-      dailyMeal.target_calories = planned.calories;
+      dailyMeal.meal_type = first.mealType;
+      // target_calories của bữa = tổng calo của các món trong bữa đó
+      dailyMeal.target_calories = group.reduce((sum, item) => sum + item.calories, 0);
 
       const savedDailyMeal = await dailyMealRepo.save(dailyMeal);
 
-      const mealItem = new MealItem();
-
-      mealItem.daily_meal_id = savedDailyMeal.daily_meal_id;
-      mealItem.recipe_id = planned.recipe.recipe_id;
-      mealItem.is_ai_suggested = true;
-      mealItem.added_by_user = false;
-      mealItem.portion_multiplier = planned.portion;
-
-      await mealItemRepo.save(mealItem);
+      for (const planned of group) {
+        const mealItem = new MealItem();
+        mealItem.daily_meal_id = savedDailyMeal.daily_meal_id;
+        mealItem.recipe_id = planned.recipe.recipe_id;
+        mealItem.is_ai_suggested = true;
+        mealItem.added_by_user = false;
+        mealItem.portion_multiplier = planned.portion;
+        await mealItemRepo.save(mealItem);
+      }
     }
   }
 
@@ -1949,7 +2279,7 @@ export class MealPlanService {
 
     const totalDays = weeks.reduce((sum, week) => sum + week.days, 0);
     const budget: BudgetTracker | undefined = hasBudget
-      ? { remaining: dto.total_budget!, slotsLeft: totalDays * Object.keys(mealTargets).length }
+      ? { remaining: dto.total_budget!, slotsLeft: totalDays * Object.keys(mealTargets).length * 2 }
       : undefined;
 
     const usedRecipeCounts = new Map<number, number>();
@@ -1991,7 +2321,17 @@ export class MealPlanService {
     mealPlan.generated_by = 'AI';
 
     const allPlanned = plannedByWeek.flat();
-    const groqMonthlyReview = await this.reviewAndOptimizeWithGroq(allPlanned, targetCalories, 'monthly');
+
+    // Tổng hợp nguyên liệu theo gam (có ~) để cung cấp cho Bếp trưởng AI (Groq) và trả về response
+    const monthlyIngredientsMap = await this.getIngredientsMap(
+      allPlanned.map((m) => m.recipe.recipe_id),
+    );
+    const monthlyIngredientAgg = this.aggregateIngredientsByGram(allPlanned, monthlyIngredientsMap);
+    const monthlyIngredientSummary = monthlyIngredientAgg
+      .map((i) => '- ' + i.ingredient_name + ': ~' + i.quantity_g + 'g')
+      .join('\n');
+
+    const groqMonthlyReview = await this.reviewAndOptimizeWithGroq(allPlanned, targetCalories, 'monthly', monthlyIngredientSummary);
     mealPlan.ai_cookability_notes = groqMonthlyReview.chef_advice;
 
     // Ghi MealPlan + WeeklyPlan + DailyMeal + MealItem trong 1 transaction để
@@ -2036,8 +2376,8 @@ export class MealPlanService {
       savedMealPlanId,
     );
 
-    // Trả kèm kết quả đánh giá mục tiêu (BMI/BMR/TDEE/kcal + cảnh báo).
-    return { ...detail, goal_assessment: assessment };
+    // Trả kèm kết quả đánh giá mục tiêu và danh sách nguyên liệu tổng hợp theo gam (có ~)
+    return { ...detail, goal_assessment: assessment, ingredient_summary: monthlyIngredientAgg };
   }
 
   // =========================================================
@@ -2213,7 +2553,9 @@ export class MealPlanService {
       plannedMeals.map((meal) => meal.recipe.recipe_id),
     );
 
-    return this.buildPreviewMealPlan({
+    const someoneIngredientAgg = this.aggregateIngredientsByGram(plannedMeals, ingredientsMap);
+
+    const preview = this.buildPreviewMealPlan({
       profileName: dto.profile_name?.trim() || 'Người thân',
       dietType,
       targetCalories,
@@ -2225,6 +2567,8 @@ export class MealPlanService {
       hasBudget,
       totalBudget: dto.total_budget,
     });
+
+    return { ...preview, ingredient_summary: someoneIngredientAgg };
   }
 
   /**
@@ -2355,25 +2699,31 @@ export class MealPlanService {
       mealDate.setDate(startDate.getDate() + dayIndex);
       mealDate.setHours(0, 0, 0, 0);
 
+      // Nhóm các món theo mealType trong cùng ngày (2-3 món mỗi bữa)
+      const mealTypeGroups = new Map<string, PlannedMeal[]>();
       for (const meal of meals) {
+        const list = mealTypeGroups.get(meal.mealType) ?? [];
+        list.push(meal);
+        mealTypeGroups.set(meal.mealType, list);
+      }
+
+      for (const [mealType, groupMeals] of mealTypeGroups.entries()) {
         dailyMeals.push({
           meal_date: mealDate,
-          meal_type: meal.mealType,
-          target_calories: meal.calories,
-          meal_items: [
-            {
-              recipe_id: meal.recipe.recipe_id,
-              is_ai_suggested: true,
-              added_by_user: false,
-              portion_multiplier: meal.portion,
-              recipe: {
-                ...meal.recipe,
-                nutrition: nutritionMap.get(meal.recipe.recipe_id) ?? null,
-                ingredients:
-                  ingredientsMap.get(meal.recipe.recipe_id) ?? [],
-              },
+          meal_type: mealType,
+          target_calories: groupMeals.reduce((sum, m) => sum + m.calories, 0),
+          meal_items: groupMeals.map((meal) => ({
+            recipe_id: meal.recipe.recipe_id,
+            is_ai_suggested: true,
+            added_by_user: false,
+            portion_multiplier: meal.portion,
+            recipe: {
+              ...meal.recipe,
+              nutrition: nutritionMap.get(meal.recipe.recipe_id) ?? null,
+              ingredients:
+                ingredientsMap.get(meal.recipe.recipe_id) ?? [],
             },
-          ],
+          })),
         });
       }
     }

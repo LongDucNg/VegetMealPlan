@@ -22,6 +22,7 @@ import { GenerationSettingsModal } from "@/features/meal-planner/components/Gene
 import { GenerationPlanOptions } from "@/features/meal-planner/types";
 import { useSubscription } from "@/features/subscription/hooks/useSubscription";
 import { PremiumUpgradeModal } from "@/features/subscription/components/PremiumUpgradeModal";
+import { subscriptionService } from "@/features/subscription/services/subscriptionService";
 import { ProfileEditor } from "@/features/profile/components/ProfileEditor";
 import { formatVegetarianType } from "@/features/profile/types";
 import { Recipe } from "@/features/recipes/types";
@@ -62,6 +63,7 @@ function PlannerContent() {
     setBudgetLimit,
     selectedMonth,
     selectedYear,
+    generateDaily,
     generateWeekly,
     generateMonthly,
     replaceMeal,
@@ -85,6 +87,7 @@ function PlannerContent() {
   const [replacingSlot, setReplacingSlot] = useState<{
     slot: "breakfast" | "lunch" | "dinner" | "snack";
     recipe: Recipe;
+    dishIndex?: number;
   } | null>(null);
 
   // Update user price modal state
@@ -97,6 +100,17 @@ function PlannerContent() {
     } else {
       action();
     }
+  };
+
+  // Generate Daily Plan action
+  const handleGenerateDaily = (opts?: Partial<GenerationPlanOptions>) => {
+    if (!nutritionSummary.isProfileComplete && !isPlanForSomeoneElse) {
+      setShowProfileDrawer(true);
+      return;
+    }
+    requirePremium(() => {
+      generateDaily({ budgetLimit, ...opts });
+    });
   };
 
   // Generate Weekly Plan action
@@ -124,26 +138,33 @@ function PlannerContent() {
   // Open replace modal for an individual meal (Requirement 3)
   const handleOpenReplace = (
     recipe: Recipe,
-    slot: "breakfast" | "lunch" | "dinner" | "snack"
+    slot: "breakfast" | "lunch" | "dinner" | "snack",
+    dishIndex?: number
   ) => {
     requirePremium(() => {
-      setReplacingSlot({ slot, recipe });
+      setReplacingSlot({ slot, recipe, dishIndex });
     });
   };
 
   // Execute replace
   const handleSelectReplacement = (newRecipe: Recipe) => {
     if (!replacingSlot) return;
-    replaceMeal(activeDayIndex, replacingSlot.slot, newRecipe);
+    replaceMeal(activeDayIndex, replacingSlot.slot, newRecipe, replacingSlot.dishIndex);
     setReplacingSlot(null);
   };
 
-  const handleUpgradeSuccess = () => {
-    purchase("premium");
+  const handleUpgradeSuccess = async () => {
     setShowUpgradeModal(false);
-    setTimeout(() => {
-      generateWeekly();
-    }, 200);
+    try {
+      const res = await subscriptionService.createCheckout();
+      if (res?.payment_url) {
+        window.location.href = res.payment_url;
+        return;
+      }
+      throw new Error("Không nhận được link thanh toán VietQR.");
+    } catch (err: any) {
+      alert(err?.message || "Không thể khởi tạo thanh toán VietQR.");
+    }
   };
 
   return (
@@ -164,15 +185,7 @@ function PlannerContent() {
             </span>
           </div>
 
-          <div className="flex items-center gap-2 self-end sm:self-auto">
-            <button
-              onClick={() => toggle()}
-              className="text-[11px] font-medium text-emerald-800 hover:text-red-700 underline underline-offset-2 transition-colors cursor-pointer"
-              title="Nhấn để chuyển sang gói Miễn phí (kiểm thử)"
-            >
-              [Thử nghiệm: Về gói Thường]
-            </button>
-          </div>
+
         </div>
       ) : (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-stone-50 border border-stone-200/90 rounded-2xl px-4 py-2.5 text-xs text-stone-700 shadow-2xs">
@@ -193,13 +206,7 @@ function PlannerContent() {
               <Sparkles className="w-3.5 h-3.5 fill-amber-950" />
               Nâng cấp Premium (99.000 VNĐ / tháng)
             </button>
-            <button
-              onClick={() => toggle()}
-              className="text-[11px] text-stone-400 hover:text-stone-700 underline cursor-pointer"
-              title="Nhấn để mở khóa Premium ngay lập tức (kiểm thử)"
-            >
-              [Thử nghiệm: Mở Premium]
-            </button>
+
           </div>
         </div>
       )}
@@ -265,7 +272,7 @@ function PlannerContent() {
           </div>
           <Button
             size="sm"
-            onClick={() => (planType === "monthly" ? handleGenerateMonthly() : handleGenerateWeekly())}
+            onClick={() => (planType === "monthly" ? handleGenerateMonthly() : planType === "daily" ? handleGenerateDaily() : handleGenerateWeekly())}
             className="bg-amber-600 hover:bg-amber-700 text-white font-bold h-9 px-4 rounded-xl cursor-pointer self-end sm:self-auto shrink-0 shadow-2xs"
           >
             Tạo lại thực đơn
@@ -361,6 +368,24 @@ function PlannerContent() {
           >
             <SlidersHorizontal className="w-3.5 h-3.5 text-stone-500" />
             <span>Cài đặt</span>
+          </Button>
+
+                    {/* Daily Button */}
+          <Button
+            size="md"
+            onClick={() => handleGenerateDaily()}
+            disabled={isGenerating}
+            className={`h-11 px-5 rounded-2xl font-bold text-xs shadow-xs flex items-center gap-2 transition-all cursor-pointer ${hasGenerated && planType === "daily"
+                ? "bg-emerald-800 text-white"
+                : "bg-emerald-600 hover:bg-emerald-700 text-white"
+              }`}
+          >
+            {isGenerating && planType === "daily" ? (
+              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            )}
+            <span>Tạo Thực Đơn Ngày</span>
           </Button>
 
           {/* Weekly Button */}
@@ -483,8 +508,18 @@ function PlannerContent() {
               VIEW MODE SWITCHER & SUB-ACTIONS
               ======================================================== */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-            {/* Weekly Day Selector Tabs (if Weekly Plan active) */}
-            {planType === "weekly" && weeklyPlan ? (
+            {/* Daily or Weekly Day Selector Tabs */}
+            {planType === "daily" && weeklyPlan ? (
+              <div className="flex items-center gap-2 py-1">
+                <span className="px-3.5 py-1.5 rounded-xl bg-emerald-100 text-emerald-900 font-bold text-xs flex items-center gap-1.5 shadow-2xs">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                  Thực đơn 1 ngày
+                </span>
+                <span className="text-xs text-stone-600 font-semibold">
+                  {weeklyPlan.days[0]?.dayName} · {weeklyPlan.days[0]?.dateText}
+                </span>
+              </div>
+            ) : planType === "weekly" && weeklyPlan ? (
               <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
                 {weeklyPlan.days.map((d, index) => (
                   <button
@@ -612,48 +647,105 @@ function PlannerContent() {
                 <MealCard
                   mealType="Breakfast"
                   recipe={activeDay.breakfast.recipe}
+                  recipes={activeDay.breakfast.recipes}
                   timeString={activeDay.breakfast.time}
                   userId={String(activeProfile.id || "")}
-                  onOpenReplace={(r) => handleOpenReplace(r, "breakfast")}
+                  onOpenReplace={(r, idx) => handleOpenReplace(r, "breakfast", idx)}
                   onOpenPriceModal={(r) => setPricingRecipe(r)}
                 />
                 <MealCard
                   mealType="Lunch"
                   recipe={activeDay.lunch.recipe}
+                  recipes={activeDay.lunch.recipes}
                   timeString={activeDay.lunch.time}
                   userId={String(activeProfile.id || "")}
-                  onOpenReplace={(r) => handleOpenReplace(r, "lunch")}
+                  onOpenReplace={(r, idx) => handleOpenReplace(r, "lunch", idx)}
                   onOpenPriceModal={(r) => setPricingRecipe(r)}
                 />
                 <MealCard
                   mealType="Dinner"
                   recipe={activeDay.dinner.recipe}
+                  recipes={activeDay.dinner.recipes}
                   timeString={activeDay.dinner.time}
                   userId={String(activeProfile.id || "")}
-                  onOpenReplace={(r) => handleOpenReplace(r, "dinner")}
+                  onOpenReplace={(r, idx) => handleOpenReplace(r, "dinner", idx)}
                   onOpenPriceModal={(r) => setPricingRecipe(r)}
                 />
                 <MealCard
                   mealType="Snack"
                   recipe={activeDay.snack.recipe}
+                  recipes={activeDay.snack.recipes}
                   timeString={activeDay.snack.time}
                   userId={String(activeProfile.id || "")}
-                  onOpenReplace={(r) => handleOpenReplace(r, "snack")}
+                  onOpenReplace={(r, idx) => handleOpenReplace(r, "snack", idx)}
                   onOpenPriceModal={(r) => setPricingRecipe(r)}
                 />
               </div>
+
+              {/* ========================================================
+                  INGREDIENTS SUMMARY BY GRAMS (~g)
+                  ======================================================== */}
+              {(() => {
+                const currentPlan = (planType === "monthly" ? monthlyPlan : weeklyPlan);
+                const ingredientList = activeDay?.ingredient_summary && activeDay.ingredient_summary.length > 0
+                  ? activeDay.ingredient_summary
+                  : currentPlan?.ingredient_summary && currentPlan.ingredient_summary.length > 0
+                  ? currentPlan.ingredient_summary
+                  : [];
+
+                if (ingredientList.length === 0) return null;
+
+                return (
+                  <Card className="p-6 bg-white border border-stone-200/90 rounded-3xl shadow-xs space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs">
+                          ~g
+                        </div>
+                        <div>
+                          <h4 className="font-serif font-bold text-base text-stone-900">
+                            Tổng hợp nguyên liệu theo gam (~g)
+                          </h4>
+                          <p className="text-xs text-stone-500">
+                            Quy đổi về đơn vị gam nhỏ nhất và cộng dồn định lượng cho toàn bộ thực đơn ({ingredientList.length} nguyên liệu)
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60 self-start sm:self-auto">
+                        {planType === "daily" ? "Thực đơn ngày" : planType === "weekly" ? "Thực đơn tuần" : "Thực đơn tháng"}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 max-h-72 overflow-y-auto pr-1">
+                      {ingredientList.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2.5 rounded-xl bg-stone-50/80 border border-stone-200/70 hover:border-emerald-300 transition-colors flex flex-col justify-between"
+                        >
+                          <span className="text-xs font-medium text-stone-800 line-clamp-1" title={item.ingredient_name}>
+                            {item.ingredient_name}
+                          </span>
+                          <span className="text-xs font-bold text-emerald-700 mt-1">
+                            {item.note || `~${item.quantity_g}g`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                );
+              })()}
             </div>
           )}
 
           {/* ========================================================
               WEEKLY AVERAGES & ESTIMATED TOTAL COST CARD (Requirement 7)
               ======================================================== */}
-          {planType === "weekly" && weeklyPlan && (
+          {(planType === "weekly" || planType === "daily") && weeklyPlan && (
             <Card className="p-6">
               <div className="flex items-center justify-between gap-2 mb-4">
                 <div className="flex items-center gap-2">
                   <CalendarDays className="w-4 h-4 text-emerald-700" />
-                  <h4 className="font-semibold text-stone-800 text-sm">Tổng quan thực đơn 7 ngày</h4>
+                  <h4 className="font-semibold text-stone-800 text-sm">{planType === "daily" ? "Tổng quan thực đơn ngày" : "Tổng quan thực đơn 7 ngày"}</h4>
                 </div>
                 <span className="text-xs text-stone-500 font-medium">
                   Tổng ước tính: <strong className="text-emerald-800 font-bold">~{weeklyPlan.totalEstimatedCost.toLocaleString("vi-VN")} VNĐ</strong>
@@ -756,7 +848,7 @@ function PlannerContent() {
         planType={planType}
         targetCalories={nutritionSummary.dailyCalorieTarget}
         totalCost={
-          planType === "weekly"
+          (planType === "weekly" || planType === "daily")
             ? weeklyPlan?.totalEstimatedCost || 0
             : monthlyPlan?.totalEstimatedCost || 0
         }
@@ -783,6 +875,8 @@ function PlannerContent() {
           }
           if (options.planType === "monthly") {
             generateMonthly(options.selectedMonth, options.selectedYear, options);
+          } else if (options.planType === "daily") {
+            generateDaily(options);
           } else {
             generateWeekly(options);
           }

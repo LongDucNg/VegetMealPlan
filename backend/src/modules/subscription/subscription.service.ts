@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,25 +9,13 @@ import { User } from '../users/entities/user.entity';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/entities/notification.entity';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
-import { PAYMENT_LINK_TTL_MINUTES, VnpayService } from './vnpay.service';
+import { PayosService } from './payos.service';
 
 const PLAN_TYPE = 'monthly';
 const PLAN_DURATION_DAYS = 30;
 
-/** Mã phản hồi IPN theo tài liệu VNPay. VNPay chỉ ngừng gọi lại khi nhận 00 hoặc 02. */
-export const IPN = {
-  OK: { RspCode: '00', Message: 'Confirm Success' },
-  ORDER_NOT_FOUND: { RspCode: '01', Message: 'Order not found' },
-  ALREADY_CONFIRMED: { RspCode: '02', Message: 'Order already confirmed' },
-  INVALID_AMOUNT: { RspCode: '04', Message: 'Invalid amount' },
-  INVALID_SIGNATURE: { RspCode: '97', Message: 'Invalid signature' },
-  UNKNOWN: { RspCode: '99', Message: 'Unknown error' },
-} as const;
-export type IpnResponse = (typeof IPN)[keyof typeof IPN];
-
 export interface PaymentResult {
-  ipn: IpnResponse;
-  status: 'success' | 'failed' | 'invalid';
+  status: 'success' | 'failed' | 'invalid' | 'pending';
   txn_ref?: string;
   premium_until?: Date | null;
   message: string;
@@ -37,6 +25,7 @@ export interface PaymentResult {
 export class SubscriptionService {
   private readonly logger = new Logger(SubscriptionService.name);
   private readonly price: number;
+  private readonly allowDirectPremium: boolean;
 
   constructor(
     @InjectRepository(Subscription)
@@ -46,10 +35,12 @@ export class SubscriptionService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly notificationService: NotificationService,
-    private readonly vnpay: VnpayService,
+    private readonly payos: PayosService,
     config: ConfigService,
   ) {
     this.price = Number(config.get<string>('MONTHLY_PLAN_PRICE')) || 99000;
+    // Mặc định TẮT: bật lên thì ai đăng nhập cũng tự có Premium không cần trả tiền (chỉ dùng khi demo/test).
+    this.allowDirectPremium = config.get<string>('ALLOW_DIRECT_PREMIUM') === 'true';
   }
 
   /** GET /subscriptions/plans: hiện chỉ có một gói tháng. */
@@ -80,87 +71,163 @@ export class SubscriptionService {
   }
 
   /**
-   * POST /subscriptions/checkout: tạo giao dịch pending rồi trả link thanh toán VNPay đã ký.
-   * Chưa cấu hình VNPay thì báo 503 trước khi tạo giao dịch, để không sinh giao dịch rác.
+   * POST /subscriptions/checkout: tạo giao dịch pending rồi trả link thanh toán VietQR (PayOS).
+   * Chưa cấu hình PayOS thì báo 503 trước khi tạo giao dịch, để không sinh giao dịch rác.
    */
-  async checkout(user_id: number, ipAddr: string) {
-    this.vnpay.assertConfigured();
-    const gateway_txn_ref = `VMP${Date.now()}${randomUUID().slice(0, 6).toUpperCase()}`;
+  async checkout(user_id: number, _ipAddr?: string) {
+    this.payos.assertConfigured();
+
+    // Sinh orderCode dạng số nguyên an toàn (6 số đuôi timestamp + 3 số ngẫu nhiên)
+    const orderCode = Number(`${Date.now().toString().slice(-6)}${Math.floor(100 + Math.random() * 900)}`);
+    const gateway_txn_ref = String(orderCode);
+
     const transaction = await this.transactionRepo.save(
       this.transactionRepo.create({
         user_id,
         amount: this.price,
+        gateway: PaymentGateway.PAYOS,
         gateway_txn_ref,
         status: PaymentTransactionStatus.PENDING,
       }),
     );
-    const payment_url = this.vnpay.buildPaymentUrl({
-      txnRef: gateway_txn_ref,
+
+    const paymentLink = await this.payos.createPaymentLink({
+      orderCode,
       amount: transaction.amount,
-      // VNPay khuyến nghị nội dung không dấu, không ký tự đặc biệt.
-      orderInfo: `Thanh toan goi Premium 1 thang ${gateway_txn_ref}`,
-      ipAddr,
-      createdAt: transaction.created_at,
+      description: `Premium ${orderCode}`,
     });
+
     return {
-      payment_url,
+      payment_url: paymentLink.checkoutUrl,
+      qr_code: paymentLink.qrCode,
+      order_code: orderCode,
       gateway_txn_ref,
       amount: transaction.amount,
-      expires_in_minutes: PAYMENT_LINK_TTL_MINUTES,
+      expires_in_minutes: 15,
     };
   }
 
   /**
-   * Xử lý kết quả VNPay, dùng chung cho IPN (VNPay gọi server, nguồn sự thật) và trang return (dự phòng khi IPN
-   * chưa tới, ví dụ chạy localhost không có ngrok). Thứ tự kiểm tra theo tài liệu VNPay:
-   * chữ ký → giao dịch tồn tại → đúng số tiền → chưa xử lý → kết quả.
-   * Chỉ request đầu tiên đổi được trạng thái pending (UPDATE có điều kiện), nên IPN và return tới cùng lúc
-   * cũng không kích hoạt Premium hai lần.
+   * Xử lý kết quả Webhook từ PayOS (server tới server).
    */
-  async processVnpayResult(query: Record<string, unknown>): Promise<PaymentResult> {
-    if (!this.vnpay.verify(query)) {
-      return { ipn: IPN.INVALID_SIGNATURE, status: 'invalid', message: 'Chữ ký không hợp lệ, không xác nhận được giao dịch' };
-    }
-    const txn_ref = String(query.vnp_TxnRef ?? '');
-    const transaction = await this.transactionRepo.findOne({ where: { gateway_txn_ref: txn_ref } });
-    if (!transaction) {
-      return { ipn: IPN.ORDER_NOT_FOUND, status: 'invalid', txn_ref, message: 'Không tìm thấy giao dịch' };
-    }
-    if (Number(query.vnp_Amount) !== Math.round(transaction.amount * 100)) {
-      return { ipn: IPN.INVALID_AMOUNT, status: 'invalid', txn_ref, message: 'Số tiền không khớp với giao dịch' };
-    }
-    if (transaction.status !== PaymentTransactionStatus.PENDING) {
-      return this.alreadyProcessed(transaction);
+  async processPayosWebhook(webhookBody: any): Promise<{ success: boolean; message: string }> {
+    let webhookData: any;
+    try {
+      webhookData = await this.payos.verifyWebhook(webhookBody);
+    } catch (err: any) {
+      this.logger.error(`Webhook signature không hợp lệ: ${err?.message || err}`);
+      return { success: false, message: 'Invalid webhook signature' };
     }
 
-    const paid = query.vnp_ResponseCode === '00' && query.vnp_TransactionStatus === '00';
-    const raw_response = JSON.stringify(query);
+    const orderCode = webhookData?.orderCode;
+    if (!orderCode) {
+      return { success: false, message: 'Missing orderCode in webhook data' };
+    }
+
+    const txn_ref = String(orderCode);
+    const transaction = await this.transactionRepo.findOne({ where: { gateway_txn_ref: txn_ref } });
+    if (!transaction) {
+      this.logger.warn(`Không tìm thấy giao dịch cho orderCode #${orderCode}`);
+      return { success: false, message: 'Transaction not found' };
+    }
+
+    if (transaction.status !== PaymentTransactionStatus.PENDING) {
+      return { success: true, message: 'Transaction already processed' };
+    }
+
+    const isSuccess = webhookData.code === '00';
+    const raw_response = JSON.stringify(webhookBody);
+
     const claimed = await this.transactionRepo.update(
       { transaction_id: transaction.transaction_id, status: PaymentTransactionStatus.PENDING },
-      paid
+      isSuccess
         ? {
             status: PaymentTransactionStatus.SUCCESS,
-            gateway_transaction_no: String(query.vnp_TransactionNo ?? ''),
+            gateway_transaction_no: String(webhookData.reference ?? webhookData.paymentLinkId ?? ''),
             raw_response,
             paid_at: new Date(),
           }
         : { status: PaymentTransactionStatus.FAILED, raw_response },
     );
+
     if (!claimed.affected) {
-      const latest = await this.transactionRepo.findOneOrFail({ where: { transaction_id: transaction.transaction_id } });
-      return this.alreadyProcessed(latest);
+      return { success: true, message: 'Transaction claimed by concurrent worker' };
     }
 
-    if (!paid) {
+    if (!isSuccess) {
+      return { success: false, message: `Thanh toán thất bại (mã ${webhookData.code})` };
+    }
+
+    await this.activatePremium(transaction);
+    this.logger.log(`Kích hoạt thành công gói Premium cho người dùng #${transaction.user_id} qua PayOS (Order #${orderCode})`);
+    return { success: true, message: 'Payment success and premium activated' };
+  }
+
+  /**
+   * Kiểm tra trạng thái giao dịch cho trang Return của Frontend
+   */
+  async checkPaymentStatus(orderCode: string | number): Promise<PaymentResult> {
+    const txn_ref = String(orderCode);
+    let transaction = await this.transactionRepo.findOne({ where: { gateway_txn_ref: txn_ref } });
+
+    if (!transaction) {
+      return { status: 'invalid', txn_ref, message: 'Không tìm thấy giao dịch' };
+    }
+
+    // Nếu giao dịch vẫn đang PENDING: chủ động tra cứu trực tiếp từ PayOS server (phòng trường hợp Webhook chưa tới kịp)
+    if (transaction.status === PaymentTransactionStatus.PENDING && this.payos.isConfigured()) {
+      try {
+        const payosInfo: any = await this.payos.getPaymentInformation(orderCode);
+        if (payosInfo && payosInfo.status === 'PAID') {
+          const claimed = await this.transactionRepo.update(
+            { transaction_id: transaction.transaction_id, status: PaymentTransactionStatus.PENDING },
+            {
+              status: PaymentTransactionStatus.SUCCESS,
+              gateway_transaction_no: String(payosInfo.paymentLinkId ?? ''),
+              raw_response: JSON.stringify(payosInfo),
+              paid_at: new Date(),
+            },
+          );
+          if (claimed.affected) {
+            const end = await this.activatePremium(transaction);
+            return {
+              status: 'success',
+              txn_ref,
+              premium_until: end,
+              message: 'Thanh toán thành công, đã kích hoạt gói Premium!',
+            };
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Lỗi đối soát trực tiếp PayOS: ${err?.message || err}`);
+      }
+    }
+
+    transaction = await this.transactionRepo.findOne({ where: { gateway_txn_ref: txn_ref } });
+    const user = transaction ? await this.userRepo.findOne({ where: { user_id: transaction.user_id } }) : null;
+
+    if (transaction?.status === PaymentTransactionStatus.SUCCESS) {
       return {
-        ipn: IPN.OK,
+        status: 'success',
+        txn_ref,
+        premium_until: user?.premium_until ?? null,
+        message: 'Thanh toán thành công, tài khoản đã được nâng cấp Premium!',
+      };
+    } else if (transaction?.status === PaymentTransactionStatus.FAILED) {
+      return {
         status: 'failed',
         txn_ref,
-        message: `Thanh toán không thành công (mã VNPay ${String(query.vnp_ResponseCode ?? '')})`,
+        premium_until: null,
+        message: 'Giao dịch thanh toán không thành công hoặc đã bị hủy.',
       };
     }
-    const premium_until = await this.activatePremium(transaction);
-    return { ipn: IPN.OK, status: 'success', txn_ref, premium_until, message: 'Thanh toán thành công, đã kích hoạt Premium' };
+
+    return {
+      status: 'pending',
+      txn_ref,
+      premium_until: null,
+      message: 'Giao dịch đang chờ thanh toán qua VietQR.',
+    };
   }
 
   /**
@@ -201,18 +268,6 @@ export class SubscriptionService {
     return end;
   }
 
-  private async alreadyProcessed(transaction: PaymentTransaction): Promise<PaymentResult> {
-    const user = await this.userRepo.findOne({ where: { user_id: transaction.user_id } });
-    const success = transaction.status === PaymentTransactionStatus.SUCCESS;
-    return {
-      ipn: IPN.ALREADY_CONFIRMED,
-      status: success ? 'success' : 'failed',
-      txn_ref: transaction.gateway_txn_ref,
-      premium_until: user?.premium_until ?? null,
-      message: success ? 'Giao dịch đã được xác nhận trước đó' : 'Giao dịch không thành công',
-    };
-  }
-
   /**
    * Huỷ gói: KHÔNG hoàn tiền tự động (ngoài phạm vi đồ án), chỉ đánh dấu cancelled.
    * User vẫn dùng Premium đến hết hạn đã trả tiền (gói mua một lần, không tự gia hạn).
@@ -239,16 +294,23 @@ export class SubscriptionService {
     });
     return saved;
   }
+
   /**
-   * Kích hoạt gói Premium trực tiếp (không qua thanh toán VNPay)
-   * Phục vụ chuyển gói tự do trong giai đoạn chưa hoàn thiện cổng thanh toán.
+   * Kích hoạt gói Premium trực tiếp (không qua thanh toán PayOS)
+   * Chỉ chạy khi ALLOW_DIRECT_PREMIUM=true (demo/test); mặc định tắt để không ai tự bật Premium miễn phí.
    */
   async activateDirect(user_id: number) {
+    if (!this.allowDirectPremium) {
+      throw new ForbiddenException({
+        code: ErrorCode.SUBSCRIPTION_DIRECT_DISABLED,
+        message: 'Kích hoạt Premium miễn phí đang tắt. Vui lòng thanh toán qua VietQR (PayOS).',
+      });
+    }
     const transaction = await this.transactionRepo.save(
       this.transactionRepo.create({
         user_id,
         amount: 0,
-        gateway: PaymentGateway.VNPAY,
+        gateway: PaymentGateway.PAYOS,
         gateway_txn_ref: `DIRECT_${Date.now()}_${randomUUID().slice(0, 6).toUpperCase()}`,
         status: PaymentTransactionStatus.SUCCESS,
       }),
