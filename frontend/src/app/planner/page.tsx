@@ -16,6 +16,7 @@ import { MonthlyCalendarView } from "@/features/meal-planner/components/MonthlyC
 import { MealReplacementModal } from "@/features/meal-planner/components/MealReplacementModal";
 import { UpdatePriceModal } from "@/features/recipes/components/UpdatePriceModal";
 import { FavoritesModal } from "@/features/meal-planner/components/FavoritesModal";
+import { AddDishModal } from "@/features/meal-planner/components/AddDishModal";
 import { PlanForSomeoneElseModal } from "@/features/meal-planner/components/PlanForSomeoneElseModal";
 import { SaveMealPlanModal } from "@/features/meal-planner/components/SaveMealPlanModal";
 import { GenerationSettingsModal } from "@/features/meal-planner/components/GenerationSettingsModal";
@@ -81,6 +82,7 @@ function PlannerContent() {
     saveCurrentMealPlan,
     loadSavedPlan,
     applyFavoriteDayPlan,
+    addDishToMeal,
   } = useMealPlanner();
 
   const { isPremium } = useSubscription();
@@ -93,6 +95,7 @@ function PlannerContent() {
   const [favoritesModalTab, setFavoritesModalTab] = useState<"recipes" | "plans">("recipes");
   const [showSomeoneElseModal, setShowSomeoneElseModal] = useState(false);
   const [showSavePlanModal, setShowSavePlanModal] = useState(false);
+  const [addDishMealType, setAddDishMealType] = useState<"Breakfast" | "Lunch" | "Dinner" | "Snack" | null>(null);
 
   // In-app Notification for Saved Meal Plan
   const [savedNotification, setSavedNotification] = useState<{ name: string } | null>(null);
@@ -796,6 +799,7 @@ function PlannerContent() {
               timeString={currentViewDay.breakfast.time}
               userId={String(activeProfile.id || "")}
               onOpenReplace={(r, idx) => handleOpenReplace(r, "breakfast", idx)}
+              onOpenAddDish={(mt) => setAddDishMealType(mt)}
               onOpenPriceModal={(r) => setPricingRecipe(r)}
             />
             <MealCard
@@ -805,6 +809,7 @@ function PlannerContent() {
               timeString={currentViewDay.lunch.time}
               userId={String(activeProfile.id || "")}
               onOpenReplace={(r, idx) => handleOpenReplace(r, "lunch", idx)}
+              onOpenAddDish={(mt) => setAddDishMealType(mt)}
               onOpenPriceModal={(r) => setPricingRecipe(r)}
             />
             <MealCard
@@ -814,6 +819,7 @@ function PlannerContent() {
               timeString={currentViewDay.dinner.time}
               userId={String(activeProfile.id || "")}
               onOpenReplace={(r, idx) => handleOpenReplace(r, "dinner", idx)}
+              onOpenAddDish={(mt) => setAddDishMealType(mt)}
               onOpenPriceModal={(r) => setPricingRecipe(r)}
             />
             <MealCard
@@ -823,6 +829,7 @@ function PlannerContent() {
               timeString={currentViewDay.snack.time}
               userId={String(activeProfile.id || "")}
               onOpenReplace={(r, idx) => handleOpenReplace(r, "snack", idx)}
+              onOpenAddDish={(mt) => setAddDishMealType(mt)}
               onOpenPriceModal={(r) => setPricingRecipe(r)}
             />
           </div>
@@ -957,9 +964,12 @@ function PlannerContent() {
         onClose={() => setShowFavoritesModal(false)}
         profile={activeProfile}
         defaultTab={favoritesModalTab}
-        onApplyPlan={(dayPlan) => {
-          applyFavoriteDayPlan(dayPlan);
-          setGenerationFeedback("✓ Đã thay thế thực đơn vào ngày đang xem!");
+        onApplyPlan={(dayPlan, targetDateKey) => {
+          applyFavoriteDayPlan(dayPlan, targetDateKey);
+          const dateLabel = targetDateKey
+            ? `ngày ${targetDateKey.split("-").reverse().join("/")}`
+            : "ngày đã chọn";
+          setGenerationFeedback(`✓ Đã áp dụng thực đơn vào ${dateLabel}!`);
           setTimeout(() => setGenerationFeedback(null), 3000);
         }}
         onLoadSavedPlan={(plan) => loadSavedPlan(plan)}
@@ -973,6 +983,19 @@ function PlannerContent() {
             setShowFavoritesModal(false);
           });
         }}
+      />
+
+      {/* Add Dish Modal for customized meal items */}
+      <AddDishModal
+        isOpen={Boolean(addDishMealType)}
+        onClose={() => setAddDishMealType(null)}
+        mealType={addDishMealType}
+        activeDay={currentViewDay}
+        profile={activeProfile}
+        onAddRecipe={(mealKey, recipe) => {
+          addDishToMeal(mealKey, recipe);
+        }}
+        userId={String(activeProfile.id || "")}
       />
 
       {/* 4. Plan for Someone Else Modal (Requirement 17) */}
