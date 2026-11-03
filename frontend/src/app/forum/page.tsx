@@ -10,6 +10,7 @@ import {
   Loader2,
   CheckCircle,
   AlertCircle,
+  AlertTriangle,
   Clock,
   Sparkles,
   UserCheck,
@@ -28,6 +29,7 @@ import {
   ForumPost,
   ForumRightRail,
 } from "@/features/community";
+import { checkNonVegText } from "@/features/community/utils/nonVegDetector";
 
 function ForumContent() {
   const router = useRouter();
@@ -61,6 +63,7 @@ function ForumContent() {
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccessMsg, setSubmitSuccessMsg] = useState<string | null>(null);
   const [submitErrorMsg, setSubmitErrorMsg] = useState<string | null>(null);
+  const [nonVegWarning, setNonVegWarning] = useState<string[] | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -130,13 +133,26 @@ function ForumContent() {
     setNewContent("");
     setSubmitSuccessMsg(null);
     setSubmitErrorMsg(null);
+    setNonVegWarning(null);
     setNewPostModalOpen(false);
   };
 
-  const handleCreatePost = async (e: React.FormEvent) => {
+  const handleCreatePost = async (e: React.FormEvent, forceSubmit = false) => {
     e.preventDefault();
     if (!newTitle.trim() || !newContent.trim() || isGuest) return;
 
+    // Quét từ khóa nguyên liệu mặn trong tiêu đề, nội dung và tags
+    const fullText = `${newTitle} ${newContent} ${newTags}`;
+    const check = checkNonVegText(fullText);
+
+    // NẾU CÓ TỪ MẶN VÀ NGƯỜI DÙNG CHƯA XÁC NHẬN -> DỪNG LẠI CHO NGƯỜI DÙNG SỬA
+    if (!check.isClean && !forceSubmit) {
+      setNonVegWarning(check.violations);
+      setSubmitErrorMsg(null);
+      return;
+    }
+
+    setNonVegWarning(null);
     setSubmitting(true);
     setSubmitErrorMsg(null);
     setSubmitSuccessMsg(null);
@@ -157,7 +173,12 @@ function ForumContent() {
         user || { full_name: "Tôi", role: role }
       );
 
-      if (res.status === "approved" || role === "Admin") {
+      if (res.is_flagged || !check.isClean) {
+        const violations = res.flag_reason || (check.violations.length > 0 ? `nhắc tới nguyên liệu mặn: ${check.violations.join(", ")}` : "nội dung cần rà soát");
+        setSubmitSuccessMsg(
+          `Bài viết đã được gửi và đang chờ ban quản trị kiểm duyệt (${violations}).`
+        );
+      } else if (res.status === "approved" || role === "Admin") {
         setSubmitSuccessMsg("Đăng bài viết thành công!");
       } else {
         setSubmitSuccessMsg(
@@ -169,7 +190,7 @@ function ForumContent() {
 
       setTimeout(() => {
         resetForm();
-      }, 1800);
+      }, 2500);
     } catch (err: any) {
       setSubmitErrorMsg(
         err?.message || "Không thể đăng bài viết lúc này. Vui lòng thử lại sau."
@@ -439,7 +460,7 @@ function ForumContent() {
         onClose={resetForm}
         title="Bắt đầu chủ đề thảo luận mới"
       >
-        <form onSubmit={handleCreatePost} className="flex flex-col space-y-4">
+        <form onSubmit={(e) => handleCreatePost(e, false)} className="flex flex-col space-y-4">
           {submitSuccessMsg && (
             <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-start gap-2.5">
               <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
@@ -454,6 +475,44 @@ function ForumContent() {
             </div>
           )}
 
+          {nonVegWarning && nonVegWarning.length > 0 && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-sm space-y-3 animate-in fade-in">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold text-amber-900">
+                    Phát hiện từ khóa nguyên liệu không thuần chay:{" "}
+                    <span className="text-rose-600 underline font-extrabold">
+                      {nonVegWarning.join(", ")}
+                    </span>
+                  </p>
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    Diễn đàn VeggieHub là cộng đồng ăn chay. Bạn vui lòng chỉnh sửa lại nội dung để bài viết được duyệt nhanh hơn, hoặc xác nhận tiếp tục gửi để chờ ban quản trị xét duyệt thủ công.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-amber-200">
+                <button
+                  type="button"
+                  onClick={() => setNonVegWarning(null)}
+                  className="px-4 py-2 rounded-xl bg-white border border-amber-300 text-amber-900 text-xs font-bold hover:bg-amber-100 transition-colors cursor-pointer shadow-xs"
+                >
+                  ✏️ Để tôi sửa lại bài viết
+                </button>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={(e) => handleCreatePost(e, true)}
+                  className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                >
+                  {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Tôi vẫn muốn gửi (Chờ duyệt)</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-semibold text-stone-700 mb-1.5">
               Tiêu đề bài viết <span className="text-rose-500">*</span>
@@ -464,7 +523,10 @@ function ForumContent() {
               minLength={3}
               maxLength={200}
               value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
+              onChange={(e) => {
+                setNewTitle(e.target.value);
+                if (nonVegWarning) setNonVegWarning(null);
+              }}
               placeholder="Ví dụ: Cách làm đậu phụ sốt cà chua thơm ngon tại nhà"
               className="w-full h-11 px-4 rounded-xl border border-stone-200 text-base text-stone-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
             />
@@ -497,7 +559,10 @@ function ForumContent() {
             <input
               type="text"
               value={newTags}
-              onChange={(e) => setNewTags(e.target.value)}
+              onChange={(e) => {
+                setNewTags(e.target.value);
+                if (nonVegWarning) setNonVegWarning(null);
+              }}
               placeholder="monchay, dinhduong, nguoimoi"
               className="w-full h-11 px-4 rounded-xl border border-stone-200 text-base text-stone-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
             />
@@ -512,7 +577,10 @@ function ForumContent() {
               required
               minLength={10}
               value={newContent}
-              onChange={(e) => setNewContent(e.target.value)}
+              onChange={(e) => {
+                setNewContent(e.target.value);
+                if (nonVegWarning) setNonVegWarning(null);
+              }}
               placeholder="Chia sẻ kinh nghiệm, công thức nấu ăn hoặc đặt câu hỏi cùng cộng đồng…"
               className="w-full p-4 rounded-xl border border-stone-200 text-base text-stone-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
             />
