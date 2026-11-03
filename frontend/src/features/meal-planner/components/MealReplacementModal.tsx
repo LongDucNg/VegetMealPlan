@@ -72,7 +72,7 @@ export function MealReplacementModal({
             </span>
           </div>
           <div className="flex items-center gap-3 text-xs shrink-0">
-            <span className="font-bold text-amber-700">{originalRecipe.calories} kcal</span>
+            <span className="font-bold text-amber-700">~{Math.round(Number(originalRecipe.calories) * 100) / 100} kcal</span>
             <span className="text-stone-400">·</span>
             <span className="text-stone-600">{origCost}</span>
           </div>
@@ -148,7 +148,7 @@ export function MealReplacementModal({
                     <div className="flex items-center gap-3 text-xs text-stone-500 mt-0.5">
                       <span className="flex items-center gap-1 font-semibold text-amber-600">
                         <Flame className="w-3 h-3 fill-amber-500 text-amber-500" />
-                        {recipe.calories} kcal
+                        ~{Math.round(Number(recipe.calories) * 100) / 100} kcal
                       </span>
                       <span>Đạm: {recipe.protein}g · Đường bột: {recipe.carbs}g · Béo: {recipe.fat}g</span>
                       <span className="text-emerald-800 font-medium">{costInfo.formatted}</span>

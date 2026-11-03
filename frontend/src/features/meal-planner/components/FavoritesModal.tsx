@@ -379,13 +379,13 @@ export function FavoritesModal({
                         <option value="">-- Chọn món hoặc tự động --</option>
                         {breakfastOptions.map((r) => (
                           <option key={r.id} value={r.id}>
-                            {r.name || r.title} ({r.calories} kcal)
+                            {r.name || r.title} (~{Math.round(Number(r.calories) * 100) / 100} kcal)
                           </option>
                         ))}
                       </select>
                       {selectedBreakfast && (
                         <p className="text-[11px] font-semibold text-emerald-800 mt-1">
-                          {selectedBreakfast.calories} kcal · {priceService.getEffectivePrice(selectedBreakfast, userId).formatted}
+                          ~{Math.round(Number(selectedBreakfast.calories) * 100) / 100} kcal · {priceService.getEffectivePrice(selectedBreakfast, userId).formatted}
                         </p>
                       )}
                     </div>
@@ -406,13 +406,13 @@ export function FavoritesModal({
                         <option value="">-- Chọn món hoặc tự động --</option>
                         {lunchOptions.map((r) => (
                           <option key={r.id} value={r.id}>
-                            {r.name || r.title} ({r.calories} kcal)
+                            {r.name || r.title} (~{Math.round(Number(r.calories) * 100) / 100} kcal)
                           </option>
                         ))}
                       </select>
                       {selectedLunch && (
                         <p className="text-[11px] font-semibold text-emerald-800 mt-1">
-                          {selectedLunch.calories} kcal · {priceService.getEffectivePrice(selectedLunch, userId).formatted}
+                          ~{Math.round(Number(selectedLunch.calories) * 100) / 100} kcal · {priceService.getEffectivePrice(selectedLunch, userId).formatted}
                         </p>
                       )}
                     </div>
@@ -433,13 +433,13 @@ export function FavoritesModal({
                         <option value="">-- Chọn món hoặc tự động --</option>
                         {dinnerOptions.map((r) => (
                           <option key={r.id} value={r.id}>
-                            {r.name || r.title} ({r.calories} kcal)
+                            {r.name || r.title} (~{Math.round(Number(r.calories) * 100) / 100} kcal)
                           </option>
                         ))}
                       </select>
                       {selectedDinner && (
                         <p className="text-[11px] font-semibold text-emerald-800 mt-1">
-                          {selectedDinner.calories} kcal · {priceService.getEffectivePrice(selectedDinner, userId).formatted}
+                          ~{Math.round(Number(selectedDinner.calories) * 100) / 100} kcal · {priceService.getEffectivePrice(selectedDinner, userId).formatted}
                         </p>
                       )}
                     </div>
@@ -460,13 +460,13 @@ export function FavoritesModal({
                         <option value="">-- Chọn món hoặc tự động --</option>
                         {snackOptions.map((r) => (
                           <option key={r.id} value={r.id}>
-                            {r.name || r.title} ({r.calories} kcal)
+                            {r.name || r.title} (~{Math.round(Number(r.calories) * 100) / 100} kcal)
                           </option>
                         ))}
                       </select>
                       {selectedSnack && (
                         <p className="text-[11px] font-semibold text-emerald-800 mt-1">
-                          {selectedSnack.calories} kcal · {priceService.getEffectivePrice(selectedSnack, userId).formatted}
+                          ~{Math.round(Number(selectedSnack.calories) * 100) / 100} kcal · {priceService.getEffectivePrice(selectedSnack, userId).formatted}
                         </p>
                       )}
                     </div>
@@ -542,7 +542,7 @@ export function FavoritesModal({
                                 {r.name || r.title}
                               </h5>
                               <div className="flex items-center gap-2 text-[11px] text-stone-500">
-                                <span className="text-amber-700 font-bold">{r.calories} kcal</span>
+                                <span className="text-amber-700 font-bold">~{Math.round(Number(r.calories) * 100) / 100} kcal</span>
                                 <span>·</span>
                                 <span className="text-emerald-800 font-medium">{cost.formatted}</span>
                               </div>
