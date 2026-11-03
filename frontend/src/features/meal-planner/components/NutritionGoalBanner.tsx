@@ -144,7 +144,7 @@ export function NutritionGoalBanner({
               </div>
             </div>
             <p className="text-[11px] text-emerald-200/80 mt-2 leading-snug">
-              BMR: {nutrition.bmr.toLocaleString()} kcal · TDEE: {nutrition.tdee.toLocaleString()} kcal
+              BMR: ~{Math.round(Number(nutrition.bmr) * 100) / 100} kcal · TDEE: ~{Math.round(Number(nutrition.tdee) * 100) / 100} kcal
             </p>
           </div>
 

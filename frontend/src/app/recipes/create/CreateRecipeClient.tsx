@@ -1348,7 +1348,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                                       {sug.ingredient_name}
                                     </span>
                                     <span className="text-[10px] text-amber-700 font-medium">
-                                      {sug.calories_per_100g || 0} kcal/100g
+                                      ~{Math.round(Number(sug.calories_per_100g || 0) * 100) / 100} kcal/100g
                                     </span>
                                   </div>
                                   <div className="text-right">

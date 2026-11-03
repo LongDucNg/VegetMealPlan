@@ -23,16 +23,42 @@ export interface HasIngredients {
 
 interface HasAllergies {
   allergies?: string[];
+  vegetarianType?: string;
+  diet_type?: string;
 }
 
 /**
  * Checks whether a recipe contains ingredients or allergens that conflict with user's profile allergies (Requirement 5 & 13)
+ * Tự động né Trứng/Sữa theo đúng trường phái ăn chay:
+ * - Thuần chay (Vegan): Tự động né cả Trứng và Sữa
+ * - Chay có sữa (Lacto): Tự động né Trứng
+ * - Chay có trứng (Ovo): Tự động né Sữa
  */
 export function checkAllergies(
   recipe: HasIngredients,
   profile?: HasAllergies | null
 ): AllergyCheckResult {
-  const userAllergies = profile?.allergies || [];
+  const rawAllergies = profile?.allergies || [];
+  const vegType = (profile?.vegetarianType || profile?.diet_type || "").toLowerCase().trim();
+
+  const userAllergies = [...rawAllergies];
+  if (vegType === "vegan") {
+    if (!userAllergies.some((a) => a.toLowerCase() === "egg" || a.toLowerCase().includes("trứng"))) {
+      userAllergies.push("egg");
+    }
+    if (!userAllergies.some((a) => a.toLowerCase() === "dairy" || a.toLowerCase().includes("sữa") || a.toLowerCase().includes("sua"))) {
+      userAllergies.push("dairy");
+    }
+  } else if (vegType === "lacto_vegetarian" || vegType === "lacto") {
+    if (!userAllergies.some((a) => a.toLowerCase() === "egg" || a.toLowerCase().includes("trứng"))) {
+      userAllergies.push("egg");
+    }
+  } else if (vegType === "ovo_vegetarian" || vegType === "ovo") {
+    if (!userAllergies.some((a) => a.toLowerCase() === "dairy" || a.toLowerCase().includes("sữa") || a.toLowerCase().includes("sua"))) {
+      userAllergies.push("dairy");
+    }
+  }
+
   if (!userAllergies.length) {
     return {
       hasAllergy: false,
