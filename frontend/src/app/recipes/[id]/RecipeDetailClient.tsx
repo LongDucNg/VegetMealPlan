@@ -333,7 +333,7 @@ export function RecipeDetailClient({
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 font-bold text-sm">
               <Flame className="w-4 h-4 text-amber-500 fill-amber-500" />
-              <span>{recipe.calories} kcal</span>
+              <span>~{Math.round(Number(recipe.calories) * 100) / 100} kcal</span>
             </div>
           </div>
 
@@ -467,7 +467,7 @@ export function RecipeDetailClient({
                             )}
                           </div>
                           <div className="text-[11px] text-stone-400 flex items-center gap-1 mt-0.5 font-medium">
-                            <span className="text-amber-700 font-semibold">{calPer100} kcal</span>
+                            <span className="text-amber-700 font-semibold">{Math.round(Number(calPer100) * 100) / 100} kcal</span>
                             <span className="text-stone-400">/ 100g</span>
                           </div>
                         </div>
@@ -477,7 +477,7 @@ export function RecipeDetailClient({
                           {adjustedQuantity} {ing.unit}
                         </span>
                         <span className="text-[11px] font-bold text-amber-700 bg-amber-50/90 px-1.5 py-0.5 rounded-md border border-amber-200/60 inline-block mt-0.5 shadow-2xs">
-                          ~{calculatedKcal} kcal
+                          ~{Math.round(Number(calculatedKcal) * 100) / 100} kcal
                         </span>
                       </div>
                     </div>
@@ -510,7 +510,7 @@ export function RecipeDetailClient({
                               {cIng.ingredient_name}
                             </span>
                             <span className="text-[10px] text-stone-400 block mt-0.5">
-                              {ingCalPer100} kcal/100g · ~{ingKcal} kcal
+                              {Math.round(Number(ingCalPer100) * 100) / 100} kcal/100g · ~{Math.round(Number(ingKcal) * 100) / 100} kcal
                             </span>
                           </div>
                           <div className="text-right shrink-0">

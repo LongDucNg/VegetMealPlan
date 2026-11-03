@@ -523,7 +523,7 @@ export function AdminIngredientManagement() {
                 <div className="text-xs space-y-0.5">
                   <div className="font-bold text-amber-600 flex items-center gap-1">
                     <Flame className="w-3 h-3" />
-                    <span>{ing.calories_per_100g ?? 0} kcal</span>
+                    <span>{Math.round(Number(ing.calories_per_100g ?? 0) * 100) / 100} kcal/100g</span>
                   </div>
                   <div className="text-[10px] text-stone-500">
                     Đạm: {ing.protein_per_100g ?? 0}g · Tinh bột: {ing.carb_per_100g ?? 0}g · Béo: {ing.fat_per_100g ?? 0}g

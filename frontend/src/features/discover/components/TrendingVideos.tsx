@@ -179,7 +179,8 @@ export function TrendingVideos() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 pt-2">
           {recipes.map((r) => {
-            const calories = r.nutrition?.calories || r.calories || 350;
+            const rawCalories = Number(r.nutrition?.calories ?? r.calories ?? 350);
+            const calories = !isNaN(rawCalories) && rawCalories > 0 ? Math.round(rawCalories * 100) / 100 : 350;
             const cookTime = r.cook_time ? `${r.cook_time} phút` : "20 phút";
             const mealType = r.meal_type || "Món chay";
 
@@ -242,7 +243,7 @@ export function TrendingVideos() {
                       <div className="flex items-center justify-between text-xs text-stone-600 font-medium">
                         <span className="flex items-center gap-1">
                           <Flame className="w-3.5 h-3.5 text-amber-500" />
-                          <span>{calories} kcal</span>
+                          <span>~{calories} kcal</span>
                         </span>
                         <span className="flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5 text-stone-400" />
