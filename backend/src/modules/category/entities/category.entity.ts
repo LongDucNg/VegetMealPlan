@@ -12,6 +12,7 @@ import { User } from '../../users/entities/user.entity';
 export enum CategoryType {
   FOOD_TYPE = 'food_type',
   RECIPE_TYPE = 'recipe_type',
+  FORUM = 'forum',
 }
 
 /**

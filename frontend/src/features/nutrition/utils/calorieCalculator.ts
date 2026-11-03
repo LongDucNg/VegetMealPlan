@@ -199,7 +199,18 @@ export function calculateDailyCalorieTarget(
   let recommendedApproach = goalInfo.recommendedApproach;
   let suggestions = goalInfo.suggestions;
 
-  if (bmiStatus === "Balanced" && profile.healthGoal) {
+  if (profile.healthGoal === "healthy_eating") {
+    calorieAdjustment = 0;
+    goalTitle = "Ăn uống lành mạnh";
+    recommendedApproach =
+      "Đa dạng vi chất dinh dưỡng, cân bằng tiêu hóa và tối ưu năng lượng tự nhiên.";
+    suggestions = [
+      "Đa dạng hóa các nhóm thực phẩm thực vật",
+      "Tập trung thực phẩm toàn phần giàu chất xơ",
+      "Uống đủ nước và hỗ trợ tiêu hóa khỏe mạnh",
+      "Duy trì thói quen ăn uống điều độ mỗi ngày",
+    ];
+  } else if (bmiStatus === "Balanced" && profile.healthGoal) {
     if (profile.healthGoal === "lose_weight") {
       calorieAdjustment = -350;
       goalTitle = "Giảm cân khoa học";
@@ -235,7 +246,11 @@ export function calculateDailyCalorieTarget(
   let carbsPct = 0.50;
   let fatPct = 0.25;
 
-  if (bmiStatus === "Underweight" || profile.healthGoal === "gain_weight") {
+  if (profile.healthGoal === "healthy_eating") {
+    proteinPct = 0.25;
+    carbsPct = 0.50;
+    fatPct = 0.25;
+  } else if (bmiStatus === "Underweight" || profile.healthGoal === "gain_weight") {
     proteinPct = 0.28;
     carbsPct = 0.50;
     fatPct = 0.22;

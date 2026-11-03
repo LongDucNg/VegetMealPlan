@@ -11,6 +11,7 @@ import {
   AlertOctagon,
   RefreshCw,
   Check,
+  Tag,
 } from "lucide-react";
 import { excelImportService } from "../services/excelImportService";
 import { adminRecipeApiService } from "@/features/admin/services/adminRecipeApiService";
@@ -170,11 +171,13 @@ export function AdminImportModal({
                     : "Nhấn để tải lên tệp Excel (.xlsx)"}
                 </p>
                 <p className="text-xs text-stone-500 mt-0.5">
-                  Hỗ trợ tiêu đề tiếng Việt chuẩn: Tên món, Mô tả, Hướng dẫn, Bữa ăn, Chế độ ăn chay, Nguyên liệu, Danh mục (1 nhóm món + 1 loại món)
+                  Cột bắt buộc: Tên món, Hướng dẫn, Bữa ăn, Chế độ ăn chay, Nguyên liệu, Danh mục món ăn (hoặc Danh mục). Tùy chọn: Mô tả, Thời gian chuẩn bị, Thời gian nấu, Khẩu phần, Độ khó
                 </p>
               </div>
             </label>
           </div>
+
+
 
           {/* Upload Error Alert */}
           {uploadError && (
@@ -260,13 +263,12 @@ export function AdminImportModal({
                   return (
                     <div
                       key={idx}
-                      className={`p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-colors ${
-                        isSuccess
-                          ? "hover:bg-emerald-50/30"
-                          : isSkipped
+                      className={`p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-colors ${isSuccess
+                        ? "hover:bg-emerald-50/30"
+                        : isSkipped
                           ? "bg-amber-50/30 hover:bg-amber-50/50"
                           : "bg-red-50/30 hover:bg-red-50/50"
-                      }`}
+                        }`}
                     >
                       <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -314,13 +316,12 @@ export function AdminImportModal({
 
                       <div className="shrink-0 self-end sm:self-center">
                         <span
-                          className={`px-3 py-1 rounded-full text-[11px] font-bold ${
-                            isSuccess
-                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                              : isSkipped
+                          className={`px-3 py-1 rounded-full text-[11px] font-bold ${isSuccess
+                            ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                            : isSkipped
                               ? "bg-amber-100 text-amber-800 border border-amber-200"
                               : "bg-red-100 text-red-800 border border-red-200"
-                          }`}
+                            }`}
                         >
                           {isSuccess ? "THÀNH CÔNG" : isSkipped ? "ĐÃ BỎ QUA" : "THẤT BẠI"}
                         </span>
