@@ -32,6 +32,9 @@ export class DetectedIngredientItemDto {
 
   @ApiProperty({ example: ['allergen'], type: [String], description: 'Các cảnh báo: allergen (dị ứng), non_vegan (nguyên liệu mặn)' })
   warnings: Array<'allergen' | 'non_vegan'>;
+
+  @ApiProperty({ example: 'Trứng gà', nullable: true, required: false, description: 'Tên nguyên liệu gây dị ứng nếu có' })
+  allergen_name?: string;
 }
 
 export class PhotoScanResponseData {

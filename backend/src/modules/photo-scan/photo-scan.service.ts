@@ -590,41 +590,62 @@ export class PhotoScanService {
       }
 
       const warningsSet = new Set<'allergen' | 'non_vegan'>();
+      let allergenName: string | undefined;
 
       // A. Cảnh báo dị ứng
       if (matchedEntity && allergyIngredientIds.has(matchedEntity.ingredient_id)) {
         warningsSet.add('allergen');
+        allergenName = matchedEntity.ingredient_name;
       } else if (candidates.some((c) => allergyIngredientIds.has(c.ingredient_id))) {
         warningsSet.add('allergen');
+        const c = candidates.find((cand) => allergyIngredientIds.has(cand.ingredient_id));
+        allergenName = c?.ingredient_name;
       } else {
-        const isAllergenMatch = allergyNames.some((allergy) => {
+        const matchedAllergy = userAllergies.ingredients.find((i) => {
           const pattern = new RegExp(
-            `(?<![\\p{L}\\p{N}])${escapeRegex(allergy)}(?![\\p{L}\\p{N}])`,
+            `(?<![\\p{L}\\p{N}])${escapeRegex(normalizeString(i.ingredient_name))}(?![\\p{L}\\p{N}])`,
             'iu',
           );
           return pattern.test(normAiName);
         });
-        if (isAllergenMatch) {
+        if (matchedAllergy) {
           warningsSet.add('allergen');
+          allergenName = matchedAllergy.ingredient_name;
+        } else {
+          const isAllergenMatch = allergyNames.some((allergy) => {
+            const pattern = new RegExp(
+              `(?<![\\p{L}\\p{N}])${escapeRegex(allergy)}(?![\\p{L}\\p{N}])`,
+              'iu',
+            );
+            return pattern.test(normAiName);
+          });
+          if (isAllergenMatch) {
+            warningsSet.add('allergen');
+            allergenName = rawItem.name;
+          }
         }
       }
 
       // B. Cảnh báo mặn (Non-vegan)
+      // Lưu ý: Trứng (trứng gà, trứng vịt, trứng cút) là thực phẩm cho phép trong chế độ ăn chay có trứng (ovo-vegetarian), không coi là mặn
+      const isEggItem = /trứng\s*(gà|vịt|cút)?/i.test(normAiName) ||
+        (matchedEntity && /trứng/i.test(matchedEntity.ingredient_name));
+
       if (matchedEntity) {
-        if (!matchedEntity.vegan_flag) {
+        if (!matchedEntity.vegan_flag && !isEggItem) {
           warningsSet.add('non_vegan');
         }
       } else if (candidates.length > 0) {
         const allCandidatesNonVegan = candidates.every((c) => {
           const ent = dbIngredients.find((db) => db.ingredient_id === c.ingredient_id);
-          return ent && !ent.vegan_flag;
+          return ent && !ent.vegan_flag && !/trứng/i.test(ent.ingredient_name);
         });
-        if (allCandidatesNonVegan) {
+        if (allCandidatesNonVegan && !isEggItem) {
           warningsSet.add('non_vegan');
         }
       }
 
-      if (!warningsSet.has('non_vegan')) {
+      if (!warningsSet.has('non_vegan') && !isEggItem) {
         const nonVegCheck = this.nonVegDetector.checkIngredientName(rawItem.name);
         if (!nonVegCheck.isClean) {
           warningsSet.add('non_vegan');
@@ -645,6 +666,7 @@ export class PhotoScanService {
         ingredient: matchedIngredient,
         candidates,
         warnings: Array.from(warningsSet),
+        allergen_name: allergenName,
       });
     }
 
