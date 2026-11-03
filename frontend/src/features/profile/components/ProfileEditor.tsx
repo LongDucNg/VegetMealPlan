@@ -1248,6 +1248,12 @@ export function ProfileEditor() {
                   });
                   const disabledReason = isAllergyDisabledByDiet(item.id);
                   const isDisabled = Boolean(disabledReason);
+                  const isEgg = isEggAllergyItem(item.id);
+                  const isDairy = isDairyAllergyItem(item.id);
+                  const isAutoExcludedByDiet =
+                    (vegetarianType === "vegan" && (isEgg || isDairy)) ||
+                    (vegetarianType === "lacto_vegetarian" && isEgg) ||
+                    (vegetarianType === "ovo_vegetarian" && isDairy);
 
                   return (
                     <button
@@ -1256,14 +1262,23 @@ export function ProfileEditor() {
                       disabled={isDisabled}
                       title={disabledReason || undefined}
                       onClick={() => !isDisabled && toggleAllergy(item.id)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${isDisabled
-                        ? "bg-stone-100 text-stone-400 border border-stone-200 cursor-not-allowed opacity-50"
-                        : isSelected
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                        isAutoExcludedByDiet
+                          ? "bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-2xs cursor-default font-medium"
+                          : isDisabled
+                          ? "bg-stone-100 text-stone-400 border border-stone-200 cursor-not-allowed opacity-50"
+                          : isSelected
                           ? "bg-amber-100 text-amber-900 border border-amber-300 ring-1 ring-amber-300 shadow-2xs cursor-pointer"
                           : "bg-stone-100 text-stone-600 hover:bg-stone-200 border border-stone-200 cursor-pointer"
-                        }`}
+                      }`}
                     >
-                      {isDisabled ? `${item.label} (Không khả dụng)` : isSelected ? `⚠ ${item.label}` : item.label}
+                      {isAutoExcludedByDiet
+                        ? `✓ ${item.label} (Đã tự động né)`
+                        : isDisabled
+                        ? `${item.label} (Không khả dụng)`
+                        : isSelected
+                        ? `⚠ ${item.label}`
+                        : item.label}
                     </button>
                   );
                 })}
