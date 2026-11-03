@@ -68,6 +68,31 @@ export function ProfileEditor() {
   };
   const [showResetModal, setShowResetModal] = useState(false);
 
+  // Helper kiểm tra dị ứng trứng và sữa (hỗ trợ cả mã code lẫn tiếng Việt và text tự do)
+  const isEggAllergyItem = (item: string) => {
+    const s = item.toLowerCase().trim();
+    return (
+      s === "egg" ||
+      s === "trứng" ||
+      s === "trung" ||
+      s.includes("trứng") ||
+      s.includes("trung")
+    );
+  };
+
+  const isDairyAllergyItem = (item: string) => {
+    const s = item.toLowerCase().trim();
+    return (
+      s === "dairy" ||
+      s === "sữa" ||
+      s === "sua" ||
+      s === "lactose" ||
+      s.includes("sữa") ||
+      s.includes("sua") ||
+      s.includes("lactose")
+    );
+  };
+
   // Loại bỏ số 0 đứng ở đầu khi nhập số (VD: "001" -> "1", "0170" -> "170")
   const cleanNumberInput = (raw: string) => {
     if (!raw) return "";
@@ -85,7 +110,17 @@ export function ProfileEditor() {
     setActivityLevel(profile.activityLevel || "");
     setHealthGoal(profile.healthGoal || "");
     setVegetarianType(profile.vegetarianType || "");
-    setAllergies(profile.allergies || []);
+
+    let baseAllergies = [...(profile.allergies || [])];
+    // Nếu đang ở các chế độ tự động né Trứng/Sữa, loại bỏ khỏi danh sách dị ứng hiển thị (không mặc định chọn vào dị ứng)
+    if (profile.vegetarianType === "vegan") {
+      baseAllergies = baseAllergies.filter((a) => !isEggAllergyItem(a) && !isDairyAllergyItem(a));
+    } else if (profile.vegetarianType === "lacto_vegetarian") {
+      baseAllergies = baseAllergies.filter((a) => !isEggAllergyItem(a) && !isDairyAllergyItem(a));
+    } else if (profile.vegetarianType === "ovo_vegetarian") {
+      baseAllergies = baseAllergies.filter((a) => !isEggAllergyItem(a) && !isDairyAllergyItem(a));
+    }
+    setAllergies(baseAllergies);
   }, [profile]);
 
   // Load server nutrition summary on mount and when profile changes
@@ -121,84 +156,56 @@ export function ProfileEditor() {
     target_date: null,
   };
 
-  // Helper kiểm tra dị ứng trứng và sữa (hỗ trợ cả mã code lẫn tiếng Việt và text tự do)
-  const isEggAllergyItem = (item: string) => {
-    const s = item.toLowerCase().trim();
-    return (
-      s === "egg" ||
-      s === "trứng" ||
-      s === "trung" ||
-      s.includes("trứng") ||
-      s.includes("trung")
-    );
-  };
-
-  const isDairyAllergyItem = (item: string) => {
-    const s = item.toLowerCase().trim();
-    return (
-      s === "dairy" ||
-      s === "sữa" ||
-      s === "sua" ||
-      s === "lactose" ||
-      s.includes("sữa") ||
-      s.includes("sua") ||
-      s.includes("lactose")
-    );
-  };
-
   const hasEggAllergy = allergies.some(isEggAllergyItem);
   const hasDairyAllergy = allergies.some(isDairyAllergyItem);
 
-  // 1. Chiều 1: Kiểm tra dị ứng có bị vô hiệu hóa bởi trường phái ăn chay hiện tại hay không
+  // 1. Chiều 1: Kiểm tra dị ứng có bị vô hiệu hóa hoặc mâu thuẫn bởi trường phái ăn chay hiện tại hay không
+  // Chế độ Thuần chay làm mờ cả Trứng và Sữa; Chay có sữa làm mờ Trứng; Chay có trứng làm mờ Sữa
   const isAllergyDisabledByDiet = (allergyId: string) => {
     const isEgg = isEggAllergyItem(allergyId);
     const isDairy = isDairyAllergyItem(allergyId);
 
-    if (vegetarianType === "ovo_vegetarian" && isEgg) {
-      return "Không thể chọn do bạn đang theo trường phái Chay có trứng (Ovo)";
+    // Thuần chay (Vegan): Tự động né cả Trứng và Sữa -> Làm mờ cả hai, không cho chọn vào dị ứng
+    if (vegetarianType === "vegan") {
+      if (isEgg) return "Chế độ Thuần chay (Vegan) đã tự động né Trứng";
+      if (isDairy) return "Chế độ Thuần chay (Vegan) đã tự động né Sữa & Chế phẩm sữa";
     }
-    if (vegetarianType === "lacto_vegetarian" && isDairy) {
-      return "Không thể chọn do bạn đang theo trường phái Chay có sữa (Lacto)";
+
+    // Chay có sữa (Lacto): Tự động né Trứng -> Làm mờ Trứng; và không cho chọn Sữa vì đang theo chế độ uống sữa
+    if (vegetarianType === "lacto_vegetarian") {
+      if (isEgg) return "Chế độ Chay có sữa (Lacto) đã tự động né Trứng";
+      if (isDairy) return "Bạn đang theo trường phái Chay có sữa (Lacto). Nếu dị ứng Sữa, hãy chuyển sang Thuần chay (Vegan).";
     }
+
+    // Chay có trứng (Ovo): Tự động né Sữa -> Làm mờ Sữa; và không cho chọn Trứng vì đang theo chế độ ăn trứng
+    if (vegetarianType === "ovo_vegetarian") {
+      if (isDairy) return "Chế độ Chay có trứng (Ovo) đã tự động né Sữa & Chế phẩm sữa";
+      if (isEgg) return "Bạn đang theo trường phái Chay có trứng (Ovo). Nếu dị ứng Trứng, hãy chuyển sang Thuần chay (Vegan).";
+    }
+
     if (vegetarianType === "lacto_ovo_vegetarian") {
-      if (isEgg) return "Không thể chọn do bạn đang theo trường phái Chay có trứng & sữa";
-      if (isDairy) return "Không thể chọn do bạn đang theo trường phái Chay có trứng & sữa";
+      // Chay có trứng & sữa: Dùng được cả trứng và sữa, không tự động khóa dị ứng nào
+      return null;
     }
     return null;
   };
 
   // 2. Chiều 2: Kiểm tra trường phái ăn chay có bị vô hiệu hóa do đã chọn dị ứng tương ứng hay không
-  const isDietDisabledByAllergy = (type: VegetarianType | "") => {
-    if (type === "ovo_vegetarian" && hasEggAllergy) {
-      return "Không thể chọn do bạn đã chọn dị ứng Trứng";
-    }
-    if (type === "lacto_vegetarian" && hasDairyAllergy) {
-      return "Không thể chọn do bạn đã chọn dị ứng Sữa & Chế phẩm sữa";
-    }
-    if (type === "lacto_ovo_vegetarian") {
-      if (hasEggAllergy && hasDairyAllergy) {
-        return "Không thể chọn do bạn đã chọn dị ứng cả Trứng và Sữa";
-      }
-      if (hasEggAllergy) {
-        return "Không thể chọn do bạn đã chọn dị ứng Trứng";
-      }
-      if (hasDairyAllergy) {
-        return "Không thể chọn do bạn đã chọn dị ứng Sữa & Chế phẩm sữa";
-      }
-    }
+  // Chuyển chế độ luôn được cho phép vì handleSelectVegetarianType sẽ tự động cân bằng né Trứng/Sữa tương ứng
+  const isDietDisabledByAllergy = (_type: VegetarianType | "") => {
     return null;
   };
 
-  // Khi người dùng chọn trường phái ăn chay: tự động loại bỏ các dị ứng bị mâu thuẫn để tránh xung đột
+  // Khi người dùng chọn trường phái ăn chay: Tự động dọn sạch Trứng / Sữa khỏi mảng dị ứng vì hệ thống đã tự động né theo trường phái ăn chay
   const handleSelectVegetarianType = (type: VegetarianType | "") => {
-    if (isDietDisabledByAllergy(type)) {
-      return;
-    }
     setVegetarianType(type);
-    if (type === "ovo_vegetarian") {
-      setAllergies((prev) => prev.filter((a) => !isEggAllergyItem(a)));
+    // Tự động dọn sạch Trứng và Sữa khỏi mảng dị ứng để không bị mặc định chọn
+    if (type === "vegan") {
+      setAllergies((prev) => prev.filter((a) => !isEggAllergyItem(a) && !isDairyAllergyItem(a)));
     } else if (type === "lacto_vegetarian") {
-      setAllergies((prev) => prev.filter((a) => !isDairyAllergyItem(a)));
+      setAllergies((prev) => prev.filter((a) => !isEggAllergyItem(a) && !isDairyAllergyItem(a)));
+    } else if (type === "ovo_vegetarian") {
+      setAllergies((prev) => prev.filter((a) => !isEggAllergyItem(a) && !isDairyAllergyItem(a)));
     } else if (type === "lacto_ovo_vegetarian") {
       setAllergies((prev) => prev.filter((a) => !isEggAllergyItem(a) && !isDairyAllergyItem(a)));
     }
@@ -218,8 +225,10 @@ export function ProfileEditor() {
   };
 
   const toggleAllergy = (allergyId: string) => {
-    // Nếu dị ứng bị vô hiệu hóa bởi trường phái ăn chay thì không cho chọn
-    if (isAllergyDisabledByDiet(allergyId)) {
+    // Nếu dị ứng bị vô hiệu hóa / làm mờ bởi trường phái ăn chay thì không cho chọn
+    const conflictMsg = isAllergyDisabledByDiet(allergyId);
+    if (conflictMsg) {
+      setSaveError(conflictMsg);
       return;
     }
 
@@ -302,13 +311,36 @@ export function ProfileEditor() {
     const canonicalName = matchedIng ? matchedIng.name : matchedMaster!.label;
     const itemToAdd = matchedIng ? matchedIng.name : matchedMaster!.id;
 
-    // Chặn thêm dị ứng mâu thuẫn với trường phái ăn chay đã chọn
-    if (isEggAllergyItem(canonicalName) && (vegetarianType === "ovo_vegetarian" || vegetarianType === "lacto_ovo_vegetarian")) {
-      setCustomAllergyError("Bạn đang chọn trường phái ăn chay có trứng, không thể chọn dị ứng Trứng.");
+    // Chặn thêm dị ứng mâu thuẫn hoặc đã được tự động né bởi trường phái ăn chay đã chọn
+    const isEgg = isEggAllergyItem(canonicalName);
+    const isDairy = isDairyAllergyItem(canonicalName);
+
+    if (vegetarianType === "vegan" && (isEgg || isDairy)) {
+      setCustomAllergyError("Chế độ Thuần chay (Vegan) đã tự động né cả Trứng và Sữa, bạn không cần thêm vào danh sách dị ứng.");
       return;
     }
-    if (isDairyAllergyItem(canonicalName) && (vegetarianType === "lacto_vegetarian" || vegetarianType === "lacto_ovo_vegetarian")) {
-      setCustomAllergyError("Bạn đang chọn trường phái ăn chay có sữa, không thể chọn dị ứng Sữa.");
+    if (vegetarianType === "lacto_vegetarian") {
+      if (isEgg) {
+        setCustomAllergyError("Chế độ Chay có sữa (Lacto) đã tự động né Trứng, bạn không cần thêm vào danh sách dị ứng.");
+        return;
+      }
+      if (isDairy) {
+        setCustomAllergyError("Bạn đang chọn trường phái Chay có sữa (Lacto), không thể chọn dị ứng Sữa.");
+        return;
+      }
+    }
+    if (vegetarianType === "ovo_vegetarian") {
+      if (isDairy) {
+        setCustomAllergyError("Chế độ Chay có trứng (Ovo) đã tự động né Sữa, bạn không cần thêm vào danh sách dị ứng.");
+        return;
+      }
+      if (isEgg) {
+        setCustomAllergyError("Bạn đang chọn trường phái Chay có trứng (Ovo), không thể chọn dị ứng Trứng.");
+        return;
+      }
+    }
+    if (vegetarianType === "lacto_ovo_vegetarian" && (isEgg || isDairy)) {
+      setCustomAllergyError("Bạn đang chọn trường phái Chay có trứng & sữa, không thể chọn dị ứng Trứng/Sữa.");
       return;
     }
 
@@ -376,7 +408,7 @@ export function ProfileEditor() {
     if (!allergies || allergies.length === 0) {
       return;
     }
-    // Xóa hết dị ứng trong form hiện tại (không ảnh hưởng đến mục tiêu sức khỏe và trường phái ăn chay)
+    // Xóa hết dị ứng người dùng đã chọn
     setAllergies([]);
     setCustomAllergyInput("");
     setCustomAllergyError(null);
@@ -733,8 +765,8 @@ export function ProfileEditor() {
                   className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm focus:bg-white focus:border-emerald-600 outline-none"
                 >
                   <option value="">-- Chọn giới tính --</option>
-                  <option value="male">Nam (~ 1.500 kcal)</option>
-                  <option value="female">Nữ (~ 1.200 kcal)</option>
+                  <option value="male">Nam</option>
+                  <option value="female">Nữ</option>
                   <option value="other">Khác</option>
                 </select>
               </div>
@@ -1110,6 +1142,57 @@ export function ProfileEditor() {
                 })}
               </div>
 
+              {/* Thông báo quy tắc né Trứng / Sữa theo trường phái ăn chay */}
+              {vegetarianType && (
+                <div className="mt-3 p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 text-emerald-950 text-xs space-y-1 animate-in fade-in">
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                    <div>
+                      {vegetarianType === "vegan" && (
+                        <>
+                          <p className="font-bold text-emerald-900">
+                            Thuần chay (Vegan): Tự động né Trứng và Sữa
+                          </p>
+                          <p className="text-[11px] text-emerald-800 leading-relaxed mt-0.5">
+                            Hệ thống tự động loại trừ mọi món ăn và nguyên liệu có chứa Trứng, Sữa hoặc chế phẩm từ sữa khi gợi ý món và tạo thực đơn. Bạn không cần chọn Trứng / Sữa ở mục dị ứng.
+                          </p>
+                        </>
+                      )}
+                      {vegetarianType === "lacto_vegetarian" && (
+                        <>
+                          <p className="font-bold text-emerald-900">
+                            Chay có sữa (Lacto): Tự động né Trứng — Dùng được Sữa
+                          </p>
+                          <p className="text-[11px] text-emerald-800 leading-relaxed mt-0.5">
+                            Hệ thống tự động loại trừ mọi món ăn có chứa Trứng gà / vịt; cho phép bạn tiêu thụ sữa tươi, sữa chua, phô mai và các chế phẩm từ sữa.
+                          </p>
+                        </>
+                      )}
+                      {vegetarianType === "ovo_vegetarian" && (
+                        <>
+                          <p className="font-bold text-emerald-900">
+                            Chay có trứng (Ovo): Tự động né Sữa — Dùng được Trứng
+                          </p>
+                          <p className="text-[11px] text-emerald-800 leading-relaxed mt-0.5">
+                            Hệ thống tự động loại trừ mọi món ăn có chứa Sữa &amp; chế phẩm từ sữa; cho phép bạn tiêu thụ trứng gà, trứng vịt.
+                          </p>
+                        </>
+                      )}
+                      {vegetarianType === "lacto_ovo_vegetarian" && (
+                        <>
+                          <p className="font-bold text-emerald-900">
+                            Chay có trứng &amp; sữa (Ovo-Lacto): Dùng được cả Trứng và Sữa
+                          </p>
+                          <p className="text-[11px] text-emerald-800 leading-relaxed mt-0.5">
+                            Chế độ này cho phép tiêu thụ cả Trứng và Sữa (không cần né gì mặc định). Nếu bạn có dị ứng thực phẩm cụ thể (đậu phộng, đậu nành, gluten...), hệ thống vẫn né theo danh sách dị ứng bên dưới.
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Hộp thông báo mâu thuẫn giữa Trường phái ăn chay và Dị ứng kèm giải pháp 1-click */}
               {vegetarianConflict && (
                 <div className="mt-3 p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-2 animate-in fade-in">
@@ -1137,11 +1220,10 @@ export function ProfileEditor() {
                 <button
                   type="button"
                   onClick={handleDeclareNoAllergies}
-                  className={`text-[11px] font-semibold transition-colors ${
-                    allergies && allergies.length > 0
-                      ? "text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
-                      : "text-stone-400 cursor-default"
-                  }`}
+                  className={`text-[11px] font-semibold transition-colors ${allergies && allergies.length > 0
+                    ? "text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
+                    : "text-stone-400 cursor-default"
+                    }`}
                   title={allergies && allergies.length > 0 ? "Bỏ chọn tất cả dị ứng" : "Chưa chọn dị ứng nào"}
                 >
                   Tôi không dị ứng gì

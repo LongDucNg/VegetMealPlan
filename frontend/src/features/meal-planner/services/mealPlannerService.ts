@@ -184,18 +184,11 @@ export const mealPlannerService = {
       mealSlotType: "breakfast" | "lunch" | "dinner" | "snack",
       preferredFavIds?: string[]
     ): MealSlotItem => {
-      // 1. Filter allergies - NGHIÊM NGẶT LOẠI TRỪ 100% CÁC MÓN CÓ DỊ ỨNG
-      let safePool = candidates.filter((r) => !checkAllergies(r, profile).hasAllergy);
+      // 1. Filter allergies & diet né - NGHIÊM NGẶT LOẠI TRỪ 100% CÁC MÓN CÓ DỊ ỨNG HOẶC VI PHẠM NÉ TRỨNG/SỮA
+      let safePool = candidates.filter((r) => recipeService.isRecipeSafeForProfile(r, profile));
       if (safePool.length === 0) {
         const allRecipes = recipeService.getRecipes();
-        safePool = allRecipes.filter(
-          (r) =>
-            recipeService.isDietCompatible(r.vegetarianType, profile.vegetarianType) &&
-            !checkAllergies(r, profile).hasAllergy
-        );
-      }
-      if (safePool.length === 0) {
-        safePool = recipeService.getRecipes().filter((r) => !checkAllergies(r, profile).hasAllergy);
+        safePool = allRecipes.filter((r) => recipeService.isRecipeSafeForProfile(r, profile));
       }
 
       // 2. Không đưa món ăn sáng vào ăn trưa hay ăn tối!
@@ -464,22 +457,22 @@ export const mealPlannerService = {
     const breakfast =
       selectedRecipes.breakfast ||
       recipeService.getRecommendations(profile, nutrition.mealTargets.breakfast, "breakfast")[0] ||
-      recipeService.getRecipes()[0];
+      (recipeService.getRecipes().find((r) => recipeService.isRecipeSafeForProfile(r, profile)) || recipeService.getRecipes()[0]);
 
     const lunch =
       selectedRecipes.lunch ||
       recipeService.getRecommendations(profile, nutrition.mealTargets.lunch, "lunch")[0] ||
-      recipeService.getRecipes()[0];
+      (recipeService.getRecipes().find((r) => recipeService.isRecipeSafeForProfile(r, profile)) || recipeService.getRecipes()[0]);
 
     const dinner =
       selectedRecipes.dinner ||
       recipeService.getRecommendations(profile, nutrition.mealTargets.dinner, "dinner")[0] ||
-      recipeService.getRecipes()[0];
+      (recipeService.getRecipes().find((r) => recipeService.isRecipeSafeForProfile(r, profile)) || recipeService.getRecipes()[0]);
 
     const snack =
       selectedRecipes.snack ||
       recipeService.getRecommendations(profile, nutrition.mealTargets.snack, "snack")[0] ||
-      recipeService.getRecipes()[0];
+      (recipeService.getRecipes().find((r) => recipeService.isRecipeSafeForProfile(r, profile)) || recipeService.getRecipes()[0]);
 
     const rawDay: DayMealPlan = {
       dayName: "Selected Day",
