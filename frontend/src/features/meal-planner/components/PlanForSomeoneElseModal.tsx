@@ -337,15 +337,15 @@ export function PlanForSomeoneElseModal({
               </div>
               <div>
                 <p className="text-[11px] text-stone-500">BMR</p>
-                <p className="font-bold text-stone-900 text-sm">{nutrition.bmr} kcal</p>
+                <p className="font-bold text-stone-900 text-sm">~{Math.round(Number(nutrition.bmr) * 100) / 100} kcal</p>
               </div>
               <div>
                 <p className="text-[11px] text-stone-500">TDEE</p>
-                <p className="font-bold text-stone-900 text-sm">{nutrition.tdee} kcal</p>
+                <p className="font-bold text-stone-900 text-sm">~{Math.round(Number(nutrition.tdee) * 100) / 100} kcal</p>
               </div>
               <div>
                 <p className="text-[11px] text-stone-500">Calo mục tiêu</p>
-                <p className="font-bold text-emerald-800 text-sm">{nutrition.dailyCalorieTarget} kcal</p>
+                <p className="font-bold text-emerald-800 text-sm">~{Math.round(Number(nutrition.dailyCalorieTarget) * 100) / 100} kcal</p>
               </div>
             </div>
           </div>

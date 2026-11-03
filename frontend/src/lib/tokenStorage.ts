@@ -134,6 +134,8 @@ export const tokenStorage = {
     this.removeUser();
     if (typeof window !== "undefined") {
       localStorage.removeItem("vh-role");
+      localStorage.removeItem("veggiehub_user_profile");
+      localStorage.removeItem("user_profile");
     }
   },
 };
