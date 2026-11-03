@@ -82,6 +82,8 @@ export interface CreateForumPostResponse {
   tags: string[];
   status: "approved" | "pending_review" | string;
   created_at: string;
+  is_flagged?: boolean;
+  flag_reason?: string | null;
 }
 
 export interface CreateForumCommentInput {
