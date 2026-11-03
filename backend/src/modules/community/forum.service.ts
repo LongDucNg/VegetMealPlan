@@ -126,11 +126,25 @@ export class ForumService {
       });
     }
 
-    await this.blogRepo.increment({ blog_id: id }, 'views', 1);
-    post.views += 1;
+
 
     const { ratingMap, commentMap } = await this.loadStats([id]);
     return this.toPostView(post, ratingMap, commentMap, true);
+  }
+
+async incrementPostView(id: number): Promise<{ success: boolean; views: number }> {
+    const post = await this.blogRepo.findOne({
+      where: { blog_id: id, status: ContentStatus.APPROVED },
+    });
+    if (!post) {
+      throw new NotFoundException({
+        code: ErrorCode.FORUM_POST_NOT_FOUND,
+        message: `Không tìm thấy bài viết #${id}`,
+      });
+    }
+
+    await this.blogRepo.increment({ blog_id: id }, 'views', 1);
+    return { success: true, views: post.views + 1 };
   }
 
   // ---------- Đăng bài ----------

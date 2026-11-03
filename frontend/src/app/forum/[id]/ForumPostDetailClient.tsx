@@ -44,7 +44,10 @@ export function ForumPostDetailClient({
 
   // Fetch real post details & increment views from Backend API
   useEffect(() => {
+    if (post) return;
+
     let isMounted = true;
+    setLoading(true);
 
     forumService
       .getPostDetail(postId)
@@ -63,6 +66,35 @@ export function ForumPostDetailClient({
     return () => {
       isMounted = false;
     };
+  }, [postId, post]);
+
+  // Tăng lượt xem chuẩn xác theo phiên (Chống spam / F5 nhiều lần, cooldown 15 phút)
+  useEffect(() => {
+    if (!postId || typeof window === "undefined") return;
+
+    const sessionKey = `viewed_post_${postId}`;
+    const now = Date.now();
+    const lastViewed = sessionStorage.getItem(sessionKey);
+
+    // Nếu đã xem trong vòng 15 phút thì không tăng view nữa
+    if (lastViewed && now - Number(lastViewed) < 15 * 60 * 1000) {
+      return;
+    }
+
+    // Đợi 1.5 giây để đảm bảo người dùng thực sự đọc bài (tránh click nhầm và React StrictMode double invoke)
+    const timer = setTimeout(() => {
+      forumService
+        .incrementPostView(postId)
+        .then((res) => {
+          if (res?.success) {
+            sessionStorage.setItem(sessionKey, String(Date.now()));
+            setPost((prev) => (prev ? { ...prev, views: (prev.views || 0) + 1 } : prev));
+          }
+        })
+        .catch(() => { });
+    }, 1500);
+
+    return () => clearTimeout(timer);
   }, [postId]);
 
   // Load real comments from Backend API
