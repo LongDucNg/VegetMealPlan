@@ -24,7 +24,7 @@ import { RecommendationModule } from './modules/recommendation/recommendation.mo
 import { MealPlanModule } from './modules/meal-plan/meal-plan.module';
 import { CommunityModule } from './modules/community/community.module';
 import { ChatbotModule } from './modules/chatbot/chatbot.module';
-import { ShopModule } from './modules/shop/shop.module';
+import { PlacesModule } from './modules/places/places.module';
 import { UsageQuotaModule } from './modules/usage-quota/usage-quota.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
@@ -66,11 +66,11 @@ import { PhotoScanModule } from './modules/photo-scan/photo-scan.module';
           type: 'postgres',
           ...options,
           autoLoadEntities: true,
-          // DB_MIGRATIONS_RUN=true (dùng khi deploy): khởi động là tự áp các migration còn thiếu,
-          // chỉ thêm, không reset dữ liệu. Tránh lỗi "column does not exist" vì quên chạy migration.
+          // LUÔN false — schema đi qua migration để cả team dùng chung 1 nguồn sự thật.
+          synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           // Ghép chuỗi bằng '/' (không dùng path.resolve): glob của TypeORM không hiểu dấu \ trên Windows.
           migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
-          migrationsRun: env('DB_MIGRATIONS_RUN') === 'true',
+          migrationsRun: env('DB_MIGRATIONS_RUN') === 'true' || true,
         };
       },
     }),
@@ -88,7 +88,7 @@ import { PhotoScanModule } from './modules/photo-scan/photo-scan.module';
     MealPlanModule,
     CommunityModule,
     ChatbotModule,
-    ShopModule,
+    PlacesModule,
     UsageQuotaModule,
     NotificationModule,
     SubscriptionModule,

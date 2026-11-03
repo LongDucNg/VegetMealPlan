@@ -22,12 +22,28 @@ import {
 } from "../types";
 
 function mapBackendCategoryToItem(cat: BackendCategory): CategoryItem {
+  let type: CategoryItem["type"] = "Recipe Category";
+  if (cat.category_type === "forum") {
+    type = "Forum Category";
+  } else if (cat.category_type === "food_type") {
+    type = "Food Type";
+  } else if (
+    cat.category_name.toLowerCase().includes("diễn đàn") ||
+    cat.category_name.toLowerCase().includes("mẹo bếp") ||
+    cat.category_name.toLowerCase().includes("quán chay") ||
+    cat.category_name.toLowerCase().includes("giao lưu") ||
+    cat.category_name.toLowerCase().includes("dành cho người mới")
+  ) {
+    type = "Forum Category";
+  }
+
   return {
     id: String(cat.category_id),
     name: cat.category_name,
     slug: cat.description || cat.category_name.toLowerCase().replace(/\s+/g, "-"),
-    type: cat.category_type === "food_type" ? "Food Type" : "Recipe Category",
+    type,
     recipeCount: Number(cat.recipe_count ?? 0),
+    postCount: Number(cat.post_count ?? 0),
     status: cat.status === "active" ? "Active" : "Archived",
     description: cat.description,
   };

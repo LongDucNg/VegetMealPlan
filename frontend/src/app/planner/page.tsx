@@ -87,7 +87,7 @@ function PlannerContent() {
   const [replacingSlot, setReplacingSlot] = useState<{
     slot: "breakfast" | "lunch" | "dinner" | "snack";
     recipe: Recipe;
-    dishIndex?: number;
+    recipeIndex?: number;
   } | null>(null);
 
   // Update user price modal state
@@ -139,17 +139,17 @@ function PlannerContent() {
   const handleOpenReplace = (
     recipe: Recipe,
     slot: "breakfast" | "lunch" | "dinner" | "snack",
-    dishIndex?: number
+    recipeIndex?: number
   ) => {
     requirePremium(() => {
-      setReplacingSlot({ slot, recipe, dishIndex });
+      setReplacingSlot({ slot, recipe, recipeIndex });
     });
   };
 
   // Execute replace
   const handleSelectReplacement = (newRecipe: Recipe) => {
     if (!replacingSlot) return;
-    replaceMeal(activeDayIndex, replacingSlot.slot, newRecipe, replacingSlot.dishIndex);
+    replaceMeal(activeDayIndex, replacingSlot.slot, newRecipe, replacingSlot.recipeIndex);
     setReplacingSlot(null);
   };
 

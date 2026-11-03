@@ -1,14 +1,50 @@
 import { VegetarianType } from "@/features/profile/types";
 
 export type MealType = "breakfast" | "lunch" | "dinner" | "snack" | "any";
+export type MealFilterType = MealType | "all" | "breakfast_lunch";
 
 export const MEAL_TYPE_LABELS: Record<string, string> = {
   breakfast: "Bữa sáng",
   lunch: "Bữa trưa",
   dinner: "Bữa tối",
   snack: "Bữa phụ",
-  any: "Bữa trưa / Tối",
+  any: "Bữa sáng / trưa",
+  breakfast_lunch: "Bữa sáng / trưa",
 };
+
+/**
+ * Kiểm tra món ăn có khớp với tiêu chí lọc bữa ăn không.
+ * Trong database, phần lớn các món ăn chính được gộp chung là 'any' (phù hợp cho bữa sáng/trưa/tối).
+ * Do đó khi chọn "Bữa sáng / trưa", hệ thống sẽ lọc ra tất cả các món ăn sáng, trưa và các món 'any' trong DB.
+ */
+export function isMealTypeMatch(recipeMealType?: string, filterMealType?: string): boolean {
+  if (!filterMealType || filterMealType === "all") return true;
+  const r = (recipeMealType || "").toLowerCase().trim();
+  const f = filterMealType.toLowerCase().trim();
+
+  // Bữa sáng / trưa: gộp cả món sáng, trưa, và các món chính trong DB (any)
+  if (
+    f === "breakfast_lunch" ||
+    f === "sang_trua" ||
+    f === "any" ||
+    f === "breakfast" ||
+    f === "lunch"
+  ) {
+    return r === "breakfast" || r === "lunch" || r === "any" || r === "dinner";
+  }
+
+  // Bữa tối
+  if (f === "dinner") {
+    return r === "dinner" || r === "any" || r === "lunch";
+  }
+
+  // Bữa phụ / Ăn vặt
+  if (f === "snack") {
+    return r === "snack";
+  }
+
+  return r === f;
+}
 
 export function formatMealType(mealType?: string): string {
   if (!mealType) return "Món chay";
@@ -37,6 +73,8 @@ export interface IngredientItem {
   unit: string;
   unitPrice?: number; // admin price per unit
   cost?: number; // computed cost for this recipe
+  caloriesPer100g?: number; // kcal per 100g
+  calories?: number; // computed kcal for this quantity
 }
 
 export interface Recipe {
@@ -67,6 +105,8 @@ export interface Recipe {
   estimatedCost?: number;
   source?: RecipeSource;
   status?: RecipeStatus;
+  review_reason?: string | null;
+  reviewReason?: string | null;
 
   // Display & compatibility helpers
   duration?: string;
