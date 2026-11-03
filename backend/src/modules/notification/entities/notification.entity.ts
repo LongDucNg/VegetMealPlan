@@ -8,11 +8,19 @@ export enum NotificationType {
   SUBSCRIPTION_CANCELLED = 'SUBSCRIPTION_CANCELLED',
   CONTENT_COMMENT = 'CONTENT_COMMENT',
   CONTENT_VOTE = 'CONTENT_VOTE',
+  RECIPE_SUBMITTED = 'RECIPE_SUBMITTED',
+  RECIPE_APPROVED = 'RECIPE_APPROVED',
+  RECIPE_REJECTED = 'RECIPE_REJECTED',
+  FORUM_POST_SUBMITTED = 'FORUM_POST_SUBMITTED',
+  FORUM_POST_APPROVED = 'FORUM_POST_APPROVED',
+  FORUM_POST_REJECTED = 'FORUM_POST_REJECTED',
+  SYSTEM_WELCOME = 'SYSTEM_WELCOME',
+  SYSTEM_ANNOUNCEMENT = 'SYSTEM_ANNOUNCEMENT',
 }
 
 /**
- * ref_type/ref_id dung chung pattern voi content_type/content_id o Comment/Vote:
- * VD ref_type='subscription', ref_id=<subscription_id>, hoac ref_type='blog', ref_id=<blog_id>.
+ * ref_type/ref_id dùng chung pattern với content_type/content_id ở Comment/Vote:
+ * VD ref_type='subscription', ref_id=<subscription_id>, hoặc ref_type='recipe', ref_id=<recipe_id>.
  */
 @Entity('notifications')
 export class Notification {
@@ -26,7 +34,7 @@ export class Notification {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ type: 'enum', enum: NotificationType })
+  @Column({ type: 'varchar', default: NotificationType.SYSTEM_WELCOME })
   type: NotificationType;
 
   @Column()
