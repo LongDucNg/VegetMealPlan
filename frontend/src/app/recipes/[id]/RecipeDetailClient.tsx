@@ -29,6 +29,7 @@ import { priceService } from "@/features/recipes/services/priceService";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
 import { isIngredientAllergenic } from "@/features/allergy/utils/checkRecipeAllergy";
 import { useProfile } from "@/features/profile/hooks/useProfile";
+import { useAuth } from "@/features/auth/context/AuthContext";
 import { formatVegetarianType } from "@/features/profile/types";
 import { favoriteService } from "@/features/recipes/services/favoriteService";
 import { formatMealType } from "@/features/recipes";
@@ -53,8 +54,10 @@ export function RecipeDetailClient({
   initialCost = null,
   initialReplacements = [],
 }: RecipeDetailClientProps) {
+  const { isAuthenticated } = useAuth();
   const { profile } = useProfile();
   const userId = String(profile?.id || "u1");
+  const userAllergies = isAuthenticated && profile?.allergies?.length ? profile.allergies : [];
 
   const [loading, setLoading] = useState(!initialRecipe);
   const [recipe, setRecipe] = useState<Recipe | null>(initialRecipe);
@@ -422,7 +425,40 @@ export function RecipeDetailClient({
                     typeof ing.quantity === "number"
                       ? ing.quantity * servingsMultiplier
                       : ing.quantity;
-                  const isAllergenic = isIngredientAllergenic(ing.name, profile?.allergies);
+
+                  const lowerIng = (ing.name || "").toLowerCase();
+                  const vegType = (profile?.vegetarianType || "").toLowerCase();
+                  const isEgg = lowerIng.includes("trứng") || lowerIng.includes("trung");
+                  const isDairy =
+                    lowerIng.includes("sữa") ||
+                    lowerIng.includes("sua") ||
+                    lowerIng.includes("bơ") ||
+                    lowerIng.includes("phô mai") ||
+                    lowerIng.includes("kem tươi");
+
+                  const isDeclaredAllergy =
+                    userAllergies.length > 0 && isIngredientAllergenic(ing.name, userAllergies);
+
+                  const isDietViolation =
+                    (vegType === "vegan" && (isEgg || isDairy)) ||
+                    (vegType === "lacto_vegetarian" && isEgg) ||
+                    (vegType === "ovo_vegetarian" && isDairy);
+
+                  const isFlagged = isDeclaredAllergy || isDietViolation;
+
+                  let violationTag = null;
+                  if (isDeclaredAllergy) {
+                    violationTag = "⚠ Dị ứng";
+                  } else if (vegType === "vegan" && isEgg) {
+                    violationTag = "⚠ Chứa Trứng (Né)";
+                  } else if (vegType === "vegan" && isDairy) {
+                    violationTag = "⚠ Chứa Sữa (Né)";
+                  } else if (vegType === "lacto_vegetarian" && isEgg) {
+                    violationTag = "⚠ Chứa Trứng (Né)";
+                  } else if (vegType === "ovo_vegetarian" && isDairy) {
+                    violationTag = "⚠ Chứa Sữa (Né)";
+                  }
+
                   const calPer100 =
                     ing.caloriesPer100g !== undefined && ing.caloriesPer100g !== null
                       ? Number(ing.caloriesPer100g)
@@ -440,7 +476,7 @@ export function RecipeDetailClient({
                       className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                         isChecked
                           ? "bg-stone-50/70 border-stone-200 text-stone-400 line-through"
-                          : isAllergenic
+                          : isFlagged
                             ? "bg-amber-50/50 border-amber-300 text-amber-950 hover:border-amber-400"
                             : "bg-white border-stone-200/80 hover:border-emerald-300 text-stone-800"
                       }`}
@@ -450,7 +486,7 @@ export function RecipeDetailClient({
                           className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-colors shrink-0 ${
                             isChecked
                               ? "bg-emerald-600 border-emerald-600 text-white"
-                              : isAllergenic
+                              : isFlagged
                                 ? "border-amber-400 bg-amber-100 text-amber-900"
                                 : "border-stone-300 bg-white"
                           }`}
@@ -460,14 +496,14 @@ export function RecipeDetailClient({
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs font-semibold">{ing.name}</span>
-                            {isAllergenic && (
+                            {violationTag && (
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-0.5">
-                                ⚠ Dị ứng
+                                {violationTag}
                               </span>
                             )}
                           </div>
                           <div className="text-[11px] text-stone-400 flex items-center gap-1 mt-0.5 font-medium">
-                            <span className="text-amber-700 font-semibold">{Math.round(Number(calPer100) * 100) / 100} kcal</span>
+                            <span className="text-amber-700 font-semibold">~{Math.round(Number(calPer100) * 100) / 100} kcal</span>
                             <span className="text-stone-400">/ 100g</span>
                           </div>
                         </div>
@@ -510,7 +546,7 @@ export function RecipeDetailClient({
                               {cIng.ingredient_name}
                             </span>
                             <span className="text-[10px] text-stone-400 block mt-0.5">
-                              {Math.round(Number(ingCalPer100) * 100) / 100} kcal/100g · ~{Math.round(Number(ingKcal) * 100) / 100} kcal
+                              ~{Math.round(Number(ingCalPer100) * 100) / 100} kcal/100g · ~{Math.round(Number(ingKcal) * 100) / 100} kcal
                             </span>
                           </div>
                           <div className="text-right shrink-0">

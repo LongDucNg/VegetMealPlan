@@ -4,14 +4,20 @@ import { useState, useEffect, useCallback } from "react";
 import { UserSubscription, SubscriptionTier } from "../types";
 import { subscriptionService } from "../services/subscriptionService";
 import { storage, STORAGE_KEYS } from "@/utils/storage/storage";
+import { DEFAULT_SUBSCRIPTION } from "../data/mockSubscriptions";
 
 export function useSubscription() {
-  const [subscription, setSubscription] = useState<UserSubscription>(() =>
-    subscriptionService.getSubscription()
-  );
+  const [subscription, setSubscription] = useState<UserSubscription>(DEFAULT_SUBSCRIPTION);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    subscriptionService.fetchServerStatus().then(setSubscription);
+    // Read cached subscription on client mount to prevent SSR hydration mismatch
+    setSubscription(subscriptionService.getSubscription());
+    setIsReady(true);
+
+    subscriptionService.fetchServerStatus().then((sub) => {
+      setSubscription(sub);
+    });
 
     const unsubscribe = storage.subscribe((event) => {
       if (event.key === STORAGE_KEYS.SUBSCRIPTION) {
@@ -52,7 +58,8 @@ export function useSubscription() {
 
   return {
     subscription,
-    isPremium: subscription.status === "active",
+    isPremium: isReady ? subscription.status === "active" : false,
+    isReady,
     purchase,
     cancel,
     toggle,
