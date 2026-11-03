@@ -899,4 +899,20 @@ describe('ForumService (Stage 1 & Stage 2)', () => {
       expect(res[1].tag).toBe('#vegan');
     });
   });
+describe('incrementPostView', () => {
+    it('bài không tồn tại hoặc chưa duyệt trả 404', async () => {
+      blogRepo.findOne.mockResolvedValue(null);
+      await expect(service.incrementPostView(999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('tăng view thành công và trả views mới', async () => {
+      blogRepo.findOne.mockResolvedValue({ blog_id: 10, views: 5, status: ContentStatus.APPROVED });
+      blogRepo.increment.mockResolvedValue({ affected: 1 });
+
+      const res = await service.incrementPostView(10);
+      expect(res.success).toBe(true);
+      expect(res.views).toBe(6);
+      expect(blogRepo.increment).toHaveBeenCalledWith({ blog_id: 10 }, 'views', 1);
+    });
+  });
 });
