@@ -1019,10 +1019,18 @@
     "match": "exact"
   },
   "Sữa gạo lứt": {
-    "url": null
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696697/vegetmealplan/seed/sua-gao-lut.jpg",
+    "original_url": "https://bizweb.dktcdn.net/100/237/115/articles/cach-lam-sua-gao-lut-1.jpeg?v=1660294752360",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Sữa gạo lứt"
   },
   "Sữa mè đen": {
-    "url": null
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696697/vegetmealplan/seed/sua-me-den.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/07/CookRecipe/Avatar/sua-me-den-nguyen-chat-thumbnail.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Sữa mè đen"
   },
   "Sinh tố bơ": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274063/vegetmealplan/seed/sinh-to-bo.jpg",
@@ -1975,10 +1983,18 @@
     "match": "similar"
   },
   "Hạt điều rang muối": {
-    "url": null
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696709/vegetmealplan/seed/hat-dieu-rang-muoi.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/10/CookRecipe/Avatar/hat-dieu-rang-muoi-thumbnail.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Hạt điều rang muối"
   },
   "Hạt hỗn hợp": {
-    "url": null
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696695/vegetmealplan/seed/hat-hon-hop.jpg",
+    "original_url": "https://images.unsplash.com/photo-1543158181-e6f9f6712055?w=640",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Hạt hỗn hợp"
   },
   "Đậu gà rang": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274084/vegetmealplan/seed/dau-ga-rang.jpg",
@@ -2053,16 +2069,32 @@
     "match": "generic"
   },
   "Bánh tráng nướng chay": {
-    "url": null
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696698/vegetmealplan/seed/banh-trang-nuong-chay.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/08/CookProductThumb/cach-lam-banh-trang-nuong-chay-don-gian-an-vat-cuc-thich-14-620x620.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bánh tráng nướng chay"
   },
   "Bánh tráng trộn chay": {
-    "url": null
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696699/vegetmealplan/seed/banh-trang-tron-chay.jpg",
+    "original_url": "https://cdn.tgdd.vn/Files/2020/04/29/1252553/cach-lam-banh-trang-tron-chay-an-vat-ngon-gay-nghi.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bánh tráng trộn chay"
   },
   "Bánh tráng cuốn bơ": {
-    "url": null
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696699/vegetmealplan/seed/banh-trang-cuon-bo.jpg",
+    "original_url": "https://www.savourydays.com/wp-content/uploads/2022/02/1-1-scaled.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bánh tráng cuốn bơ"
   },
   "Bột chiên chay": {
-    "url": null
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696700/vegetmealplan/seed/bot-chien-chay.jpg",
+    "original_url": "https://i.ytimg.com/vi/mzd4eXagrm8/maxresdefault.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bột chiên chay"
   },
   "Bánh bao chay": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274086/vegetmealplan/seed/banh-bao-chay.jpg",
@@ -2461,13 +2493,25 @@
     "match": "generic"
   },
   "Chả lụa chay chiên": {
-    "url": null
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696700/vegetmealplan/seed/cha-lua-chay-chien.jpg",
+    "original_url": "https://i.ytimg.com/vi/fRZqZzEwpT4/maxresdefault.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Chả lụa chay chiên"
   },
   "Giò chay kho": {
-    "url": null
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696703/vegetmealplan/seed/gio-chay-kho.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/12/CookProduct/Thumbnail-1200x675-4.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Giò chay kho"
   },
   "Giò chả chay sốt cà": {
-    "url": null
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696700/vegetmealplan/seed/gio-cha-chay-sot-ca.webp",
+    "original_url": "https://cdn2.fptshop.com.vn/unsafe/1920x0/filters:format(webp):quality(75)/cha_lua_sot_ca_chua_e1e864abe7.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Giò chả chay sốt cà"
   },
   "Nấm kho tiêu": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274095/vegetmealplan/seed/nam-kho-tieu.jpg",
@@ -2846,7 +2890,11 @@
     "shared": true
   },
   "Chả mì căn": {
-    "url": null
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696703/vegetmealplan/seed/cha-mi-can.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/07/CookProduct/22-1200x676.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Chả mì căn"
   },
   "Tàu hũ ky chiên": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274103/vegetmealplan/seed/tau-hu-ky-chien.jpg",
@@ -3193,7 +3241,11 @@
     "match": "generic"
   },
   "Chay thịt kho tàu": {
-    "url": null
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696701/vegetmealplan/seed/chay-thit-kho-tau.jpg",
+    "original_url": "https://i.ytimg.com/vi/YmRYMn89VuA/maxresdefault.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Chay thịt kho tàu"
   },
   "Chay kho quẹt": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274111/vegetmealplan/seed/chay-kho-quet.jpg",
@@ -4888,7 +4940,11 @@
     "match": "exact"
   },
   "Bibimbap chay": {
-    "url": null
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696702/vegetmealplan/seed/bibimbap-chay.jpg",
+    "original_url": "https://images.unsplash.com/photo-1553163147-622ab57be1c7?w=640",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bibimbap chay"
   },
   "Đậu hũ Hàn hầm kim chi": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274149/vegetmealplan/seed/dau-hu-han-ham-kim-chi.jpg",
@@ -5012,7 +5068,11 @@
     "match": "generic"
   },
   "Granola sữa chua": {
-    "url": null
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696703/vegetmealplan/seed/granola-sua-chua.jpg",
+    "original_url": "https://images.unsplash.com/photo-1511690656952-34342bb7c2f2?w=640",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Granola sữa chua"
   },
   "Cháo yến mạch hạt": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274151/vegetmealplan/seed/chao-yen-mach-hat.jpg",
@@ -6910,7 +6970,11 @@
     "match": "generic"
   },
   "Bánh tráng cuốn trứng rau": {
-    "url": null
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696703/vegetmealplan/seed/banh-trang-cuon-trung-rau.jpg",
+    "original_url": "https://i.ytimg.com/vi/M0qZaaAFf3E/sddefault.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bánh tráng cuốn trứng rau"
   },
   "Nước ép ổi": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274191/vegetmealplan/seed/nuoc-ep-oi.jpg",
