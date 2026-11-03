@@ -13,11 +13,11 @@ export function useRecipes(
   initialPage = 1,
   initialLimit = 24
 ) {
-  const [recipes, setRecipes] = useState<Recipe[]>(() =>
-    recipeService.getRecipes()
-  );
+  // Server không có localStorage: khởi tạo rỗng để HTML server và lần render đầu ở client giống nhau
+  // (trước đây server render 17 món mẫu, client render 500 món trong cache -> lỗi hydration).
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [filters, setFilters] = useState<RecipeFilterOptions>(initialFilters || {});
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [page, setPage] = useState<number>(initialPage);
   const [limit, setLimit] = useState<number>(initialLimit);
   const [total, setTotal] = useState<number>(0);

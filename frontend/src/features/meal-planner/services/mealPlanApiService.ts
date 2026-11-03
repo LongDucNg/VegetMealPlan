@@ -14,7 +14,7 @@ export interface GenerateForSomeonePayload {
 
 export interface SaveMealPlanPayload {
   goal_id?: number;
-  plan_type?: "weekly" | "monthly";
+  plan_type?: "daily" | "weekly" | "monthly";
   start_date: string;
   end_date: string;
   has_budget?: boolean;
@@ -47,6 +47,10 @@ export interface ValidateMealPlanPayload {
 }
 
 export const mealPlanApiService = {
+  // POST /meal-plans/generate/daily - Sinh thực đơn ngày (1 ngày) 3 buổi sáng trưa chiều có 2-3 món khớp calo, AI xét duyệt
+  generateDaily(payload?: GenerateMealPlanPayload) {
+    return apiClient.post<any>("/meal-plans/generate/daily", payload || {});
+  },
   // API #25: POST /meal-plans/generate/weekly - Sinh thực đơn 7 ngày theo hồ sơ, dị ứng, chế độ chay, ngân sách
   generateWeekly(payload?: GenerateMealPlanPayload) {
     return apiClient.post<any>("/meal-plans/generate/weekly", payload || {});
