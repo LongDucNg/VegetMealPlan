@@ -43,6 +43,7 @@ const REQUIRED_IMPORT_COLUMNS = [
   'meal_type',
   'diet_type',
   'ingredients',
+  'category_ids',
 ] as const;
 
 /** Giới hạn số dòng dữ liệu trong 1 lần import để tránh quá tải server. */
@@ -147,9 +148,19 @@ export class RecipeImportController {
       );
 
       if (missingColumns.length > 0) {
+        const columnNamesVi: Record<string, string> = {
+          title: 'Tên món',
+          instructions: 'Hướng dẫn',
+          meal_type: 'Bữa ăn',
+          diet_type: 'Chế độ ăn chay',
+          ingredients: 'Nguyên liệu',
+          category_ids: 'Danh mục món ăn',
+        };
+        const missingDisplay = missingColumns.map((col) => columnNamesVi[col] || col);
+        const requiredDisplay = REQUIRED_IMPORT_COLUMNS.map((col) => columnNamesVi[col] || col);
         throw new BadRequestException(
-          `File Excel thiếu cột bắt buộc: ${missingColumns.join(', ')}. ` +
-            `Các cột bắt buộc là: ${REQUIRED_IMPORT_COLUMNS.join(', ')}.`,
+          `File Excel thiếu cột bắt buộc: ${missingDisplay.join(', ')}. ` +
+            `Các cột bắt buộc là: ${requiredDisplay.join(', ')}.`,
         );
       }
 
@@ -249,7 +260,11 @@ export class RecipeImportController {
           ? {}
           : this.toCategoryIds(categoryCell);
 
-        if (categoryIds.error) {
+        if (categoryCell === undefined || categoryCell === null || (typeof categoryCell === 'string' && categoryCell.trim() === '')) {
+          row_error = row_error
+            ? `${row_error}; Cột danh mục món ăn không được để trống`
+            : `Dòng Excel ${rowNumber}: Cột danh mục món ăn không được để trống`;
+        } else if (categoryIds.error) {
           row_error = row_error
             ? `${row_error}; ${categoryIds.error}`
             : `Dòng Excel ${rowNumber}: ${categoryIds.error}`;

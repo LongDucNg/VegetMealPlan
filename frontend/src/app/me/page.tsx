@@ -53,6 +53,7 @@ import {
 import { favoriteService, SavedMealPlan } from "@/features/recipes/services/favoriteService";
 import { priceService, PRICE_WARNING_TEXT } from "@/features/recipes/services/priceService";
 import { recipeService } from "@/features/recipes/services/recipeService";
+import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
 import { Recipe } from "@/features/recipes/types";
 import { RecipeFavoriteButton } from "@/components/ui/RecipeFavoriteButton";
 import { UpdatePriceModal } from "@/features/recipes/components/UpdatePriceModal";
@@ -981,6 +982,9 @@ function ProfileContent() {
 
                         <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                           <div>
+                            <div className="mb-2">
+                              <RecipeAllergyBadge recipe={recipe} compact />
+                            </div>
                             <h4 className="font-serif font-bold text-stone-900 text-base leading-snug line-clamp-1 group-hover:text-emerald-700 transition-colors">
                               {recipe.name || recipe.title}
                             </h4>
