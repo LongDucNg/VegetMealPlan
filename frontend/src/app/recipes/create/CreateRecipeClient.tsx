@@ -191,9 +191,9 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
   const [mealType, setMealType] = useState<string>("any");
   const [dietType, setDietType] = useState<string>("vegan");
   const [difficulty, setDifficulty] = useState<string>("easy");
-  const [prepTime, setPrepTime] = useState<number | "">(0);
-  const [cookTime, setCookTime] = useState<number | "">(0);
-  const [servings, setServings] = useState<number | "">(0);
+  const [prepTime, setPrepTime] = useState<number | "">("");
+  const [cookTime, setCookTime] = useState<number | "">("");
+  const [servings, setServings] = useState<number | "">("");
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
 
   // Category Dropdown State (thay vì show ra 1 đống)
@@ -207,7 +207,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
       keyId: "init-1",
       ingredient_id: 0,
       name: "",
-      quantity: 0,
+      quantity: "",
       unit: "g",
       note: "",
       is_optional: false,
@@ -260,7 +260,17 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
           const list = Array.isArray(catRes.value)
             ? catRes.value
             : (catRes.value as any)?.data || [];
-          if (isMounted) setCategories(list);
+          // Ràng buộc nghiêm ngặt: chỉ lấy danh mục thuộc về món ăn (recipe_type, food_type),
+          // tuyệt đối không hiển thị danh mục của diễn đàn (category_type = 'forum' hoặc type = 'forum')
+          const recipeCategories = list.filter(
+            (c: any) =>
+              c.category_type !== "forum" &&
+              c.type !== "forum" &&
+              (c.category_type === "recipe_type" ||
+                c.category_type === "food_type" ||
+                (!c.category_type && c.recipe_count !== undefined))
+          );
+          if (isMounted) setCategories(recipeCategories);
         }
       } catch (err) {
         console.error("Error loading master data for recipe creation:", err);
@@ -353,8 +363,8 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
 
     const numServings = Number(servings) > 0 ? Number(servings) : 1;
     return {
-      totalCalories: Math.round(calories),
-      caloriesPerServing: Math.round(calories / numServings),
+      totalCalories: Math.round(calories * 100) / 100,
+      caloriesPerServing: Math.round((calories / numServings) * 100) / 100,
       totalProtein: Math.round(protein * 10) / 10,
       proteinPerServing: Math.round((protein / numServings) * 10) / 10,
       totalCarbs: Math.round(carbs * 10) / 10,
@@ -395,7 +405,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
         keyId: `row-${Date.now()}-${Math.random()}`,
         ingredient_id: 0,
         name: "",
-        quantity: 0,
+        quantity: "",
         unit: "g",
         note: "",
         is_optional: false,
@@ -472,9 +482,9 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
     setDescription("");
     setImageUrl(SAMPLE_PRESET_IMAGES[0].url);
     setVideoUrl("");
-    setPrepTime(0);
-    setCookTime(0);
-    setServings(0);
+    setPrepTime("");
+    setCookTime("");
+    setServings("");
     setSelectedCategoryIds([]);
     setIngredients([
       {
@@ -668,7 +678,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
               <div className="flex justify-between">
                 <span className="text-stone-400">Năng lượng ước tính:</span>
                 <span className="font-bold text-amber-700">
-                  {nutrition.totalCalories} kcal ({nutrition.caloriesPerServing} kcal/phần)
+                  ~{nutrition.totalCalories} kcal (~{nutrition.caloriesPerServing} kcal/phần)
                 </span>
               </div>
               <div className="flex justify-between">
@@ -1019,13 +1029,14 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                   <input
                     type="number"
                     min="0"
-                    value={prepTime === "" ? "" : prepTime}
+                    value={prepTime === 0 ? "" : prepTime}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => {
-                      const v = e.target.value;
+                      let v = e.target.value;
+                      if (v.length > 1 && v.startsWith("0") && !v.startsWith("0.")) {
+                        v = v.replace(/^0+/, "");
+                      }
                       setPrepTime(v === "" ? "" : Math.max(0, Number(v)));
-                    }}
-                    onBlur={() => {
-                      if (prepTime === "") setPrepTime(0);
                     }}
                     placeholder="0"
                     className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:border-emerald-600 font-bold text-stone-800 text-center"
@@ -1039,13 +1050,14 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                   <input
                     type="number"
                     min="0"
-                    value={cookTime === "" ? "" : cookTime}
+                    value={cookTime === 0 ? "" : cookTime}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => {
-                      const v = e.target.value;
+                      let v = e.target.value;
+                      if (v.length > 1 && v.startsWith("0") && !v.startsWith("0.")) {
+                        v = v.replace(/^0+/, "");
+                      }
                       setCookTime(v === "" ? "" : Math.max(0, Number(v)));
-                    }}
-                    onBlur={() => {
-                      if (cookTime === "") setCookTime(0);
                     }}
                     placeholder="0"
                     className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:border-emerald-600 font-bold text-stone-800 text-center"
@@ -1059,13 +1071,14 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                   <input
                     type="number"
                     min="0"
-                    value={servings === "" ? "" : servings}
+                    value={servings === 0 ? "" : servings}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => {
-                      const v = e.target.value;
+                      let v = e.target.value;
+                      if (v.length > 1 && v.startsWith("0") && !v.startsWith("0.")) {
+                        v = v.replace(/^0+/, "");
+                      }
                       setServings(v === "" ? "" : Math.max(0, Number(v)));
-                    }}
-                    onBlur={() => {
-                      if (servings === "") setServings(0);
                     }}
                     placeholder="0"
                     className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:border-emerald-600 font-bold text-stone-800 text-center"
@@ -1237,7 +1250,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold text-amber-700 flex items-center gap-1 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
                     <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                    <span>{nutrition.totalCalories} kcal</span>
+                    <span>~{nutrition.totalCalories} kcal</span>
                   </span>
                   <span className="text-xs text-stone-500 font-medium">
                     {ingredients.filter((i) => i.ingredient_id > 0).length} nguyên liệu
@@ -1266,8 +1279,8 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
               <div className="space-y-2" ref={ingredientDropdownRef}>
                 {ingredients.map((item, idx) => {
                   const rowKcal = Math.round(
-                    ((Number(item.quantity) || 0) / 100) * (Number(item.calories_per_100g) || 0)
-                  );
+                    (((Number(item.quantity) || 0) / 100) * (Number(item.calories_per_100g) || 0)) * 100
+                  ) / 100;
                   const rowCost = Math.round(
                     ((Number(item.quantity) || 0) / 1000) * (Number(item.avg_price_per_unit) || 0)
                   );
@@ -1361,23 +1374,19 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                           type="number"
                           min="0"
                           step="any"
-                          value={item.quantity === "" ? "" : item.quantity}
+                          value={item.quantity === 0 ? "" : item.quantity}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
-                            const val = e.target.value === "" ? "" : Math.max(0, Number(e.target.value));
+                            let valStr = e.target.value;
+                            if (valStr.length > 1 && valStr.startsWith("0") && !valStr.startsWith("0.")) {
+                              valStr = valStr.replace(/^0+/, "");
+                            }
+                            const val = valStr === "" ? "" : Math.max(0, Number(valStr));
                             setIngredients((prev) => {
                               const updated = [...prev];
                               updated[idx] = { ...updated[idx], quantity: val };
                               return updated;
                             });
-                          }}
-                          onBlur={() => {
-                            if (item.quantity === "") {
-                              setIngredients((prev) => {
-                                const updated = [...prev];
-                                updated[idx] = { ...updated[idx], quantity: 0 };
-                                return updated;
-                              });
-                            }
                           }}
                           placeholder="0"
                           className="w-full px-2 py-1.5 text-xs rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 font-bold text-stone-800 text-center"
@@ -1397,10 +1406,10 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                             title={`Chi phí ước tính: ~${rowCost.toLocaleString("vi-VN")} đ`}
                           >
                             <Flame className="w-2.5 h-2.5 text-amber-600" />
-                            {rowKcal} kcal
+                            ~{rowKcal} kcal
                           </span>
                         ) : (
-                          <span className="text-[10px] text-stone-400 font-mono">0 kcal</span>
+                          <span className="text-[10px] text-stone-400 font-mono">~0 kcal</span>
                         )}
                       </div>
 
@@ -1463,7 +1472,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                     </span>
                   </div>
                   <span className="text-[11px] font-black text-amber-800 bg-amber-100/90 px-2.5 py-0.5 rounded-full">
-                    {nutrition.totalCalories} kcal tổng món
+                    ~{nutrition.totalCalories} kcal tổng món
                   </span>
                 </div>
 
@@ -1471,7 +1480,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                   <div className="p-2.5 rounded-xl bg-white border border-amber-100 shadow-2xs">
                     <span className="text-[10px] text-stone-500 font-medium block">Năng lượng / phần</span>
                     <span className="text-sm font-black text-amber-600">
-                      {nutrition.caloriesPerServing} <span className="text-[10px] font-normal text-stone-500">kcal</span>
+                      ~{nutrition.caloriesPerServing} <span className="text-[10px] font-normal text-stone-500">kcal</span>
                     </span>
                   </div>
 
@@ -1615,7 +1624,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
 
                     <div className="flex items-center gap-1 font-bold text-amber-700">
                       <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                      <span>{nutrition.caloriesPerServing || 0} kcal</span>
+                      <span>~{nutrition.caloriesPerServing || 0} kcal</span>
                     </div>
 
                     <div className="font-bold text-emerald-800">
@@ -1642,7 +1651,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                 <div className="flex items-center justify-between text-stone-700">
                   <span>Tổng năng lượng món ăn:</span>
                   <span className="font-bold text-amber-800">
-                    {nutrition.totalCalories} kcal ({nutrition.caloriesPerServing} kcal/phần)
+                    ~{nutrition.totalCalories} kcal (~{nutrition.caloriesPerServing} kcal/phần)
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-stone-700">

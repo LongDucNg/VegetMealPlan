@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Category } from './entities/category.entity';
+import { Category, RECIPE_CATEGORY_TYPES } from './entities/category.entity';
 import { RecipeCategory } from '../recipe/entities/recipe-category.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -109,8 +109,16 @@ export class CategoryService {
     };
   }
 
-  async findAll(): Promise<any[]> {
-    const rows = await this.withRecipeCount().orderBy('category.category_id', 'ASC').getRawMany();
+  async findAll(type?: string): Promise<any[]> {
+    const qb = this.withRecipeCount().orderBy('category.category_id', 'ASC');
+    if (type === 'recipe') {
+      qb.where('category.category_type IN (:...recipeTypes)', {
+        recipeTypes: RECIPE_CATEGORY_TYPES,
+      });
+    } else if (type && type !== 'all') {
+      qb.where('category.category_type = :type', { type });
+    }
+    const rows = await qb.getRawMany();
     return rows.map((row) => this.toView(row));
   }
 
