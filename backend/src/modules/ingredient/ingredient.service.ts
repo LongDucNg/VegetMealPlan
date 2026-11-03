@@ -446,7 +446,7 @@ export class IngredientService {
       season_months:
         dto.season_months,
       status:
-        dto.status ?? IngredientStatus.ACTIVE,
+        IngredientStatus.ACTIVE,
     });
 
     return this.ingredientRepo.save(ingredient);
@@ -540,8 +540,7 @@ export class IngredientService {
         ingredient.season_months,
 
       status:
-        dto.status ??
-        ingredient.status,
+        IngredientStatus.ACTIVE,
     });
 
     const saved = await this.ingredientRepo.save(ingredient);
