@@ -60,9 +60,16 @@ export class ForumController {
 
   @Get('posts/:id')
   @Public()
-  @ApiOperation({ summary: 'Chi tiết bài, tăng lượt xem' })
+  @ApiOperation({ summary: 'Chi tiết bài viết' })
   getPost(@Param('id', ParseIntPipe) id: number) {
     return this.service.getPostDetail(id);
+  }
+
+  @Post('posts/:id/view')
+  @Public()
+  @ApiOperation({ summary: 'Tăng lượt xem bài viết' })
+  incrementView(@Param('id', ParseIntPipe) id: number) {
+    return this.service.incrementPostView(id);
   }
 
   @Post('posts')
