@@ -72,4 +72,24 @@ describe('PlacesService', () => {
     expect(result.items[0].name).toBe('Quán Chay Hoa Sen');
     expect(result.items[0].distanceM).toBe(500);
   });
+
+  it('should return empty items when no places within radius (never return shops exceeding radius)', async () => {
+    (dataSource.query as jest.Mock).mockImplementation(async (sql: string) => {
+      if (sql.includes('spatial_cache_cells')) {
+        return [{ cell_key: '10.78_106.70', fetched_radius_km: 5, expires_at: new Date(Date.now() + 86400000) }];
+      }
+      if (sql.includes('public.shop')) {
+        return [];
+      }
+      return [];
+    });
+
+    const result = await service.getNearbyPlaces({
+      lat: 10.7769,
+      lng: 106.6983,
+      radiusKm: 2,
+    });
+
+    expect(result.items).toEqual([]);
+  });
 });
