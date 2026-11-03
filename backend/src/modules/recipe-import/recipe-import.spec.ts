@@ -231,6 +231,17 @@ function buildService(ctx: Ctx): RecipeImportService {
         const ids: number[] = opts?.where?.category_id?.value ?? [];
         return (ctx.categories ?? []).filter((c) => ids.includes(c.category_id));
       },
+      findOne: async (opts: any) => {
+        const name = opts?.where?.category_name;
+        return (ctx.categories ?? []).find((c) => c.category_name === name) ?? null;
+      },
+      create: (o: any) => ({ category_id: 99, ...o }),
+      save: async (o: any) => {
+        const saved = { category_id: o.category_id || 99, ...o };
+        ctx.categories = ctx.categories || [];
+        ctx.categories.push(saved);
+        return saved;
+      },
     };
     const batchRepoM: any = {
       create: (o: any) => o,
@@ -271,7 +282,17 @@ function buildService(ctx: Ctx): RecipeImportService {
 
   const dataSource: any = {
     transaction: async (cb: any) => cb(makeManager()),
-    getRepository: (e: any) => (e === Category ? { find: async () => ctx.categories ?? [] } : undefined),
+    getRepository: (e: any) => (e === Category ? {
+      find: async () => ctx.categories ?? [],
+      findOne: async (opts: any) => (ctx.categories ?? []).find((c) => c.category_name === opts?.where?.category_name) ?? null,
+      create: (o: any) => ({ category_id: 99, ...o }),
+      save: async (o: any) => {
+        const s = { category_id: o.category_id || 99, ...o };
+        ctx.categories = ctx.categories || [];
+        ctx.categories.push(s);
+        return s;
+      },
+    } : undefined),
   };
 
   // Validator DÙNG CHUNG giữa create / update / import công thức.
@@ -948,24 +969,23 @@ describe('Import: danh mục và tên món (mục 4, mục 2)', () => {
     expect(ctx.savedItems[0].status).toBe('success');
   });
 
-  it('danh mục không tồn tại / sai loại / 2 loại món -> FAILED INVALID_CATEGORY kèm danh sách để chọn lại, các dòng khác vẫn nhập', async () => {
-    const ctx = { ...newCtx(), categories: CATS };
+  it('danh mục không trùng trong DB -> tự động chuyển sang "Khác", sai loại món / 2 loại món -> FAILED INVALID_CATEGORY', async () => {
+    const ctx = { ...newCtx(), categories: [...CATS] };
     const svc = buildService(ctx);
 
     const res: any = await svc.importRows(1, 'b.xlsx', [
-      row('Món A', { category_raw: 'Canh & Lẩu' }),
-      row('Món B', { category_ids: [2, 20] }),
-      row('Món C', { category_raw: 'Canh/súp, Món mặn' }),
-      row('Món D', { category_ids: [2, 11] }),
+      row('Món A', { category_raw: 'Canh & Lẩu' }), // không có trong DB -> tự động chuyển sang danh mục "Khác"
+      row('Món B', { category_ids: [2, 20] }), // 20 là diễn đàn -> FAILED
+      row('Món C', { category_ids: [11, 13] }), // 2 loại món -> FAILED
+      row('Món D', { category_ids: [2, 11] }), // hợp lệ -> success
     ] as any);
 
-    expect(res.data.failed).toBe(3);
-    expect(res.data.success).toBe(1);
+    expect(res.data.failed).toBe(2);
+    expect(res.data.success).toBe(2);
     const failed = ctx.savedItems.filter((i) => i.status === 'failed');
     expect(failed.every((i) => i.fail_reason === 'INVALID_CATEGORY')).toBe(true);
-    expect(failed[0].fail_detail).toContain('Danh mục hợp lệ');
-    expect(failed[1].fail_detail).toContain('không gắn được');
-    expect(failed[2].fail_detail).toContain('chỉ thuộc 1 loại món');
+    expect(failed[0].fail_detail).toContain('không gắn được');
+    expect(failed[1].fail_detail).toContain('chỉ thuộc 1 loại món');
   });
 
   it('tên món mặn bị chặn khi import dù nguyên liệu chay', async () => {
