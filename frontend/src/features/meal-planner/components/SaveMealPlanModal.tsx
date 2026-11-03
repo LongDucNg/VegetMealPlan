@@ -86,7 +86,7 @@ export function SaveMealPlanModal({
             </div>
             <div className="flex justify-between">
               <span>Mục tiêu calo / ngày:</span>
-              <span className="font-bold text-amber-700">{targetCalories} kcal</span>
+              <span className="font-bold text-amber-700">~{Math.round(Number(targetCalories) * 100) / 100} kcal</span>
             </div>
             <div className="flex justify-between">
               <span>Chi phí ước tính:</span>
