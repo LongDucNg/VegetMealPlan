@@ -59,12 +59,13 @@ export function calculateNutritionPerServing(
   }
 
   const divisor = servings && servings > 0 ? servings : 1;
+  const round2 = (val: number) => Math.round(val * 100) / 100;
 
   return {
-    calories: totals.calories / divisor,
-    protein: totals.protein / divisor,
-    carbs: totals.carbs / divisor,
-    fat: totals.fat / divisor,
-    fiber: totals.fiber / divisor,
+    calories: round2(totals.calories / divisor),
+    protein: round2(totals.protein / divisor),
+    carbs: round2(totals.carbs / divisor),
+    fat: round2(totals.fat / divisor),
+    fiber: round2(totals.fiber / divisor),
   };
 }
