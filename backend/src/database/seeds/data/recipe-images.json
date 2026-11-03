@@ -48,56 +48,32 @@
     "match": "generic"
   },
   "Bún thang chay": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274043/vegetmealplan/seed/bun-thang-chay.jpg",
-    "original_url": "https://pixabay.com/get/g6ed00b2a9bfa189335bbb0bf7294fa31eac6e5e4fcd37b68b10cd091016a751ff983aacd1adef83e29069072fccac00ece50fb37b09745921612faefae6576b1_1280.jpg",
-    "candidate_id": "pixabay:6817258",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/dish-chinese-cuisine-bowl-food-6817258/",
-    "author": "zhangtingzhi",
-    "author_url": "https://pixabay.com/users/zhangtingzhi-21381025/",
-    "description": "dish, chinese cuisine, bowl, food, yunan rice vermicelli, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine",
-    "query": "vietnamese rice vermicelli vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697658/vegetmealplan/seed/bun-thang-chay.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/11/CookDish/2-cach-nau-canh-bau-chay-thom-ngon-thanh-dam-cho-ngay-chay-avt-1200x676-1.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bún thang chay"
   },
   "Bún chả giò chay": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274043/vegetmealplan/seed/bun-cha-gio-chay.jpg",
-    "original_url": "https://pixabay.com/get/g6ed00b2a9bfa189335bbb0bf7294fa31eac6e5e4fcd37b68b10cd091016a751ff983aacd1adef83e29069072fccac00ece50fb37b09745921612faefae6576b1_1280.jpg",
-    "candidate_id": "pixabay:6817258",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/dish-chinese-cuisine-bowl-food-6817258/",
-    "author": "zhangtingzhi",
-    "author_url": "https://pixabay.com/users/zhangtingzhi-21381025/",
-    "description": "dish, chinese cuisine, bowl, food, yunan rice vermicelli, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine",
-    "query": "vietnamese rice vermicelli vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697663/vegetmealplan/seed/bun-cha-gio-chay.jpg",
+    "original_url": "https://thucphamquocte.vn/wp-content/uploads/2023/04/2023-04-07-Bun-cha-gio-chay.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bún chả giò chay"
   },
   "Bún đậu hũ chiên chấm tương": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274043/vegetmealplan/seed/bun-dau-hu-chien-cham-tuong.jpg",
-    "original_url": "https://pixabay.com/get/g6ed00b2a9bfa189335bbb0bf7294fa31eac6e5e4fcd37b68b10cd091016a751ff983aacd1adef83e29069072fccac00ece50fb37b09745921612faefae6576b1_1280.jpg",
-    "candidate_id": "pixabay:6817258",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/dish-chinese-cuisine-bowl-food-6817258/",
-    "author": "zhangtingzhi",
-    "author_url": "https://pixabay.com/users/zhangtingzhi-21381025/",
-    "description": "dish, chinese cuisine, bowl, food, yunan rice vermicelli, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine",
-    "query": "vietnamese rice vermicelli vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697668/vegetmealplan/seed/bun-dau-hu-chien-cham-tuong.png",
+    "original_url": "https://monngonmoingay.com/wp-content/uploads/2026/08/Bun-nuoc-tuong.png",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bún đậu hũ chiên chấm tương"
   },
   "Bún cà ri chay": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274043/vegetmealplan/seed/bun-ca-ri-chay.jpg",
-    "original_url": "https://pixabay.com/get/g6ed00b2a9bfa189335bbb0bf7294fa31eac6e5e4fcd37b68b10cd091016a751ff983aacd1adef83e29069072fccac00ece50fb37b09745921612faefae6576b1_1280.jpg",
-    "candidate_id": "pixabay:6817258",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/dish-chinese-cuisine-bowl-food-6817258/",
-    "author": "zhangtingzhi",
-    "author_url": "https://pixabay.com/users/zhangtingzhi-21381025/",
-    "description": "dish, chinese cuisine, bowl, food, yunan rice vermicelli, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine",
-    "query": "vietnamese rice vermicelli vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697671/vegetmealplan/seed/bun-ca-ri-chay.jpg",
+    "original_url": "http://cdn.hstatic.net/files/200000700229/article/cach-nau-ca-ri-chay-1_dc08428724b047b4abf90384ec589250.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bún cà ri chay"
   },
   "Phở chay": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274044/vegetmealplan/seed/pho-chay.jpg",
@@ -124,17 +100,11 @@
     "match": "generic"
   },
   "Phở xào nấm chay": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274044/vegetmealplan/seed/pho-xao-nam-chay.jpg",
-    "original_url": "https://pixabay.com/get/g479c93c4b093da8a9d26ec1f6698429be10dc7a9ecf29c4b9443e032e8dd0869760fdd8ab9f9cea185dc2946badb7649e918f49738d7d483fe8403729b3bb927_1280.jpg",
-    "candidate_id": "pixabay:928198",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/rice-noodles-vietnamese-food-pho-928198/",
-    "author": "TapisRouge",
-    "author_url": "https://pixabay.com/users/TapisRouge-1231926/",
-    "description": "rice noodles, vietnamese food, pho, diet food, diet, exotic, vietnamese food, vietnamese food, pho, pho, pho, pho, pho",
-    "query": "pho noodle soup vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697738/vegetmealplan/seed/pho-xao-nam-chay.jpg",
+    "original_url": "https://www.huongnghiepaau.com/wp-content/uploads/2017/11/6c8bb439f78d2818cf0a18b679522b8a.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Phở xào nấm chay"
   },
   "Hủ tiếu chay": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274044/vegetmealplan/seed/hu-tieu-chay.jpg",
@@ -173,17 +143,11 @@
     "match": "generic"
   },
   "Mì Quảng nấm đậu hũ": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274045/vegetmealplan/seed/mi-quang-nam-dau-hu.jpg",
-    "original_url": "https://pixabay.com/get/g2a40519ab2d13c24dfd97d4a42e5b7399b85dd1a61e26af6141cf5be62ce36fa79d79859ba00c91952020b691d7393df80c259af8b63d70ee5efdb3062956c36_1280.jpg",
-    "candidate_id": "pixabay:704681",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/vegetarian-rice-noodle-vietnam-704681/",
-    "author": "Thutruongvn",
-    "author_url": "https://pixabay.com/users/Thutruongvn-903325/",
-    "description": "vegetarian, rice noodle, vietnam, asian, food, meal, cuisine, cooking, homemade, bunrieuchay, vegetable, diet, vietnam, meal, cooking, diet, diet, diet, diet, diet",
-    "query": "vietnamese noodles vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697715/vegetmealplan/seed/mi-quang-nam-dau-hu.jpg",
+    "original_url": "https://storage.googleapis.com/onelife-public/blog.onelife.vn/2021/11/cach-lam-mi-quang-nam-chay-mon-chay-675393264206.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Mì Quảng nấm đậu hũ"
   },
   "Bánh canh nấm chay": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274045/vegetmealplan/seed/banh-canh-nam-chay.jpg",
@@ -222,17 +186,11 @@
     "match": "generic"
   },
   "Cháo nấm rơm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274046/vegetmealplan/seed/chao-nam-rom.jpg",
-    "original_url": "https://pixabay.com/get/g287ede4189e8917183134257ff0cb2f3d3bbb370ca87af6a44410762d2d462bc3ad55be206d031638fc1b8dab7d5c34f8ca0010b36704b03de1725dc0c66281b_1280.jpg",
-    "candidate_id": "pixabay:6247129",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/kola-kanda-soup-food-dish-6247129/",
-    "author": "KavindaF",
-    "author_url": "https://pixabay.com/users/KavindaF-15230228/",
-    "description": "kola kanda, soup, food, dish, traditional, herbal congee, green soup, healthy, nature, vegetable, mint, meal, vegetarian, leaf, herbal, appetizer, porridge, sri lankan, bowl, closeup",
-    "query": "congee rice porridge vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697760/vegetmealplan/seed/chao-nam-rom.jpg",
+    "original_url": "http://cdn.hstatic.net/files/200000700229/article/cach-nau-chao-chay-1_8feb642b42c34951a69f8b99fdef514e.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Cháo nấm rơm"
   },
   "Cháo bí đỏ": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274047/vegetmealplan/seed/chao-bi-do.jpg",
@@ -247,56 +205,32 @@
     "match": "exact"
   },
   "Cháo yến mạch rau củ": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274047/vegetmealplan/seed/chao-yen-mach-rau-cu.jpg",
-    "original_url": "https://pixabay.com/get/g287ede4189e8917183134257ff0cb2f3d3bbb370ca87af6a44410762d2d462bc3ad55be206d031638fc1b8dab7d5c34f8ca0010b36704b03de1725dc0c66281b_1280.jpg",
-    "candidate_id": "pixabay:6247129",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/kola-kanda-soup-food-dish-6247129/",
-    "author": "KavindaF",
-    "author_url": "https://pixabay.com/users/KavindaF-15230228/",
-    "description": "kola kanda, soup, food, dish, traditional, herbal congee, green soup, healthy, nature, vegetable, mint, meal, vegetarian, leaf, herbal, appetizer, porridge, sri lankan, bowl, closeup",
-    "query": "congee rice porridge vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697766/vegetmealplan/seed/chao-yen-mach-rau-cu.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/07/CookProduct/Untitled-3-1200x676-15.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Cháo yến mạch rau củ"
   },
   "Cháo đậu đen": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274047/vegetmealplan/seed/chao-dau-den.jpg",
-    "original_url": "https://pixabay.com/get/g287ede4189e8917183134257ff0cb2f3d3bbb370ca87af6a44410762d2d462bc3ad55be206d031638fc1b8dab7d5c34f8ca0010b36704b03de1725dc0c66281b_1280.jpg",
-    "candidate_id": "pixabay:6247129",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/kola-kanda-soup-food-dish-6247129/",
-    "author": "KavindaF",
-    "author_url": "https://pixabay.com/users/KavindaF-15230228/",
-    "description": "kola kanda, soup, food, dish, traditional, herbal congee, green soup, healthy, nature, vegetable, mint, meal, vegetarian, leaf, herbal, appetizer, porridge, sri lankan, bowl, closeup",
-    "query": "congee rice porridge vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697775/vegetmealplan/seed/chao-dau-den.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/09/CookRecipe/Avatar/chao-dau-den-thumbnail.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Cháo đậu đen"
   },
   "Cháo hạt sen táo tàu": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274048/vegetmealplan/seed/chao-hat-sen-tao-tau.jpg",
-    "original_url": "https://pixabay.com/get/g287ede4189e8917183134257ff0cb2f3d3bbb370ca87af6a44410762d2d462bc3ad55be206d031638fc1b8dab7d5c34f8ca0010b36704b03de1725dc0c66281b_1280.jpg",
-    "candidate_id": "pixabay:6247129",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/kola-kanda-soup-food-dish-6247129/",
-    "author": "KavindaF",
-    "author_url": "https://pixabay.com/users/KavindaF-15230228/",
-    "description": "kola kanda, soup, food, dish, traditional, herbal congee, green soup, healthy, nature, vegetable, mint, meal, vegetarian, leaf, herbal, appetizer, porridge, sri lankan, bowl, closeup",
-    "query": "congee rice porridge vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697779/vegetmealplan/seed/chao-hat-sen-tao-tau.jpg",
+    "original_url": "https://cdn.tgdd.vn/2025/09/CookRecipe/GalleryStep/thanh-pham-167.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Cháo hạt sen táo tàu"
   },
   "Cháo khoai lang đậu phộng": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274048/vegetmealplan/seed/chao-khoai-lang-dau-phong.jpg",
-    "original_url": "https://pixabay.com/get/g287ede4189e8917183134257ff0cb2f3d3bbb370ca87af6a44410762d2d462bc3ad55be206d031638fc1b8dab7d5c34f8ca0010b36704b03de1725dc0c66281b_1280.jpg",
-    "candidate_id": "pixabay:6247129",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/kola-kanda-soup-food-dish-6247129/",
-    "author": "KavindaF",
-    "author_url": "https://pixabay.com/users/KavindaF-15230228/",
-    "description": "kola kanda, soup, food, dish, traditional, herbal congee, green soup, healthy, nature, vegetable, mint, meal, vegetarian, leaf, herbal, appetizer, porridge, sri lankan, bowl, closeup",
-    "query": "congee rice porridge vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697783/vegetmealplan/seed/chao-khoai-lang-dau-phong.jpg",
+    "original_url": "https://storage.googleapis.com/onelife-public/blog.onelife.vn/2021/11/cach-lam-chao-khoai-lang-dinh-duong-mon-chay-727913856741.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Cháo khoai lang đậu phộng"
   },
   "Cháo bắp": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274048/vegetmealplan/seed/chao-bap.jpg",
@@ -311,59 +245,32 @@
     "match": "exact"
   },
   "Cháo gạo lứt đậu hũ nấm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274048/vegetmealplan/seed/chao-gao-lut-dau-hu-nam.jpg",
-    "original_url": "https://pixabay.com/get/g287ede4189e8917183134257ff0cb2f3d3bbb370ca87af6a44410762d2d462bc3ad55be206d031638fc1b8dab7d5c34f8ca0010b36704b03de1725dc0c66281b_1280.jpg",
-    "candidate_id": "pixabay:6247129",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/kola-kanda-soup-food-dish-6247129/",
-    "author": "KavindaF",
-    "author_url": "https://pixabay.com/users/KavindaF-15230228/",
-    "description": "kola kanda, soup, food, dish, traditional, herbal congee, green soup, healthy, nature, vegetable, mint, meal, vegetarian, leaf, herbal, appetizer, porridge, sri lankan, bowl, closeup",
-    "query": "congee rice porridge vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697790/vegetmealplan/seed/chao-gao-lut-dau-hu-nam.jpg",
+    "original_url": "https://bizweb.dktcdn.net/100/495/560/files/z5007874225360-667261c6e194fea953699343273e700e.jpg?v=1703492238329",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Cháo gạo lứt đậu hũ nấm"
   },
   "Cháo rau củ thập cẩm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274049/vegetmealplan/seed/chao-rau-cu-thap-cam.jpg",
-    "original_url": "https://pixabay.com/get/g287ede4189e8917183134257ff0cb2f3d3bbb370ca87af6a44410762d2d462bc3ad55be206d031638fc1b8dab7d5c34f8ca0010b36704b03de1725dc0c66281b_1280.jpg",
-    "candidate_id": "pixabay:6247129",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/kola-kanda-soup-food-dish-6247129/",
-    "author": "KavindaF",
-    "author_url": "https://pixabay.com/users/KavindaF-15230228/",
-    "description": "kola kanda, soup, food, dish, traditional, herbal congee, green soup, healthy, nature, vegetable, mint, meal, vegetarian, leaf, herbal, appetizer, porridge, sri lankan, bowl, closeup",
-    "query": "congee rice porridge vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697794/vegetmealplan/seed/chao-rau-cu-thap-cam.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/07/content/Webp.net-resizeimage(1)-800x800.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Cháo rau củ thập cẩm"
   },
   "Cháo đậu hũ non rong biển": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274049/vegetmealplan/seed/chao-dau-hu-non-rong-bien.jpg",
-    "original_url": "https://pixabay.com/get/g287ede4189e8917183134257ff0cb2f3d3bbb370ca87af6a44410762d2d462bc3ad55be206d031638fc1b8dab7d5c34f8ca0010b36704b03de1725dc0c66281b_1280.jpg",
-    "candidate_id": "pixabay:6247129",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/kola-kanda-soup-food-dish-6247129/",
-    "author": "KavindaF",
-    "author_url": "https://pixabay.com/users/KavindaF-15230228/",
-    "description": "kola kanda, soup, food, dish, traditional, herbal congee, green soup, healthy, nature, vegetable, mint, meal, vegetarian, leaf, herbal, appetizer, porridge, sri lankan, bowl, closeup",
-    "query": "congee rice porridge vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697800/vegetmealplan/seed/chao-dau-hu-non-rong-bien.png",
+    "original_url": "https://cooponline.vn/tin-tuc/wp-content/uploads/2025/10/canh-rong-bien-dau-hu-mon-chay-thanh-dam-de-nau.png",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Cháo đậu hũ non rong biển"
   },
   "Cháo trắng muối mè": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274049/vegetmealplan/seed/chao-trang-muoi-me.jpg",
-    "original_url": "https://pixabay.com/get/g287ede4189e8917183134257ff0cb2f3d3bbb370ca87af6a44410762d2d462bc3ad55be206d031638fc1b8dab7d5c34f8ca0010b36704b03de1725dc0c66281b_1280.jpg",
-    "candidate_id": "pixabay:6247129",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/kola-kanda-soup-food-dish-6247129/",
-    "author": "KavindaF",
-    "author_url": "https://pixabay.com/users/KavindaF-15230228/",
-    "description": "kola kanda, soup, food, dish, traditional, herbal congee, green soup, healthy, nature, vegetable, mint, meal, vegetarian, leaf, herbal, appetizer, porridge, sri lankan, bowl, closeup",
-    "query": "congee rice porridge vegetarian",
-    "match": "generic",
-    "shared": true,
-    "rejected": [
-      "pixabay:7188630"
-    ]
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697806/vegetmealplan/seed/chao-trang-muoi-me.png",
+    "original_url": "https://vacationtravel.com.vn/CustomFolder/images/Mon_Chay_Vu_Lan_2.png",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Cháo trắng muối mè"
   },
   "Xôi đậu xanh": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274050/vegetmealplan/seed/xoi-dau-xanh.jpg",
@@ -414,43 +321,25 @@
     "match": "generic"
   },
   "Xôi vò chay": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274050/vegetmealplan/seed/xoi-vo-chay.jpg",
-    "original_url": "https://pixabay.com/get/g70496e0597e886ae991299856a66c30e70bee1f5a6296255dfcff212a246cc9c7696c5d3015ba1220ec1fcfca4214def61a98f135682d96a3de5bf85d650b89e_1280.jpg",
-    "candidate_id": "pixabay:6088849",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/cooking-rice-kitchen-glutinous-rice-6088849/",
-    "author": "mathee",
-    "author_url": "https://pixabay.com/users/mathee-3175449/",
-    "description": "cooking, rice, kitchen, glutinous rice, sticky rice, sticky, food, organic, delicious, cook, closeup, glutinous rice, sticky rice, sticky rice, sticky rice, sticky rice, sticky rice",
-    "query": "sticky rice vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697845/vegetmealplan/seed/xoi-vo-chay.jpg",
+    "original_url": "https://kinhdoamthuc.com/wp-content/uploads/2024/12/104.-Xoi-vo-tom-chay-%E2%80%93-Mon-an-dam-hon-cot-Hue.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Xôi vò chay"
   },
   "Xôi nấm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274050/vegetmealplan/seed/xoi-nam.jpg",
-    "original_url": "https://pixabay.com/get/g70496e0597e886ae991299856a66c30e70bee1f5a6296255dfcff212a246cc9c7696c5d3015ba1220ec1fcfca4214def61a98f135682d96a3de5bf85d650b89e_1280.jpg",
-    "candidate_id": "pixabay:6088849",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/cooking-rice-kitchen-glutinous-rice-6088849/",
-    "author": "mathee",
-    "author_url": "https://pixabay.com/users/mathee-3175449/",
-    "description": "cooking, rice, kitchen, glutinous rice, sticky rice, sticky, food, organic, delicious, cook, closeup, glutinous rice, sticky rice, sticky rice, sticky rice, sticky rice, sticky rice",
-    "query": "sticky rice vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697850/vegetmealplan/seed/xoi-nam.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/12/CookRecipe/GalleryStep/thanh-pham-191.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Xôi nấm"
   },
   "Xôi khoai môn": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274051/vegetmealplan/seed/xoi-khoai-mon.jpg",
-    "original_url": "https://pixabay.com/get/g70496e0597e886ae991299856a66c30e70bee1f5a6296255dfcff212a246cc9c7696c5d3015ba1220ec1fcfca4214def61a98f135682d96a3de5bf85d650b89e_1280.jpg",
-    "candidate_id": "pixabay:6088849",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/cooking-rice-kitchen-glutinous-rice-6088849/",
-    "author": "mathee",
-    "author_url": "https://pixabay.com/users/mathee-3175449/",
-    "description": "cooking, rice, kitchen, glutinous rice, sticky rice, sticky, food, organic, delicious, cook, closeup, glutinous rice, sticky rice, sticky rice, sticky rice, sticky rice, sticky rice",
-    "query": "sticky rice vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697854/vegetmealplan/seed/xoi-khoai-mon.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/01/CookProduct/BeFunky-collage-2021-01-20T103818.301-1200x676-1200x662.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Xôi khoai môn"
   },
   "Xôi dừa lá dứa": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274052/vegetmealplan/seed/xoi-dua-la-dua.jpg",
@@ -465,17 +354,11 @@
     "match": "similar"
   },
   "Xôi hạt sen": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274052/vegetmealplan/seed/xoi-hat-sen.jpg",
-    "original_url": "https://pixabay.com/get/g70496e0597e886ae991299856a66c30e70bee1f5a6296255dfcff212a246cc9c7696c5d3015ba1220ec1fcfca4214def61a98f135682d96a3de5bf85d650b89e_1280.jpg",
-    "candidate_id": "pixabay:6088849",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/cooking-rice-kitchen-glutinous-rice-6088849/",
-    "author": "mathee",
-    "author_url": "https://pixabay.com/users/mathee-3175449/",
-    "description": "cooking, rice, kitchen, glutinous rice, sticky rice, sticky, food, organic, delicious, cook, closeup, glutinous rice, sticky rice, sticky rice, sticky rice, sticky rice, sticky rice",
-    "query": "sticky rice vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697859/vegetmealplan/seed/xoi-hat-sen.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/12/CookProduct/thanhpham1-1200x675-1.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Xôi hạt sen"
   },
   "Bánh mì đậu hũ sốt cà chua": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274052/vegetmealplan/seed/banh-mi-dau-hu-sot-ca-chua.jpg",
@@ -874,17 +757,11 @@
     "match": "exact"
   },
   "Xôi lá cẩm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274060/vegetmealplan/seed/xoi-la-cam.jpg",
-    "original_url": "https://pixabay.com/get/g70496e0597e886ae991299856a66c30e70bee1f5a6296255dfcff212a246cc9c7696c5d3015ba1220ec1fcfca4214def61a98f135682d96a3de5bf85d650b89e_1280.jpg",
-    "candidate_id": "pixabay:6088849",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/cooking-rice-kitchen-glutinous-rice-6088849/",
-    "author": "mathee",
-    "author_url": "https://pixabay.com/users/mathee-3175449/",
-    "description": "cooking, rice, kitchen, glutinous rice, sticky rice, sticky, food, organic, delicious, cook, closeup, glutinous rice, sticky rice, sticky rice, sticky rice, sticky rice, sticky rice",
-    "query": "sticky rice vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697863/vegetmealplan/seed/xoi-la-cam.jpg",
+    "original_url": "https://storage.googleapis.com/onelife-public/blog.onelife.vn/2021/11/cach-lam-xoi-la-cam-djon-gian-mon-chay-553163216463.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Xôi lá cẩm"
   },
   "Nước chanh": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274061/vegetmealplan/seed/nuoc-chanh.jpg",
@@ -1007,16 +884,11 @@
     "match": "exact"
   },
   "Sữa óc chó hạt điều": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274063/vegetmealplan/seed/sua-oc-cho-hat-dieu.jpg",
-    "original_url": "https://pixabay.com/get/gc37b6d1f235c0434416a2a0df53a6b70d3cec4dfa4a861b8f59ef3ffd9fb95551bea3f7d0e17dbe1155bcaf276941779c346508c8595a9794ea4c1f463b0a2e9_1280.jpg",
-    "candidate_id": "pixabay:3348763",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/th%E1%BB%B1c-ph%E1%BA%A9m-b%E1%BB%AFa-%C4%83n-s%C3%A1ng-kh%E1%BB%8Fe-m%E1%BA%A1nh-3348763/",
-    "author": "shesung",
-    "author_url": "https://pixabay.com/users/shesung-5448832/",
-    "description": "thực phẩm, bữa ăn sáng, khỏe mạnh, giải khát, thơm ngon, mới, món tráng miệng, sành ăn, hoa quả, uống, trái cây, táo, sữa chua, sữa",
-    "query": "Sữa óc chó hạt điều",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697907/vegetmealplan/seed/sua-oc-cho-hat-dieu.jpg",
+    "original_url": "https://hatdieu.org/storage/images/rceBufL8Pl7dQzgCYw3qOquV9wW5FQBLoMdpos17.jpeg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Sữa óc chó hạt điều"
   },
   "Sữa gạo lứt": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696697/vegetmealplan/seed/sua-gao-lut.jpg",
@@ -1385,16 +1257,11 @@
     ]
   },
   "Chè đậu đen": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274071/vegetmealplan/seed/che-dau-den.jpg",
-    "original_url": "https://pixabay.com/get/ge49f628f1bf2a13d1215fa1df4d2c73b71c29a8347ccdc3f8f8fccd13ecdecbc5ef21a854fd7e445219135c007350cc35c995d017ec4cf5b81d94400138d85da_1280.jpg",
-    "candidate_id": "pixabay:2367029",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/watermelon-berry-fruit-heart-2367029/",
-    "author": "silviarita",
-    "author_url": "https://pixabay.com/users/silviarita-3142410/",
-    "description": "watermelon, berry, fruit, nature, heart, blueberries, blackberries, raspberries, fresh, ripe, organic, vitamins, detoxify, diet, healthy, dessert, summer, food, cookie cutter, vegetarian, fructose",
-    "query": "sweet dessert soup vegetarian",
-    "match": "generic"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697911/vegetmealplan/seed/che-dau-den.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/11/CookRecipe/GalleryStep/thanh-pham-909.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Chè đậu đen"
   },
   "Chè đậu đỏ": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274071/vegetmealplan/seed/che-dau-do.jpg",
@@ -1493,30 +1360,18 @@
     "match": "generic"
   },
   "Chè hạt sen long nhãn": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274073/vegetmealplan/seed/che-hat-sen-long-nhan.jpg",
-    "original_url": "https://pixabay.com/get/g1185d4e3bd48abb0326311c582ea38a1daf90f2c726ccc39409272ea020f55aecb3a402ea7b773c6967f917998af5028ab5767227396be94e5de887c2f59292f_1280.jpg",
-    "candidate_id": "pixabay:2367029",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/watermelon-berry-fruit-heart-2367029/",
-    "author": "silviarita",
-    "author_url": "https://pixabay.com/users/silviarita-3142410/",
-    "description": "watermelon, berry, fruit, nature, heart, blueberries, blackberries, raspberries, fresh, ripe, organic, vitamins, detoxify, diet, healthy, dessert, summer, food, cookie cutter, vegetarian, fructose",
-    "query": "sweet dessert soup vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697916/vegetmealplan/seed/che-hat-sen-long-nhan.jpg",
+    "original_url": "https://cdn.tgdd.vn/2022/07/CookRecipe/GalleryStep/thanh-pham-231.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Chè hạt sen long nhãn"
   },
   "Chè sương sa hạt lựu": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274073/vegetmealplan/seed/che-suong-sa-hat-luu.jpg",
-    "original_url": "https://pixabay.com/get/g1185d4e3bd48abb0326311c582ea38a1daf90f2c726ccc39409272ea020f55aecb3a402ea7b773c6967f917998af5028ab5767227396be94e5de887c2f59292f_1280.jpg",
-    "candidate_id": "pixabay:2367029",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/watermelon-berry-fruit-heart-2367029/",
-    "author": "silviarita",
-    "author_url": "https://pixabay.com/users/silviarita-3142410/",
-    "description": "watermelon, berry, fruit, nature, heart, blueberries, blackberries, raspberries, fresh, ripe, organic, vitamins, detoxify, diet, healthy, dessert, summer, food, cookie cutter, vegetarian, fructose",
-    "query": "sweet dessert soup vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697920/vegetmealplan/seed/che-suong-sa-hat-luu.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/05/CookRecipe/Avatar/che-suong-sa-hat-luu-thumbnail-2.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Chè sương sa hạt lựu"
   },
   "Chè trôi nước": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274074/vegetmealplan/seed/che-troi-nuoc.jpg",
@@ -1531,17 +1386,11 @@
     "match": "exact"
   },
   "Chè khúc bạch chay": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274074/vegetmealplan/seed/che-khuc-bach-chay.jpg",
-    "original_url": "https://pixabay.com/get/g1185d4e3bd48abb0326311c582ea38a1daf90f2c726ccc39409272ea020f55aecb3a402ea7b773c6967f917998af5028ab5767227396be94e5de887c2f59292f_1280.jpg",
-    "candidate_id": "pixabay:2367029",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/watermelon-berry-fruit-heart-2367029/",
-    "author": "silviarita",
-    "author_url": "https://pixabay.com/users/silviarita-3142410/",
-    "description": "watermelon, berry, fruit, nature, heart, blueberries, blackberries, raspberries, fresh, ripe, organic, vitamins, detoxify, diet, healthy, dessert, summer, food, cookie cutter, vegetarian, fructose",
-    "query": "sweet dessert soup vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697925/vegetmealplan/seed/che-khuc-bach-chay.jpg",
+    "original_url": "https://www.huongnghiepaau.com/wp-content/uploads/2018/10/7e0feeb0584723e7cfbf97a16fb58574.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Chè khúc bạch chay"
   },
   "Chè hạt chia xoài": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274074/vegetmealplan/seed/che-hat-chia-xoai.jpg",
@@ -1556,56 +1405,32 @@
     "match": "similar"
   },
   "Chè đậu ván": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274074/vegetmealplan/seed/che-dau-van.jpg",
-    "original_url": "https://pixabay.com/get/g1185d4e3bd48abb0326311c582ea38a1daf90f2c726ccc39409272ea020f55aecb3a402ea7b773c6967f917998af5028ab5767227396be94e5de887c2f59292f_1280.jpg",
-    "candidate_id": "pixabay:2367029",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/watermelon-berry-fruit-heart-2367029/",
-    "author": "silviarita",
-    "author_url": "https://pixabay.com/users/silviarita-3142410/",
-    "description": "watermelon, berry, fruit, nature, heart, blueberries, blackberries, raspberries, fresh, ripe, organic, vitamins, detoxify, diet, healthy, dessert, summer, food, cookie cutter, vegetarian, fructose",
-    "query": "sweet dessert soup vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697933/vegetmealplan/seed/che-dau-van.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/10/CookProductThumb/chedauvan1-620x620.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Chè đậu ván"
   },
   "Chè mè đen": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274075/vegetmealplan/seed/che-me-den.jpg",
-    "original_url": "https://pixabay.com/get/g1185d4e3bd48abb0326311c582ea38a1daf90f2c726ccc39409272ea020f55aecb3a402ea7b773c6967f917998af5028ab5767227396be94e5de887c2f59292f_1280.jpg",
-    "candidate_id": "pixabay:2367029",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/watermelon-berry-fruit-heart-2367029/",
-    "author": "silviarita",
-    "author_url": "https://pixabay.com/users/silviarita-3142410/",
-    "description": "watermelon, berry, fruit, nature, heart, blueberries, blackberries, raspberries, fresh, ripe, organic, vitamins, detoxify, diet, healthy, dessert, summer, food, cookie cutter, vegetarian, fructose",
-    "query": "sweet dessert soup vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697937/vegetmealplan/seed/che-me-den.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/09/CookRecipe/Avatar/che-me-den-dua-thumbnail.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Chè mè đen"
   },
   "Chè bột lọc đậu xanh": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274075/vegetmealplan/seed/che-bot-loc-dau-xanh.jpg",
-    "original_url": "https://pixabay.com/get/g1185d4e3bd48abb0326311c582ea38a1daf90f2c726ccc39409272ea020f55aecb3a402ea7b773c6967f917998af5028ab5767227396be94e5de887c2f59292f_1280.jpg",
-    "candidate_id": "pixabay:2367029",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/watermelon-berry-fruit-heart-2367029/",
-    "author": "silviarita",
-    "author_url": "https://pixabay.com/users/silviarita-3142410/",
-    "description": "watermelon, berry, fruit, nature, heart, blueberries, blackberries, raspberries, fresh, ripe, organic, vitamins, detoxify, diet, healthy, dessert, summer, food, cookie cutter, vegetarian, fructose",
-    "query": "sweet dessert soup vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697943/vegetmealplan/seed/che-bot-loc-dau-xanh.jpg",
+    "original_url": "https://daylambanh.edu.vn/wp-content/uploads/2019/12/banh-bot-loc-chay.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Chè bột lọc đậu xanh"
   },
   "Chè khoai môn": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274075/vegetmealplan/seed/che-khoai-mon.jpg",
-    "original_url": "https://pixabay.com/get/g1185d4e3bd48abb0326311c582ea38a1daf90f2c726ccc39409272ea020f55aecb3a402ea7b773c6967f917998af5028ab5767227396be94e5de887c2f59292f_1280.jpg",
-    "candidate_id": "pixabay:2367029",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/watermelon-berry-fruit-heart-2367029/",
-    "author": "silviarita",
-    "author_url": "https://pixabay.com/users/silviarita-3142410/",
-    "description": "watermelon, berry, fruit, nature, heart, blueberries, blackberries, raspberries, fresh, ripe, organic, vitamins, detoxify, diet, healthy, dessert, summer, food, cookie cutter, vegetarian, fructose",
-    "query": "sweet dessert soup vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697948/vegetmealplan/seed/che-khoai-mon.jpg",
+    "original_url": "https://cdn.tgdd.vn/2023/07/CookDish/cach-lam-che-khoai-mon-deo-vua-dep-vua-ngon-nhin-vao-la-me-an-avt-1200x676-1.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Chè khoai môn"
   },
   "Sữa chua hoa quả": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274075/vegetmealplan/seed/sua-chua-hoa-qua.jpg",
@@ -1656,16 +1481,11 @@
     "match": "exact"
   },
   "Bánh flan đậu nành": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274076/vegetmealplan/seed/banh-flan-dau-nanh.jpg",
-    "original_url": "https://pixabay.com/get/g24056f9d5eb8d519323f104e350ab958209955e0f628acfe450710e799e3830b46d8d48a6cc8f3cbfba38d84ed8e87cfd80c218fe25cd702e26e6777679ff671_1280.jpg",
-    "candidate_id": "pixabay:7023276",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/nh%C3%A0-b%E1%BA%BFp-s%E1%BB%B1-v%E1%BA%ADt-s%E1%BB%B1-chi%E1%BA%BFu-s%C3%A1ng-khu%C3%B4n-7023276/",
-    "author": "rperucho",
-    "author_url": "https://pixabay.com/users/rperucho-7689351/",
-    "description": "nhà bếp, sự vật, sự chiếu sáng, khuôn, kết cấu, món ăn, bánh flan",
-    "query": "Bánh flan đậu nành",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697951/vegetmealplan/seed/banh-flan-dau-nanh.jpg",
+    "original_url": "https://farm8.staticflickr.com/7305/14155939483_382f8fc6ff_o.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bánh flan đậu nành"
   },
   "Rau câu dừa": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274077/vegetmealplan/seed/rau-cau-dua.jpg",
@@ -2838,56 +2658,32 @@
     "match": "generic"
   },
   "Mì căn kho": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274102/vegetmealplan/seed/mi-can-kho.jpg",
-    "original_url": "https://pixabay.com/get/g84a0073f08c56e616ffe973237f580d3e0fe58ae4374cbe82152295c2892e7fb384beb3358b11e41a13ef327a202c9046a9cc44843d0759ac0c8ba2911392da8_1280.jpg",
-    "candidate_id": "pixabay:947029",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/vegetables-healthy-grilling-seitan-947029/",
-    "author": "literaturschock",
-    "author_url": "https://pixabay.com/users/literaturschock-1084646/",
-    "description": "vegetables, healthy, grilling, seitan, fresh, food, cook, seitan, seitan, seitan, seitan, seitan",
-    "query": "seitan vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697983/vegetmealplan/seed/mi-can-kho.webp",
+    "original_url": "https://thuanchay.vn/wp-content/uploads/2024/09/mi-can-chay-6-1.webp",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Mì căn kho"
   },
   "Mì căn chiên giòn": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274103/vegetmealplan/seed/mi-can-chien-gion.jpg",
-    "original_url": "https://pixabay.com/get/g84a0073f08c56e616ffe973237f580d3e0fe58ae4374cbe82152295c2892e7fb384beb3358b11e41a13ef327a202c9046a9cc44843d0759ac0c8ba2911392da8_1280.jpg",
-    "candidate_id": "pixabay:947029",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/vegetables-healthy-grilling-seitan-947029/",
-    "author": "literaturschock",
-    "author_url": "https://pixabay.com/users/literaturschock-1084646/",
-    "description": "vegetables, healthy, grilling, seitan, fresh, food, cook, seitan, seitan, seitan, seitan, seitan",
-    "query": "seitan vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697987/vegetmealplan/seed/mi-can-chien-gion.jpg",
+    "original_url": "http://cdn.hstatic.net/files/200000700229/article/mi-can-chien-gion-sa-ot-va-nuoc-mam-chay_e53e0d8aa27d4a22bbc088279a1bbc3b.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Mì căn chiên giòn"
   },
   "Mì căn sốt chua ngọt": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274103/vegetmealplan/seed/mi-can-sot-chua-ngot.jpg",
-    "original_url": "https://pixabay.com/get/g84a0073f08c56e616ffe973237f580d3e0fe58ae4374cbe82152295c2892e7fb384beb3358b11e41a13ef327a202c9046a9cc44843d0759ac0c8ba2911392da8_1280.jpg",
-    "candidate_id": "pixabay:947029",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/vegetables-healthy-grilling-seitan-947029/",
-    "author": "literaturschock",
-    "author_url": "https://pixabay.com/users/literaturschock-1084646/",
-    "description": "vegetables, healthy, grilling, seitan, fresh, food, cook, seitan, seitan, seitan, seitan, seitan",
-    "query": "seitan vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697991/vegetmealplan/seed/mi-can-sot-chua-ngot.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/06/CookProduct/thum-1200x676-3.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Mì căn sốt chua ngọt"
   },
   "Mì căn nướng sa tế": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274103/vegetmealplan/seed/mi-can-nuong-sa-te.jpg",
-    "original_url": "https://pixabay.com/get/g84a0073f08c56e616ffe973237f580d3e0fe58ae4374cbe82152295c2892e7fb384beb3358b11e41a13ef327a202c9046a9cc44843d0759ac0c8ba2911392da8_1280.jpg",
-    "candidate_id": "pixabay:947029",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/vegetables-healthy-grilling-seitan-947029/",
-    "author": "literaturschock",
-    "author_url": "https://pixabay.com/users/literaturschock-1084646/",
-    "description": "vegetables, healthy, grilling, seitan, fresh, food, cook, seitan, seitan, seitan, seitan, seitan",
-    "query": "seitan vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697996/vegetmealplan/seed/mi-can-nuong-sa-te.jpg",
+    "original_url": "https://cdn.tgdd.vn/Files/2020/03/13/1241802/3-cach-lam-mon-mi-can-chay-thom-ngon-dam-da-huong-vi-an-la-ghien-2.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Mì căn nướng sa tế"
   },
   "Chả mì căn": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793696703/vegetmealplan/seed/cha-mi-can.jpg",
@@ -2909,30 +2705,18 @@
     "match": "similar"
   },
   "Tàu hũ ky cuộn nấm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274104/vegetmealplan/seed/tau-hu-ky-cuon-nam.jpg",
-    "original_url": "https://pixabay.com/get/g4e762b6bcd541b87907dc21efdb7e9774b5a09c1f67bd93dca9d9599340c17d10fcb34815fcbce920017df44d84a2dd9b43c28704c39b37afae032bbd9141c04_1280.jpg",
-    "candidate_id": "pixabay:7209002",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/pasta-coriander-salad-food-dish-7209002/",
-    "author": "joannawielgosz",
-    "author_url": "https://pixabay.com/users/joannawielgosz-168212/",
-    "description": "pasta, coriander, salad, food, dish, tofu, meal, pasta, salad, salad, salad, salad, salad, food, tofu",
-    "query": "tofu skin vegetarian dish",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697954/vegetmealplan/seed/tau-hu-ky-cuon-nam.jpg",
+    "original_url": "https://storage.googleapis.com/onelife-public/blog.onelife.vn/2021/11/cach-lam-tau-hu-ky-cuon-nam-rau-cu-hap-mon-chay-653465644618.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Tàu hũ ky cuộn nấm"
   },
   "Tàu hũ ky xào cải": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274104/vegetmealplan/seed/tau-hu-ky-xao-cai.jpg",
-    "original_url": "https://pixabay.com/get/g4e762b6bcd541b87907dc21efdb7e9774b5a09c1f67bd93dca9d9599340c17d10fcb34815fcbce920017df44d84a2dd9b43c28704c39b37afae032bbd9141c04_1280.jpg",
-    "candidate_id": "pixabay:7209002",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/pasta-coriander-salad-food-dish-7209002/",
-    "author": "joannawielgosz",
-    "author_url": "https://pixabay.com/users/joannawielgosz-168212/",
-    "description": "pasta, coriander, salad, food, dish, tofu, meal, pasta, salad, salad, salad, salad, salad, food, tofu",
-    "query": "tofu skin vegetarian dish",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697963/vegetmealplan/seed/tau-hu-ky-xao-cai.jpg",
+    "original_url": "https://storage.googleapis.com/onelife-public/blog.onelife.vn/2021/11/cach-lam-bap-cai-xao-tau-hu-ky-mon-chay-179265271827.jpeg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Tàu hũ ky xào cải"
   },
   "Tàu hũ ky kho tiêu": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274105/vegetmealplan/seed/tau-hu-ky-kho-tieu.jpg",
@@ -3272,17 +3056,11 @@
     "match": "similar"
   },
   "Chả cá chay": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274112/vegetmealplan/seed/cha-ca-chay.jpg",
-    "original_url": "https://pixabay.com/get/g92d35fb91aef5524bb70679ba673de6b1703e9147b9209d18fb86bb2bfa55beeb7ffe4e9ff24e5af86ef1a08890e3b19fd27f40ca6b9223ea4b806a9a41248e3_1280.jpg",
-    "candidate_id": "pixabay:7209002",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/pasta-coriander-salad-food-dish-7209002/",
-    "author": "joannawielgosz",
-    "author_url": "https://pixabay.com/users/joannawielgosz-168212/",
-    "description": "pasta, coriander, salad, food, dish, tofu, meal, pasta, salad, salad, salad, salad, salad, food, tofu",
-    "query": "tofu vegetarian dish",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697972/vegetmealplan/seed/cha-ca-chay.jpg",
+    "original_url": "https://cdn.tgdd.vn/Files/2020/03/26/1244585/2-cach-lam-cha-ca-chay-thom-ngon-don-gian-de-lam--23-760x367.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Chả cá chay"
   },
   "Chả nấm": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274113/vegetmealplan/seed/cha-nam.jpg",
@@ -4113,16 +3891,11 @@
     "match": "generic"
   },
   "Canh bắp cải cuộn": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274131/vegetmealplan/seed/canh-bap-cai-cuon.jpg",
-    "original_url": "https://pixabay.com/get/gd4c60bce97930cd696d9e5f40d6fd3e7ab2282ceb7085620c218c2e805e216afd6b7a9385864f76e961edea69d3120d89f4003727fb53ec3f396513ef748c88a_1280.jpg",
-    "candidate_id": "pixabay:3722517",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/b%E1%BA%AFp-c%E1%BA%A3i-th%E1%BA%A3o-m%E1%BB%99c-th%E1%BA%A3o-m%E1%BB%99c-tr%E1%BA%AFng-3722517/",
-    "author": "ulleo",
-    "author_url": "https://pixabay.com/users/ulleo-1834854/",
-    "description": "bắp cải, thảo mộc, thảo mộc trắng, canh tác, rau, khỏe mạnh, vitamin, các loại rau mùa đông, thiên nhiên, ăn chay, người ăn chay, bắp cải lĩnh vực, màu xanh lá, món ăn, nông nghiệp, rau bắp cải, lá, tươi",
-    "query": "Canh bắp cải cuộn",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698001/vegetmealplan/seed/canh-bap-cai-cuon.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/01/CookRecipe/Avatar/mi-quang-tron-chay-thumbnail.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Canh bắp cải cuộn"
   },
   "Canh thập cẩm": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274131/vegetmealplan/seed/canh-thap-cam.jpg",
@@ -4281,16 +4054,11 @@
     "match": "similar"
   },
   "Cháo súp bắp": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274135/vegetmealplan/seed/chao-sup-bap.jpg",
-    "original_url": "https://pixabay.com/get/g7f94b67ae5cd71cd3433b5367573fae0873d2005efd617dd5726353c293186fc16f3ef59c95d748ffdc578e9231c89ab362796e4ec2628b9361f26d8f6c85556_1280.jpg",
-    "candidate_id": "pixabay:7632960",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/ng%C3%B4-ch%C3%A1o-ng%C3%B4-polenta-b%C3%A1nh-b%E1%BA%AFp-7632960/",
-    "author": "Bru-nO",
-    "author_url": "https://pixabay.com/users/Bru-nO-1161770/",
-    "description": "ngô, cháo ngô, polenta, bánh bắp, soong ngô, bữa ăn, món ăn, cacbohydrat, sự nuôi dưỡng",
-    "query": "Cháo súp bắp",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697836/vegetmealplan/seed/chao-sup-bap.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/09/CookProduct/Untitled-2-Recovered-1200x676-13.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Cháo súp bắp"
   },
   "Gỏi cuốn chay": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274135/vegetmealplan/seed/goi-cuon-chay.jpg",
@@ -4317,40 +4085,25 @@
     "match": "exact"
   },
   "Gỏi cuốn bơ": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274136/vegetmealplan/seed/goi-cuon-bo.jpg",
-    "original_url": "https://pixabay.com/get/gb2e8436906acbd6af81534956d7c9a8bcb55875c32ec6f9fdaf831e32d1bb537227a758dd9646c8b42d4f75b3b771f142708c0245f80bda9e9642af1e72211b2_1280.jpg",
-    "candidate_id": "pixabay:5921496",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/ch%E1%BA%A3-gi%C3%B2-th%C3%A0nh-ph%E1%BA%A7n-th%E1%BB%9Bt-rau-cu%E1%BB%99n-5921496/",
-    "author": "sontung57",
-    "author_url": "https://pixabay.com/users/sontung57-19733131/",
-    "description": "chả giò, thành phần, thớt, rau, cuộn, món ăn, ẩm thực, ngon, thơm ngon, cuộn mùa hè, truyền thống, cuốn gỏi cuốn, tiếng việt, sự chuẩn bị, nhà bếp",
-    "query": "Gỏi cuốn bơ",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698058/vegetmealplan/seed/goi-cuon-bo.jpg",
+    "original_url": "https://monngonmoingay.com/wp-content/uploads/2021/01/goi-cuon-chay-cham-xot-dau-phong-500.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Gỏi cuốn bơ"
   },
   "Gỏi cuốn xoài": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274136/vegetmealplan/seed/goi-cuon-xoai.jpg",
-    "original_url": "https://pixabay.com/get/gbd82676794a0b8806a47d478e8c6cf8ec23609d546bcbdbe85de8924b751bf9a34b9bd7000dfe25d5ce290f39f6d79907f95339e45cef8a396ededec312180f8_1280.jpg",
-    "candidate_id": "pixabay:5921496",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/ch%E1%BA%A3-gi%C3%B2-th%C3%A0nh-ph%E1%BA%A7n-th%E1%BB%9Bt-rau-cu%E1%BB%99n-5921496/",
-    "author": "sontung57",
-    "author_url": "https://pixabay.com/users/sontung57-19733131/",
-    "description": "chả giò, thành phần, thớt, rau, cuộn, món ăn, ẩm thực, ngon, thơm ngon, cuộn mùa hè, truyền thống, cuốn gỏi cuốn, tiếng việt, sự chuẩn bị, nhà bếp",
-    "query": "Gỏi cuốn xoài",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698064/vegetmealplan/seed/goi-cuon-xoai.jpg",
+    "original_url": "https://chefstudio.vn/uploads/r/goi-cuon-chay-ngu-sac.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Gỏi cuốn xoài"
   },
   "Gỏi cuốn tàu hũ ky": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274136/vegetmealplan/seed/goi-cuon-tau-hu-ky.jpg",
-    "original_url": "https://pixabay.com/get/ga7ceaf55bed34aeb9d1e6f840f8312e93785fdd8b35de2ca3fd4cd2cee416d4d82a6478b041ba2d68f5867e95f93289a73309a4c8beebf3e5ccbccb9dc4eba41_1280.jpg",
-    "candidate_id": "pixabay:5921496",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/ch%E1%BA%A3-gi%C3%B2-th%C3%A0nh-ph%E1%BA%A7n-th%E1%BB%9Bt-rau-cu%E1%BB%99n-5921496/",
-    "author": "sontung57",
-    "author_url": "https://pixabay.com/users/sontung57-19733131/",
-    "description": "chả giò, thành phần, thớt, rau, cuộn, món ăn, ẩm thực, ngon, thơm ngon, cuộn mùa hè, truyền thống, cuốn gỏi cuốn, tiếng việt, sự chuẩn bị, nhà bếp",
-    "query": "Gỏi cuốn tàu hũ ky",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698069/vegetmealplan/seed/goi-cuon-tau-hu-ky.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/12/CookProduct/thumbcn-1200x676-4.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Gỏi cuốn tàu hũ ky"
   },
   "Gỏi ngó sen": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274137/vegetmealplan/seed/goi-ngo-sen.jpg",
@@ -4617,17 +4370,11 @@
     "match": "generic"
   },
   "Miến nấm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274143/vegetmealplan/seed/mien-nam.jpg",
-    "original_url": "https://pixabay.com/get/gb8c5049859c16c1968803fe9cae979b39abc1a3ea0f190c7ba6bc37a38cec65e8e76c4e8f036a2fa47f9006a3a6426f75f265e37fc566d28c894e8ed9d99448a_1280.jpg",
-    "candidate_id": "pixabay:704681",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/vegetarian-rice-noodle-vietnam-704681/",
-    "author": "Thutruongvn",
-    "author_url": "https://pixabay.com/users/Thutruongvn-903325/",
-    "description": "vegetarian, rice noodle, vietnam, asian, food, meal, cuisine, cooking, homemade, bunrieuchay, vegetable, diet, vietnam, meal, cooking, diet, diet, diet, diet, diet",
-    "query": "glass noodles vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697722/vegetmealplan/seed/mien-nam.jpg",
+    "original_url": "https://cdn.hstatic.net/files/200000700229/article/mien-xao-chay-1_3953cd03d4774eceb0af3389c8da60fe.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Miến nấm"
   },
   "Nui xào đậu hũ": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274143/vegetmealplan/seed/nui-xao-dau-hu.jpg",
@@ -4714,94 +4461,53 @@
     "match": "exact"
   },
   "Bún trộn rau củ": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274145/vegetmealplan/seed/bun-tron-rau-cu.jpg",
-    "original_url": "https://pixabay.com/get/g6ed00b2a9bfa189335bbb0bf7294fa31eac6e5e4fcd37b68b10cd091016a751ff983aacd1adef83e29069072fccac00ece50fb37b09745921612faefae6576b1_1280.jpg",
-    "candidate_id": "pixabay:6817258",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/dish-chinese-cuisine-bowl-food-6817258/",
-    "author": "zhangtingzhi",
-    "author_url": "https://pixabay.com/users/zhangtingzhi-21381025/",
-    "description": "dish, chinese cuisine, bowl, food, yunan rice vermicelli, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine",
-    "query": "vietnamese rice vermicelli vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697677/vegetmealplan/seed/bun-tron-rau-cu.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/03/CookProduct/bthum-1200x676.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bún trộn rau củ"
   },
   "Bún xào chay": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274145/vegetmealplan/seed/bun-xao-chay.jpg",
-    "original_url": "https://pixabay.com/get/gb3c58e663d0481c19a39afe30ab87904d83f9fe0aa9ce2e9feca0aa24d5d18aa8046dd912a33a7214b44f84ac81e4f6e56cd1288fc8776f8abd99f50249e896f_1280.jpg",
-    "candidate_id": "pixabay:6604591",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/c%C6%A1m-m%C3%AC-c%C3%A0-chua-b%C3%BAn-x%C3%A0o-6604591/",
-    "author": "LanneauStudio",
-    "author_url": "https://pixabay.com/users/LanneauStudio-23281423/",
-    "description": "cơm, mì, cà chua, bún xào, thức ăn nhanh, bữa trưa, quán ăn",
-    "query": "Bún xào chay",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697730/vegetmealplan/seed/bun-xao-chay.jpg",
+    "original_url": "http://cdn.hstatic.net/files/200000700229/article/cach-lam-bun-xao-chay-thumb_6ec3382974474cc5ad7ecbd3a82c2455.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bún xào chay"
   },
   "Bún kèn chay": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274145/vegetmealplan/seed/bun-ken-chay.jpg",
-    "original_url": "https://pixabay.com/get/g6ed00b2a9bfa189335bbb0bf7294fa31eac6e5e4fcd37b68b10cd091016a751ff983aacd1adef83e29069072fccac00ece50fb37b09745921612faefae6576b1_1280.jpg",
-    "candidate_id": "pixabay:6817258",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/dish-chinese-cuisine-bowl-food-6817258/",
-    "author": "zhangtingzhi",
-    "author_url": "https://pixabay.com/users/zhangtingzhi-21381025/",
-    "description": "dish, chinese cuisine, bowl, food, yunan rice vermicelli, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine",
-    "query": "vietnamese rice vermicelli vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697682/vegetmealplan/seed/bun-ken-chay.jpg",
+    "original_url": "https://cdn.tgdd.vn/Files/2020/06/22/1264856/cach-nau-bun-ken-chay-thom-ngon-sieu-don-gian-cho--11-760x367.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bún kèn chay"
   },
   "Bún nước lèo chay": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274145/vegetmealplan/seed/bun-nuoc-leo-chay.jpg",
-    "original_url": "https://pixabay.com/get/g6ed00b2a9bfa189335bbb0bf7294fa31eac6e5e4fcd37b68b10cd091016a751ff983aacd1adef83e29069072fccac00ece50fb37b09745921612faefae6576b1_1280.jpg",
-    "candidate_id": "pixabay:6817258",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/dish-chinese-cuisine-bowl-food-6817258/",
-    "author": "zhangtingzhi",
-    "author_url": "https://pixabay.com/users/zhangtingzhi-21381025/",
-    "description": "dish, chinese cuisine, bowl, food, yunan rice vermicelli, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine",
-    "query": "vietnamese rice vermicelli vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697687/vegetmealplan/seed/bun-nuoc-leo-chay.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/02/CookProduct/thumbhcn-1200x676.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bún nước lèo chay"
   },
   "Bún mắm chay": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274145/vegetmealplan/seed/bun-mam-chay.jpg",
-    "original_url": "https://pixabay.com/get/g6ed00b2a9bfa189335bbb0bf7294fa31eac6e5e4fcd37b68b10cd091016a751ff983aacd1adef83e29069072fccac00ece50fb37b09745921612faefae6576b1_1280.jpg",
-    "candidate_id": "pixabay:6817258",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/dish-chinese-cuisine-bowl-food-6817258/",
-    "author": "zhangtingzhi",
-    "author_url": "https://pixabay.com/users/zhangtingzhi-21381025/",
-    "description": "dish, chinese cuisine, bowl, food, yunan rice vermicelli, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine",
-    "query": "vietnamese rice vermicelli vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697691/vegetmealplan/seed/bun-mam-chay.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/08/CookProduct/1112-1200x676-16.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bún mắm chay"
   },
   "Bún đậu mắm tôm chay": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274146/vegetmealplan/seed/bun-dau-mam-tom-chay.jpg",
-    "original_url": "https://pixabay.com/get/g6ed00b2a9bfa189335bbb0bf7294fa31eac6e5e4fcd37b68b10cd091016a751ff983aacd1adef83e29069072fccac00ece50fb37b09745921612faefae6576b1_1280.jpg",
-    "candidate_id": "pixabay:6817258",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/dish-chinese-cuisine-bowl-food-6817258/",
-    "author": "zhangtingzhi",
-    "author_url": "https://pixabay.com/users/zhangtingzhi-21381025/",
-    "description": "dish, chinese cuisine, bowl, food, yunan rice vermicelli, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine",
-    "query": "vietnamese rice vermicelli vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697696/vegetmealplan/seed/bun-dau-mam-tom-chay.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/01/CookProduct/bundaumamtomchay-1200x676.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bún đậu mắm tôm chay"
   },
   "Bún bò Huế chay": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274146/vegetmealplan/seed/bun-bo-hue-chay.jpg",
-    "original_url": "https://pixabay.com/get/g6ed00b2a9bfa189335bbb0bf7294fa31eac6e5e4fcd37b68b10cd091016a751ff983aacd1adef83e29069072fccac00ece50fb37b09745921612faefae6576b1_1280.jpg",
-    "candidate_id": "pixabay:6817258",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/dish-chinese-cuisine-bowl-food-6817258/",
-    "author": "zhangtingzhi",
-    "author_url": "https://pixabay.com/users/zhangtingzhi-21381025/",
-    "description": "dish, chinese cuisine, bowl, food, yunan rice vermicelli, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine",
-    "query": "vietnamese rice vermicelli vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697701/vegetmealplan/seed/bun-bo-hue-chay.jpg",
+    "original_url": "https://cdn.tgdd.vn/Files/2020/04/27/1252124/cach-nau-bun-bo-hue-chay-thom-ngon-thanh-dam-dam-1.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bún bò Huế chay"
   },
   "Phở cuốn chay": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274146/vegetmealplan/seed/pho-cuon-chay.jpg",
@@ -4816,16 +4522,11 @@
     "match": "generic"
   },
   "Hủ tiếu xào chay": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274146/vegetmealplan/seed/hu-tieu-xao-chay.jpg",
-    "original_url": "https://pixabay.com/get/g58f6f33eb176b3312ae656171732c5f662c7cc3d167ce648ddea002e2e1701d99d59fb131f1d39755612cec7ab3138142b3317119e832d6b2d2d72ca305920b6_1280.jpg",
-    "candidate_id": "pixabay:5161719",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/kalguksu-m%C3%AC-m%C3%B3n-%C4%83n-%E1%BA%A9m-th%E1%BB%B1c-h%E1%BB%A7-ti%E1%BA%BFu-5161719/",
-    "author": "LeeJeongSoo",
-    "author_url": "https://pixabay.com/users/LeeJeongSoo-798401/",
-    "description": "kalguksu, mì, món ăn, ẩm thực, hủ tiếu, bát, bữa ăn, ngon, thơm ngon, hàn quốc, sự gần gũi",
-    "query": "Hủ tiếu xào chay",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697746/vegetmealplan/seed/hu-tieu-xao-chay.jpg",
+    "original_url": "http://cdn.hstatic.net/files/200000700229/article/hu-tieu-xao-chay-1_4b2df5e0c2334bb093f72b1d432bf309.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Hủ tiếu xào chay"
   },
   "Bánh canh chay nấm": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274147/vegetmealplan/seed/banh-canh-chay-nam.jpg",
@@ -4840,20 +4541,11 @@
     "match": "generic"
   },
   "Bánh hỏi nấm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274147/vegetmealplan/seed/banh-hoi-nam.jpg",
-    "original_url": "https://pixabay.com/get/g3e4410abdd72cb6a1fd3eb8852709800ca94cbdb577e02a8b8c8a48be74aa77c6d6dffbd530841bed990ea9f23f4eb627cbc341e14c28502d7e8480b900e958b_1280.jpg",
-    "candidate_id": "pixabay:6817258",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/dish-chinese-cuisine-bowl-food-6817258/",
-    "author": "zhangtingzhi",
-    "author_url": "https://pixabay.com/users/zhangtingzhi-21381025/",
-    "description": "dish, chinese cuisine, bowl, food, yunan rice vermicelli, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine",
-    "query": "rice vermicelli vegetarian",
-    "match": "generic",
-    "shared": true,
-    "rejected": [
-      "pixabay:811795"
-    ]
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697704/vegetmealplan/seed/banh-hoi-nam.jpg",
+    "original_url": "https://i.ytimg.com/vi/owcYlbhAMFE/maxresdefault.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bánh hỏi nấm"
   },
   "Bánh ướt chay": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274147/vegetmealplan/seed/banh-uot-chay.png",
@@ -4995,17 +4687,11 @@
     "match": "exact"
   },
   "Đậu hũ tứ xuyên cơm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274150/vegetmealplan/seed/dau-hu-tu-xuyen-com.jpg",
-    "original_url": "https://pixabay.com/get/g92d35fb91aef5524bb70679ba673de6b1703e9147b9209d18fb86bb2bfa55beeb7ffe4e9ff24e5af86ef1a08890e3b19fd27f40ca6b9223ea4b806a9a41248e3_1280.jpg",
-    "candidate_id": "pixabay:7209002",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/pasta-coriander-salad-food-dish-7209002/",
-    "author": "joannawielgosz",
-    "author_url": "https://pixabay.com/users/joannawielgosz-168212/",
-    "description": "pasta, coriander, salad, food, dish, tofu, meal, pasta, salad, salad, salad, salad, salad, food, tofu",
-    "query": "tofu vegetarian dish",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697977/vegetmealplan/seed/dau-hu-tu-xuyen-com.jpg",
+    "original_url": "https://cdn.tgdd.vn/2022/08/CookDishThumb/cach-lam-dau-hu-tu-xuyen-chay-thom-ngon-don-gian-t-thumb-620x620.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Đậu hũ tứ xuyên cơm"
   },
   "Burger đậu đen": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274150/vegetmealplan/seed/burger-dau-den.jpg",
@@ -5135,40 +4821,25 @@
     "match": "exact"
   },
   "Canh cải ngọt nấm rơm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274153/vegetmealplan/seed/canh-cai-ngot-nam-rom.jpg",
-    "original_url": "https://pixabay.com/get/g213eb4268104d19bcb7b6325ffe2403ab1e5b1f39e2c043c9ce7f055d44b1a853927a60002c15cec57d5c0a18d62b891662ae81344ba4fb90018a778ddbf802f_1280.jpg",
-    "candidate_id": "pixabay:3722498",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/b%E1%BA%AFp-c%E1%BA%A3i-canh-t%C3%A1c-rau-kh%E1%BB%8Fe-m%E1%BA%A1nh-3722498/",
-    "author": "ulleo",
-    "author_url": "https://pixabay.com/users/ulleo-1834854/",
-    "description": "bắp cải, canh tác, rau, khỏe mạnh, bắp cải lĩnh vực, màu xanh lá, thiên nhiên, món ăn, nông nghiệp, lá, mới",
-    "query": "Canh cải ngọt nấm rơm",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698045/vegetmealplan/seed/canh-cai-ngot-nam-rom.jpg",
+    "original_url": "https://img-global.cpcdn.com/recipes/cfba1b3fd6bafab2/300x426cq80/canh-c%E1%BA%A3i-n%E1%BA%A5m-r%C6%A1m-chay-recipe-main-photo.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Canh cải ngọt nấm rơm"
   },
   "Canh cải thìa nấm đông cô": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274153/vegetmealplan/seed/canh-cai-thia-nam-dong-co.jpg",
-    "original_url": "https://pixabay.com/get/g315c1534a7c43312b566075cb8dfdef6ae248895d367766eb98f057ae6cd90d5cea1b6e777ffe890f24be2f6ea8a7284cc16a4c04d8150c11c2993c4e486fee1_1280.jpg",
-    "candidate_id": "pixabay:3722498",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/b%E1%BA%AFp-c%E1%BA%A3i-canh-t%C3%A1c-rau-kh%E1%BB%8Fe-m%E1%BA%A1nh-3722498/",
-    "author": "ulleo",
-    "author_url": "https://pixabay.com/users/ulleo-1834854/",
-    "description": "bắp cải, canh tác, rau, khỏe mạnh, bắp cải lĩnh vực, màu xanh lá, thiên nhiên, món ăn, nông nghiệp, lá, mới",
-    "query": "Canh cải thìa nấm đông cô",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698049/vegetmealplan/seed/canh-cai-thia-nam-dong-co.jpg",
+    "original_url": "https://nhahangmocnhien.vn/wp-content/uploads/2022/03/cai_thia_xao_dong_co-scaled.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Canh cải thìa nấm đông cô"
   },
   "Canh bắp cải khoai tây": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274154/vegetmealplan/seed/canh-bap-cai-khoai-tay.jpg",
-    "original_url": "https://pixabay.com/get/gb9a30e28f80c293643a1025c349e3f8a5c7855dfbde40de4ae58fdd71ba459881ca125e237118914a3911309331103835a2edb99ce9507321265bc74653ee119_1280.jpg",
-    "candidate_id": "pixabay:3722517",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/b%E1%BA%AFp-c%E1%BA%A3i-th%E1%BA%A3o-m%E1%BB%99c-th%E1%BA%A3o-m%E1%BB%99c-tr%E1%BA%AFng-3722517/",
-    "author": "ulleo",
-    "author_url": "https://pixabay.com/users/ulleo-1834854/",
-    "description": "bắp cải, thảo mộc, thảo mộc trắng, canh tác, rau, khỏe mạnh, vitamin, các loại rau mùa đông, thiên nhiên, ăn chay, người ăn chay, bắp cải lĩnh vực, màu xanh lá, món ăn, nông nghiệp, rau bắp cải, lá, tươi",
-    "query": "Canh bắp cải khoai tây",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698005/vegetmealplan/seed/canh-bap-cai-khoai-tay.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/01/CookRecipe/Avatar/mi-quang-tron-chay-thumbnail.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Canh bắp cải khoai tây"
   },
   "Canh khoai môn nấm": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274154/vegetmealplan/seed/canh-khoai-mon-nam.jpg",
@@ -5267,16 +4938,11 @@
     "match": "similar"
   },
   "Canh rau cải cúc nấm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274156/vegetmealplan/seed/canh-rau-cai-cuc-nam.jpg",
-    "original_url": "https://pixabay.com/get/g2a7bc80e214594b4c9701598c71c2b7d7dac65c03fbbd8a140b8b75293bae19c3136d84b455bf6d0365eb9f321ed91fd9a94f853ecf2f0c85d1b2bceef9b8690_1280.jpg",
-    "candidate_id": "pixabay:3722498",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/b%E1%BA%AFp-c%E1%BA%A3i-canh-t%C3%A1c-rau-kh%E1%BB%8Fe-m%E1%BA%A1nh-3722498/",
-    "author": "ulleo",
-    "author_url": "https://pixabay.com/users/ulleo-1834854/",
-    "description": "bắp cải, canh tác, rau, khỏe mạnh, bắp cải lĩnh vực, màu xanh lá, thiên nhiên, món ăn, nông nghiệp, lá, mới",
-    "query": "Canh rau cải cúc nấm",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698053/vegetmealplan/seed/canh-rau-cai-cuc-nam.webp",
+    "original_url": "https://cdn2.fptshop.com.vn/unsafe/1920x0/filters:format(webp):quality(75)/2023_10_26_638339154202429098_canh-cai-cuc-thumb.jpeg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Canh rau cải cúc nấm"
   },
   "Canh mồng tơi mướp": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274156/vegetmealplan/seed/canh-mong-toi-muop.jpg",
@@ -5303,17 +4969,11 @@
     "match": "similar"
   },
   "Canh rau muống nấu nấm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274157/vegetmealplan/seed/canh-rau-muong-nau-nam.jpg",
-    "original_url": "https://pixabay.com/get/g02cbc14fa8da8f646c3e759e90876d60b59f27ed289d018c3eaf23654b44961956a1b9a9aa7a347de9f687c4faaf5e6bfc4e3ec54ac1912656a285d19541b4e4_1280.jpg",
-    "candidate_id": "pixabay:2897649",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/soup-vegetables-broccoli-leek-2897649/",
-    "author": "silviarita",
-    "author_url": "https://pixabay.com/users/silviarita-3142410/",
-    "description": "soup, vegetables, broccoli, leek, pepper, grains, food, meal, cook, vegetarian, dish, healthy, vegetable soup, having lunch, spicy, vegan, starter, spoon, fall, enjoy the meal, nourishment, vitamins, diabetes, sniff, flu, prevent, virus, cold, defense, immune system, bio, green, health, vitamin c, broccoli, broccoli, broccoli, broccoli, broccoli, diabetes, diabetes",
-    "query": "vegetable soup vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698018/vegetmealplan/seed/canh-rau-muong-nau-nam.jpg",
+    "original_url": "https://img-global.cpcdn.com/recipes/4aa0880d7534b89c/300x426cq80/canh-rau-mu%E1%BB%91ng-n%E1%BA%A5u-chay-recipe-main-photo.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Canh rau muống nấu nấm"
   },
   "Canh su hào cà rốt": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274157/vegetmealplan/seed/canh-su-hao-ca-rot.jpg",
@@ -5340,17 +5000,11 @@
     "match": "exact"
   },
   "Canh bầu nấu đậu lăng": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274157/vegetmealplan/seed/canh-bau-nau-dau-lang.jpg",
-    "original_url": "https://pixabay.com/get/g02cbc14fa8da8f646c3e759e90876d60b59f27ed289d018c3eaf23654b44961956a1b9a9aa7a347de9f687c4faaf5e6bfc4e3ec54ac1912656a285d19541b4e4_1280.jpg",
-    "candidate_id": "pixabay:2897649",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/soup-vegetables-broccoli-leek-2897649/",
-    "author": "silviarita",
-    "author_url": "https://pixabay.com/users/silviarita-3142410/",
-    "description": "soup, vegetables, broccoli, leek, pepper, grains, food, meal, cook, vegetarian, dish, healthy, vegetable soup, having lunch, spicy, vegan, starter, spoon, fall, enjoy the meal, nourishment, vitamins, diabetes, sniff, flu, prevent, virus, cold, defense, immune system, bio, green, health, vitamin c, broccoli, broccoli, broccoli, broccoli, broccoli, diabetes, diabetes",
-    "query": "vegetable soup vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698022/vegetmealplan/seed/canh-bau-nau-dau-lang.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/08/CookProductThumb/Untitled-2-620x620-125.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Canh bầu nấu đậu lăng"
   },
   "Canh dưa leo nhồi nấm": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274157/vegetmealplan/seed/canh-dua-leo-nhoi-nam.jpg",
@@ -5365,56 +5019,32 @@
     "match": "similar"
   },
   "Canh măng tươi nấu nấm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274158/vegetmealplan/seed/canh-mang-tuoi-nau-nam.jpg",
-    "original_url": "https://pixabay.com/get/g02cbc14fa8da8f646c3e759e90876d60b59f27ed289d018c3eaf23654b44961956a1b9a9aa7a347de9f687c4faaf5e6bfc4e3ec54ac1912656a285d19541b4e4_1280.jpg",
-    "candidate_id": "pixabay:2897649",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/soup-vegetables-broccoli-leek-2897649/",
-    "author": "silviarita",
-    "author_url": "https://pixabay.com/users/silviarita-3142410/",
-    "description": "soup, vegetables, broccoli, leek, pepper, grains, food, meal, cook, vegetarian, dish, healthy, vegetable soup, having lunch, spicy, vegan, starter, spoon, fall, enjoy the meal, nourishment, vitamins, diabetes, sniff, flu, prevent, virus, cold, defense, immune system, bio, green, health, vitamin c, broccoli, broccoli, broccoli, broccoli, broccoli, diabetes, diabetes",
-    "query": "vegetable soup vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698027/vegetmealplan/seed/canh-mang-tuoi-nau-nam.jpg",
+    "original_url": "https://hoichay.com/wp-content/uploads/2025/04/canh-mang-nam-mo.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Canh măng tươi nấu nấm"
   },
   "Canh nấm kim châm cà chua": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274158/vegetmealplan/seed/canh-nam-kim-cham-ca-chua.jpg",
-    "original_url": "https://pixabay.com/get/g02cbc14fa8da8f646c3e759e90876d60b59f27ed289d018c3eaf23654b44961956a1b9a9aa7a347de9f687c4faaf5e6bfc4e3ec54ac1912656a285d19541b4e4_1280.jpg",
-    "candidate_id": "pixabay:2897649",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/soup-vegetables-broccoli-leek-2897649/",
-    "author": "silviarita",
-    "author_url": "https://pixabay.com/users/silviarita-3142410/",
-    "description": "soup, vegetables, broccoli, leek, pepper, grains, food, meal, cook, vegetarian, dish, healthy, vegetable soup, having lunch, spicy, vegan, starter, spoon, fall, enjoy the meal, nourishment, vitamins, diabetes, sniff, flu, prevent, virus, cold, defense, immune system, bio, green, health, vitamin c, broccoli, broccoli, broccoli, broccoli, broccoli, diabetes, diabetes",
-    "query": "vegetable soup vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698031/vegetmealplan/seed/canh-nam-kim-cham-ca-chua.jpg",
+    "original_url": "https://cdn.tgdd.vn/2022/03/CookRecipe/Avatar/canh-ca-chua-nam-kim-cham-thumbnail-1.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Canh nấm kim châm cà chua"
   },
   "Canh nấm bào ngư rau cải": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274158/vegetmealplan/seed/canh-nam-bao-ngu-rau-cai.jpg",
-    "original_url": "https://pixabay.com/get/g02cbc14fa8da8f646c3e759e90876d60b59f27ed289d018c3eaf23654b44961956a1b9a9aa7a347de9f687c4faaf5e6bfc4e3ec54ac1912656a285d19541b4e4_1280.jpg",
-    "candidate_id": "pixabay:2897649",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/soup-vegetables-broccoli-leek-2897649/",
-    "author": "silviarita",
-    "author_url": "https://pixabay.com/users/silviarita-3142410/",
-    "description": "soup, vegetables, broccoli, leek, pepper, grains, food, meal, cook, vegetarian, dish, healthy, vegetable soup, having lunch, spicy, vegan, starter, spoon, fall, enjoy the meal, nourishment, vitamins, diabetes, sniff, flu, prevent, virus, cold, defense, immune system, bio, green, health, vitamin c, broccoli, broccoli, broccoli, broccoli, broccoli, diabetes, diabetes",
-    "query": "vegetable soup vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698034/vegetmealplan/seed/canh-nam-bao-ngu-rau-cai.jpg",
+    "original_url": "https://img-global.cpcdn.com/recipes/8a9c0e92adbd5dfc/1200x630cq80/photo.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Canh nấm bào ngư rau cải"
   },
   "Canh nấm hương bí đỏ": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274158/vegetmealplan/seed/canh-nam-huong-bi-do.jpg",
-    "original_url": "https://pixabay.com/get/g02cbc14fa8da8f646c3e759e90876d60b59f27ed289d018c3eaf23654b44961956a1b9a9aa7a347de9f687c4faaf5e6bfc4e3ec54ac1912656a285d19541b4e4_1280.jpg",
-    "candidate_id": "pixabay:2897649",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/soup-vegetables-broccoli-leek-2897649/",
-    "author": "silviarita",
-    "author_url": "https://pixabay.com/users/silviarita-3142410/",
-    "description": "soup, vegetables, broccoli, leek, pepper, grains, food, meal, cook, vegetarian, dish, healthy, vegetable soup, having lunch, spicy, vegan, starter, spoon, fall, enjoy the meal, nourishment, vitamins, diabetes, sniff, flu, prevent, virus, cold, defense, immune system, bio, green, health, vitamin c, broccoli, broccoli, broccoli, broccoli, broccoli, diabetes, diabetes",
-    "query": "vegetable soup vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698038/vegetmealplan/seed/canh-nam-huong-bi-do.jpg",
+    "original_url": "https://storage.googleapis.com/onelife-public/blog.onelife.vn/2021/11/cach-lam-canh-bi-djo-nam-huong-mon-chay-841477650463.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Canh nấm hương bí đỏ"
   },
   "Canh rau củ nấu đậu gà": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274159/vegetmealplan/seed/canh-rau-cu-nau-dau-ga.png",
@@ -6164,28 +5794,18 @@
     "match": "similar"
   },
   "Gỏi ổi": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274174/vegetmealplan/seed/goi-oi.jpg",
-    "original_url": "https://pixabay.com/get/gfecd2e4325245d4b16f1472e3422c3eca5489cd959975fee16a6b5203806845e66ee3895784d0302ca3d516c7749350f2165f12eed450d430182b115effd78bd_1280.jpg",
-    "candidate_id": "pixabay:6754234",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/g%E1%BB%8Fi-b%C6%B0%E1%BB%9Fi-g%E1%BB%8Fi-b%C6%B0%E1%BB%9Fi-vi%E1%BB%87t-nam-6754234/",
-    "author": "phamkhanhquynhtrang",
-    "author_url": "https://pixabay.com/users/phamkhanhquynhtrang-22873796/",
-    "description": "gỏi bưởi, gỏi bưởi việt nam, salad bưởi việt nam, quán ăn, ẩm thực việt nam",
-    "query": "Gỏi ổi",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698078/vegetmealplan/seed/goi-oi.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/07/CookRecipe/Avatar/goi-oi-chay-thumbnail.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Gỏi ổi"
   },
   "Gỏi su su": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274175/vegetmealplan/seed/goi-su-su.jpg",
-    "original_url": "https://pixabay.com/get/gd81d22118f78be42b3a8aba3c5b697154186118df616091adf901ac1659ec08c2714d3e0dadf9ea3bb666f1d48abb9a5d847e6562e9d78bd92b925ff402b3ee0_1280.jpg",
-    "candidate_id": "pixabay:5921496",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/ch%E1%BA%A3-gi%C3%B2-th%C3%A0nh-ph%E1%BA%A7n-th%E1%BB%9Bt-rau-cu%E1%BB%99n-5921496/",
-    "author": "sontung57",
-    "author_url": "https://pixabay.com/users/sontung57-19733131/",
-    "description": "chả giò, thành phần, thớt, rau, cuộn, món ăn, ẩm thực, ngon, thơm ngon, cuộn mùa hè, truyền thống, cuốn gỏi cuốn, tiếng việt, sự chuẩn bị, nhà bếp",
-    "query": "Gỏi su su",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698073/vegetmealplan/seed/goi-su-su.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/03/CookProduct/2-1200x676-3.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Gỏi su su"
   },
   "Gỏi cải thảo": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274175/vegetmealplan/seed/goi-cai-thao.jpg",
@@ -6224,16 +5844,11 @@
     "match": "exact"
   },
   "Trứng hấp nấm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274176/vegetmealplan/seed/trung-hap-nam.jpg",
-    "original_url": "https://pixabay.com/get/g44f4115578bea26a5234e32d7834768c44e075d4500ee524276417f6c97b35eb25bb094acb3e6d33e33f7422fbb4dd05b687fd46a9e7561b23f1a706a47e2258_1280.jpg",
-    "candidate_id": "pixabay:1838785",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/tr%C3%A1i-b%C6%A1-c%E1%BA%AFt-b%E1%BA%A3ng-th%C3%A0nh-ph%E1%BA%A7n-1838785/",
-    "author": "Pexels",
-    "author_url": "https://pixabay.com/users/Pexels-2286921/",
-    "description": "trái bơ, cắt bảng, thành phần, sản xuất, cửa hàng tạp hóa, sản phẩm tươi, chuẩn bị thức ăn, rau, cắt tỉa, chặt, nhà bếp, nấu nướng, trứng, món ăn, chảo, khỏe mạnh, dao, nấm, hoa kỳ, portland, oregon",
-    "query": "Trứng hấp nấm",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698082/vegetmealplan/seed/trung-hap-nam.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/07/CookProduct/trunghapnamrom-1200x676.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Trứng hấp nấm"
   },
   "Trứng cuộn rau củ": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274176/vegetmealplan/seed/trung-cuon-rau-cu.jpg",
@@ -6284,16 +5899,11 @@
     "match": "exact"
   },
   "Trứng đúc nấm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274177/vegetmealplan/seed/trung-duc-nam.jpg",
-    "original_url": "https://pixabay.com/get/ga46040e96535f670057aff3cbef0032859c753d3600de7e4a00461592eee19b2c0521e3a4fc8aa27cbfc0f6fa3e68998e60bea3803216016a181364a1cbbffaa_1280.jpg",
-    "candidate_id": "pixabay:1838785",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/tr%C3%A1i-b%C6%A1-c%E1%BA%AFt-b%E1%BA%A3ng-th%C3%A0nh-ph%E1%BA%A7n-1838785/",
-    "author": "Pexels",
-    "author_url": "https://pixabay.com/users/Pexels-2286921/",
-    "description": "trái bơ, cắt bảng, thành phần, sản xuất, cửa hàng tạp hóa, sản phẩm tươi, chuẩn bị thức ăn, rau, cắt tỉa, chặt, nhà bếp, nấu nướng, trứng, món ăn, chảo, khỏe mạnh, dao, nấm, hoa kỳ, portland, oregon",
-    "query": "Trứng đúc nấm",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698086/vegetmealplan/seed/trung-duc-nam.jpg",
+    "original_url": "https://i.ytimg.com/vi/73_0QsWt_Z8/hqdefault.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Trứng đúc nấm"
   },
   "Trứng bác cà rốt": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274177/vegetmealplan/seed/trung-bac-ca-rot.jpg",
@@ -6515,17 +6125,11 @@
     "match": "similar"
   },
   "Chả khoai môn chiên": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274182/vegetmealplan/seed/cha-khoai-mon-chien.jpg",
-    "original_url": "https://pixabay.com/get/gb62ac6bde6177949c1c6a9bb350bcdeb41d8fea13aa03bc83b3dde30d7a553f00564f8f0514f76e4ca8237c8c8450c041337c970188a2b4653c8f240a9c510f3_1280.jpg",
-    "candidate_id": "pixabay:809873",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/taro-fried-food-taro-strips-809873/",
-    "author": "qq53536283",
-    "author_url": "https://pixabay.com/users/qq53536283-1119687/",
-    "description": "taro, fried food, taro strips, taro, taro, taro, taro, taro",
-    "query": "taro vegetarian dish",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698092/vegetmealplan/seed/cha-khoai-mon-chien.jpg",
+    "original_url": "https://www.huongnghiepaau.com/wp-content/uploads/2019/06/cha-khoai-mon.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Chả khoai môn chiên"
   },
   "Bánh xèo bột gạo nhân nấm": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274183/vegetmealplan/seed/banh-xeo-bot-gao-nhan-nam.jpg",
@@ -6603,17 +6207,11 @@
     "match": "similar"
   },
   "Xôi đậu xanh nước cốt dừa": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274184/vegetmealplan/seed/xoi-dau-xanh-nuoc-cot-dua.jpg",
-    "original_url": "https://pixabay.com/get/g70496e0597e886ae991299856a66c30e70bee1f5a6296255dfcff212a246cc9c7696c5d3015ba1220ec1fcfca4214def61a98f135682d96a3de5bf85d650b89e_1280.jpg",
-    "candidate_id": "pixabay:6088849",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/cooking-rice-kitchen-glutinous-rice-6088849/",
-    "author": "mathee",
-    "author_url": "https://pixabay.com/users/mathee-3175449/",
-    "description": "cooking, rice, kitchen, glutinous rice, sticky rice, sticky, food, organic, delicious, cook, closeup, glutinous rice, sticky rice, sticky rice, sticky rice, sticky rice, sticky rice",
-    "query": "sticky rice vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697870/vegetmealplan/seed/xoi-dau-xanh-nuoc-cot-dua.jpg",
+    "original_url": "https://cdn.tgdd.vn/Files/2022/03/17/1420798/cach-nau-xoi-dau-xanh-cot-dua-deo-ngon-bang-noi-com-dien-202203170410540204.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Xôi đậu xanh nước cốt dừa"
   },
   "Cơm gạo lứt đậu lăng": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274184/vegetmealplan/seed/com-gao-lut-dau-lang.jpg",
@@ -6628,262 +6226,144 @@
     "match": "similar"
   },
   "Bún thang chay trứng": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274185/vegetmealplan/seed/bun-thang-chay-trung.jpg",
-    "original_url": "https://pixabay.com/get/g6ed00b2a9bfa189335bbb0bf7294fa31eac6e5e4fcd37b68b10cd091016a751ff983aacd1adef83e29069072fccac00ece50fb37b09745921612faefae6576b1_1280.jpg",
-    "candidate_id": "pixabay:6817258",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/dish-chinese-cuisine-bowl-food-6817258/",
-    "author": "zhangtingzhi",
-    "author_url": "https://pixabay.com/users/zhangtingzhi-21381025/",
-    "description": "dish, chinese cuisine, bowl, food, yunan rice vermicelli, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine",
-    "query": "vietnamese rice vermicelli vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697708/vegetmealplan/seed/bun-thang-chay-trung.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/11/CookDish/2-cach-nau-canh-bau-chay-thom-ngon-thanh-dam-cho-ngay-chay-avt-1200x676-1.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bún thang chay trứng"
   },
   "Bún nấm rơm cà chua": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274185/vegetmealplan/seed/bun-nam-rom-ca-chua.jpg",
-    "original_url": "https://pixabay.com/get/g6ed00b2a9bfa189335bbb0bf7294fa31eac6e5e4fcd37b68b10cd091016a751ff983aacd1adef83e29069072fccac00ece50fb37b09745921612faefae6576b1_1280.jpg",
-    "candidate_id": "pixabay:6817258",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/dish-chinese-cuisine-bowl-food-6817258/",
-    "author": "zhangtingzhi",
-    "author_url": "https://pixabay.com/users/zhangtingzhi-21381025/",
-    "description": "dish, chinese cuisine, bowl, food, yunan rice vermicelli, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine, chinese cuisine",
-    "query": "vietnamese rice vermicelli vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697712/vegetmealplan/seed/bun-nam-rom-ca-chua.jpg",
+    "original_url": "https://img-global.cpcdn.com/recipes/b9f7ff1685555e8f/1200x630cq80/photo.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bún nấm rơm cà chua"
   },
   "Bún xào rau củ muối": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274185/vegetmealplan/seed/bun-xao-rau-cu-muoi.jpg",
-    "original_url": "https://pixabay.com/get/g9b1cea47d8f050cc63b6c866f9f926b9ba11a5edaf396c428b8cd17f3058c3a043f51eb04cc87cf7d48ea3c8e90db094d365510e176ba884d28d7630299c73df_1280.jpg",
-    "candidate_id": "pixabay:6604591",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/rice-noodles-tomato-6604591/",
-    "author": "LanneauStudio",
-    "author_url": "https://pixabay.com/users/LanneauStudio-23281423/",
-    "description": "rice, noodles, tomato, fried vermicelli, fast food, lunch, restaurant",
-    "query": "stir fried rice vermicelli vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697733/vegetmealplan/seed/bun-xao-rau-cu-muoi.jpg",
+    "original_url": "http://cdn.hstatic.net/files/200000700229/article/cach-lam-bun-xao-chay-thumb_6ec3382974474cc5ad7ecbd3a82c2455.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bún xào rau củ muối"
   },
   "Miến xào trứng": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274185/vegetmealplan/seed/mien-xao-trung.jpg",
-    "original_url": "https://pixabay.com/get/gb8c5049859c16c1968803fe9cae979b39abc1a3ea0f190c7ba6bc37a38cec65e8e76c4e8f036a2fa47f9006a3a6426f75f265e37fc566d28c894e8ed9d99448a_1280.jpg",
-    "candidate_id": "pixabay:704681",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/vegetarian-rice-noodle-vietnam-704681/",
-    "author": "Thutruongvn",
-    "author_url": "https://pixabay.com/users/Thutruongvn-903325/",
-    "description": "vegetarian, rice noodle, vietnam, asian, food, meal, cuisine, cooking, homemade, bunrieuchay, vegetable, diet, vietnam, meal, cooking, diet, diet, diet, diet, diet",
-    "query": "glass noodles vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697724/vegetmealplan/seed/mien-xao-trung.jpg",
+    "original_url": "https://cdn.hstatic.net/files/200000700229/article/mien-xao-chay-1_3953cd03d4774eceb0af3389c8da60fe.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Miến xào trứng"
   },
   "Miến nấu cà chua": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274185/vegetmealplan/seed/mien-nau-ca-chua.jpg",
-    "original_url": "https://pixabay.com/get/gb8c5049859c16c1968803fe9cae979b39abc1a3ea0f190c7ba6bc37a38cec65e8e76c4e8f036a2fa47f9006a3a6426f75f265e37fc566d28c894e8ed9d99448a_1280.jpg",
-    "candidate_id": "pixabay:704681",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/vegetarian-rice-noodle-vietnam-704681/",
-    "author": "Thutruongvn",
-    "author_url": "https://pixabay.com/users/Thutruongvn-903325/",
-    "description": "vegetarian, rice noodle, vietnam, asian, food, meal, cuisine, cooking, homemade, bunrieuchay, vegetable, diet, vietnam, meal, cooking, diet, diet, diet, diet, diet",
-    "query": "glass noodles vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697727/vegetmealplan/seed/mien-nau-ca-chua.webp",
+    "original_url": "https://cdn2.fptshop.com.vn/unsafe/1920x0/filters:format(webp):quality(75)/2023_12_6_638374938536774300_mien-tron-chay.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Miến nấu cà chua"
   },
   "Phở gạo trộn rau": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274186/vegetmealplan/seed/pho-gao-tron-rau.jpg",
-    "original_url": "https://pixabay.com/get/g479c93c4b093da8a9d26ec1f6698429be10dc7a9ecf29c4b9443e032e8dd0869760fdd8ab9f9cea185dc2946badb7649e918f49738d7d483fe8403729b3bb927_1280.jpg",
-    "candidate_id": "pixabay:928198",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/rice-noodles-vietnamese-food-pho-928198/",
-    "author": "TapisRouge",
-    "author_url": "https://pixabay.com/users/TapisRouge-1231926/",
-    "description": "rice noodles, vietnamese food, pho, diet food, diet, exotic, vietnamese food, vietnamese food, pho, pho, pho, pho, pho",
-    "query": "pho noodle soup vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697743/vegetmealplan/seed/pho-gao-tron-rau.jpg",
+    "original_url": "https://cdn.tgdd.vn/2023/11/CookRecipe/CookUtensilandNotes/pho-tron-tau-hu-ky-chay-note-1200x676.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Phở gạo trộn rau"
   },
   "Bánh canh cà chua nấm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274186/vegetmealplan/seed/banh-canh-ca-chua-nam.jpg",
-    "original_url": "https://pixabay.com/get/gfb74058c047364e4e6d9d4402b50bfa60bfbb6959e61cdee1b873c6149a4d7a6d55021b8f1aacfdcf5ce8f082bd0fdd029eff5b7346070fc573f6fd338fe4077_1280.jpg",
-    "candidate_id": "pixabay:2225143",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/soup-noodles-udon-japanese-cook-2225143/",
-    "author": "DominiqueVince",
-    "author_url": "https://pixabay.com/users/DominiqueVince-976409/",
-    "description": "soup, noodles, udon, japanese, cook, bowl, spoon, vegetarian, rustic, udon, udon, udon, udon, udon",
-    "query": "udon noodle soup vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697757/vegetmealplan/seed/banh-canh-ca-chua-nam.jpg",
+    "original_url": "https://www.huongnghiepaau.com/wp-content/uploads/2024/06/cac-mon-canh-chay-tu-nam.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Bánh canh cà chua nấm"
   },
   "Hủ tiếu nấm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274186/vegetmealplan/seed/hu-tieu-nam.jpg",
-    "original_url": "https://pixabay.com/get/gf6ecb024280f173ff2454f67bb51446c88e38927bcef473c6e8f0b3ca296b076821e1d22d5e796520beb1453ce96b1aadd2305e08ee342adcdeeab93829e3d5c_1280.jpg",
-    "candidate_id": "pixabay:5161719",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/kalguksu-m%C3%AC-m%C3%B3n-%C4%83n-%E1%BA%A9m-th%E1%BB%B1c-h%E1%BB%A7-ti%E1%BA%BFu-5161719/",
-    "author": "LeeJeongSoo",
-    "author_url": "https://pixabay.com/users/LeeJeongSoo-798401/",
-    "description": "kalguksu, mì, món ăn, ẩm thực, hủ tiếu, bát, bữa ăn, ngon, thơm ngon, hàn quốc, sự gần gũi",
-    "query": "Hủ tiếu nấm",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697752/vegetmealplan/seed/hu-tieu-nam.jpg",
+    "original_url": "https://gocamthuc.acecookvietnam.vn/wp-content/uploads/2024/11/Hu-tieu-chay-rim-copy-1-1024x769.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Hủ tiếu nấm"
   },
   "Cháo bí đỏ hạt sen": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274186/vegetmealplan/seed/chao-bi-do-hat-sen.jpg",
-    "original_url": "https://pixabay.com/get/g287ede4189e8917183134257ff0cb2f3d3bbb370ca87af6a44410762d2d462bc3ad55be206d031638fc1b8dab7d5c34f8ca0010b36704b03de1725dc0c66281b_1280.jpg",
-    "candidate_id": "pixabay:6247129",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/kola-kanda-soup-food-dish-6247129/",
-    "author": "KavindaF",
-    "author_url": "https://pixabay.com/users/KavindaF-15230228/",
-    "description": "kola kanda, soup, food, dish, traditional, herbal congee, green soup, healthy, nature, vegetable, mint, meal, vegetarian, leaf, herbal, appetizer, porridge, sri lankan, bowl, closeup",
-    "query": "congee rice porridge vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697811/vegetmealplan/seed/chao-bi-do-hat-sen.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/10/CookDish/cach-nau-chao-hat-sen-bi-do-thom-ngon-bo-duong-va-vo-cung-don-avt-1200x670.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Cháo bí đỏ hạt sen"
   },
   "Cháo khoai lang": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274187/vegetmealplan/seed/chao-khoai-lang.jpg",
-    "original_url": "https://pixabay.com/get/g287ede4189e8917183134257ff0cb2f3d3bbb370ca87af6a44410762d2d462bc3ad55be206d031638fc1b8dab7d5c34f8ca0010b36704b03de1725dc0c66281b_1280.jpg",
-    "candidate_id": "pixabay:6247129",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/kola-kanda-soup-food-dish-6247129/",
-    "author": "KavindaF",
-    "author_url": "https://pixabay.com/users/KavindaF-15230228/",
-    "description": "kola kanda, soup, food, dish, traditional, herbal congee, green soup, healthy, nature, vegetable, mint, meal, vegetarian, leaf, herbal, appetizer, porridge, sri lankan, bowl, closeup",
-    "query": "congee rice porridge vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697815/vegetmealplan/seed/chao-khoai-lang.jpg",
+    "original_url": "https://storage.googleapis.com/onelife-public/blog.onelife.vn/2021/11/cach-lam-chao-khoai-lang-dinh-duong-mon-chay-727913856741.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Cháo khoai lang"
   },
   "Cháo đậu lăng cà rốt": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274187/vegetmealplan/seed/chao-dau-lang-ca-rot.jpg",
-    "original_url": "https://pixabay.com/get/g287ede4189e8917183134257ff0cb2f3d3bbb370ca87af6a44410762d2d462bc3ad55be206d031638fc1b8dab7d5c34f8ca0010b36704b03de1725dc0c66281b_1280.jpg",
-    "candidate_id": "pixabay:6247129",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/kola-kanda-soup-food-dish-6247129/",
-    "author": "KavindaF",
-    "author_url": "https://pixabay.com/users/KavindaF-15230228/",
-    "description": "kola kanda, soup, food, dish, traditional, herbal congee, green soup, healthy, nature, vegetable, mint, meal, vegetarian, leaf, herbal, appetizer, porridge, sri lankan, bowl, closeup",
-    "query": "congee rice porridge vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697821/vegetmealplan/seed/chao-dau-lang-ca-rot.jpg",
+    "original_url": "https://img-global.cpcdn.com/steps/5f3eca997d1d13f6/400x400cq80/photo.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Cháo đậu lăng cà rốt"
   },
   "Cháo trứng nấm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274187/vegetmealplan/seed/chao-trung-nam.jpg",
-    "original_url": "https://pixabay.com/get/g287ede4189e8917183134257ff0cb2f3d3bbb370ca87af6a44410762d2d462bc3ad55be206d031638fc1b8dab7d5c34f8ca0010b36704b03de1725dc0c66281b_1280.jpg",
-    "candidate_id": "pixabay:6247129",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/kola-kanda-soup-food-dish-6247129/",
-    "author": "KavindaF",
-    "author_url": "https://pixabay.com/users/KavindaF-15230228/",
-    "description": "kola kanda, soup, food, dish, traditional, herbal congee, green soup, healthy, nature, vegetable, mint, meal, vegetarian, leaf, herbal, appetizer, porridge, sri lankan, bowl, closeup",
-    "query": "congee rice porridge vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697824/vegetmealplan/seed/chao-trung-nam.jpg",
+    "original_url": "http://cdn.hstatic.net/files/200000700229/article/cach-nau-chao-chay-1_8feb642b42c34951a69f8b99fdef514e.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Cháo trứng nấm"
   },
   "Cháo nấm kim châm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274187/vegetmealplan/seed/chao-nam-kim-cham.jpg",
-    "original_url": "https://pixabay.com/get/g287ede4189e8917183134257ff0cb2f3d3bbb370ca87af6a44410762d2d462bc3ad55be206d031638fc1b8dab7d5c34f8ca0010b36704b03de1725dc0c66281b_1280.jpg",
-    "candidate_id": "pixabay:6247129",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/kola-kanda-soup-food-dish-6247129/",
-    "author": "KavindaF",
-    "author_url": "https://pixabay.com/users/KavindaF-15230228/",
-    "description": "kola kanda, soup, food, dish, traditional, herbal congee, green soup, healthy, nature, vegetable, mint, meal, vegetarian, leaf, herbal, appetizer, porridge, sri lankan, bowl, closeup",
-    "query": "congee rice porridge vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697829/vegetmealplan/seed/chao-nam-kim-cham.jpg",
+    "original_url": "https://thucphamlytuong.vn/wp-content/uploads/2016/04/35-chao-nam-kim-cham.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Cháo nấm kim châm"
   },
   "Cháo bắp nấm": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274188/vegetmealplan/seed/chao-bap-nam.jpg",
-    "original_url": "https://pixabay.com/get/gd6d93de46718c41b3a539ede01a3f38d35f0ee418b8635be71be050dccc2dd17376753b815d7376891f3b2966dc8eaa749d9f6e35a9c956ee5021cc90e1f22b1_1280.jpg",
-    "candidate_id": "pixabay:7632960",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/vi/photos/ng%C3%B4-ch%C3%A1o-ng%C3%B4-polenta-b%C3%A1nh-b%E1%BA%AFp-7632960/",
-    "author": "Bru-nO",
-    "author_url": "https://pixabay.com/users/Bru-nO-1161770/",
-    "description": "ngô, cháo ngô, polenta, bánh bắp, soong ngô, bữa ăn, món ăn, cacbohydrat, sự nuôi dưỡng",
-    "query": "Cháo bắp nấm",
-    "match": "exact"
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697842/vegetmealplan/seed/chao-bap-nam.webp",
+    "original_url": "https://thuanchay.vn/congdong/wp-content/uploads/2026/04/cach-nau-chao-nam-chay-4.webp",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Cháo bắp nấm"
   },
   "Cháo cà rốt khoai tây": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274187/vegetmealplan/seed/chao-ca-rot-khoai-tay.jpg",
-    "original_url": "https://pixabay.com/get/g287ede4189e8917183134257ff0cb2f3d3bbb370ca87af6a44410762d2d462bc3ad55be206d031638fc1b8dab7d5c34f8ca0010b36704b03de1725dc0c66281b_1280.jpg",
-    "candidate_id": "pixabay:6247129",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/kola-kanda-soup-food-dish-6247129/",
-    "author": "KavindaF",
-    "author_url": "https://pixabay.com/users/KavindaF-15230228/",
-    "description": "kola kanda, soup, food, dish, traditional, herbal congee, green soup, healthy, nature, vegetable, mint, meal, vegetarian, leaf, herbal, appetizer, porridge, sri lankan, bowl, closeup",
-    "query": "congee rice porridge vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697832/vegetmealplan/seed/chao-ca-rot-khoai-tay.jpg",
+    "original_url": "https://img-global.cpcdn.com/recipes/68ee61d119f25612/200x200f0.402609_0.5_1.0q80/%F0%9F%8C%B1-sup-rau-c%E1%BB%A7-khoai-tay-ca-r%E1%BB%91t-sup-l%C6%A1-vegan-recipe-main-photo.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Cháo cà rốt khoai tây"
   },
   "Xôi bắp nước cốt dừa": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274188/vegetmealplan/seed/xoi-bap-nuoc-cot-dua.jpg",
-    "original_url": "https://pixabay.com/get/g70496e0597e886ae991299856a66c30e70bee1f5a6296255dfcff212a246cc9c7696c5d3015ba1220ec1fcfca4214def61a98f135682d96a3de5bf85d650b89e_1280.jpg",
-    "candidate_id": "pixabay:6088849",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/cooking-rice-kitchen-glutinous-rice-6088849/",
-    "author": "mathee",
-    "author_url": "https://pixabay.com/users/mathee-3175449/",
-    "description": "cooking, rice, kitchen, glutinous rice, sticky rice, sticky, food, organic, delicious, cook, closeup, glutinous rice, sticky rice, sticky rice, sticky rice, sticky rice, sticky rice",
-    "query": "sticky rice vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697876/vegetmealplan/seed/xoi-bap-nuoc-cot-dua.jpg",
+    "original_url": "https://www.cet.edu.vn/wp-content/uploads/2018/10/xoi-bap-nuoc-cot-dua.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Xôi bắp nước cốt dừa"
   },
   "Xôi khoai lang": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274188/vegetmealplan/seed/xoi-khoai-lang.jpg",
-    "original_url": "https://pixabay.com/get/g70496e0597e886ae991299856a66c30e70bee1f5a6296255dfcff212a246cc9c7696c5d3015ba1220ec1fcfca4214def61a98f135682d96a3de5bf85d650b89e_1280.jpg",
-    "candidate_id": "pixabay:6088849",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/cooking-rice-kitchen-glutinous-rice-6088849/",
-    "author": "mathee",
-    "author_url": "https://pixabay.com/users/mathee-3175449/",
-    "description": "cooking, rice, kitchen, glutinous rice, sticky rice, sticky, food, organic, delicious, cook, closeup, glutinous rice, sticky rice, sticky rice, sticky rice, sticky rice, sticky rice",
-    "query": "sticky rice vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697885/vegetmealplan/seed/xoi-khoai-lang.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/01/CookProduct/BeFunky-collage-2021-01-20T084919.278-1200x676.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Xôi khoai lang"
   },
   "Xôi đậu đen mè": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274188/vegetmealplan/seed/xoi-dau-den-me.jpg",
-    "original_url": "https://pixabay.com/get/g70496e0597e886ae991299856a66c30e70bee1f5a6296255dfcff212a246cc9c7696c5d3015ba1220ec1fcfca4214def61a98f135682d96a3de5bf85d650b89e_1280.jpg",
-    "candidate_id": "pixabay:6088849",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/cooking-rice-kitchen-glutinous-rice-6088849/",
-    "author": "mathee",
-    "author_url": "https://pixabay.com/users/mathee-3175449/",
-    "description": "cooking, rice, kitchen, glutinous rice, sticky rice, sticky, food, organic, delicious, cook, closeup, glutinous rice, sticky rice, sticky rice, sticky rice, sticky rice, sticky rice",
-    "query": "sticky rice vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697890/vegetmealplan/seed/xoi-dau-den-me.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/08/CookProduct/thm-1200x674-1.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Xôi đậu đen mè"
   },
   "Xôi xéo": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274188/vegetmealplan/seed/xoi-xeo.jpg",
-    "original_url": "https://pixabay.com/get/g70496e0597e886ae991299856a66c30e70bee1f5a6296255dfcff212a246cc9c7696c5d3015ba1220ec1fcfca4214def61a98f135682d96a3de5bf85d650b89e_1280.jpg",
-    "candidate_id": "pixabay:6088849",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/cooking-rice-kitchen-glutinous-rice-6088849/",
-    "author": "mathee",
-    "author_url": "https://pixabay.com/users/mathee-3175449/",
-    "description": "cooking, rice, kitchen, glutinous rice, sticky rice, sticky, food, organic, delicious, cook, closeup, glutinous rice, sticky rice, sticky rice, sticky rice, sticky rice, sticky rice",
-    "query": "sticky rice vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697896/vegetmealplan/seed/xoi-xeo.jpg",
+    "original_url": "https://i-giadinh.vnecdn.net/2024/10/04/Bc6Thnhphm16-1728034310-5421-1728034330.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Xôi xéo"
   },
   "Xôi vò": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274189/vegetmealplan/seed/xoi-vo.jpg",
-    "original_url": "https://pixabay.com/get/g70496e0597e886ae991299856a66c30e70bee1f5a6296255dfcff212a246cc9c7696c5d3015ba1220ec1fcfca4214def61a98f135682d96a3de5bf85d650b89e_1280.jpg",
-    "candidate_id": "pixabay:6088849",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/cooking-rice-kitchen-glutinous-rice-6088849/",
-    "author": "mathee",
-    "author_url": "https://pixabay.com/users/mathee-3175449/",
-    "description": "cooking, rice, kitchen, glutinous rice, sticky rice, sticky, food, organic, delicious, cook, closeup, glutinous rice, sticky rice, sticky rice, sticky rice, sticky rice, sticky rice",
-    "query": "sticky rice vegetarian",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793697902/vegetmealplan/seed/xoi-vo.jpg",
+    "original_url": "https://kinhdoamthuc.com/wp-content/uploads/2024/12/104.-Xoi-vo-tom-chay-%E2%80%93-Mon-an-dam-hon-cot-Hue.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Xôi vò"
   },
   "Bánh cuốn trứng": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274189/vegetmealplan/seed/banh-cuon-trung.jpg",
@@ -7253,30 +6733,18 @@
     "match": "similar"
   },
   "Củ sen hầm hạt sen": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274197/vegetmealplan/seed/cu-sen-ham-hat-sen.jpg",
-    "original_url": "https://pixabay.com/get/g6d708c126f74e0b82275367d4995b9d52da70bb63af7b80fde0a1b7597bcb33f653b4c2e44bd41d135d741f82879df1f2c95405507ba5464088b6c618f5f16da_1280.jpg",
-    "candidate_id": "pixabay:5106174",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/lotus-root-chinese-food-restaurant-5106174/",
-    "author": "DannaCZ",
-    "author_url": "https://pixabay.com/users/DannaCZ-15521787/",
-    "description": "lotus root, chinese, food, restaurant, asian, healthy, cooking, eat, diet, delicious, meal, dinner, vegan, vegetarian, pepper, vegetable, lotus root, lotus root, lotus root, lotus root, lotus root, Czechia, Prague",
-    "query": "lotus root vegetarian dish",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698010/vegetmealplan/seed/cu-sen-ham-hat-sen.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/03/CookRecipe/GalleryStep/thanh-pham-1159.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Củ sen hầm hạt sen"
   },
   "Củ sen kho tiêu": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274197/vegetmealplan/seed/cu-sen-kho-tieu.jpg",
-    "original_url": "https://pixabay.com/get/g6d708c126f74e0b82275367d4995b9d52da70bb63af7b80fde0a1b7597bcb33f653b4c2e44bd41d135d741f82879df1f2c95405507ba5464088b6c618f5f16da_1280.jpg",
-    "candidate_id": "pixabay:5106174",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/lotus-root-chinese-food-restaurant-5106174/",
-    "author": "DannaCZ",
-    "author_url": "https://pixabay.com/users/DannaCZ-15521787/",
-    "description": "lotus root, chinese, food, restaurant, asian, healthy, cooking, eat, diet, delicious, meal, dinner, vegan, vegetarian, pepper, vegetable, lotus root, lotus root, lotus root, lotus root, lotus root, Czechia, Prague",
-    "query": "lotus root vegetarian dish",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698014/vegetmealplan/seed/cu-sen-kho-tieu.jpg",
+    "original_url": "https://cdn.tgdd.vn/2021/03/CookRecipe/GalleryStep/thanh-pham-1159.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Củ sen kho tiêu"
   },
   "Khoai tây nướng sả muối ớt": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274198/vegetmealplan/seed/khoai-tay-nuong-sa-muoi-ot.jpg",
@@ -7303,17 +6771,11 @@
     "match": "generic"
   },
   "Khoai môn chiên giòn": {
-    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274198/vegetmealplan/seed/khoai-mon-chien-gion.jpg",
-    "original_url": "https://pixabay.com/get/gb62ac6bde6177949c1c6a9bb350bcdeb41d8fea13aa03bc83b3dde30d7a553f00564f8f0514f76e4ca8237c8c8450c041337c970188a2b4653c8f240a9c510f3_1280.jpg",
-    "candidate_id": "pixabay:809873",
-    "provider": "pixabay",
-    "source_url": "https://pixabay.com/photos/taro-fried-food-taro-strips-809873/",
-    "author": "qq53536283",
-    "author_url": "https://pixabay.com/users/qq53536283-1119687/",
-    "description": "taro, fried food, taro strips, taro, taro, taro, taro, taro",
-    "query": "taro vegetarian dish",
-    "match": "generic",
-    "shared": true
+    "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793698096/vegetmealplan/seed/khoai-mon-chien-gion.jpg",
+    "original_url": "https://cdn.tgdd.vn/2020/09/CookProduct/1260-2-1200x676.jpg",
+    "provider": "serper",
+    "match": "exact",
+    "description": "Khoai môn chiên giòn"
   },
   "Khoai mì hấp nước cốt dừa": {
     "url": "https://res.cloudinary.com/onlavfml/image/upload/v1793274199/vegetmealplan/seed/khoai-mi-hap-nuoc-cot-dua.jpg",
