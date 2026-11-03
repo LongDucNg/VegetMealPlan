@@ -257,7 +257,7 @@ export function VideoDetailClient({ video }: { video: VideoRecipe }) {
               </div>
               <div className="flex items-center gap-1.5 text-stone-600">
                 <Flame className="w-4 h-4 text-amber-500" />
-                <span>{video.kcal} kcal</span>
+                <span>~{video.kcal} kcal</span>
               </div>
             </div>
           </div>

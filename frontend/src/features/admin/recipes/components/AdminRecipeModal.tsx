@@ -269,7 +269,7 @@ function AdminRecipeForm({
     }
 
     if (hasMatchedIngredient) {
-      setCalories(Math.round(totalKcal));
+      setCalories(Math.round(totalKcal * 100) / 100);
       setProtein(Math.round(totalProtein * 10) / 10);
       setCarbs(Math.round(totalCarbs * 10) / 10);
       setFat(Math.round(totalFat * 10) / 10);
@@ -767,8 +767,16 @@ function AdminRecipeForm({
               <input
                 type="number"
                 min="0"
-                value={prepTime}
-                onChange={(e) => setPrepTime(e.target.value === "" ? 0 : Number(e.target.value))}
+                value={prepTime === 0 ? "" : prepTime}
+                placeholder="0"
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => {
+                  let v = e.target.value;
+                  if (v.length > 1 && v.startsWith("0") && !v.startsWith("0.")) {
+                    v = v.replace(/^0+/, "");
+                  }
+                  setPrepTime(v === "" ? 0 : Number(v));
+                }}
                 className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50/50 px-3 text-sm focus:bg-white outline-none"
               />
             </div>
@@ -778,8 +786,16 @@ function AdminRecipeForm({
               <input
                 type="number"
                 min="0"
-                value={cookTime}
-                onChange={(e) => setCookTime(e.target.value === "" ? 0 : Number(e.target.value))}
+                value={cookTime === 0 ? "" : cookTime}
+                placeholder="0"
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => {
+                  let v = e.target.value;
+                  if (v.length > 1 && v.startsWith("0") && !v.startsWith("0.")) {
+                    v = v.replace(/^0+/, "");
+                  }
+                  setCookTime(v === "" ? 0 : Number(v));
+                }}
                 className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50/50 px-3 text-sm focus:bg-white outline-none"
               />
             </div>
@@ -789,8 +805,16 @@ function AdminRecipeForm({
               <input
                 type="number"
                 min="0"
-                value={serving}
-                onChange={(e) => setServing(e.target.value === "" ? 0 : Number(e.target.value))}
+                value={serving === 0 ? "" : serving}
+                placeholder="0"
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => {
+                  let v = e.target.value;
+                  if (v.length > 1 && v.startsWith("0") && !v.startsWith("0.")) {
+                    v = v.replace(/^0+/, "");
+                  }
+                  setServing(v === "" ? 0 : Number(v));
+                }}
                 className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50/50 px-3 text-sm focus:bg-white outline-none"
               />
             </div>
@@ -953,7 +977,7 @@ function AdminRecipeForm({
                                 </span>
                                 {item.calories_per_100g && (
                                   <span className="text-amber-700 font-bold">
-                                    {Math.round(item.calories_per_100g)} kcal/100g
+                                    {Math.round(Number(item.calories_per_100g) * 100) / 100} kcal/100g
                                   </span>
                                 )}
                               </div>

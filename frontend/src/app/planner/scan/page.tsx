@@ -33,6 +33,7 @@ import {
   Utensils,
   Loader2,
   AlertTriangle,
+  ShieldAlert,
 } from "lucide-react";
 
 /**
@@ -202,6 +203,96 @@ function getRecipeAllergens(
 
   return Array.from(detected);
 }
+
+export function isIngredientAllergenMatch(
+  ingName: string,
+  ingId: number,
+  allergies?: UserAllergyState
+): string | null {
+  if (!allergies) return null;
+  const lowerName = (ingName || "").toLowerCase().trim();
+  if (!lowerName) return null;
+
+  // 1. Check ID
+  if (allergies.ids && allergies.ids.has(Number(ingId))) {
+    return ingName;
+  }
+
+  // 2. Egg check
+  if (allergies.isEggAllergic && (lowerName.includes("trứng") || lowerName.includes("egg"))) {
+    return "Trứng";
+  }
+
+  // 3. Name & Allergen group matches
+  for (const aName of allergies.names || []) {
+    const normA = aName.toLowerCase().trim();
+    if (!normA) continue;
+
+    // Peanut / Lạc
+    if (
+      (normA === "peanut" || normA === "đậu phộng" || normA === "lạc") &&
+      (lowerName.includes("đậu phộng") || lowerName.includes("lạc") || lowerName.includes("bơ đậu phộng"))
+    ) {
+      return "Đậu phộng (Lạc)";
+    }
+    // Soy / Đậu nành
+    if (
+      (normA === "soy" || normA === "đậu nành") &&
+      (lowerName.includes("đậu nành") || lowerName.includes("đậu phụ") || lowerName.includes("đậu hũ") || lowerName.includes("tàu hũ") || lowerName.includes("nước tương") || lowerName.includes("chao"))
+    ) {
+      return "Đậu nành & Đậu hũ";
+    }
+    // Gluten / Lúa mì
+    if (
+      (normA === "gluten" || normA === "lúa mì") &&
+      (lowerName.includes("lúa mì") || lowerName.includes("gluten") || lowerName.includes("bột mì") || lowerName.includes("bánh mì") || lowerName.includes("mì sợi"))
+    ) {
+      return "Gluten / Lúa mì";
+    }
+    // Dairy / Sữa
+    if (
+      (normA === "dairy" || normA === "sữa") &&
+      (lowerName.includes("sữa") || lowerName.includes("phô mai") || lowerName.includes("bơ") || lowerName.includes("váng sữa"))
+    ) {
+      return "Sữa & Chế phẩm";
+    }
+    // Tree nuts / Hạt cây
+    if (
+      (normA === "tree_nuts" || normA === "hạt cây") &&
+      (lowerName.includes("hạt điều") || lowerName.includes("hạnh nhân") || lowerName.includes("óc chó") || lowerName.includes("hồ đào") || lowerName.includes("macca"))
+    ) {
+      return "Hạt cây";
+    }
+    // Sesame / Mè
+    if (
+      (normA === "sesame" || normA === "mè") &&
+      (lowerName.includes("mè") || lowerName.includes("vừng"))
+    ) {
+      return "Mè & Hạt gieo";
+    }
+    // Fungi / Nấm
+    if (
+      (normA === "fungi" || normA === "nấm") &&
+      lowerName.includes("nấm")
+    ) {
+      return "Nấm";
+    }
+    // Corn / Bắp
+    if (
+      (normA === "corn" || normA === "bắp" || normA === "ngô") &&
+      (lowerName.includes("bắp") || lowerName.includes("ngô"))
+    ) {
+      return "Bắp (Ngô)";
+    }
+    // Direct match
+    if (lowerName.includes(normA) || normA.includes(lowerName)) {
+      return aName;
+    }
+  }
+
+  return null;
+}
+
 
 interface MatchedRecipeItem {
   recipe: any;
@@ -528,7 +619,7 @@ function RecipeMatchList({
                       </div>
 
                       <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
-                        <span>{recipe.calories ? `${recipe.calories} kcal` : "Chuẩn dinh dưỡng"}</span>
+                        <span>{recipe.calories ? `~${Math.round(Number(recipe.calories) * 100) / 100} kcal` : "Chuẩn dinh dưỡng"}</span>
                         <span className="flex items-center gap-1 font-semibold text-emerald-700 group-hover:translate-x-0.5 transition-transform">
                           Xem cách nấu <ChevronRight className="w-3.5 h-3.5" />
                         </span>
@@ -628,6 +719,7 @@ function PantryManager({
   // Form state: CHỈ CẦN TÊN (chọn nguyên liệu có sẵn trong database)
   const [selectedIngredientId, setSelectedIngredientId] = useState<number | null>(null);
   const [ingredientSearch, setIngredientSearch] = useState<string>("");
+  const [hideAllergens, setHideAllergens] = useState(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -696,16 +788,30 @@ function PantryManager({
     return computeMatchedRecipes(pantryIngredientsForMatch, dbRecipes);
   }, [pantryIngredientsForMatch, dbRecipes]);
 
-  const filteredSystemIngredients = systemIngredients.filter((i) =>
-    (i.ingredient_name || "").toLowerCase().includes(ingredientSearch.toLowerCase().trim())
-  );
-
   const effectiveAllergies = useMemo<UserAllergyState>(() => {
     if (userAllergies && (userAllergies.isEggAllergic || userAllergies.names.length > 0 || userAllergies.ids.size > 0)) {
       return userAllergies;
     }
     return getInitialUserAllergies();
   }, [userAllergies]);
+
+  const hasConfiguredAllergies =
+    effectiveAllergies.names.length > 0 ||
+    effectiveAllergies.isEggAllergic ||
+    effectiveAllergies.ids.size > 0;
+
+  const filteredSystemIngredients = useMemo(() => {
+    const searchLower = ingredientSearch.toLowerCase().trim();
+    return systemIngredients.filter((i) => {
+      const matchSearch = (i.ingredient_name || "").toLowerCase().includes(searchLower);
+      if (!matchSearch) return false;
+      if (hideAllergens && hasConfiguredAllergies) {
+        const allergen = isIngredientAllergenMatch(i.ingredient_name, i.ingredient_id, effectiveAllergies);
+        if (allergen) return false;
+      }
+      return true;
+    });
+  }, [systemIngredients, ingredientSearch, hideAllergens, hasConfiguredAllergies, effectiveAllergies]);
 
   return (
     <div className="space-y-8">
@@ -788,6 +894,16 @@ function PantryManager({
                     <h4 className="font-semibold text-stone-900 text-base line-clamp-1">
                       {name}
                     </h4>
+                    {(() => {
+                      const allergenHit = isIngredientAllergenMatch(name, item.ingredient_id, effectiveAllergies);
+                      if (!allergenHit) return null;
+                      return (
+                        <div className="mt-2 py-1 px-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-bold flex items-center gap-1">
+                          <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                          <span>Trùng dị ứng hồ sơ: {allergenHit}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-end text-xs text-stone-400">
@@ -838,6 +954,32 @@ function PantryManager({
             </p>
 
             <form onSubmit={handleAddIngredient} className="space-y-4 flex-1 overflow-y-auto pr-1">
+              {/* Cảnh báo liên kết dị ứng hồ sơ thông minh */}
+              {hasConfiguredAllergies && (
+                <div className="p-3 bg-amber-50/90 rounded-2xl border border-amber-200 text-xs text-amber-900 space-y-1.5 animate-in fade-in">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-800">
+                      <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Hồ sơ có dị ứng: {effectiveAllergies.names.join(", ") || (effectiveAllergies.isEggAllergic ? "Trứng" : "")}</span>
+                    </div>
+                    <label className="flex items-center gap-1.5 text-[11px] font-bold text-amber-900 cursor-pointer select-none bg-amber-100/90 px-2 py-0.5 rounded-lg border border-amber-300">
+                      <input
+                        type="checkbox"
+                        checked={hideAllergens}
+                        onChange={(e) => setHideAllergens(e.target.checked)}
+                        className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      />
+                      <span>Tự động ẩn</span>
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-amber-700 leading-relaxed">
+                    {hideAllergens
+                      ? "Hệ thống tự động ẩn các thực phẩm chứa chất dị ứng theo hồ sơ của bạn để tránh chọn nhầm."
+                      : "Đang hiển thị cả nguyên liệu dị ứng (kèm nhãn đỏ). Hãy cân nhắc kỹ trước khi thêm vào tủ lạnh!"}
+                  </p>
+                </div>
+              )}
+
               {/* Tìm kiếm và chọn nguyên liệu */}
               <div>
                 <label className="text-xs font-semibold text-stone-700 block mb-1">
@@ -856,23 +998,47 @@ function PantryManager({
                 </div>
 
                 <div className="border border-stone-200 rounded-2xl max-h-60 overflow-y-auto divide-y divide-stone-100 bg-stone-50/50">
-                  {filteredSystemIngredients.slice(0, 50).map((ing) => (
-                    <button
-                      key={ing.ingredient_id}
-                      type="button"
-                      onClick={() => setSelectedIngredientId(ing.ingredient_id)}
-                      className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between hover:bg-emerald-50 transition-colors cursor-pointer ${
-                        selectedIngredientId === ing.ingredient_id
-                          ? "bg-emerald-100/80 font-bold text-emerald-950"
-                          : "text-stone-700"
-                      }`}
-                    >
-                      <span className="font-medium text-sm">{ing.ingredient_name}</span>
-                      <span className="text-[11px] text-stone-400">
-                        {ing.unit} · {ing.calories_per_100g ? `${ing.calories_per_100g} kcal/100g` : "Chuẩn chay"}
-                      </span>
-                    </button>
-                  ))}
+                  {filteredSystemIngredients.slice(0, 50).map((ing) => {
+                    const allergenMatch = isIngredientAllergenMatch(ing.ingredient_name, ing.ingredient_id, effectiveAllergies);
+                    const isSelected = selectedIngredientId === ing.ingredient_id;
+                    return (
+                      <button
+                        key={ing.ingredient_id}
+                        type="button"
+                        onClick={() => {
+                          if (allergenMatch) {
+                            const ok = window.confirm(
+                              `CẢNH BÁO AN TOÀN:\nBạn đã khai báo dị ứng với "${allergenMatch}" trong hồ sơ sức khỏe.\n\nBạn có chắc chắn vẫn muốn thêm "${ing.ingredient_name}" vào tủ lạnh không?`
+                            );
+                            if (!ok) return;
+                          }
+                          setSelectedIngredientId(ing.ingredient_id);
+                        }}
+                        className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                          allergenMatch
+                            ? isSelected
+                              ? "bg-rose-100 border border-rose-300 font-bold text-rose-950"
+                              : "bg-rose-50/70 hover:bg-rose-100/80 text-rose-900 border-b border-rose-100"
+                            : isSelected
+                              ? "bg-emerald-100/80 font-bold text-emerald-950"
+                              : "hover:bg-emerald-50 text-stone-700"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{ing.ingredient_name}</span>
+                          {allergenMatch && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 border border-rose-300 flex items-center gap-0.5">
+                              <AlertTriangle className="w-3 h-3 text-rose-600" />
+                              Dị ứng: {allergenMatch}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-stone-400">
+                          {ing.unit} · {ing.calories_per_100g ? `${Math.round(Number(ing.calories_per_100g) * 100) / 100} kcal/100g` : "Chuẩn chay"}
+                        </span>
+                      </button>
+                    );
+                  })}
                   {filteredSystemIngredients.length === 0 && (
                     <p className="p-4 text-center text-xs text-stone-400">Không tìm thấy nguyên liệu phù hợp trong cơ sở dữ liệu.</p>
                   )}

@@ -1,5 +1,5 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CategoryService } from './category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -19,8 +19,9 @@ export class AdminCategoryController {
 
   @Get()
   @ApiOperation({ summary: 'Admin: danh sách danh mục' })
-  findAll() {
-    return this.categoryService.findAll();
+  @ApiQuery({ name: 'type', required: false, description: 'Lọc theo loại danh mục (để trống lấy tất cả)' })
+  findAll(@Query('type') type?: string) {
+    return this.categoryService.findAll(type);
   }
 
   @Post()
