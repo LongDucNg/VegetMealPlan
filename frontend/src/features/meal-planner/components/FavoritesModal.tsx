@@ -487,7 +487,7 @@ export function FavoritesModal({
                             ))}
                           </ul>
                           <p className="mt-2 text-[11px] text-stone-500">
-                            Calo dự tính: <strong>{validationResult.dayPlan.totalCalories} kcal</strong> so với Mục tiêu: <strong>{profile.weight ? `${validationResult.dayPlan.targetCalories} kcal` : "Tùy chỉnh"}</strong>
+                            Calo dự tính: <strong>~{Math.round(Number(validationResult.dayPlan.totalCalories) * 100) / 100} kcal</strong> so với Mục tiêu: <strong>{profile.weight ? `~${Math.round(Number(validationResult.dayPlan.targetCalories) * 100) / 100} kcal` : "Tùy chỉnh"}</strong>
                           </p>
                         </div>
                       </div>
@@ -599,7 +599,7 @@ export function FavoritesModal({
                         </h4>
                       </div>
                       <p className="text-xs text-stone-500 mt-1">
-                        Kế hoạch {plan.days.length} ngày · Mục tiêu: {plan.targetCalories} kcal/ngày · Chi phí ước tính: ~{plan.totalEstimatedCost.toLocaleString("vi-VN")} đ
+                        Kế hoạch {plan.days.length} ngày · Mục tiêu: ~{Math.round(Number(plan.targetCalories) * 100) / 100} kcal/ngày · Chi phí ước tính: ~{plan.totalEstimatedCost.toLocaleString("vi-VN")} đ
                       </p>
                     </div>
 

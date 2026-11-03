@@ -236,6 +236,59 @@ export const recipeService = {
   },
 
   /**
+   * Kiểm tra công thức có tuyệt đối an toàn với hồ sơ người dùng hay không:
+   * 1. Phù hợp trường phái ăn chay (isDietCompatible)
+   * 2. Không chứa dị ứng người dùng đã khai báo (allergies)
+   * 3. Né nghiêm ngặt theo trường phái ăn chay:
+   *    - Thuần chay (vegan): cấm tuyệt đối Trứng và Sữa
+   *    - Chay có sữa (lacto): cấm tuyệt đối Trứng
+   *    - Chay có trứng (ovo): cấm tuyệt đối Sữa
+   *    - Chay trứng & sữa (lacto_ovo): ăn được trứng và sữa; vẫn né dị ứng đã chọn
+   */
+  isRecipeSafeForProfile(recipe: Recipe, profile?: UserProfile | null): boolean {
+    if (!profile) return true;
+
+    // 1. Chế độ ăn chay tương thích
+    if (!this.isDietCompatible(recipe.vegetarianType, profile.vegetarianType)) {
+      return false;
+    }
+
+    // 2. Kiểm tra dị ứng
+    const allergyCheck = checkRecipeAllergy(recipe, profile);
+    if (allergyCheck.hasAllergy) {
+      return false;
+    }
+
+    // 3. Quét sâu tên món, mô tả và nguyên liệu để né triệt để Trứng/Sữa theo chế độ
+    const vegType = (profile.vegetarianType || "").toLowerCase().trim();
+    if (vegType && vegType !== "lacto_ovo_vegetarian" && vegType !== "ovo_lacto") {
+      const rawIngs = (recipe.ingredients || []).map((i) => (i.name || "").toLowerCase());
+      const titleAndDesc = ((recipe.title || "") + " " + (recipe.description || "")).toLowerCase();
+      const allText = [...rawIngs, titleAndDesc].join(" ");
+      const allergensList = (recipe.allergens || []).map((a) => a.toLowerCase());
+
+      const hasEgg =
+        allText.includes("trứng") ||
+        allText.includes("trung") ||
+        allergensList.includes("egg");
+
+      const hasDairy =
+        allText.includes("sữa") ||
+        allText.includes("sua") ||
+        allText.includes("bơ") ||
+        allText.includes("phô mai") ||
+        allText.includes("kem tươi") ||
+        allergensList.includes("dairy");
+
+      if (vegType === "vegan" && (hasEgg || hasDairy)) return false;
+      if (vegType === "lacto_vegetarian" && hasEgg) return false;
+      if (vegType === "ovo_vegetarian" && hasDairy) return false;
+    }
+
+    return true;
+  },
+
+  /**
    * Smart Recipe Recommendation based on Profile + Calories + Allergies + Meal Type
    */
   getRecommendations(
@@ -245,14 +298,8 @@ export const recipeService = {
   ): Recipe[] {
     const all = this.getRecipes(); // only approved recipes
 
-    // 1. Strictly filter by Vegetarian Type and Allergen-Free
-    const safeForUser = all.filter((r) => {
-      if (!this.isDietCompatible(r.vegetarianType, profile.vegetarianType)) {
-        return false;
-      }
-      const allergyCheck = checkRecipeAllergy(r, profile);
-      return !allergyCheck.hasAllergy;
-    });
+    // 1. Strictly filter by Vegetarian Type and Allergen-Free (an toàn 100% không chứa thành phần né và dị ứng)
+    const safeForUser = all.filter((r) => this.isRecipeSafeForProfile(r, profile));
 
     // 2. Filter by mealType if provided (any khớp với cả lunch và dinner)
     let candidates = mealType
@@ -302,6 +349,7 @@ export const recipeService = {
 
     // 1. Same meal type, exclude current recipe, match diet & allergens
     const eligible = all.filter((r) => {
+      if (r.id === originalRecipe.id) return false;
       const origType = (originalRecipe.mealType || "").toLowerCase();
       const candType = (r.mealType || "").toLowerCase();
       const isMealMatch =
@@ -310,14 +358,12 @@ export const recipeService = {
         candType === "any" ||
         ((origType === "lunch" || origType === "dinner") && (candType === "lunch" || candType === "dinner"));
       if (!isMealMatch) return false;
-      if (!this.isDietCompatible(r.vegetarianType, profile.vegetarianType)) return false;
-      const allergy = checkRecipeAllergy(r, profile);
-      return !allergy.hasAllergy;
+      return this.isRecipeSafeForProfile(r, profile);
     });
 
-    // If empty with same meal type, allow other safe recipes as fallback
+    // If empty with same meal type, allow other strictly safe recipes as fallback
     const pool = eligible.length > 0 ? eligible : all.filter(
-      (r) => r.id !== originalRecipe.id && !checkRecipeAllergy(r, profile).hasAllergy
+      (r) => r.id !== originalRecipe.id && this.isRecipeSafeForProfile(r, profile)
     );
 
     const refCalories = targetMealCalories || originalRecipe.calories;
