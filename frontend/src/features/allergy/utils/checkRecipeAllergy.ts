@@ -44,7 +44,7 @@ export function checkAllergies(
   // 1. Check explicit recipe.allergens array if present
   const explicitAllergens = (recipe.allergens || []).map((a) => a.toLowerCase().trim());
 
-  // 2. Flatten recipe text into normalized string for comprehensive detection
+  // 2. Flatten recipe ingredients into normalized string array for comprehensive detection
   const rawIngs = (recipe.ingredients && recipe.ingredients.length > 0)
     ? recipe.ingredients
     : (recipe.recipe_ingredients && recipe.recipe_ingredients.length > 0)
@@ -54,23 +54,22 @@ export function checkAllergies(
     : [];
 
   const ingredientNames = (rawIngs as Array<{ name?: string; ingredient_name?: string } | string>).map((ing) => {
-    if (typeof ing === "string") return ing.toLowerCase();
-    return (ing.name || ing.ingredient_name || "").toLowerCase();
-  });
+    if (typeof ing === "string") return ing.toLowerCase().trim();
+    return (ing.name || ing.ingredient_name || "").toLowerCase().trim();
+  }).filter(Boolean);
 
-  const fullText = [
-    recipe.name || "",
-    recipe.title || "",
-    recipe.description || "",
-    ...ingredientNames,
-  ]
-    .join(" ")
-    .toLowerCase();
+  const dishTitle = (recipe.name || recipe.title || "").toLowerCase();
+
+  // Loại bỏ các cụm phủ định trong description (VD: "không đậu nành, không gluten" -> không bị hiểu nhầm là có đậu nành)
+  const cleanDescription = (recipe.description || "")
+    .toLowerCase()
+    .replace(/(?:không|chưa|không có|không chứa|chẳng|miễn|free from|no)\s+[\p{L}\p{N}\s,.-]{1,40}/giu, " ");
 
   const detectedAllergens: string[] = [];
 
   for (const userAllergy of userAllergies) {
     const normalizedUserAllergy = userAllergy.toLowerCase().trim();
+    if (!normalizedUserAllergy) continue;
 
     // Find rule in master list or match directly
     const rule = COMMON_ALLERGENS.find(
@@ -90,12 +89,14 @@ export function checkAllergies(
       (a) => a === normalizedUserAllergy || (rule && a === rule.id.toLowerCase())
     );
 
-    // Check keyword match in ingredients or text
+    // Check keyword match in ingredients, title, or clean description
     const keywordMatch = keywords.some((kw) => {
-      const lowerKw = kw.toLowerCase();
+      const lowerKw = kw.toLowerCase().trim();
+      if (!lowerKw) return false;
       return (
         ingredientNames.some((ing) => ing.includes(lowerKw)) ||
-        fullText.includes(lowerKw)
+        dishTitle.includes(lowerKw) ||
+        cleanDescription.includes(lowerKw)
       );
     });
 
@@ -147,4 +148,3 @@ export function isIngredientAllergenic(
   }
   return false;
 }
-
