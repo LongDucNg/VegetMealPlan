@@ -15,7 +15,6 @@ export const HEALTH_GOAL_DEFINITIONS = [
   { name: 'lose_weight', description: 'Giảm cân' },
   { name: 'gain_muscle', description: 'Tăng cơ' },
   { name: 'maintain', description: 'Duy trì cân nặng' },
-  { name: 'healthy_eating', description: 'Ăn uống lành mạnh' },
 ] as const;
 
 export type HealthGoalName = (typeof HEALTH_GOAL_DEFINITIONS)[number]['name'];

@@ -34,7 +34,6 @@ export function AdminIngredientManagement() {
   const [ingredients, setIngredients] = useState<BackendIngredient[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState<"all" | "active" | "inactive">("all");
   const [selectedDiet, setSelectedDiet] = useState<"all" | "vegan" | "non_vegan">("all");
   const [sortBy, setSortBy] = useState<"name" | "price_desc" | "price_asc" | "calories_desc" | "newest">("newest");
   const [currentPage, setCurrentPage] = useState(1);
@@ -134,10 +133,9 @@ export function AdminIngredientManagement() {
   // Quick stats
   const stats = useMemo(() => {
     const total = ingredients.length;
-    const active = ingredients.filter((i) => i.status === "active").length;
-    const inactive = total - active;
     const vegan = ingredients.filter((i) => i.vegan_flag).length;
-    return { total, active, inactive, vegan };
+    const nonVegan = total - vegan;
+    return { total, vegan, nonVegan };
   }, [ingredients]);
 
   // Filtering conflicts
@@ -166,10 +164,7 @@ export function AdminIngredientManagement() {
       );
     }
 
-    // Status filter
-    if (selectedStatus !== "all") {
-      result = result.filter((i) => i.status === selectedStatus);
-    }
+
 
     // Vegan filter
     if (selectedDiet === "vegan") {
@@ -197,7 +192,7 @@ export function AdminIngredientManagement() {
     });
 
     return result;
-  }, [ingredients, search, selectedStatus, selectedDiet, sortBy]);
+  }, [ingredients, search, selectedDiet, sortBy]);
 
   // Pagination calculation
   const totalItems = filteredIngredients.length;
@@ -210,7 +205,7 @@ export function AdminIngredientManagement() {
   // Reset page when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, selectedStatus, selectedDiet, sortBy]);
+  }, [search, selectedDiet, sortBy]);
 
   // Open modals
   const handleOpenAdd = () => {
@@ -238,26 +233,7 @@ export function AdminIngredientManagement() {
     }
   };
 
-  const handleToggleStatus = async (ing: BackendIngredient) => {
-    const nextStatus = ing.status === "active" ? "inactive" : "active";
-    const promptText =
-      nextStatus === "inactive"
-        ? `Tạm dừng nguyên liệu "${ing.ingredient_name}"?`
-        : `Kích hoạt lại nguyên liệu "${ing.ingredient_name}"?`;
 
-    if (!confirm(promptText)) return;
-
-    try {
-      const updated = await ingredientApiService.adminUpdateIngredient(ing.ingredient_id, {
-        status: nextStatus,
-      });
-      setIngredients((prev) =>
-        prev.map((i) => (i.ingredient_id === ing.ingredient_id ? updated : i))
-      );
-    } catch (err: any) {
-      alert(err?.message || "Không thể cập nhật trạng thái");
-    }
-  };
 
   return (
     <div className="space-y-7">
@@ -332,7 +308,7 @@ export function AdminIngredientManagement() {
       {mainTab === "ingredients" ? (
         <>
           {/* Quick Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <div className="p-4 rounded-2xl bg-white border border-stone-200/80 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 block">
@@ -350,34 +326,6 @@ export function AdminIngredientManagement() {
         <div className="p-4 rounded-2xl bg-white border border-stone-200/80 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 block">
-              Đang hoạt động
-            </span>
-            <span className="text-2xl font-serif font-bold text-emerald-800 mt-0.5 block">
-              {stats.active.toLocaleString()}
-            </span>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700">
-            <Sparkles className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white border border-stone-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600 block">
-              Tạm ngưng
-            </span>
-            <span className="text-2xl font-serif font-bold text-stone-700 mt-0.5 block">
-              {stats.inactive.toLocaleString()}
-            </span>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-700">
-            <Archive className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white border border-stone-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 block">
               Thuần chay (Vegan)
             </span>
             <span className="text-2xl font-serif font-bold text-emerald-900 mt-0.5 block">
@@ -386,6 +334,20 @@ export function AdminIngredientManagement() {
           </div>
           <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700">
             <Leaf className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white border border-stone-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600 block">
+              Chay có trứng / sữa
+            </span>
+            <span className="text-2xl font-serif font-bold text-stone-700 mt-0.5 block">
+              {stats.nonVegan.toLocaleString()}
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-700">
+            <Sparkles className="w-5 h-5" />
           </div>
         </div>
       </div>
@@ -421,31 +383,12 @@ export function AdminIngredientManagement() {
 
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-stone-100 text-xs">
           <span className="font-semibold text-stone-500 mr-1 flex items-center gap-1">
-            <Filter className="w-3.5 h-3.5" /> Trạng thái:
+            <Filter className="w-3.5 h-3.5" /> Chế độ:
           </span>
           {[
             { id: "all", label: "Tất cả" },
-            { id: "active", label: "Hoạt động" },
-            { id: "inactive", label: "Tạm ngưng" },
-          ].map((st) => (
-            <button
-              key={st.id}
-              onClick={() => setSelectedStatus(st.id as any)}
-              className={`px-3 py-1.5 rounded-xl font-medium transition-colors cursor-pointer ${
-                selectedStatus === st.id
-                  ? "bg-emerald-700 text-white font-semibold shadow-xs"
-                  : "bg-stone-50 border border-stone-200 text-stone-600 hover:bg-stone-100"
-              }`}
-            >
-              {st.label}
-            </button>
-          ))}
-
-          <span className="font-semibold text-stone-500 ml-3 mr-1">Chế độ:</span>
-          {[
-            { id: "all", label: "Tất cả" },
             { id: "vegan", label: "Thuần chay" },
-            { id: "non_vegan", label: "Chay khác" },
+            { id: "non_vegan", label: "Chay có trứng / sữa" },
           ].map((d) => (
             <button
               key={d.id}
@@ -485,7 +428,6 @@ export function AdminIngredientManagement() {
               { key: "price", label: "Giá chuẩn thị trường" },
               { key: "nutrition", label: "Dinh dưỡng / 100g" },
               { key: "vegan", label: "Thuần chay" },
-              { key: "status", label: "Trạng thái" },
               { key: "actions", label: "" },
             ]}
             rows={paginatedIngredients.map((ing) => ({
@@ -535,14 +477,7 @@ export function AdminIngredientManagement() {
               ) : (
                 <Badge variant="info">Chay trứng sữa</Badge>
               ),
-              status:
-                ing.status === "active" ? (
-                  <Badge variant="success">Hoạt động</Badge>
-                ) : (
-                  <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-stone-200 text-stone-700">
-                    Tạm ngưng
-                  </span>
-                ),
+
               actions: (
                 <div className="flex items-center gap-1 justify-end">
                   <button
@@ -559,21 +494,7 @@ export function AdminIngredientManagement() {
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
-                  <button
-                    onClick={() => handleToggleStatus(ing)}
-                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                      ing.status === "active"
-                        ? "hover:bg-amber-50 text-stone-400 hover:text-amber-700"
-                        : "hover:bg-emerald-50 text-stone-400 hover:text-emerald-700"
-                    }`}
-                    title={ing.status === "active" ? "Tạm ngưng" : "Kích hoạt"}
-                  >
-                    {ing.status === "active" ? (
-                      <Archive className="w-3.5 h-3.5" />
-                    ) : (
-                      <RotateCcw className="w-3.5 h-3.5" />
-                    )}
-                  </button>
+
                 </div>
               ),
             }))}

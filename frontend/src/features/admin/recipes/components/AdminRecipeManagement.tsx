@@ -454,80 +454,77 @@ export function AdminRecipeManagement() {
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="font-semibold text-stone-500 mr-1">Bữa ăn:</span>
-        {[
-          { id: "all", label: "Tất cả" },
-          { id: "breakfast_lunch", label: "Bữa sáng / trưa" },
-          { id: "dinner", label: "Bữa tối" },
-          { id: "snack", label: "Bữa phụ" },
-        ].map((m) => (
-          <button
-            key={m.id}
-            onClick={() => setSelectedMealType(m.id)}
-            className={`px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer ${selectedMealType === m.id
-              ? "bg-emerald-700 text-white font-semibold"
-              : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
-              }`}
+      {/* Filter Dropdowns - Hàng ngang gọn gàng, không bị xuống dòng */}
+      <div className="flex flex-wrap items-center gap-3 bg-stone-50/80 border border-stone-200/80 rounded-2xl p-2.5 sm:px-4 text-xs shadow-2xs">
+        {/* Bữa ăn */}
+        <div className="flex items-center gap-1.5">
+          <label htmlFor="filter-meal-type" className="font-semibold text-stone-600 shrink-0">
+            Bữa ăn:
+          </label>
+          <select
+            id="filter-meal-type"
+            value={selectedMealType}
+            onChange={(e) => setSelectedMealType(e.target.value)}
+            className="h-9 px-3 rounded-xl border border-stone-200 bg-white text-xs font-medium text-stone-700 outline-none hover:border-stone-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 cursor-pointer shadow-2xs"
           >
-            {m.label}
-          </button>
-        ))}
+            <option value="all">Tất cả bữa ăn</option>
+            <option value="breakfast_lunch">Bữa sáng / trưa</option>
+            <option value="dinner">Bữa tối</option>
+            <option value="snack">Bữa phụ</option>
+          </select>
+        </div>
 
-        <span className="font-semibold text-stone-500 ml-3 mr-1">Chế độ chay:</span>
-        {[
-          { id: "all", label: "Tất cả" },
-          { id: "vegan", label: "Thuần chay" },
-          { id: "lacto_vegetarian", label: "Chay có sữa" },
-          { id: "ovo_vegetarian", label: "Chay có trứng" },
-          { id: "lacto_ovo_vegetarian", label: "Trứng & sữa" },
-        ].map((d) => (
-          <button
-            key={d.id}
-            onClick={() => setSelectedDiet(d.id)}
-            className={`px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer ${selectedDiet === d.id
-              ? "bg-stone-800 text-white font-semibold"
-              : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
-              }`}
+        {/* Chế độ chay */}
+        <div className="flex items-center gap-1.5">
+          <label htmlFor="filter-diet" className="font-semibold text-stone-600 shrink-0">
+            Chế độ chay:
+          </label>
+          <select
+            id="filter-diet"
+            value={selectedDiet}
+            onChange={(e) => setSelectedDiet(e.target.value)}
+            className="h-9 px-3 rounded-xl border border-stone-200 bg-white text-xs font-medium text-stone-700 outline-none hover:border-stone-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 cursor-pointer shadow-2xs"
           >
-            {d.label}
-          </button>
-        ))}
+            <option value="all">Tất cả chế độ</option>
+            <option value="vegan">Thuần chay (Vegan)</option>
+            <option value="lacto_vegetarian">Chay có sữa (Lacto)</option>
+            <option value="ovo_vegetarian">Chay có trứng (Ovo)</option>
+            <option value="lacto_ovo_vegetarian">Trứng & sữa (Ovo-Lacto)</option>
+          </select>
+        </div>
 
-        <span className="font-semibold text-stone-500 ml-3 mr-1">Trạng thái:</span>
-        {[
-          { id: "all", label: "Tất cả" },
-          { id: "PENDING_REVIEW", label: "Chờ duyệt", count: pendingCount },
-          { id: "APPROVED", label: "Đã duyệt" },
-          { id: "REJECTED", label: "Đã từ chối" },
-          { id: "DRAFT", label: "Nháp" },
-        ].map((s) => (
-          <button
-            key={s.id}
-            onClick={() => setSelectedStatus(s.id)}
-            className={`px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${selectedStatus.toUpperCase() === s.id.toUpperCase()
-              ? s.id === "PENDING_REVIEW"
-                ? "bg-amber-600 text-white font-semibold"
-                : "bg-emerald-800 text-white font-semibold"
-              : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
-              }`}
+        {/* Trạng thái */}
+        <div className="flex items-center gap-1.5">
+          <label htmlFor="filter-status" className="font-semibold text-stone-600 shrink-0">
+            Trạng thái:
+          </label>
+          <select
+            id="filter-status"
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="h-9 px-3 rounded-xl border border-stone-200 bg-white text-xs font-medium text-stone-700 outline-none hover:border-stone-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 cursor-pointer shadow-2xs"
           >
-            <span>{s.label}</span>
-            {s.count !== undefined && s.count > 0 && (
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${selectedStatus.toUpperCase() === s.id.toUpperCase()
-                  ? "bg-white text-amber-700"
-                  : "bg-amber-100 text-amber-800"
-                  }`}
-              >
-                {s.count}
-              </span>
-            )}
+            <option value="all">Tất cả trạng thái</option>
+            <option value="PENDING_REVIEW">Chờ duyệt {pendingCount > 0 ? `(${pendingCount})` : ""}</option>
+            <option value="APPROVED">Đã duyệt</option>
+            <option value="REJECTED">Đã từ chối</option>
+            <option value="DRAFT">Nháp</option>
+          </select>
+        </div>
+
+        {(selectedMealType !== "all" || selectedDiet !== "all" || selectedStatus !== "all") && (
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedMealType("all");
+              setSelectedDiet("all");
+              setSelectedStatus("all");
+            }}
+            className="text-xs text-stone-500 hover:text-stone-900 underline font-medium ml-auto cursor-pointer"
+          >
+            Đặt lại lọc
           </button>
-        ))}
-
-
+        )}
       </div>
 
 
