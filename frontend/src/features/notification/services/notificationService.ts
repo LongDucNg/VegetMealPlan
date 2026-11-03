@@ -10,8 +10,8 @@ export const notificationService = {
     try {
       const res = await apiClient.get<AppNotification[]>("/notifications");
       return Array.isArray(res) ? res : [];
-    } catch (err) {
-      console.warn("[notificationService] Failed to fetch notifications:", err);
+    } catch {
+      // Khi offline / backend khởi động lại / token xoay vòng: âm thầm trả về mảng rỗng để không spam console
       return [];
     }
   },
