@@ -281,104 +281,110 @@ function PlannerContent() {
       )}
 
       {/* ========================================================
-          GENERATION CONTROL BAR (Requirements 18, 20, 22)
-          [Generate Weekly Plan] [Generate Monthly Plan] [Favorites] [Settings]
+          GENERATION CONTROL BAR
+          Thiết kế lại dễ nhìn: Thông tin & cấu hình bên trái, 3 nút tạo thực đơn xếp hàng dọc bên phải
           ======================================================== */}
-      <div className="bg-white border border-stone-200/90 rounded-3xl p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-emerald-700" />
-            <h3 className="font-serif font-bold text-lg text-stone-900">
-              Kế hoạch Thực đơn chay Cá nhân hóa
-            </h3>
-            {!isPremium && (
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
-                Premium
-              </span>
+      <div className="bg-white border border-stone-200/90 rounded-3xl p-5 sm:p-7 shadow-xs flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-6">
+        <div className="flex-1 space-y-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-700" />
+              <h3 className="font-serif font-bold text-xl text-stone-900">
+                Kế hoạch Thực đơn chay Cá nhân hóa
+              </h3>
+              {!isPremium && (
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                  Premium
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-stone-500 mt-1.5 max-w-xl leading-relaxed">
+              Tạo thực đơn chay cân bằng dinh dưỡng phù hợp với{" "}
+              <strong className="text-stone-700">
+                mục tiêu ~{Math.round(Number(nutritionSummary.dailyCalorieTarget) * 100) / 100} kcal của {activeProfile.name}
+              </strong>
+              , trường phái ăn chay và dị ứng thực phẩm.
+            </p>
+            {generationFeedback && (
+              <p className="text-xs font-semibold text-emerald-700 mt-2 flex items-center gap-1.5 animate-in fade-in">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {generationFeedback}
+              </p>
             )}
           </div>
-          <p className="text-xs text-stone-500 mt-1 max-w-xl leading-relaxed">
-            Tạo thực đơn chay cân bằng dinh dưỡng phù hợp với{" "}
-            <strong className="text-stone-700">
-              mục tiêu ~{Math.round(Number(nutritionSummary.dailyCalorieTarget) * 100) / 100} kcal của {activeProfile.name}
-            </strong>
-            , trường phái ăn chay và dị ứng thực phẩm.
-          </p>
-          {generationFeedback && (
-            <p className="text-xs font-semibold text-emerald-700 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              {generationFeedback}
-            </p>
-          )}
-        </div>
 
-        {/* Action Buttons & Quick Budget Input */}
-        <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-center shrink-0">
-          {/* Quick Budget Limit Control */}
-          <div className="flex items-center gap-2 bg-stone-50 hover:bg-stone-100/90 border border-stone-200/90 rounded-2xl px-3 py-1.5 shadow-2xs transition-colors">
-            <span className="text-sm"></span>
-            <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">
-                Ngân sách:
-              </span>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="number"
-                  placeholder="Không giới hạn"
-                  value={budgetLimit ?? ""}
-                  onChange={(e) => {
-                    const val = e.target.value ? Number(e.target.value) : undefined;
-                    setBudgetLimit(val);
-                  }}
-                  className="w-28 text-xs font-bold text-stone-900 bg-transparent outline-none placeholder:text-stone-400 placeholder:font-normal"
-                  step="50000"
-                  min="50000"
-                />
-                <span className="text-[11px] font-semibold text-stone-500">VNĐ</span>
-                {budgetLimit !== undefined && (
-                  <button
-                    type="button"
-                    onClick={() => setBudgetLimit(undefined)}
-                    className="text-stone-400 hover:text-stone-700 text-xs px-1 font-bold cursor-pointer"
-                    title="Xoá giới hạn ngân sách (Không giới hạn)"
-                  >
-                    ✕
-                  </button>
-                )}
+          {/* Quick Settings & Budget Row */}
+          <div className="flex flex-wrap items-center gap-2.5 pt-1">
+            {/* Quick Budget Limit Control */}
+            <div className="flex items-center gap-2 bg-stone-50 hover:bg-stone-100/90 border border-stone-200/90 rounded-2xl px-3 py-1.5 shadow-2xs transition-colors">
+              <span className="text-sm"></span>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">
+                  Ngân sách:
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    placeholder="Không giới hạn"
+                    value={budgetLimit ?? ""}
+                    onChange={(e) => {
+                      const val = e.target.value ? Number(e.target.value) : undefined;
+                      setBudgetLimit(val);
+                    }}
+                    className="w-28 text-xs font-bold text-stone-900 bg-transparent outline-none placeholder:text-stone-400 placeholder:font-normal"
+                    step="50000"
+                    min="50000"
+                  />
+                  <span className="text-[11px] font-semibold text-stone-500">VNĐ</span>
+                  {budgetLimit !== undefined && (
+                    <button
+                      type="button"
+                      onClick={() => setBudgetLimit(undefined)}
+                      className="text-stone-400 hover:text-stone-700 text-xs px-1 font-bold cursor-pointer"
+                      title="Xoá giới hạn ngân sách (Không giới hạn)"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
+
+            <Button
+              variant="soft"
+              size="sm"
+              onClick={() => setShowFavoritesModal(true)}
+              className="h-10 px-3.5 rounded-xl border-stone-200 text-stone-700 hover:border-rose-300 hover:text-rose-700 flex items-center gap-1.5 text-xs cursor-pointer"
+            >
+              <Heart className="w-3.5 h-3.5 text-rose-500" />
+              <span>Món yêu thích</span>
+            </Button>
+
+            <Button
+              variant="soft"
+              size="sm"
+              onClick={() => setShowSettingsModal(true)}
+              className="h-10 px-3.5 rounded-xl border-stone-200 text-stone-700 flex items-center gap-1.5 text-xs cursor-pointer"
+              title="Tuỳ chỉnh chi tiết thực đơn & ngân sách"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-stone-500" />
+              <span>Cài đặt</span>
+            </Button>
           </div>
+        </div>
 
-          <Button
-            variant="soft"
-            size="sm"
-            onClick={() => setShowFavoritesModal(true)}
-            className="h-10 px-3.5 rounded-xl border-stone-200 text-stone-700 hover:border-rose-300 hover:text-rose-700 flex items-center gap-1.5 text-xs cursor-pointer"
-          >
-            <Heart className="w-3.5 h-3.5 text-rose-500" />
-            <span>Món yêu thích</span>
-          </Button>
-
-          <Button
-            variant="soft"
-            size="sm"
-            onClick={() => setShowSettingsModal(true)}
-            className="h-10 px-3.5 rounded-xl border-stone-200 text-stone-700 flex items-center gap-1.5 text-xs cursor-pointer"
-            title="Tuỳ chỉnh chi tiết thực đơn & ngân sách"
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5 text-stone-500" />
-            <span>Cài đặt</span>
-          </Button>
-
-                    {/* Daily Button */}
+        {/* 3 Nút Tạo Thực Đơn Xếp Hàng Dọc (Requirements) */}
+        <div className="flex flex-col gap-2.5 w-full sm:w-60 shrink-0 self-center">
+          {/* Daily Button */}
           <Button
             size="md"
             onClick={() => handleGenerateDaily()}
             disabled={isGenerating}
-            className={`h-11 px-5 rounded-2xl font-bold text-xs shadow-xs flex items-center gap-2 transition-all cursor-pointer ${hasGenerated && planType === "daily"
-                ? "bg-emerald-800 text-white"
+            className={`w-full h-11 px-4 rounded-2xl font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              hasGenerated && planType === "daily"
+                ? "bg-emerald-800 text-white ring-2 ring-emerald-500"
                 : "bg-emerald-600 hover:bg-emerald-700 text-white"
-              }`}
+            }`}
           >
             {isGenerating && planType === "daily" ? (
               <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -393,28 +399,30 @@ function PlannerContent() {
             size="md"
             onClick={() => handleGenerateWeekly()}
             disabled={isGenerating}
-            className={`h-11 px-5 rounded-2xl font-bold text-xs shadow-xs flex items-center gap-2 transition-all cursor-pointer ${hasGenerated && planType === "weekly"
-                ? "bg-emerald-800 text-white"
+            className={`w-full h-11 px-4 rounded-2xl font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              hasGenerated && planType === "weekly"
+                ? "bg-emerald-800 text-white ring-2 ring-emerald-500"
                 : "bg-emerald-700 hover:bg-emerald-800 text-white"
-              }`}
+            }`}
           >
             {isGenerating && planType === "weekly" ? (
               <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
-              <CalendarDays className="w-3.5 h-3.5" />
+              <CalendarDays className="w-3.5 h-3.5 text-emerald-200" />
             )}
             <span>Tạo Kế Hoạch Tuần</span>
           </Button>
 
-          {/* Monthly Button (Requirement 18, 20) */}
+          {/* Monthly Button */}
           <Button
             size="md"
             onClick={() => handleGenerateMonthly()}
             disabled={isGenerating}
-            className={`h-11 px-5 rounded-2xl font-bold text-xs shadow-xs flex items-center gap-2 transition-all cursor-pointer ${hasGenerated && planType === "monthly"
-                ? "bg-stone-900 text-white"
+            className={`w-full h-11 px-4 rounded-2xl font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              hasGenerated && planType === "monthly"
+                ? "bg-stone-900 text-white ring-2 ring-stone-600"
                 : "bg-stone-800 hover:bg-stone-900 text-white"
-              }`}
+            }`}
           >
             {isGenerating && planType === "monthly" ? (
               <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -426,52 +434,7 @@ function PlannerContent() {
         </div>
       </div>
 
-      {/* ========================================================
-          EMPTY STATE WHEN PLAN HAS NOT BEEN GENERATED YET (Requirement 22, 29)
-          ======================================================== */}
-      {!hasGenerated ? (
-        <Card className="p-8 sm:p-12 text-center bg-white border border-stone-200/90 rounded-3xl space-y-4">
-          <div className="w-16 h-16 rounded-3xl bg-emerald-50 border border-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-2xs">
-            <UtensilsCrossed className="w-8 h-8" />
-          </div>
-          <div className="max-w-md mx-auto space-y-1.5">
-            <h3 className="font-serif font-bold text-xl text-stone-900">
-              Thực đơn của bạn chưa được tạo.
-            </h3>
-            <p className="text-xs text-stone-500 leading-relaxed">
-              Tạo thực đơn cá nhân hóa dựa trên hồ sơ dinh dưỡng, mục tiêu calo theo BMI, sở thích ăn chay và loại trừ dị ứng thực phẩm của bạn.
-            </p>
-          </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <Button
-              onClick={() => handleGenerateWeekly()}
-              className="h-11 px-6 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-sm flex items-center gap-2 cursor-pointer"
-            >
-              <CalendarDays className="w-4 h-4 text-emerald-200" />
-              <span>Tạo Kế Hoạch Tuần (7 Ngày)</span>
-            </Button>
-
-            <Button
-              onClick={() => handleGenerateMonthly()}
-              className="h-11 px-6 rounded-2xl bg-stone-800 hover:bg-stone-900 text-white font-bold text-xs shadow-sm flex items-center gap-2 cursor-pointer"
-            >
-              <Calendar className="w-4 h-4 text-amber-300" />
-              <span>Tạo Kế Hoạch Tháng (Lịch)</span>
-            </Button>
-
-            <Button
-              variant="soft"
-              onClick={() => setShowFavoritesModal(true)}
-              className="h-11 px-5 rounded-2xl border-stone-200 text-stone-700 hover:border-emerald-300 font-bold text-xs cursor-pointer flex items-center gap-2"
-            >
-              <Heart className="w-3.5 h-3.5 text-rose-500" />
-              <span>Tạo Từ Món Yêu Thích</span>
-            </Button>
-          </div>
-        </Card>
-      ) : (
-        <>
           {/* Plan Budget & Estimated Cost Summary Banner */}
           {(budgetLimit || (planType === "weekly" ? weeklyPlan?.budgetLimit : monthlyPlan?.budgetLimit)) && (
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-emerald-50/70 border border-emerald-200/90 rounded-2xl text-xs text-emerald-950 animate-in fade-in shadow-2xs">
@@ -558,7 +521,7 @@ function PlannerContent() {
                 className="h-10 px-3.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                 title="Lưu thực đơn vào mục Yêu thích"
               >
-                <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
+                <Heart className="w-3.5 h-3.5 fill-stone-400 text-stone-400" />
                 <span>Lưu thực đơn</span>
               </button>
 
@@ -619,12 +582,26 @@ function PlannerContent() {
           {/* ========================================================
               DAILY MACRO SUMMARY (Target, Consumed, Remaining & Daily Cost)
               ======================================================== */}
-          {activeDay && <DailyMacroSummary day={activeDay} />}
+          {hasGenerated && activeDay && activeDay.totalCalories > 0 && <DailyMacroSummary day={activeDay} />}
 
           {/* ========================================================
-              4 PLANNED MEALS FOR CURRENT DAY (Requirement 3, 4, 5, 6, 7)
+              4 PLANNED MEALS FOR CURRENT DAY (HOẶC THÔNG BÁO LỊCH TRỐNG KHI CHƯA TẠO)
               ======================================================== */}
-          {activeDay && (
+          {!hasGenerated || !activeDay || activeDay.totalCalories === 0 ? (
+            <div className="p-8 sm:p-12 text-center bg-white border border-stone-200/90 rounded-3xl space-y-3 shadow-2xs">
+              <div className="w-14 h-14 rounded-2xl bg-stone-100 text-stone-400 flex items-center justify-center mx-auto">
+                <UtensilsCrossed className="w-7 h-7" />
+              </div>
+              <div className="max-w-md mx-auto space-y-1.5">
+                <h4 className="font-serif font-bold text-lg text-stone-900">
+                  Lịch thực đơn đang trống — Chưa có món ăn nào
+                </h4>
+                <p className="text-xs text-stone-500 leading-relaxed">
+                  Vui lòng bấm một trong 3 nút ở trên: <strong>Tạo Thực Đơn Ngày</strong>, <strong>Tạo Kế Hoạch Tuần</strong>, hoặc <strong>Tạo Kế Hoạch Tháng</strong> để AI tự động lên thực đơn cá nhân hóa và phân bổ món ăn hợp lý cho từng bữa.
+                </p>
+              </div>
+            </div>
+          ) : (
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-serif font-bold text-xl text-stone-900 flex items-center gap-2">
@@ -777,8 +754,6 @@ function PlannerContent() {
               </div>
             </Card>
           )}
-        </>
-      )}
 
       {/* ========================================================
           ALL INTERACTIVE MODALS

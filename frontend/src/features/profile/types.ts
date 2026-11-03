@@ -11,7 +11,6 @@ export type HealthGoal =
   | "lose_weight"
   | "maintain_weight"
   | "gain_weight"
-  | "healthy_eating";
 
 export type VegetarianType =
   | "vegan"

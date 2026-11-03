@@ -58,13 +58,7 @@ export function AdminIngredientDetailModal({
               ) : (
                 <Badge variant="info">Chay có sữa/trứng</Badge>
               )}
-              {ingredient.status === "active" ? (
-                <Badge variant="success">Hoạt động</Badge>
-              ) : (
-                <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-stone-200 text-stone-700">
-                  Tạm ngưng
-                </span>
-              )}
+
             </div>
           </div>
 

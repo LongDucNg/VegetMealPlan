@@ -83,11 +83,10 @@ describe('UsersService - tự lành mục tiêu sức khoẻ', () => {
 
     const profile: any = await service.updateProfile(1, { current_goal_id: 1 } as any);
 
-    // Bảng đã được đầy 4 mục tiêu chuẩn.
-    expect(goalRepo.rows).toHaveLength(4);
+    // Bảng đã được đầy 3 mục tiêu chuẩn.
+    expect(goalRepo.rows).toHaveLength(3);
     expect(goalRepo.rows.map((r) => r.name).sort()).toEqual([
       'gain_muscle',
-      'healthy_eating',
       'lose_weight',
       'maintain',
     ]);
