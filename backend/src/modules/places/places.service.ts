@@ -172,42 +172,10 @@ export class PlacesService {
       [filter.lat, filter.lng, radiusMeters, dishParam, categoryParam],
     );
 
-    let items: ShopView[] = rows.map((r) => this.mapRowToShopView(r));
+    const items: ShopView[] = rows.map((r) => this.mapRowToShopView(r));
 
-    // Nếu không có quán trong bán kính yêu cầu, lấy các quán gần nhất trong DB
-    if (items.length === 0) {
-      const fallbackRows = await this.dataSource.query<any[]>(
-        `SELECT
-           shop_id         AS "shopId",
-           name,
-           address,
-           latitude,
-           longitude,
-           category,
-           categories,
-           special_dish    AS "specialDish",
-           suggested_dishes AS "suggestedDishes",
-           phone_number    AS "phoneNumber",
-           rating,
-           is_open         AS "isOpen",
-           source,
-           ROUND(
-             6371000 * acos(
-               LEAST(1.0, GREATEST(-1.0,
-                 cos(radians($1)) * cos(radians(latitude)) * cos(radians(longitude) - radians($2)) +
-                 sin(radians($1)) * sin(radians(latitude))
-               ))
-             )
-           ) AS "distanceM"
-         FROM public.shop
-         WHERE latitude IS NOT NULL AND longitude IS NOT NULL
-         ORDER BY "distanceM" ASC
-         LIMIT 6`,
-        [filter.lat, filter.lng],
-      );
-      items = fallbackRows.map((r) => this.mapRowToShopView(r));
-    }
-
+    // Chỉ trả về các quán trong phạm vi bán kính đã chọn (distanceM <= radiusMeters),
+    // sắp xếp từ gần nhất đến xa nhất. Đảm bảo bán kính lớn luôn bao trùm bán kính nhỏ.
     return { items };
   }
 
