@@ -10,10 +10,10 @@ export class HealthGoalController {
 
   @Get()
   @ApiOperation({
-    summary: 'Danh sách mục tiêu sức khoẻ (lose_weight / gain_muscle / maintain)',
+    summary: 'Danh sách mục tiêu sức khoẻ (lose_weight / gain_muscle / maintain / healthy_eating)',
     description:
       'Dùng để frontend hiển thị lựa chọn mục tiêu và gán `current_goal_id` khi cập nhật hồ sơ. ' +
-      'Nếu bảng `health_goals` đang trống, hệ thống tự khởi tạo 3 mục tiêu chuẩn.',
+      'Nếu bảng `health_goals` đang trống, hệ thống tự khởi tạo 4 mục tiêu chuẩn.',
   })
   findAll() {
     return this.healthGoalService.findAll();

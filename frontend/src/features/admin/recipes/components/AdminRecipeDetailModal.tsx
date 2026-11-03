@@ -3,11 +3,15 @@
 import React, { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { X, ExternalLink, Info, Video } from "lucide-react";
+import { X, ExternalLink, Info, Video, AlertCircle, XCircle } from "lucide-react";
 import { Recipe, formatMealType } from "@/features/recipes";
 import { formatVegetarianType } from "@/features/profile/types";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
 import { priceService, PRICE_WARNING_TEXT } from "@/features/recipes/services/priceService";
+import {
+  getIngredientCaloriesPer100g,
+  calculateIngredientCalories,
+} from "@/features/recipes/utils/ingredientNutrition";
 
 interface AdminRecipeDetailModalProps {
   recipe: Recipe | null;
@@ -86,13 +90,22 @@ export function AdminRecipeDetailModal({
                     ? "bg-emerald-50 text-emerald-800 border-emerald-300"
                     : recipe.status === "PENDING_REVIEW"
                     ? "bg-amber-50 text-amber-900 border-amber-300"
+                    : recipe.status === "REJECTED"
+                    ? "bg-rose-50 text-rose-900 border-rose-300"
                     : "bg-stone-100 text-stone-700 border-stone-200"
                 }`}
               >
-                Trạng thái: {recipe.status === "APPROVED" ? "Đã duyệt" : recipe.status === "PENDING_REVIEW" ? "Chờ duyệt" : recipe.status === "REJECTED" ? "Từ chối" : "Bản nháp"}
+                Trạng thái: {recipe.status === "APPROVED" ? "Đã duyệt" : recipe.status === "PENDING_REVIEW" ? "Chờ duyệt" : recipe.status === "REJECTED" ? "Đã từ chối" : "Bản nháp"}
               </span>
               <span className="text-xs font-medium text-stone-500">
-                Danh mục: {recipe.category}
+                Danh mục:{" "}
+                {recipe.category === "un-category" || !recipe.category ? (
+                  <span className="inline-block px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 font-mono text-[11px] border border-stone-200">
+                    un-category (Khác)
+                  </span>
+                ) : (
+                  recipe.category
+                )}
               </span>
             </div>
 
@@ -103,6 +116,19 @@ export function AdminRecipeDetailModal({
               <p className="text-stone-600 text-sm mt-1.5 leading-relaxed">
                 {recipe.description}
               </p>
+            )}
+
+            {/* Rejection reason banner */}
+            {recipe.status === "REJECTED" && (recipe.review_reason || recipe.reviewReason) && (
+              <div className="mt-3 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs">
+                <div className="font-bold flex items-center gap-1.5 mb-1 text-rose-700">
+                  <XCircle className="w-4 h-4" />
+                  <span>Lý do từ chối duyệt:</span>
+                </div>
+                <p className="text-stone-700 leading-relaxed font-medium">
+                  {recipe.review_reason || recipe.reviewReason}
+                </p>
+              </div>
             )}
           </div>
 
@@ -193,20 +219,37 @@ export function AdminRecipeDetailModal({
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-stone-700">
               {recipe.ingredients.map((ing, i) => {
                 const cost = ing.cost || priceService.calculateIngredientCost(ing.name, ing.quantity, ing.unit).cost;
+                const calPer100 =
+                  ing.caloriesPer100g !== undefined && ing.caloriesPer100g !== null
+                    ? Number(ing.caloriesPer100g)
+                    : getIngredientCaloriesPer100g(ing.name);
+                const calculatedKcal = calculateIngredientCalories(ing.quantity, ing.unit, calPer100);
+
                 return (
                   <li
                     key={i}
                     className="flex items-center justify-between p-3 rounded-xl bg-stone-50 border border-stone-200/70"
                   >
                     <div>
-                      <span className="font-medium text-stone-800">{ing.name}</span>
-                      <span className="text-stone-400 block text-[10px] mt-0.5">
-                        ~{cost.toLocaleString("vi-VN")} VNĐ
+                      <span className="font-medium text-stone-800 block">{ing.name}</span>
+                      <div className="flex items-center gap-2 mt-0.5 text-[10px]">
+                        <span className="text-stone-400">
+                          ~{cost.toLocaleString("vi-VN")} VNĐ
+                        </span>
+                        <span className="text-stone-300">·</span>
+                        <span className="text-amber-700 font-semibold">
+                          {calPer100} kcal/100g
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 ml-2">
+                      <span className="font-semibold text-stone-900 block">
+                        {ing.quantity} {ing.unit}
+                      </span>
+                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60 inline-block mt-0.5">
+                        ~{calculatedKcal} kcal
                       </span>
                     </div>
-                    <span className="font-semibold text-stone-900">
-                      {ing.quantity} {ing.unit}
-                    </span>
                   </li>
                 );
               })}

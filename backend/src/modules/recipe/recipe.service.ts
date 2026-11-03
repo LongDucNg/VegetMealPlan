@@ -234,8 +234,26 @@ export class RecipeService {
     if (selectedMealType?.trim()) {
       const mealTypeValue = selectedMealType.trim().toLowerCase();
 
-      // Các meal_type hợp lệ cho bữa này khi món chưa có suitable_meals.
-      const allowedMealTypes = mealTypesSuitableFor(mealTypeValue);
+      if (
+        mealTypeValue === 'breakfast_lunch' ||
+        mealTypeValue === 'sang_trua' ||
+        mealTypeValue === 'breakfast,lunch'
+      ) {
+        qb.andWhere(
+          `(
+            LOWER(recipe.meal_type) IN ('breakfast', 'lunch', 'any', 'dinner')
+            OR LOWER(recipe.suitable_meals) IN ('breakfast', 'lunch', 'any', 'dinner')
+            OR LOWER(recipe.suitable_meals) LIKE '%breakfast%'
+            OR LOWER(recipe.suitable_meals) LIKE '%lunch%'
+            OR LOWER(recipe.suitable_meals) = 'any'
+            OR recipe.suitable_meals IS NULL
+          ) AND (
+            LOWER(recipe.meal_type) <> 'snack' AND (recipe.suitable_meals IS NULL OR LOWER(recipe.suitable_meals) <> 'snack')
+          )`,
+        );
+      } else {
+        // Các meal_type hợp lệ cho bữa này khi món chưa có suitable_meals.
+        const allowedMealTypes = mealTypesSuitableFor(mealTypeValue);
 
       // Nhánh "chưa có suitable_meals" chỉ ghép vào query khi danh sách
       // KHÔNG rỗng. Nếu để trống, TypeORM mở rộng IN (:...arr) thành
@@ -267,6 +285,7 @@ export class RecipeService {
           allowedMealTypes,
         },
       );
+      }
     }
 
     // Tìm kiếm theo tên công thức
@@ -1571,6 +1590,10 @@ export class RecipeService {
         cost: hasPrice ? Math.round(cost) : null,
         // false: không quy đổi được đơn vị, chi phí chỉ là ước tính
         unit_converted: hasPrice ? converted : false,
+        calories_per_100g: ingredient?.calories_per_100g != null ? Number(ingredient.calories_per_100g) : null,
+        calories: ingredient?.calories_per_100g != null
+          ? Math.round((Number(row.quantity ?? 0) / 100) * Number(ingredient.calories_per_100g))
+          : null,
       };
     });
 

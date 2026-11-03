@@ -32,32 +32,59 @@ export function formatVegetarianType(type?: string): string {
 }
 
 export const ALLERGEN_LABELS_VI: Record<string, string> = {
-  peanut: "Đậu phộng (lạc)",
-  PEANUT: "Đậu phộng (lạc)",
-  soy: "Đậu nành & đậu hũ",
-  SOY: "Đậu nành & đậu hũ",
-  gluten: "Gluten (lúa mì)",
-  GLUTEN: "Gluten (lúa mì)",
-  dairy: "Sữa & chế phẩm sữa",
-  DAIRY: "Sữa & chế phẩm sữa",
-  treenut: "Hạt cây",
-  tree_nut: "Hạt cây",
-  TREE_NUT: "Hạt cây",
-  nuts: "Hạt cây",
-  sesame: "Mè & hạt gieo",
-  seed: "Mè & hạt gieo",
-  SEED: "Mè & hạt gieo",
-  corn: "Bắp (ngô)",
-  CORN: "Bắp (ngô)",
+  peanut: "Đậu phộng (Lạc)",
+  peanuts: "Đậu phộng (Lạc)",
+  PEANUT: "Đậu phộng (Lạc)",
+
+  soy: "Đậu nành & Đậu hũ",
+  soya: "Đậu nành & Đậu hũ",
+  SOY: "Đậu nành & Đậu hũ",
+
+  gluten: "Gluten / Lúa mì",
+  wheat: "Gluten / Lúa mì",
+  GLUTEN: "Gluten / Lúa mì",
+
+  dairy: "Sữa & Chế phẩm sữa (Lactose)",
+  milk: "Sữa & Chế phẩm sữa (Lactose)",
+  lactose: "Sữa & Chế phẩm sữa (Lactose)",
+  DAIRY: "Sữa & Chế phẩm sữa (Lactose)",
+
+  treenut: "Hạt cây (Điều, Hạnh nhân, Óc chó)",
+  treenuts: "Hạt cây (Điều, Hạnh nhân, Óc chó)",
+  tree_nut: "Hạt cây (Điều, Hạnh nhân, Óc chó)",
+  tree_nuts: "Hạt cây (Điều, Hạnh nhân, Óc chó)",
+  TREE_NUT: "Hạt cây (Điều, Hạnh nhân, Óc chó)",
+  nuts: "Hạt cây (Điều, Hạnh nhân, Óc chó)",
+
+  sesame: "Mè & Hạt gieo (Vừng, Hướng dương, Bí)",
+  seed: "Mè & Hạt gieo (Vừng, Hướng dương, Bí)",
+  seeds: "Mè & Hạt gieo (Vừng, Hướng dương, Bí)",
+  SEED: "Mè & Hạt gieo (Vừng, Hướng dương, Bí)",
+
+  corn: "Bắp (Ngô)",
+  maize: "Bắp (Ngô)",
+  CORN: "Bắp (Ngô)",
+
   egg: "Trứng",
+  eggs: "Trứng",
   EGG: "Trứng",
-  legume: "Họ đậu khác",
-  LEGUME: "Họ đậu khác",
+
+  legume: "Họ Đậu khác (Đậu đen, xanh, đỏ, gà...)",
+  legumes: "Họ Đậu khác (Đậu đen, xanh, đỏ, gà...)",
+  LEGUME: "Họ Đậu khác (Đậu đen, xanh, đỏ, gà...)",
+
   fungi: "Nấm",
   mushroom: "Nấm",
+  mushrooms: "Nấm",
   FUNGI: "Nấm",
-  allium: "Hành tỏi (ngũ vị tân)",
-  ALLIUM: "Hành tỏi (ngũ vị tân)",
+
+  allium: "Họ hành tỏi (Ngũ vị tân)",
+  ALLIUM: "Họ hành tỏi (Ngũ vị tân)",
+
+  salt: "Muối",
+  SALT: "Muối",
+  muoi: "Muối",
+  "muối": "Muối",
 };
 
 export function formatAllergy(allergy?: string): string {
