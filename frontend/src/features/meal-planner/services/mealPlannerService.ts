@@ -184,9 +184,19 @@ export const mealPlannerService = {
       mealSlotType: "breakfast" | "lunch" | "dinner" | "snack",
       preferredFavIds?: string[]
     ): MealSlotItem => {
-      // 1. Filter allergies
+      // 1. Filter allergies - NGHIÊM NGẶT LOẠI TRỪ 100% CÁC MÓN CÓ DỊ ỨNG
       let safePool = candidates.filter((r) => !checkAllergies(r, profile).hasAllergy);
-      if (safePool.length === 0) safePool = candidates;
+      if (safePool.length === 0) {
+        const allRecipes = recipeService.getRecipes();
+        safePool = allRecipes.filter(
+          (r) =>
+            recipeService.isDietCompatible(r.vegetarianType, profile.vegetarianType) &&
+            !checkAllergies(r, profile).hasAllergy
+        );
+      }
+      if (safePool.length === 0) {
+        safePool = recipeService.getRecipes().filter((r) => !checkAllergies(r, profile).hasAllergy);
+      }
 
       // 2. Không đưa món ăn sáng vào ăn trưa hay ăn tối!
       if (mealSlotType === "lunch" || mealSlotType === "dinner") {
@@ -251,15 +261,19 @@ export const mealPlannerService = {
       }
 
       if (chosenDishes.length === 0) {
-        const fallback = safePool[0] || candidates[0];
-        chosenDishes.push(fallback);
+        const fallback = safePool[0];
+        if (fallback) chosenDishes.push(fallback);
       }
+
+      // Đảm bảo 100% không có món nào có dị ứng lọt vào chosenDishes
+      const strictlyCleanDishes = chosenDishes.filter((d) => !checkAllergies(d, profile).hasAllergy);
+      const finalDishes = strictlyCleanDishes.length > 0 ? strictlyCleanDishes : (safePool.length > 0 ? [safePool[0]] : chosenDishes);
 
       const maxTime = Math.max(...chosenDishes.map((d) => (Number(d.prepTime) || 0) + (Number(d.cookTime) || 0)));
 
       return {
-        recipe: chosenDishes[0],
-        recipes: chosenDishes,
+        recipe: finalDishes[0],
+        recipes: finalDishes,
         time: `${maxTime || 25} min`,
       };
     };
@@ -592,7 +606,27 @@ export const mealPlannerService = {
       const slots = (dateKey ? dateMap.get(dateKey) : null) || {};
 
       const buildSlot = (mealType: string, defaultDish: Recipe): MealSlotItem => {
-        const list = slots[mealType] && slots[mealType].length > 0 ? slots[mealType] : [defaultDish];
+        let list = slots[mealType] && slots[mealType].length > 0 ? slots[mealType] : [defaultDish];
+
+        // Tự động thay thế nếu bất kỳ món nào có chứa thành phần dị ứng
+        list = list.map((dish) => {
+          if (checkAllergies(dish, profile).hasAllergy) {
+            const replacements = recipeService.getReplacementSuggestions(dish, profile);
+            const safe = replacements.find((r) => !checkAllergies(r, profile).hasAllergy);
+            return safe || dish;
+          }
+          return dish;
+        });
+
+        const strictlySafe = list.filter((r) => !checkAllergies(r, profile).hasAllergy);
+        if (strictlySafe.length > 0) {
+          list = strictlySafe;
+        } else {
+          const recs = recipeService.getRecommendations(profile, 300, mealType as any);
+          const safePick = recs.find((r) => !checkAllergies(r, profile).hasAllergy) || defaultDish;
+          list = [safePick];
+        }
+
         const maxTime = Math.max(...list.map((r) => (Number(r.prepTime) || 0) + (Number(r.cookTime) || 0)));
         return {
           recipe: list[0],
@@ -760,6 +794,76 @@ export const mealPlannerService = {
       averageDailyCost: Math.round(totalCost / calendarDays.length),
       targetCalories,
       budgetLimit: plan.has_budget && plan.total_budget ? Number(plan.total_budget) : undefined,
+    };
+  },
+
+  /**
+   * Tự động quét và thay thế mọi món có dị ứng trong kế hoạch bằng món an toàn
+   */
+  sanitizePlanAllergies(plan: WeeklyMealPlan, profile: UserProfile): WeeklyMealPlan {
+    if (!profile.allergies || profile.allergies.length === 0) return plan;
+
+    let hasChange = false;
+    const cleanDays = plan.days.map((day) => {
+      const sanitizeSlot = (slot: MealSlotItem, mealType: "breakfast" | "lunch" | "dinner" | "snack"): MealSlotItem => {
+        const dishes = slot.recipes && slot.recipes.length > 0 ? slot.recipes : [slot.recipe];
+        let slotChanged = false;
+
+        const cleanDishes = dishes.map((dish) => {
+          if (checkAllergies(dish, profile).hasAllergy) {
+            slotChanged = true;
+            hasChange = true;
+            const replacements = recipeService.getReplacementSuggestions(dish, profile);
+            const safe = replacements.find((r) => !checkAllergies(r, profile).hasAllergy);
+            return safe || dish;
+          }
+          return dish;
+        }).filter((dish) => !checkAllergies(dish, profile).hasAllergy);
+
+        if (cleanDishes.length === 0) {
+          const recs = recipeService.getRecommendations(profile, 300, mealType);
+          const safePick = recs.find((r) => !checkAllergies(r, profile).hasAllergy);
+          if (safePick) {
+            cleanDishes.push(safePick);
+            slotChanged = true;
+            hasChange = true;
+          }
+        }
+
+        if (!slotChanged) return slot;
+
+        const maxTime = Math.max(...cleanDishes.map((r) => (Number(r.prepTime) || 0) + (Number(r.cookTime) || 0)));
+        return {
+          recipe: cleanDishes[0],
+          recipes: cleanDishes,
+          time: `${maxTime || 25} min`,
+        };
+      };
+
+      const updatedDay: DayMealPlan = {
+        ...day,
+        breakfast: sanitizeSlot(day.breakfast, "breakfast"),
+        lunch: sanitizeSlot(day.lunch, "lunch"),
+        dinner: sanitizeSlot(day.dinner, "dinner"),
+        snack: sanitizeSlot(day.snack, "snack"),
+      };
+
+      return this.recalculateDay(updatedDay, day.targetCalories, String(profile.id || ""));
+    });
+
+    if (!hasChange) return plan;
+
+    const totalKcal = cleanDays.reduce((sum, d) => sum + d.totalCalories, 0);
+    const totalProt = cleanDays.reduce((sum, d) => sum + d.totalProtein, 0);
+    const totalCost = cleanDays.reduce((sum, d) => sum + d.estimatedCost, 0);
+
+    return {
+      ...plan,
+      days: cleanDays,
+      averageDailyCalories: Math.round(totalKcal / cleanDays.length),
+      averageProtein: Math.round(totalProt / cleanDays.length),
+      totalEstimatedCost: totalCost,
+      averageDailyCost: Math.round(totalCost / cleanDays.length),
     };
   },
 };
