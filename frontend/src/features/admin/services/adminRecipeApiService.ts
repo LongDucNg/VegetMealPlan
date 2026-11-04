@@ -219,7 +219,11 @@ export const adminRecipeApiService = {
         }
 
         const matched = STANDARD_CATEGORIES.find((sc) =>
-          rawCats.some((rc) => rc && rc.trim().toLowerCase() === sc.toLowerCase())
+          rawCats.some((rc) => {
+            if (!rc) return false;
+            const rNorm = rc.trim().toLowerCase();
+            return rNorm === sc.toLowerCase() || rNorm.includes(sc.toLowerCase());
+          })
         );
         categoryCell = matched || "Khác";
       }
