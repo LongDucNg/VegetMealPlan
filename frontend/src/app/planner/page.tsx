@@ -1012,15 +1012,12 @@ function PlannerContent() {
       <SaveMealPlanModal
         isOpen={showSavePlanModal}
         onClose={() => setShowSavePlanModal(false)}
-        planType={planType}
-        targetCalories={nutritionSummary.dailyCalorieTarget}
-        totalCost={
-          (planType === "weekly" || planType === "daily")
-            ? weeklyPlan?.totalEstimatedCost || 0
-            : monthlyPlan?.totalEstimatedCost || 0
-        }
+        activeDay={currentViewDay}
+        planType="daily"
+        targetCalories={currentViewDay ? Math.round(currentViewDay.totalCalories) : nutritionSummary.dailyCalorieTarget}
+        totalCost={currentViewDay ? currentViewDay.estimatedCost : 0}
         onSave={async (name) => {
-          await saveCurrentMealPlan(name);
+          await saveCurrentMealPlan(name, currentViewDay || undefined);
           setSavedNotification({ name });
           setTimeout(() => setSavedNotification(null), 10000);
         }}
