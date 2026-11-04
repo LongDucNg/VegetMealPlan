@@ -41,7 +41,6 @@ export const HEALTH_GOAL_OPTIONS: { id: UserProfile["healthGoal"]; label: string
   { id: "lose_weight", label: "Giảm cân", desc: "Thâm hụt ~500 kcal giúp đốt mỡ đều đặn" },
   { id: "maintain_weight", label: "Duy trì vóc dáng", desc: "Cân bằng năng lượng phù hợp chỉ số TDEE" },
   { id: "gain_weight", label: "Tăng cơ / Tăng cân", desc: "Dư thừa ~400 kcal + tối ưu đạm thực vật" },
-  { id: "healthy_eating", label: "Ăn uống lành mạnh", desc: "Đa dạng vi chất dinh dưỡng và tiêu hóa khỏe" },
 ];
 
 export const ACTIVITY_LEVEL_OPTIONS: { id: UserProfile["activityLevel"]; label: string; factor: number; desc: string }[] = [

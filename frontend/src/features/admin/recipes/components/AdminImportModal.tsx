@@ -128,8 +128,15 @@ export function AdminImportModal({
           </div>
 
           <div className="flex items-center gap-2">
-
-
+            <a
+              href="/sample_recipes_import.xlsx"
+              download="sample_recipes_import.xlsx"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+              title="Tải tệp Excel mẫu chuẩn (.xlsx) để xem cấu trúc và nhập thử"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Tải file Excel mẫu</span>
+            </a>
 
             <button
               type="button"

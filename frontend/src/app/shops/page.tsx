@@ -323,9 +323,11 @@ export default function ShopsPage() {
           <div className="absolute left-4 bottom-4 z-20 bg-white/95 backdrop-blur-xs px-3.5 py-1.5 rounded-xl border border-stone-200 text-xs font-semibold text-stone-800 shadow-md flex items-center gap-2">
             <Navigation className="w-3.5 h-3.5 text-emerald-700" />
             <span>
-              {shops.length > 0
+              {loading
+                ? `Đang quét quán trong ${radiusKm}km...`
+                : shops.length > 0
                 ? `Tìm thấy ${shops.length} quán trong ${radiusKm}km`
-                : `Đang quét quán trong ${radiusKm}km...`}
+                : `Không tìm thấy quán nào trong ${radiusKm}km`}
             </span>
           </div>
         </div>

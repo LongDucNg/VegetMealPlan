@@ -13,6 +13,8 @@ export const STORAGE_KEYS = {
   GENERATED_PLAN: "app_generated_plan",
   ADMIN_INGREDIENT_PRICES: "app_admin_ingredient_prices",
   IMPORT_PENDING: "app_import_pending_recipes",
+  SOMEONE_ELSE_PROFILE: "app_someone_else_profile",
+  GENERATED_DAYS: "app_generated_days",
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS] | string;

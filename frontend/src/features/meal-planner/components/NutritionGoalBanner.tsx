@@ -3,7 +3,7 @@
 import React from "react";
 import { Target, Flame, Activity, Sparkles, AlertCircle, ArrowRight } from "lucide-react";
 import { CalorieCalculationResult } from "@/features/nutrition/utils/calorieCalculator";
-import { UserProfile, formatVegetarianType, formatAllergies } from "@/features/profile/types";
+import { UserProfile, formatVegetarianType, formatAllergies, formatCompactAllergies } from "@/features/profile/types";
 
 interface NutritionGoalBannerProps {
   nutrition: CalorieCalculationResult;
@@ -40,7 +40,7 @@ export function NutritionGoalBanner({
             </div>
             <div>
               <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-200 block mb-1">
-                Mục tiêu dinh dưỡng của bạn
+                Mục tiêu dinh dưỡng {profile?.name ? `của ${profile.name}` : "của bạn"}
               </span>
               <h3 className="font-serif font-bold text-xl text-white">
                 Hoàn thiện hồ sơ để cá nhân hóa thực đơn ăn chay chính xác.
@@ -77,22 +77,30 @@ export function NutritionGoalBanner({
             <span className="p-1.5 rounded-xl bg-amber-400 text-amber-950">
               <Target className="w-4 h-4" />
             </span>
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-200">
-              Mục tiêu dinh dưỡng của bạn
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-200 flex items-center gap-2">
+              Mục tiêu dinh dưỡng {profile?.name ? `của ${profile.name}` : "của bạn"}
+              {profile?.id === "someone_else_target" && (
+                <span className="px-2 py-0.5 rounded-full bg-violet-300 text-violet-950 font-bold text-[10px] normal-case tracking-normal">
+                  Người được tạo giùm
+                </span>
+              )}
             </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="text-emerald-200">Hồ sơ:</span>
             <span className="font-semibold text-white">
-              {profile.weight} kg · {profile.height} cm · {profile.age} tuổi
+              {profile.name ? `${profile.name} · ` : ""}{profile.weight} kg · {profile.height} cm · {profile.age} tuổi
             </span>
             <span className="text-emerald-300 font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-800/80 border border-emerald-600/60 text-[10px]">
               {formatVegetarianType(profile.vegetarianType)}
             </span>
             {profile.allergies && profile.allergies.length > 0 && (
-              <span className="text-amber-200 font-medium px-2 py-0.5 rounded-full bg-amber-950/60 border border-amber-600/40 text-[10px]">
-                Dị ứng: {formatAllergies(profile.allergies)}
+              <span
+                className="text-amber-200 font-medium px-2 py-0.5 rounded-full bg-amber-950/60 border border-amber-600/40 text-[10px] max-w-full truncate"
+                title={"Dị ứng: " + formatAllergies(profile.allergies)}
+              >
+                Dị ứng: {formatCompactAllergies(profile.allergies, 3)}
               </span>
             )}
           </div>
@@ -193,4 +201,3 @@ export function NutritionGoalBanner({
     </div>
   );
 }
-
