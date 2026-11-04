@@ -1,7 +1,16 @@
 import { apiClient } from "@/lib/apiClient";
 import { tokenStorage } from "@/lib/tokenStorage";
 import { storage, STORAGE_KEYS } from "@/utils/storage/storage";
-import { UserSubscription, SubscriptionTier, SubscriptionPlan } from "../types";
+import {
+  UserSubscription,
+  SubscriptionTier,
+  SubscriptionPlan,
+  BackendSubscriptionPlan,
+  CheckoutResponse,
+  PremiumStatusResponse,
+  PaymentReturnResponse,
+  VnpayReturnResponse,
+} from "../types";
 import { DEFAULT_SUBSCRIPTION, MOCK_PLANS } from "../data/mockSubscriptions";
 
 const SUBSCRIPTION_PLAN_KEY = "subscriptionPlan";
@@ -9,7 +18,6 @@ const SUBSCRIPTION_PLAN_KEY = "subscriptionPlan";
 export const subscriptionService = {
   /**
    * Get subscription plan ("free" | "premium")
-   * Reads from localStorage.getItem("subscriptionPlan") or fallback to app_subscription
    */
   getSubscriptionPlan(): "free" | "premium" {
     if (typeof window !== "undefined") {
@@ -38,7 +46,7 @@ export const subscriptionService = {
         status: "active",
         planId: "premium",
         planName: premiumPlan.name,
-        autoRenew: true,
+        autoRenew: false,
       };
       storage.setItem(STORAGE_KEYS.SUBSCRIPTION, fixed);
       return fixed;
@@ -60,8 +68,8 @@ export const subscriptionService = {
   },
 
   /**
-   * Đồng bộ trạng thái Premium từ backend
-   * GET /subscriptions/me/premium-status hoặc GET /users/me/subscription
+   * Đồng bộ trạng thái Premium thật từ backend:
+   * GET /subscriptions/me/premium-status
    */
   async fetchServerStatus(): Promise<UserSubscription> {
     const token = tokenStorage.getToken();
@@ -70,98 +78,245 @@ export const subscriptionService = {
     }
 
     try {
-      // Gọi trực tiếp endpoint backend đã có: GET /subscriptions/me/premium-status
-      const res = await apiClient
-        .get<{ isPremium?: boolean; is_premium?: boolean; status?: string }>("/subscriptions/me/premium-status")
-        .catch(() =>
-          apiClient.get<{ isPremium?: boolean; is_premium?: boolean; status?: string }>("/users/me/subscription")
-        );
-
-      const isPrem = !!(res?.isPremium ?? res?.is_premium ?? (res?.status === "active"));
+      const res = await apiClient.get<PremiumStatusResponse>("/subscriptions/me/premium-status");
+      const isPrem = !!res?.isPremium;
 
       if (isPrem) {
         if (typeof window !== "undefined") {
           window.localStorage.setItem(SUBSCRIPTION_PLAN_KEY, "premium");
         }
-        const premiumPlan = MOCK_PLANS.find((p) => p.id === "premium") || MOCK_PLANS[1];
         const activeSub: UserSubscription = {
           status: "active",
           planId: "premium",
-          planName: premiumPlan.name,
-          autoRenew: true,
+          planName: "Premium 1 tháng",
+          expiresAt: res.premium_until || undefined,
+          autoRenew: false,
         };
         storage.setItem(STORAGE_KEYS.SUBSCRIPTION, activeSub);
+
+        // Đồng bộ Auth user cache
+        const authUser = tokenStorage.getUser();
+        if (authUser) {
+          authUser.is_premium = true;
+          if (res.premium_until) {
+            authUser.premium_until = new Date(res.premium_until);
+          }
+          tokenStorage.setUser(authUser);
+        }
+
         return activeSub;
       } else {
         if (typeof window !== "undefined") {
           window.localStorage.setItem(SUBSCRIPTION_PLAN_KEY, "free");
         }
         storage.setItem(STORAGE_KEYS.SUBSCRIPTION, DEFAULT_SUBSCRIPTION);
+
+        const authUser = tokenStorage.getUser();
+        if (authUser && authUser.is_premium) {
+          authUser.is_premium = false;
+          authUser.premium_until = undefined;
+          tokenStorage.setUser(authUser);
+        }
+
         return DEFAULT_SUBSCRIPTION;
       }
-    } catch {
+    } catch (err) {
+      console.warn("[subscriptionService] fetchServerStatus fallback:", err);
       return this.getSubscription();
     }
   },
 
   /**
-   * Lấy danh sách các gói dịch vụ
+   * Lấy danh sách các gói dịch vụ thật từ backend:
    * GET /subscriptions/plans
    */
   async getPlans(): Promise<SubscriptionPlan[]> {
     try {
-      const res = await apiClient.get<SubscriptionPlan[]>("/subscriptions/plans");
-      if (Array.isArray(res) && res.length > 0) return res;
-    } catch {}
+      const res = await apiClient.get<BackendSubscriptionPlan[]>("/subscriptions/plans");
+      if (Array.isArray(res) && res.length > 0) {
+        const backendPlans: SubscriptionPlan[] = res.map((bp) => ({
+          id: "premium",
+          name: bp.name,
+          price: bp.price,
+          formattedPrice: `${bp.price.toLocaleString("vi-VN")} đ`,
+          duration: "monthly",
+          billingCycleText: `${bp.price.toLocaleString("vi-VN")} đ / ${bp.duration_days} ngày`,
+          badge: "Toàn bộ tính năng",
+          popular: true,
+          description: bp.description,
+          features: [
+            "Kế hoạch thực đơn cá nhân hóa toàn diện",
+            "Mục tiêu calo chuẩn theo chỉ số cơ thể",
+            "Gợi ý bữa ăn dựa trên BMI & BMR",
+            "Loại trừ dị ứng thực phẩm nghiêm ngặt",
+            "Đầy đủ thực đơn tuần và lịch tháng",
+            "Tùy biến đổi món và chỉnh sửa thực đơn",
+            "AI Dinh dưỡng hỗ trợ tư vấn",
+            "Tạo lại thực đơn không giới hạn",
+            "Ưu tiên tích hợp món ăn yêu thích",
+          ],
+        }));
+
+        const freePlan = MOCK_PLANS.find((p) => p.id === "free") || MOCK_PLANS[0];
+        return [freePlan, ...backendPlans];
+      }
+    } catch (err) {
+      console.warn("[subscriptionService] getPlans error, fallback to mock:", err);
+    }
     return MOCK_PLANS;
   },
 
-  upgradeToPremium(): UserSubscription {
-    return this.purchasePlan("premium");
+  /**
+   * Tạo giao dịch thanh toán VietQR qua PayOS:
+   * POST /subscriptions/checkout
+   * Trả về { payment_url, qr_code, order_code, gateway_txn_ref, amount, expires_in_minutes }
+   */
+  async createCheckout(): Promise<CheckoutResponse> {
+    return apiClient.post<CheckoutResponse>("/subscriptions/checkout");
   },
 
   /**
-   * Mua gói Premium:
-   * POST /subscriptions/checkout (Lưu giao dịch PENDING vào PostgreSQL)
+   * Tra cứu trạng thái giao dịch thanh toán PayOS:
+   * GET /subscriptions/transactions/:orderCode
    */
-  purchasePlan(planId: SubscriptionTier = "premium"): UserSubscription {
+  async checkTransactionStatus(orderCode: string): Promise<PaymentReturnResponse> {
+    return apiClient.get<PaymentReturnResponse>(`/subscriptions/transactions/${orderCode}`);
+  },
+
+  /**
+   * Xác nhận kết quả thanh toán từ Return URL (PayOS / VietQR):
+   */
+  async verifyVnpayReturn(params: Record<string, string>): Promise<PaymentReturnResponse> {
+    const orderCode = params.orderCode || params.vnp_TxnRef || "";
+    if (orderCode) {
+      try {
+        return await this.checkTransactionStatus(orderCode);
+      } catch (err) {
+        console.warn("[subscriptionService] checkTransactionStatus error:", err);
+      }
+    }
+    const isCancelled = params.cancel === "true" || params.status === "CANCELLED";
+    return {
+      status: isCancelled ? "failed" : "success",
+      txn_ref: orderCode || null,
+      premium_until: null,
+      message: isCancelled ? "Giao dịch đã bị hủy" : "Đã nhận kết quả thanh toán",
+    };
+  },
+
+  /**
+   * Kích hoạt trạng thái Premium sau khi thanh toán thành công
+   */
+  setPremiumActive(premiumUntil?: string | null, txnRef?: string | null): UserSubscription {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(SUBSCRIPTION_PLAN_KEY, "premium");
     }
 
-    const premiumPlan = MOCK_PLANS.find((p) => p.id === "premium") || MOCK_PLANS[1];
-    const now = new Date();
-    const expires = new Date();
-    expires.setMonth(now.getMonth() + 1);
-
     const updated: UserSubscription = {
       status: "active",
       planId: "premium",
-      planName: premiumPlan.name,
-      activatedAt: now.toISOString(),
-      expiresAt: expires.toISOString(),
-      autoRenew: true,
+      planName: "Premium 1 tháng",
+      activatedAt: new Date().toISOString(),
+      expiresAt: premiumUntil || undefined,
+      autoRenew: false,
     };
 
     storage.setItem(STORAGE_KEYS.SUBSCRIPTION, updated);
 
-    // Gọi trực tiếp endpoint backend: POST /subscriptions/checkout
-    const token = tokenStorage.getToken();
-    if (token) {
-      apiClient
-        .post<{ gateway_txn_ref?: string }>("/subscriptions/checkout")
-        .catch(() => apiClient.post("/users/me/subscription/purchase"))
-        .catch(() => {});
+    // Lưu vào user profile nếu đang đăng nhập
+    const authUser = tokenStorage.getUser();
+    if (authUser) {
+      authUser.is_premium = true;
+      if (premiumUntil) {
+        authUser.premium_until = new Date(premiumUntil);
+      }
+      tokenStorage.setUser(authUser);
     }
 
     return updated;
   },
 
   /**
-   * Hủy gói Premium:
-   * DELETE /subscriptions/:id
+   * Kích hoạt gói Premium trực tiếp (không qua thanh toán)
    */
-  cancelSubscription(): UserSubscription {
+  async activateDirect(): Promise<{ success: boolean; isPremium: boolean; premium_until?: string; message: string }> {
+    const res = await apiClient.post<any>("/subscriptions/activate-free");
+    if (res?.success && res?.isPremium) {
+      this.setPremiumActive(res.premium_until);
+    }
+    return res;
+  },
+
+  /**
+   * Chuyển về gói Miễn phí
+   */
+  async switchFree(): Promise<{ success: boolean; isPremium: boolean; message: string }> {
+    const res = await apiClient.post<any>("/subscriptions/switch-free");
+    if (res?.success) {
+      this.setFreeActive();
+    }
+    return res;
+  },
+
+  setFreeActive(): UserSubscription {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(SUBSCRIPTION_PLAN_KEY, "free");
+    }
+
+    const updated: UserSubscription = {
+      ...DEFAULT_SUBSCRIPTION,
+    };
+
+    storage.setItem(STORAGE_KEYS.SUBSCRIPTION, updated);
+
+    const authUser = tokenStorage.getUser();
+    if (authUser) {
+      authUser.is_premium = false;
+      authUser.premium_until = undefined;
+      tokenStorage.setUser(authUser);
+    }
+
+    return updated;
+  },
+
+  async togglePremium(): Promise<UserSubscription> {
+    const current = this.getSubscriptionPlan();
+    if (current === "premium") {
+      await this.switchFree();
+      return this.getSubscription();
+    } else {
+      await this.activateDirect();
+      return this.getSubscription();
+    }
+  },
+
+  async purchasePlan(planId: SubscriptionTier = "premium"): Promise<UserSubscription> {
+    const token = tokenStorage.getToken();
+    let backendUntil: string | null = null;
+
+    if (token) {
+      try {
+        const res = await apiClient.post<any>("/subscriptions/activate-free");
+        if (res?.premium_until) {
+          backendUntil = res.premium_until;
+        }
+      } catch (err) {
+        console.warn("[subscriptionService] activate-free API error, falling back locally:", err);
+      }
+    }
+
+    const expires = backendUntil
+      ? new Date(backendUntil)
+      : new Date(Date.now() + 30 * 86_400_000);
+
+    return this.setPremiumActive(expires.toISOString());
+  },
+
+  async upgradeToPremium(): Promise<UserSubscription> {
+    return this.purchasePlan("premium");
+  },
+
+  async cancelSubscription(id: number = 1): Promise<UserSubscription> {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(SUBSCRIPTION_PLAN_KEY, "free");
     }
@@ -174,22 +329,22 @@ export const subscriptionService = {
     };
     storage.setItem(STORAGE_KEYS.SUBSCRIPTION, updated);
 
+    const authUser = tokenStorage.getUser();
+    if (authUser) {
+      authUser.is_premium = false;
+      authUser.premium_until = undefined;
+      tokenStorage.setUser(authUser);
+    }
+
     const token = tokenStorage.getToken();
     if (token) {
-      apiClient
-        .delete("/subscriptions/1")
-        .catch(() => apiClient.delete("/users/me/subscription"))
-        .catch(() => {});
+      try {
+        await apiClient.post("/subscriptions/switch-free");
+      } catch (err) {
+        console.warn("[subscriptionService] switch-free error:", err);
+      }
     }
-
 
     return updated;
-  },
-
-  togglePremium(): UserSubscription {
-    if (this.isPremium()) {
-      return this.cancelSubscription();
-    }
-    return this.upgradeToPremium();
   },
 };

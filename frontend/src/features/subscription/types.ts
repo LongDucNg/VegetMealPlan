@@ -21,4 +21,34 @@ export interface UserSubscription {
   expiresAt?: string;
   autoRenew: boolean;
 }
+export interface BackendSubscriptionPlan {
+  plan_type: string;
+  name: string;
+  price: number;
+  currency: string;
+  duration_days: number;
+  description: string;
+}
 
+export interface CheckoutResponse {
+  payment_url: string;
+  qr_code?: string;
+  order_code?: number;
+  gateway_txn_ref: string;
+  amount: number;
+  expires_in_minutes: number;
+}
+
+export interface PremiumStatusResponse {
+  isPremium: boolean;
+  premium_until: string | null;
+}
+
+export interface PaymentReturnResponse {
+  status: "success" | "failed" | "invalid" | "pending";
+  txn_ref: string | null;
+  premium_until: string | null;
+  message?: string;
+}
+
+export type VnpayReturnResponse = PaymentReturnResponse;

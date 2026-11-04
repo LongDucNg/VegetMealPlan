@@ -1,10 +1,12 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, Put } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CategoryService } from './category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
+import { ErrorCode } from '../../common/constants/error-codes.enum';
 import { UserRole } from '../users/entities/user.entity';
 
 // Quản lý danh mục cho Admin (hợp đồng API: /admin/categories). Đọc công khai vẫn ở GET /categories.
@@ -17,8 +19,9 @@ export class AdminCategoryController {
 
   @Get()
   @ApiOperation({ summary: 'Admin: danh sách danh mục' })
-  findAll() {
-    return this.categoryService.findAll();
+  @ApiQuery({ name: 'type', required: false, description: 'Lọc theo loại danh mục (để trống lấy tất cả)' })
+  findAll(@Query('type') type?: string) {
+    return this.categoryService.findAll(type);
   }
 
   @Post()
@@ -29,7 +32,13 @@ export class AdminCategoryController {
 
   @Put(':id')
   @ApiOperation({ summary: 'Admin: cập nhật danh mục' })
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateCategoryDto) {
+  update(@Param('id', PositiveIntPipe) id: number, @Body() dto: UpdateCategoryDto) {
+    if (!dto || Object.keys(dto).length === 0) {
+      throw new BadRequestException({
+        code: ErrorCode.VALIDATION_FAILED,
+        message: 'Vui lòng cung cấp thông tin cần cập nhật',
+      });
+    }
     return this.categoryService.update(id, dto);
   }
 
@@ -39,7 +48,7 @@ export class AdminCategoryController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Admin: xoá danh mục' })
   @ApiResponse({ status: 204, description: 'Xoá thành công, không có nội dung trả về' })
-  remove(@Param('id', ParseIntPipe) id: number) {
+  remove(@Param('id', PositiveIntPipe) id: number) {
     return this.categoryService.remove(id);
   }
 }

@@ -2,6 +2,7 @@ import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 
 
 export enum EmailOtpPurpose {
   RESET_PASSWORD = 'reset_password',
+  VERIFY_EMAIL = 'verify_email',
 }
 
 /**

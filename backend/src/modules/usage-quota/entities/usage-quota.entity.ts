@@ -3,12 +3,13 @@ import { Entity, PrimaryGeneratedColumn, Column, UpdateDateColumn } from 'typeor
 export enum UsageActionType {
   CHATBOT_QUERY = 'CHATBOT_QUERY',
   MEAL_PLAN_CREATE = 'MEAL_PLAN_CREATE',
+  PHOTO_SCAN = 'PHOTO_SCAN',
 }
 
 /**
  * Thay the TrialUsage cu. Actor la user_id (da dang nhap) HOAC session_id (guest),
  * khong bao gio ca hai. Premium bypass hoan toan - khong tao row o day cho premium user
- * (xem UsageQuotaService.checkAndIncrement, goi truoc boi service dung SubscriptionService.isPremium).
+ * (xem UsageQuotaService.reserveQuota; service goi no chi khi SubscriptionService.isPremium = false).
  */
 @Entity('usage_quotas')
 export class UsageQuota {

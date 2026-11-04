@@ -4,6 +4,7 @@ import { Recipe } from '../../recipe/entities/recipe.entity';
 
 export enum ImportItemStatus {
   SUCCESS = 'success',
+  SKIPPED = 'skipped',
   FAILED = 'failed',
 }
 
@@ -11,6 +12,11 @@ export enum ImportFailReason {
   MISSING_REQUIRED_FIELD = 'MISSING_REQUIRED_FIELD',
   UNKNOWN_INGREDIENT = 'UNKNOWN_INGREDIENT',
   INGREDIENT_CONFLICT = 'INGREDIENT_CONFLICT',
+  DUPLICATE_TITLE = 'DUPLICATE_TITLE',
+  /** Nguyên liệu không tương thích với diet_type của công thức. */
+  DIET_INCOMPATIBLE = 'DIET_INCOMPATIBLE',
+  /** Danh mục không tồn tại, sai loại, đã tắt hoặc chọn quá 1 nhóm/loại món. */
+  INVALID_CATEGORY = 'INVALID_CATEGORY',
 }
 
 @Entity('recipe_import_items')

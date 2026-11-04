@@ -4,11 +4,15 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Recipe } from './entities/recipe.entity';
 import { RecipeIngredient } from './entities/recipe-ingredient.entity';
 import { RecipeCategory } from './entities/recipe-category.entity';
+import { Category } from '../category/entities/category.entity';
 import { FavoriteRecipe } from './entities/favorite-recipe.entity';
 import { UserRecipePrice } from './entities/user-recipe-price.entity';
 
 import { RecipeService } from './recipe.service';
 import { RecipeController } from './recipe.controller';
+import { RecipeValidatorService } from './recipe-validator.service';
+import { RecipeImageService } from './recipe-image.service';
+import { MediaModule } from '../media/media.module';
 import { UserFavoriteRecipeController } from './user-favorite-recipe.controller';
 import { UserRecipePriceController } from './user-recipe-price.controller';
 import { AdminRecipeController } from './admin-recipe.controller';
@@ -17,6 +21,7 @@ import { IngredientModule } from '../ingredient/ingredient.module';
 import { IngredientReplacement } from '../ingredient/entities/ingredient-replacement.entity';
 import { User } from '../users/entities/user.entity';
 import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -24,6 +29,7 @@ import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
       Recipe,
       RecipeIngredient,
       RecipeCategory,
+      Category,
       FavoriteRecipe,
       IngredientReplacement,
       User,
@@ -32,6 +38,8 @@ import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
       NutritionInfo
     ]),
     IngredientModule,
+    MediaModule,
+    NotificationModule,
   ],
   controllers: [
     RecipeController,
@@ -39,7 +47,7 @@ import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
     UserRecipePriceController,
     AdminRecipeController,
   ],
-  providers: [RecipeService],
-  exports: [RecipeService, TypeOrmModule],
+  providers: [RecipeService, RecipeValidatorService, RecipeImageService],
+  exports: [RecipeService, RecipeValidatorService, TypeOrmModule],
 })
-export class RecipeModule { }
+export class RecipeModule { }

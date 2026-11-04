@@ -2,12 +2,13 @@
 
 import React, { useState } from "react";
 import { X, Heart, Check, CalendarDays } from "lucide-react";
+import { MealPlanType } from "../types";
 
 interface SaveMealPlanModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (name: string) => void;
-  planType: "weekly" | "monthly";
+  planType: MealPlanType;
   targetCalories: number;
   totalCost: number;
 }
@@ -21,7 +22,7 @@ export function SaveMealPlanModal({
   totalCost,
 }: SaveMealPlanModalProps) {
   const [name, setName] = useState(
-    `${planType === "weekly" ? "Weekly" : "Monthly"} Plan (${new Date().toLocaleDateString("vi-VN")})`
+    `${planType === "daily" ? "Thực đơn ngày" : planType === "weekly" ? "Kế hoạch tuần" : "Kế hoạch tháng"} (${new Date().toLocaleDateString("vi-VN")})`
   );
 
   if (!isOpen) return null;
@@ -85,12 +86,12 @@ export function SaveMealPlanModal({
             </div>
             <div className="flex justify-between">
               <span>Mục tiêu calo / ngày:</span>
-              <span className="font-bold text-amber-700">{targetCalories} kcal</span>
+              <span className="font-bold text-amber-700">~{Math.round(Number(targetCalories) * 100) / 100} kcal</span>
             </div>
             <div className="flex justify-between">
               <span>Chi phí ước tính:</span>
               <span className="font-bold text-emerald-800">
-                ~{totalCost.toLocaleString("vi-VN")} VND
+                ~{totalCost.toLocaleString("vi-VN")} VNĐ
               </span>
             </div>
           </div>
@@ -108,7 +109,7 @@ export function SaveMealPlanModal({
               className="h-10 px-5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
             >
               <Check className="w-4 h-4" />
-              Lưu vào Database
+              Lưu thực đơn
             </button>
           </div>
         </form>

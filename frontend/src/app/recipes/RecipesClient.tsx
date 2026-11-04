@@ -24,6 +24,7 @@ import { useRecipes } from "@/features/recipes/hooks/useRecipes";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
 import { RecipeFavoriteButton } from "@/features/recipes/components/RecipeFavoriteButton";
 import { priceService } from "@/features/recipes/services/priceService";
+import { formatMealType } from "@/features/recipes";
 
 export function RecipesClient() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -47,6 +48,7 @@ export function RecipesClient() {
         searchQuery: searchTerm.trim() || undefined,
         mealType: selectedMealType !== "all" ? (selectedMealType as any) : undefined,
         vegetarianType: selectedDiet !== "all" ? (selectedDiet as any) : undefined,
+        exactDiet: selectedDiet !== "all" ? true : undefined,
       });
       setPage(1);
     }, 300);
@@ -100,11 +102,10 @@ export function RecipesClient() {
         <button
           key={`page-${pageNum}`}
           onClick={() => handlePageChange(pageNum)}
-          className={`w-9 h-9 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center justify-center ${
-            isActive
+          className={`w-9 h-9 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center justify-center ${isActive
               ? "bg-emerald-700 text-white shadow-sm shadow-emerald-800/20"
               : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50 hover:text-emerald-700"
-          }`}
+            }`}
         >
           {pageNum}
         </button>
@@ -152,17 +153,16 @@ export function RecipesClient() {
             {[
               { id: "all", label: "Tất cả" },
               { id: "breakfast", label: "Bữa sáng" },
+              { id: "lunch_dinner", label: "Bữa trưa / tối" },
               { id: "snack", label: "Bữa phụ" },
-              { id: "any", label: "Linh hoạt / Bất kỳ" },
             ].map((m) => (
               <button
                 key={m.id}
                 onClick={() => setSelectedMealType(m.id)}
-                className={`px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer ${
-                  selectedMealType === m.id
+                className={`px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer ${selectedMealType === m.id
                     ? "bg-emerald-700 text-white font-semibold shadow-xs"
                     : "bg-stone-50 border border-stone-200 text-stone-600 hover:bg-stone-100"
-                }`}
+                  }`}
               >
                 {m.label}
               </button>
@@ -172,18 +172,17 @@ export function RecipesClient() {
             {[
               { id: "all", label: "Tất cả" },
               { id: "vegan", label: "Thuần chay" },
-              { id: "ovo_lacto", label: "Lacto-Ovo" },
-              { id: "lacto", label: "Lacto" },
-              { id: "ovo", label: "Ovo" },
+              { id: "ovo", label: "Chay có trứng (Ovo)" },
+              { id: "lacto", label: "Chay có sữa (Lacto)" },
+              { id: "ovo_lacto", label: "Trứng & sữa (Ovo-Lacto)" },
             ].map((d) => (
               <button
                 key={d.id}
                 onClick={() => setSelectedDiet(d.id)}
-                className={`px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer ${
-                  selectedDiet === d.id
+                className={`px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer ${selectedDiet === d.id
                     ? "bg-emerald-700 text-white font-semibold shadow-xs"
                     : "bg-stone-50 border border-stone-200 text-stone-600 hover:bg-stone-100"
-                }`}
+                  }`}
               >
                 {d.label}
               </button>
@@ -267,7 +266,7 @@ export function RecipesClient() {
 
                       <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1.5">
                         <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-600 text-white shadow-2xs">
-                          {recipe.mealType || "Món chay"}
+                          {formatMealType(recipe.mealType)}
                         </span>
                       </div>
 
@@ -279,7 +278,7 @@ export function RecipesClient() {
                     {/* Body */}
                     <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                       <div>
-                        <div className="mb-2">
+                        <div className="mb-2 max-w-full overflow-hidden">
                           <RecipeAllergyBadge recipe={recipe} compact />
                         </div>
 
@@ -297,7 +296,7 @@ export function RecipesClient() {
                         <div className="flex items-center gap-2 mt-2.5 text-xs text-stone-500">
                           <span className="flex items-center gap-1 font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
                             <Flame className="w-3 h-3 text-amber-500 fill-amber-500" />
-                            {recipe.calories} kcal
+                            ~{Math.round(Number(recipe.calories) * 100) / 100} kcal
                           </span>
                           <span className="flex items-center gap-1 text-[11px]">
                             <Clock className="w-3 h-3 text-stone-400" />

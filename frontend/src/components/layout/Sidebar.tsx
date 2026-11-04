@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { useRole } from "@/context/RoleContext";
+import { useSubscription } from "@/features/subscription/hooks/useSubscription";
 
 interface NavItem {
   label: string;
@@ -44,7 +45,16 @@ interface NavItem {
 export function Sidebar() {
   const pathname = usePathname();
   const { role, isGuest, isAdmin, user, logout } = useRole();
+  const { isPremium } = useSubscription();
   const isAdminRoute = pathname.startsWith("/admin");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const effectiveIsPremium = mounted ? isPremium : false;
+  const effectiveIsGuest = mounted ? isGuest : true;
 
   // Navigation for Normal User App
   const exploreNavItems: NavItem[] = [
@@ -61,17 +71,12 @@ export function Sidebar() {
       active: pathname === "/recipes" || pathname.startsWith("/recipes/"),
     },
     {
-      label: "Video nấu ăn",
-      href: "/videos",
-      icon: CirclePlay,
-      active: pathname === "/videos" || pathname.startsWith("/videos/"),
-    },
-    {
       label: "Quản lý tủ lạnh & Quét AI",
       href: "/planner/scan",
       icon: ScanLine,
       active: pathname.startsWith("/planner/scan"),
-      badge: "AI Match",
+      badge: effectiveIsPremium ? "AI Match" : "Premium",
+      lock: effectiveIsGuest || !effectiveIsPremium,
     },
   ];
 
@@ -81,14 +86,7 @@ export function Sidebar() {
       href: "/planner",
       icon: CalendarDays,
       active: pathname === "/planner",
-      lock: isGuest,
-    },
-    {
-      label: "Tư vấn dinh dưỡng AI",
-      href: "/ai",
-      icon: Sparkles,
-      active: pathname === "/ai" || pathname.startsWith("/ai/"),
-      badge: "Beta",
+      lock: effectiveIsGuest,
     },
     {
       label: "Diễn đàn cộng đồng",
@@ -111,12 +109,7 @@ export function Sidebar() {
       icon: Heart,
       active: pathname === "/me",
     },
-    {
-      label: "Công thức của tôi",
-      href: "/me?tab=my_recipes",
-      icon: ChefHat,
-      active: false,
-    },
+
     {
       label: "Cài đặt & Dị ứng",
       href: "/me/settings",
@@ -159,7 +152,6 @@ export function Sidebar() {
       href: "/admin/moderation",
       icon: ShieldAlert,
       active: pathname.startsWith("/admin/moderation"),
-      flagCount: "3",
     },
     {
       label: "Thư viện nội dung",
@@ -176,12 +168,6 @@ export function Sidebar() {
       icon: Users,
       active: pathname.startsWith("/admin/members"),
     },
-    {
-      label: "Mô hình AI & Nhật ký",
-      href: "/admin/ai",
-      icon: Cpu,
-      active: pathname.startsWith("/admin/ai"),
-    },
   ];
 
   const renderNavGroup = (items: NavItem[]) => (
@@ -192,19 +178,17 @@ export function Sidebar() {
           <Link
             key={item.label}
             href={item.href}
-            className={`min-h-[44px] px-3 py-1.5 rounded-xl flex items-center justify-between text-[14px] font-medium transition-all group ${
-              item.active
-                ? "bg-emerald-50 text-emerald-950 font-semibold shadow-xs border border-emerald-100"
-                : "text-stone-600 hover:bg-stone-100/80 hover:text-stone-900"
-            }`}
+            className={`min-h-[44px] px-3 py-1.5 rounded-xl flex items-center justify-between text-[14px] font-medium transition-all group ${item.active
+              ? "bg-emerald-50 text-emerald-950 font-semibold shadow-xs border border-emerald-100"
+              : "text-stone-600 hover:bg-stone-100/80 hover:text-stone-900"
+              }`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <div
-                className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
-                  item.active
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "bg-stone-100 text-stone-500 group-hover:bg-stone-200/80 group-hover:text-stone-800"
-                }`}
+                className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${item.active
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "bg-stone-100 text-stone-500 group-hover:bg-stone-200/80 group-hover:text-stone-800"
+                  }`}
               >
                 <Icon
                   className="w-3.5 h-3.5"

@@ -1,6 +1,7 @@
 import {
   Entity,
   PrimaryGeneratedColumn,
+  Index,
   Column,
   ManyToOne,
   JoinColumn,
@@ -9,6 +10,7 @@ import {
 import { User } from '../../users/entities/user.entity';
 
 export enum PaymentGateway {
+  PAYOS = 'PAYOS',
   VNPAY = 'VNPAY',
 }
 
@@ -37,10 +39,11 @@ export class PaymentTransaction {
   @Column('float')
   amount: number;
 
-  @Column({ type: 'enum', enum: PaymentGateway, default: PaymentGateway.VNPAY })
+  @Column({ type: 'enum', enum: PaymentGateway, default: PaymentGateway.PAYOS })
   gateway: PaymentGateway;
 
-  // Ma don hang phia minh sinh ra, gui cho VNPay (vnp_TxnRef).
+  // Mã đơn hàng phía mình sinh ra, gửi cho VNPay (vnp_TxnRef). Unique để IPN tra đúng một giao dịch.
+  @Index('UQ_payment_transactions_txn_ref', { unique: true })
   @Column()
   gateway_txn_ref: string;
 

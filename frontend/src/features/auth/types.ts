@@ -27,6 +27,11 @@ export interface AuthUser {
   weight_kg?: number;
   allergies?: string[];
   avatar_url?: string;
+  target_weight_kg?: number | null;
+  target_date?: string | null;
+  profile_complete?: boolean;
+  missing_profile_fields?: string[];
+  allergies_declared?: boolean;
 }
 
 export interface AuthResponse {
@@ -75,6 +80,25 @@ export interface RegisterPayload {
 export interface LoginPayload {
   email: string;
   password: string;
+}
+
+export interface RegisterResponse {
+  message: string;
+  email: string;
+  verification_required: boolean;
+  expires_in_seconds?: number;
+  resend_after_seconds?: number;
+}
+
+export interface VerifyEmailPayload {
+  email: string;
+  code: string;
+}
+
+export interface ResendVerificationResponse {
+  message: string;
+  expires_in_seconds?: number;
+  resend_after_seconds?: number;
 }
 
 export interface ForgotPasswordPayload {

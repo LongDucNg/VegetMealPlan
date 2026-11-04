@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -24,7 +24,7 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const REGION_OPTIONS = [
   "Thành phố Hồ Chí Minh",
@@ -40,8 +40,16 @@ type SettingsTab = "profile" | "subscription" | "notifications" | "security";
 
 function SettingsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab") as SettingsTab | null;
   const { logout, logoutAll } = useRole();
-  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+  const [activeTab, setActiveTab] = useState<SettingsTab>(tabParam || "profile");
+
+  useEffect(() => {
+    if (tabParam && ["profile", "subscription", "notifications", "security"].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
   const [region, setRegion] = useState("Thành phố Hồ Chí Minh");
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [weeklyDigest, setWeeklyDigest] = useState(true);
@@ -108,7 +116,7 @@ function SettingsContent() {
 
       setChangePasswordSuccess(
         res?.message ||
-          "Đổi mật khẩu thành công! Các thiết bị khác đã được đăng xuất an toàn."
+        "Đổi mật khẩu thành công! Các thiết bị khác đã được đăng xuất an toàn."
       );
       setCurrentPassword("");
       setNewPassword("");
@@ -140,11 +148,10 @@ function SettingsContent() {
       <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
         <button
           onClick={() => setActiveTab("profile")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === "profile"
-              ? "bg-emerald-700 text-white shadow-xs"
-              : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
-          }`}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${activeTab === "profile"
+            ? "bg-emerald-700 text-white shadow-xs"
+            : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
+            }`}
         >
           <UserCheck className="w-4 h-4" />
           Chỉ số dinh dưỡng & Thể trạng
@@ -152,35 +159,23 @@ function SettingsContent() {
 
         <button
           onClick={() => setActiveTab("subscription")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === "subscription"
-              ? "bg-emerald-700 text-white shadow-xs"
-              : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
-          }`}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${activeTab === "subscription"
+            ? "bg-emerald-700 text-white shadow-xs"
+            : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
+            }`}
         >
           <Crown className="w-4 h-4 text-amber-400" />
           Gói hội viên & Đăng ký
         </button>
 
-        <button
-          onClick={() => setActiveTab("notifications")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === "notifications"
-              ? "bg-emerald-700 text-white shadow-xs"
-              : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
-          }`}
-        >
-          <Bell className="w-4 h-4" />
-          Khu vực & Thông báo
-        </button>
+
 
         <button
           onClick={() => setActiveTab("security")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === "security"
-              ? "bg-emerald-700 text-white shadow-xs"
-              : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
-          }`}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${activeTab === "security"
+            ? "bg-emerald-700 text-white shadow-xs"
+            : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
+            }`}
         >
           <ShieldCheck className="w-4 h-4" />
           Bảo mật & Đổi mật khẩu
@@ -406,7 +401,9 @@ export default function MeSettingsPage() {
         ) : isGuest ? (
           <LockedState reason="guest" />
         ) : (
-          <SettingsContent />
+          <Suspense fallback={<GatedSkeleton />}>
+            <SettingsContent />
+          </Suspense>
         )}
       </div>
     </AppShell>

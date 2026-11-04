@@ -1,22 +1,32 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { Subscription, SubscriptionStatus } from './entities/subscription.entity';
-import {
-  PaymentTransaction,
-  PaymentTransactionStatus,
-} from './entities/payment-transaction.entity';
+import { PaymentTransaction, PaymentTransactionStatus, PaymentGateway } from './entities/payment-transaction.entity';
 import { User } from '../users/entities/user.entity';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/entities/notification.entity';
+import { ErrorCode } from '../../common/constants/error-codes.enum';
+import { PayosService } from './payos.service';
 
-const MONTHLY_PLAN_PRICE = Number(process.env.MONTHLY_PLAN_PRICE) || 99000;
+const PLAN_TYPE = 'monthly';
 const PLAN_DURATION_DAYS = 30;
-const EXPIRING_SOON_DAYS = 3;
+
+export interface PaymentResult {
+  status: 'success' | 'failed' | 'invalid' | 'pending';
+  txn_ref?: string;
+  premium_until?: Date | null;
+  message: string;
+}
 
 @Injectable()
 export class SubscriptionService {
+  private readonly logger = new Logger(SubscriptionService.name);
+  private readonly price: number;
+  private readonly allowDirectPremium: boolean;
+
   constructor(
     @InjectRepository(Subscription)
     private readonly subscriptionRepo: Repository<Subscription>,
@@ -25,105 +35,250 @@ export class SubscriptionService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly notificationService: NotificationService,
-  ) {}
+    private readonly payos: PayosService,
+    config: ConfigService,
+  ) {
+    this.price = Number(config.get<string>('MONTHLY_PLAN_PRICE')) || 99000;
+    // Mặc định TẮT: bật lên thì ai đăng nhập cũng tự có Premium không cần trả tiền (chỉ dùng khi demo/test).
+    this.allowDirectPremium = config.get<string>('ALLOW_DIRECT_PREMIUM') === 'true';
+  }
 
-  /** User dang co goi premium con hieu luc khong (dung o guard/quota check). */
+  /** GET /subscriptions/plans: hiện chỉ có một gói tháng. */
+  getPlans() {
+    return [
+      {
+        plan_type: PLAN_TYPE,
+        name: 'Premium 1 tháng',
+        price: this.price,
+        currency: 'VND',
+        duration_days: PLAN_DURATION_DAYS,
+        description: 'Mua thêm khi còn hạn sẽ cộng dồn từ ngày hết hạn hiện tại.',
+      },
+    ];
+  }
+
+  /** User đang có gói premium còn hiệu lực không (dùng ở chatbot, thực đơn cho người thân...). */
   async isPremium(user_id: number): Promise<boolean> {
-    const user = await this.userRepo.findOne({ where: { user_id } });
-    if (!user || !user.premium_until) return false;
-    return user.premium_until.getTime() > Date.now();
+    return (await this.premiumStatus(user_id)).isPremium;
+  }
+
+  /** Premium tính theo users.premium_until (gói mua một lần, cộng dồn), chỉ đọc đúng cột cần. */
+  async premiumStatus(user_id: number) {
+    const user = await this.userRepo.findOne({ where: { user_id }, select: { user_id: true, role: true, premium_until: true } });
+    const premium_until = user?.premium_until ?? null;
+    const isPremium = user?.role === 'admin' || (!!premium_until && premium_until.getTime() > Date.now());
+    return { isPremium, premium_until };
   }
 
   /**
-   * Buoc 1 cua flow VNPay: tao 1 giao dich pending, tra ve gateway_txn_ref
-   * de controller dung xay dung URL redirect sang VNPay.
-   * TODO: build URL VNPay that (vnp_TmnCode/vnp_HashSecret lay tu .env,
-   * ky HMAC theo tai lieu VNPay) - chua co merchant that nen chi stub o day.
+   * POST /subscriptions/checkout: tạo giao dịch pending rồi trả link thanh toán VietQR (PayOS).
+   * Chưa cấu hình PayOS thì báo 503 trước khi tạo giao dịch, để không sinh giao dịch rác.
    */
-  async createPendingTransaction(user_id: number): Promise<PaymentTransaction> {
-    const gateway_txn_ref = `VMP-${Date.now()}-${randomUUID().slice(0, 8)}`;
-    const transaction = this.transactionRepo.create({
-      user_id,
-      amount: MONTHLY_PLAN_PRICE,
-      gateway_txn_ref,
-      status: PaymentTransactionStatus.PENDING,
+  async checkout(user_id: number, _ipAddr?: string) {
+    this.payos.assertConfigured();
+
+    // Sinh orderCode dạng số nguyên an toàn (6 số đuôi timestamp + 3 số ngẫu nhiên)
+    const orderCode = Number(`${Date.now().toString().slice(-6)}${Math.floor(100 + Math.random() * 900)}`);
+    const gateway_txn_ref = String(orderCode);
+
+    const transaction = await this.transactionRepo.save(
+      this.transactionRepo.create({
+        user_id,
+        amount: this.price,
+        gateway: PaymentGateway.PAYOS,
+        gateway_txn_ref,
+        status: PaymentTransactionStatus.PENDING,
+      }),
+    );
+
+    const paymentLink = await this.payos.createPaymentLink({
+      orderCode,
+      amount: transaction.amount,
+      description: `Premium ${orderCode}`,
     });
-    return this.transactionRepo.save(transaction);
+
+    return {
+      payment_url: paymentLink.checkoutUrl,
+      qr_code: paymentLink.qrCode,
+      order_code: orderCode,
+      gateway_txn_ref,
+      amount: transaction.amount,
+      expires_in_minutes: 15,
+    };
   }
 
   /**
-   * Xu ly IPN callback tu VNPay bao thanh toan thanh cong.
-   * TODO: verify chu ky (vnp_SecureHash) truoc khi tin raw_response - bat buoc
-   * voi payment that, chua lam o day vi chua co vnp_HashSecret that.
+   * Xử lý kết quả Webhook từ PayOS (server tới server).
    */
-  async confirmPaymentSuccess(
-    gateway_txn_ref: string,
-    gateway_transaction_no: string,
-    raw_response: string,
-  ): Promise<Subscription> {
-    const transaction = await this.transactionRepo.findOne({ where: { gateway_txn_ref } });
-    if (!transaction) throw new NotFoundException('Khong tim thay giao dich');
-    if (transaction.status === PaymentTransactionStatus.SUCCESS) {
-      // Da xu ly roi (VNPay co the goi IPN lap) -> tra ve subscription cu, khong tao trung.
-      const existing = await this.subscriptionRepo.findOne({
-        where: { transaction_id: transaction.transaction_id },
-      });
-      if (existing) return existing;
+  async processPayosWebhook(webhookBody: any): Promise<{ success: boolean; message: string }> {
+    let webhookData: any;
+    try {
+      webhookData = await this.payos.verifyWebhook(webhookBody);
+    } catch (err: any) {
+      this.logger.error(`Webhook signature không hợp lệ: ${err?.message || err}`);
+      return { success: false, message: 'Invalid webhook signature' };
     }
 
-    transaction.status = PaymentTransactionStatus.SUCCESS;
-    transaction.gateway_transaction_no = gateway_transaction_no;
-    transaction.raw_response = raw_response;
-    transaction.paid_at = new Date();
-    await this.transactionRepo.save(transaction);
+    const orderCode = webhookData?.orderCode;
+    if (!orderCode) {
+      return { success: false, message: 'Missing orderCode in webhook data' };
+    }
 
-    const start_date = new Date();
-    const end_date = new Date(start_date);
-    end_date.setDate(end_date.getDate() + PLAN_DURATION_DAYS);
+    const txn_ref = String(orderCode);
+    const transaction = await this.transactionRepo.findOne({ where: { gateway_txn_ref: txn_ref } });
+    if (!transaction) {
+      this.logger.warn(`Không tìm thấy giao dịch cho orderCode #${orderCode}`);
+      return { success: false, message: 'Transaction not found' };
+    }
 
-    const subscription = this.subscriptionRepo.create({
-      user_id: transaction.user_id,
-      transaction_id: transaction.transaction_id,
-      plan_type: 'monthly',
-      amount: transaction.amount,
-      start_date,
-      end_date,
-      status: SubscriptionStatus.ACTIVE,
-    });
-    const saved = await this.subscriptionRepo.save(subscription);
+    if (transaction.status !== PaymentTransactionStatus.PENDING) {
+      return { success: true, message: 'Transaction already processed' };
+    }
 
-    await this.userRepo.update({ user_id: transaction.user_id }, { premium_until: end_date });
+    const isSuccess = webhookData.code === '00';
+    const raw_response = JSON.stringify(webhookBody);
 
-    await this.notificationService.create({
-      user_id: transaction.user_id,
-      type: NotificationType.SUBSCRIPTION_SUCCESS,
-      title: 'Dang ky goi thang thanh cong',
-      message: `Ban da kich hoat goi premium den het ngay ${end_date.toLocaleDateString('vi-VN')}.`,
-      ref_type: 'subscription',
-      ref_id: saved.subscription_id,
-    });
-
-    return saved;
-  }
-
-  async confirmPaymentFailed(gateway_txn_ref: string, raw_response: string): Promise<void> {
-    await this.transactionRepo.update(
-      { gateway_txn_ref },
-      { status: PaymentTransactionStatus.FAILED, raw_response },
+    const claimed = await this.transactionRepo.update(
+      { transaction_id: transaction.transaction_id, status: PaymentTransactionStatus.PENDING },
+      isSuccess
+        ? {
+            status: PaymentTransactionStatus.SUCCESS,
+            gateway_transaction_no: String(webhookData.reference ?? webhookData.paymentLinkId ?? ''),
+            raw_response,
+            paid_at: new Date(),
+          }
+        : { status: PaymentTransactionStatus.FAILED, raw_response },
     );
+
+    if (!claimed.affected) {
+      return { success: true, message: 'Transaction claimed by concurrent worker' };
+    }
+
+    if (!isSuccess) {
+      return { success: false, message: `Thanh toán thất bại (mã ${webhookData.code})` };
+    }
+
+    await this.activatePremium(transaction);
+    this.logger.log(`Kích hoạt thành công gói Premium cho người dùng #${transaction.user_id} qua PayOS (Order #${orderCode})`);
+    return { success: true, message: 'Payment success and premium activated' };
   }
 
   /**
-   * Huy goi - KHONG hoan tien tu dong (ngoai scope do an), chi danh dau cancelled.
-   * User van dung premium den het end_date da tra tien (vi la goi 1 lan, khong auto-renew).
+   * Kiểm tra trạng thái giao dịch cho trang Return của Frontend
+   */
+  async checkPaymentStatus(orderCode: string | number): Promise<PaymentResult> {
+    const txn_ref = String(orderCode);
+    let transaction = await this.transactionRepo.findOne({ where: { gateway_txn_ref: txn_ref } });
+
+    if (!transaction) {
+      return { status: 'invalid', txn_ref, message: 'Không tìm thấy giao dịch' };
+    }
+
+    // Nếu giao dịch vẫn đang PENDING: chủ động tra cứu trực tiếp từ PayOS server (phòng trường hợp Webhook chưa tới kịp)
+    if (transaction.status === PaymentTransactionStatus.PENDING && this.payos.isConfigured()) {
+      try {
+        const payosInfo: any = await this.payos.getPaymentInformation(orderCode);
+        if (payosInfo && payosInfo.status === 'PAID') {
+          const claimed = await this.transactionRepo.update(
+            { transaction_id: transaction.transaction_id, status: PaymentTransactionStatus.PENDING },
+            {
+              status: PaymentTransactionStatus.SUCCESS,
+              gateway_transaction_no: String(payosInfo.paymentLinkId ?? ''),
+              raw_response: JSON.stringify(payosInfo),
+              paid_at: new Date(),
+            },
+          );
+          if (claimed.affected) {
+            const end = await this.activatePremium(transaction);
+            return {
+              status: 'success',
+              txn_ref,
+              premium_until: end,
+              message: 'Thanh toán thành công, đã kích hoạt gói Premium!',
+            };
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Lỗi đối soát trực tiếp PayOS: ${err?.message || err}`);
+      }
+    }
+
+    transaction = await this.transactionRepo.findOne({ where: { gateway_txn_ref: txn_ref } });
+    const user = transaction ? await this.userRepo.findOne({ where: { user_id: transaction.user_id } }) : null;
+
+    if (transaction?.status === PaymentTransactionStatus.SUCCESS) {
+      return {
+        status: 'success',
+        txn_ref,
+        premium_until: user?.premium_until ?? null,
+        message: 'Thanh toán thành công, tài khoản đã được nâng cấp Premium!',
+      };
+    } else if (transaction?.status === PaymentTransactionStatus.FAILED) {
+      return {
+        status: 'failed',
+        txn_ref,
+        premium_until: null,
+        message: 'Giao dịch thanh toán không thành công hoặc đã bị hủy.',
+      };
+    }
+
+    return {
+      status: 'pending',
+      txn_ref,
+      premium_until: null,
+      message: 'Giao dịch đang chờ thanh toán qua VietQR.',
+    };
+  }
+
+  /**
+   * Tạo subscription và gia hạn premium_until. Còn hạn thì cộng dồn từ ngày hết hạn hiện tại,
+   * hết hạn rồi thì tính từ hôm nay.
+   */
+  private async activatePremium(transaction: PaymentTransaction): Promise<Date> {
+    const { saved, end } = await this.userRepo.manager.transaction(async (m) => {
+      const user = await m.findOneOrFail(User, { where: { user_id: transaction.user_id }, lock: { mode: 'pessimistic_write' } });
+      const now = new Date();
+      const start = user.premium_until && user.premium_until > now ? user.premium_until : now;
+      const end = new Date(start.getTime() + PLAN_DURATION_DAYS * 86_400_000);
+      const saved = await m.save(
+        m.create(Subscription, {
+          user_id: transaction.user_id,
+          transaction_id: transaction.transaction_id,
+          plan_type: PLAN_TYPE,
+          amount: transaction.amount,
+          start_date: start,
+          end_date: end,
+          status: SubscriptionStatus.ACTIVE,
+        }),
+      );
+      await m.update(User, { user_id: transaction.user_id }, { premium_until: end });
+      return { saved, end };
+    });
+
+    await this.notificationService
+      .create({
+        user_id: transaction.user_id,
+        type: NotificationType.SUBSCRIPTION_SUCCESS,
+        title: 'Đăng ký gói Premium thành công',
+        message: `Gói Premium của bạn có hiệu lực đến hết ngày ${end.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}.`,
+        ref_type: 'subscription',
+        ref_id: saved.subscription_id,
+      })
+      .catch((err) => this.logger.error(`Không tạo được thông báo thanh toán: ${err?.message ?? err}`));
+    return end;
+  }
+
+  /**
+   * Huỷ gói: KHÔNG hoàn tiền tự động (ngoài phạm vi đồ án), chỉ đánh dấu cancelled.
+   * User vẫn dùng Premium đến hết hạn đã trả tiền (gói mua một lần, không tự gia hạn).
    */
   async cancel(user_id: number, subscription_id: number): Promise<Subscription> {
-    const subscription = await this.subscriptionRepo.findOne({
-      where: { subscription_id, user_id },
-    });
-    if (!subscription) throw new NotFoundException('Khong tim thay goi dang ky');
+    const subscription = await this.subscriptionRepo.findOne({ where: { subscription_id, user_id } });
+    if (!subscription) {
+      throw new NotFoundException({ code: ErrorCode.SUBSCRIPTION_NOT_FOUND, message: 'Không tìm thấy gói đăng ký' });
+    }
     if (subscription.status !== SubscriptionStatus.ACTIVE) {
-      throw new BadRequestException('Goi nay khong o trang thai active');
+      throw new BadRequestException({ code: ErrorCode.SUBSCRIPTION_NOT_ACTIVE, message: 'Chỉ huỷ được gói đang hoạt động' });
     }
     subscription.status = SubscriptionStatus.CANCELLED;
     subscription.cancelled_at = new Date();
@@ -132,69 +287,57 @@ export class SubscriptionService {
     await this.notificationService.create({
       user_id,
       type: NotificationType.SUBSCRIPTION_CANCELLED,
-      title: 'Da huy goi thang',
-      message: 'Ban van dung duoc premium den het han da tra tien.',
+      title: 'Đã huỷ gói Premium',
+      message: 'Bạn vẫn dùng được Premium đến hết hạn đã thanh toán.',
       ref_type: 'subscription',
       ref_id: subscription.subscription_id,
     });
-
     return saved;
   }
 
   /**
-   * Chay dinh ky (cron - TODO wiring @nestjs/schedule o main.ts):
-   * bao truoc EXPIRING_SOON_DAYS ngay, khong lap lai neu da bao roi.
+   * Kích hoạt gói Premium trực tiếp (không qua thanh toán PayOS)
+   * Chỉ chạy khi ALLOW_DIRECT_PREMIUM=true (demo/test); mặc định tắt để không ai tự bật Premium miễn phí.
    */
-  async notifyExpiringSoon(): Promise<void> {
-    const threshold = new Date();
-    threshold.setDate(threshold.getDate() + EXPIRING_SOON_DAYS);
-
-    const expiringSoon = await this.subscriptionRepo
-      .createQueryBuilder('s')
-      .where('s.status = :status', { status: SubscriptionStatus.ACTIVE })
-      .andWhere('s.end_date <= :threshold', { threshold })
-      .getMany();
-
-    for (const sub of expiringSoon) {
-      const alreadyNotified = await this.notificationService.existsFor(
-        'subscription',
-        sub.subscription_id,
-        NotificationType.SUBSCRIPTION_EXPIRING,
-      );
-      if (alreadyNotified) continue;
-
-      await this.notificationService.create({
-        user_id: sub.user_id,
-        type: NotificationType.SUBSCRIPTION_EXPIRING,
-        title: 'Goi premium sap het han',
-        message: `Goi cua ban het han ngay ${sub.end_date.toLocaleDateString('vi-VN')}. He thong KHONG tu dong gia han.`,
-        ref_type: 'subscription',
-        ref_id: sub.subscription_id,
+  async activateDirect(user_id: number) {
+    if (!this.allowDirectPremium) {
+      throw new ForbiddenException({
+        code: ErrorCode.SUBSCRIPTION_DIRECT_DISABLED,
+        message: 'Kích hoạt Premium miễn phí đang tắt. Vui lòng thanh toán qua VietQR (PayOS).',
       });
     }
+    const transaction = await this.transactionRepo.save(
+      this.transactionRepo.create({
+        user_id,
+        amount: 0,
+        gateway: PaymentGateway.PAYOS,
+        gateway_txn_ref: `DIRECT_${Date.now()}_${randomUUID().slice(0, 6).toUpperCase()}`,
+        status: PaymentTransactionStatus.SUCCESS,
+      }),
+    );
+    const premium_until = await this.activatePremium(transaction);
+    return {
+      success: true,
+      isPremium: true,
+      premium_until,
+      message: 'Kích hoạt gói Premium thành công! Toàn bộ tính năng đã được mở khóa.',
+    };
   }
 
-  /** Chay dinh ky: chuyen subscription qua han thanh 'expired' + bao cho user. */
-  async expireOverdueSubscriptions(): Promise<void> {
-    const now = new Date();
-    const overdue = await this.subscriptionRepo
-      .createQueryBuilder('s')
-      .where('s.status = :status', { status: SubscriptionStatus.ACTIVE })
-      .andWhere('s.end_date < :now', { now })
-      .getMany();
-
-    for (const sub of overdue) {
-      sub.status = SubscriptionStatus.EXPIRED;
-      await this.subscriptionRepo.save(sub);
-
-      await this.notificationService.create({
-        user_id: sub.user_id,
-        type: NotificationType.SUBSCRIPTION_EXPIRED,
-        title: 'Goi premium da het han',
-        message: 'Ban van xem duoc du lieu cu, nhung khong tao moi duoc nua. Gia han de tiep tuc dung premium.',
-        ref_type: 'subscription',
-        ref_id: sub.subscription_id,
-      });
-    }
+  /**
+   * Chuyển về gói Miễn phí (hủy hiệu lực Premium)
+   */
+  async switchFree(user_id: number) {
+    await this.userRepo.update({ user_id }, { premium_until: null as any });
+    await this.subscriptionRepo.update(
+      { user_id, status: SubscriptionStatus.ACTIVE },
+      { status: SubscriptionStatus.CANCELLED, cancelled_at: new Date() },
+    );
+    return {
+      success: true,
+      isPremium: false,
+      premium_until: null,
+      message: 'Đã chuyển về gói Miễn phí thành công.',
+    };
   }
 }

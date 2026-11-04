@@ -12,6 +12,7 @@ export const ALLERGEN_GROUPS: AllergenGroup[] = [
   { code: 'DAIRY', name: "Sữa và chế phẩm từ sữa", examples: "Sữa tươi, sữa đặc, bơ, phô mai, sữa chua, kem tươi", ingredient_ids: [179, 180, 181, 182, 183, 184] },
   { code: 'FUNGI', name: "Nấm", examples: "Các loại nấm tươi và khô", ingredient_ids: [88, 89, 90, 91, 92, 93, 94, 95, 189] },
   { code: 'ALLIUM', name: "Họ hành tỏi (ngũ tân)", examples: "Hành, tỏi. Người ăn chay Phật giáo thường kiêng", ingredient_ids: [132, 144, 145, 146] },
+  { code: 'CORN', name: "Bắp (ngô)", examples: "Bắp (ngô) tươi, bột bắp", ingredient_ids: [21, 31] },
 ];
 
 export const ALLERGEN_GROUP_CODES = ALLERGEN_GROUPS.map((g) => g.code);

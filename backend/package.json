@@ -19,7 +19,12 @@
     "migration:generate": "npm run typeorm -- -d src/config/typeorm.config.ts migration:generate",
     "migration:run": "npm run typeorm -- -d src/config/typeorm.config.ts migration:run",
     "migration:revert": "npm run typeorm -- -d src/config/typeorm.config.ts migration:revert",
-    "seed": "ts-node src/database/seeds/run-seed.ts"
+    "seed": "ts-node src/database/seeds/run-seed.ts",
+    "payos:webhook": "ts-node src/modules/subscription/confirm-webhook.ts",
+    "images:fetch": "ts-node src/database/scripts/fetch-recipe-images.ts",
+    "images:review": "ts-node src/database/scripts/review-recipe-images.ts",
+    "images:cloudinary": "ts-node src/database/scripts/upload-recipe-images.ts",
+    "images:apply": "ts-node src/database/scripts/apply-recipe-images.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.0",
@@ -30,9 +35,11 @@
     "@nestjs/platform-express": "^10.4.0",
     "@nestjs/swagger": "^7.4.0",
     "@nestjs/typeorm": "^10.0.2",
+    "@payos/node": "^2.0.5",
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "cloudinary": "^2.11.0",
     "dotenv": "^16.4.5",
     "exceljs": "^4.4.0",
     "nodemailer": "^10.1.2",
