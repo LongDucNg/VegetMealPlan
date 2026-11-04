@@ -91,6 +91,17 @@ describe('RecipeImportController - đọc file Excel', () => {
     });
   });
 
+  it('chuẩn hóa độ khó tiếng Việt: "Vừa" / "vừa" / "trung bình" -> medium', async () => {
+    const rowVua = happyRow('Món Vừa');
+    rowVua[6] = 'Vừa';
+    const buffer = await makeWorkbook([
+      { name: 'recipes', rows: [rowVua] },
+    ]);
+
+    const { rows } = await callImport(buffer);
+    expect(rows[0].difficulty).toBe('medium');
+  });
+
   it('chỉ đọc sheet đầu tiên, bỏ qua sheet thứ 2', async () => {
     const buffer = await makeWorkbook([
       { name: 'HappyCase', rows: [happyRow('Món Hợp Lệ')] },
