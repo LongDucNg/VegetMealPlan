@@ -38,6 +38,19 @@ export function recipeHasCategory(r: Recipe, cat: string): boolean {
   if (!cat || cat === "all") return true;
   const normCat = cat.trim().toLowerCase();
 
+  if (normCat === "khác") {
+    const isOther = !ADMIN_RECIPE_CATEGORIES.some((c) => {
+      if (c === "Khác") return false;
+      const cNorm = c.toLowerCase();
+      if (r.category && r.category.trim().toLowerCase() === cNorm) return true;
+      if (Array.isArray(r.categories) && r.categories.some((item) => item && item.trim().toLowerCase() === cNorm)) {
+        return true;
+      }
+      return false;
+    });
+    return isOther || r.category?.trim().toLowerCase() === "khác";
+  }
+
   // 1. Khớp qua r.categories mảng
   if (Array.isArray(r.categories) && r.categories.length > 0) {
     if (r.categories.some((c) => c && c.trim().toLowerCase() === normCat)) {
@@ -48,71 +61,6 @@ export function recipeHasCategory(r: Recipe, cat: string): boolean {
   // 2. Khớp qua r.category đơn
   if (r.category && r.category.trim().toLowerCase() === normCat) {
     return true;
-  }
-
-  // 3. Khớp thông minh theo từ khóa tên món (phòng khi công thức chưa gán hoặc đang mang nhãn mặc định)
-  const title = (r.name || r.title || "").toLowerCase();
-  if (normCat.includes("mì") || normCat.includes("bún") || normCat.includes("phở")) {
-    return (
-      title.includes("mì") ||
-      title.includes("bún") ||
-      title.includes("phở") ||
-      title.includes("hủ tiếu") ||
-      title.includes("miến") ||
-      title.includes("nui")
-    );
-  }
-  if (normCat.includes("cơm") || normCat.includes("xôi") || normCat.includes("cháo")) {
-    return title.includes("cơm") || title.includes("xôi") || title.includes("cháo");
-  }
-  if (normCat.includes("canh") || normCat.includes("súp")) {
-    return title.includes("canh") || title.includes("súp") || title.includes("lẩu");
-  }
-  if (normCat.includes("xào") || normCat.includes("chiên")) {
-    return title.includes("xào") || title.includes("chiên") || title.includes("rán");
-  }
-  if (normCat.includes("kho") || normCat.includes("rim")) {
-    return title.includes("kho") || title.includes("rim");
-  }
-  if (normCat.includes("luộc") || normCat.includes("hấp")) {
-    return title.includes("luộc") || title.includes("hấp");
-  }
-  if (normCat.includes("cuốn") || normCat.includes("gỏi") || normCat.includes("sa lát")) {
-    return (
-      title.includes("cuốn") ||
-      title.includes("gỏi") ||
-      title.includes("salad") ||
-      title.includes("sa lát") ||
-      title.includes("nộm")
-    );
-  }
-  if (normCat.includes("bánh") || normCat.includes("ăn vặt")) {
-    return (
-      title.includes("bánh") ||
-      title.includes("chả giò") ||
-      title.includes("nem") ||
-      title.includes("ăn vặt")
-    );
-  }
-  if (normCat.includes("tráng miệng") || normCat.includes("đồ uống")) {
-    return (
-      title.includes("chè") ||
-      title.includes("trà") ||
-      title.includes("nước") ||
-      title.includes("sinh tố") ||
-      title.includes("sữa") ||
-      title.includes("thạch")
-    );
-  }
-  if (normCat.includes("món đủ bữa")) {
-    return (
-      r.mealType === "lunch" ||
-      r.mealType === "dinner" ||
-      title.includes("cơm") ||
-      title.includes("bún") ||
-      title.includes("phở") ||
-      title.includes("lẩu")
-    );
   }
 
   return false;
@@ -364,7 +312,8 @@ export function AdminExportModal({
         mode === "by_recipes"
           ? `Cong_Thuc_${targetRecipes.length}_Mon`
           : `Cong_Thuc_Theo_Bo_Loc_${targetRecipes.length}_Mon`;
-      const filename = adminRecipeApiService.exportRecipesToExcel(targetRecipes, prefix);
+      const selectedCat = mode === "by_filter" && filterCategory !== "all" ? filterCategory : undefined;
+      const filename = adminRecipeApiService.exportRecipesToExcel(targetRecipes, prefix, selectedCat);
       setSuccessFilename(filename);
     } catch (err: any) {
       setErrorMessage(err?.message || "Đã xảy ra lỗi khi xuất file Excel.");
