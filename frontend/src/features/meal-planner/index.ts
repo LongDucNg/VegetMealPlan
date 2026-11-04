@@ -4,6 +4,7 @@ export * from "./services/mealPlannerService";
 export * from "./services/mealPlanApiService";
 export * from "./hooks/useMealPlanner";
 export * from "./components/DailyMacroSummary";
+export * from "./components/AddDishModal";
 export * from "./components/FavoritesModal";
 export * from "./components/GenerationSettingsModal";
 export * from "./components/MealCard";

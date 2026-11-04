@@ -144,6 +144,8 @@ export async function seedVegetarianData(ds: DataSource) {
       groupNames.add(r.categories[0]);
       courseNames.add(r.categories[1]);
     }
+    // Danh mục "Khác" chuẩn 10 danh mục
+    groupNames.add('Khác');
     const catId = new Map<string, number>();
     const upsertCat = async (name: string, type: string) => {
       let c = await m.findOne(Category, { where: { category_name: name, category_type: type } });

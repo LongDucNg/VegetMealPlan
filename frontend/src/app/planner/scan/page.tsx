@@ -14,6 +14,9 @@ import { useRole } from "@/context/RoleContext";
 import { photoScanService, DetectedIngredientItem } from "@/features/meal-planner/services/photoScanService";
 import { profileService } from "@/features/profile/services/profileService";
 import { tokenStorage } from "@/lib/tokenStorage";
+import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
+import { checkRecipeAllergy } from "@/features/allergy/utils/checkRecipeAllergy";
+import { useProfile } from "@/features/profile/hooks/useProfile";
 import {
   userIngredientService,
   UserIngredientItem,
@@ -120,7 +123,10 @@ function getInitialUserAllergies(): UserAllergyState {
     const authUser = tokenStorage.getUser();
     const allergies = [...(p?.allergies || []), ...(authUser?.allergies || [])];
     const groups = p?.allergenGroups || [];
+    const vegType = (p?.vegetarianType || (authUser as any)?.vegetarianType || "").toLowerCase().trim();
     const hasEgg =
+      vegType === "vegan" ||
+      vegType === "lacto_vegetarian" ||
       groups.some((g: string) => g.toUpperCase() === "EGG") ||
       allergies.some((a: string) => {
         const norm = (a || "").toLowerCase();
@@ -205,7 +211,7 @@ function getRecipeAllergens(
   return Array.from(detected);
 }
 
-export function isIngredientAllergenMatch(
+function isIngredientAllergenMatch(
   ingName: string,
   ingId: number,
   allergies?: UserAllergyState
@@ -404,6 +410,7 @@ function RecipeMatchList({
   const PAGE_SIZE = 9;
   const [currentPage, setCurrentPage] = useState(1);
   const listTopRef = React.useRef<HTMLDivElement>(null);
+  const { profile } = useProfile();
 
   // Khi danh sách công thức thay đổi (ví dụ người dùng thêm/bớt nguyên liệu), reset về trang 1
   useEffect(() => {
@@ -475,12 +482,14 @@ function RecipeMatchList({
               } = item;
               const isFullMatch = matchedCount === totalCount && totalCount > 0;
 
-              const allergensInRecipe = getRecipeAllergens(
+              const allergyResult = checkRecipeAllergy(recipe, profile);
+              const legacyAllergens = getRecipeAllergens(
                 recipe,
                 userAllergies?.names || [],
                 userAllergies?.ids || new Set(),
                 userAllergies?.isEggAllergic || false
               );
+              const allergensInRecipe: string[] = Array.from(new Set([...allergyResult.allergens, ...legacyAllergens]));
               const hasAllergy = allergensInRecipe.length > 0;
 
               return (
@@ -532,15 +541,12 @@ function RecipeMatchList({
                       )}
                     </div>
 
-                    {hasAllergy && (
-                      <div className="mx-3 mt-3 px-3 py-1.5 rounded-xl bg-amber-100 border border-amber-400 text-amber-950 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
-                        <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
-                        <span>Thành phần dị ứng: {allergensInRecipe.join(", ")}</span>
-                      </div>
-                    )}
-
                     <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                       <div>
+                        <div className="mb-2">
+                          <RecipeAllergyBadge recipe={recipe} compact />
+                        </div>
+
                         <h4 className="font-bold text-stone-900 text-base line-clamp-1 group-hover:text-emerald-700 transition-colors">
                           {recipe.title}
                         </h4>
@@ -827,7 +833,7 @@ function PantryManager({
               Tủ lạnh thông minh của bạn
             </h2>
             <p className="text-stone-600 text-sm mt-0.5">
-              Đồng bộ dữ liệu thời gian thực với PostgreSQL. Các công thức bên dưới sẽ tự động đề xuất dựa trên nguyên liệu bạn đang có.
+              Tự động cập nhật nguyên liệu trong bếp. Hệ thống AI sẽ đề xuất các món chay dinh dưỡng phù hợp nhất từ những gì bạn đang có.
             </p>
           </div>
         </div>
@@ -1471,7 +1477,7 @@ export default function PlannerScanPage() {
         <PageHeader
           eyebrow="TỦ LẠNH THÔNG MINH & SCANNER"
           title="Quản lý Tủ lạnh & Quét nguyên liệu AI"
-          subtitle="Theo dõi nguyên liệu sẵn có trong tủ lạnh của bạn với PostgreSQL và sử dụng AI để gợi ý món ăn chuẩn dinh dưỡng ngay tức thì."
+          subtitle="Theo dõi nguyên liệu sẵn có trong tủ lạnh của bạn và sử dụng AI để gợi ý các món chay chuẩn dinh dưỡng ngay tức thì."
         />
 
         {!ready ? (

@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Flame, Clock, RefreshCw, Tag, Info, Utensils } from "lucide-react";
+import { Flame, Clock, RefreshCw, Tag, Info, Utensils, Plus } from "lucide-react";
 import { Recipe } from "@/features/recipes/types";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
 import { RecipeFavoriteButton } from "@/components/ui/RecipeFavoriteButton";
@@ -15,6 +15,7 @@ interface MealCardProps {
   recipes?: Recipe[];
   timeString?: string;
   onOpenReplace?: (recipe: Recipe, recipeIndex?: number) => void;
+  onOpenAddDish?: (mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack") => void;
   onOpenPriceModal?: (recipe: Recipe) => void;
   userId?: string;
 }
@@ -66,6 +67,7 @@ export function MealCard({
   recipes,
   timeString,
   onOpenReplace,
+  onOpenAddDish,
   onOpenPriceModal,
   userId,
 }: MealCardProps) {
@@ -188,7 +190,9 @@ export function MealCard({
                   </Link>
 
                   {/* Allergy warning if any */}
-                  <RecipeAllergyBadge recipe={dish} compact />
+                  <div className="max-w-full overflow-hidden">
+                    <RecipeAllergyBadge recipe={dish} compact />
+                  </div>
                 </div>
 
                 {/* Actions for this specific dish */}
@@ -209,6 +213,17 @@ export function MealCard({
               </div>
             );
           })}
+
+          {onOpenAddDish && (
+            <button
+              type="button"
+              onClick={() => onOpenAddDish(mealType)}
+              className="w-full py-1.5 px-3 rounded-xl border border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/50 hover:bg-emerald-50 text-emerald-800 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs mt-1"
+            >
+              <Plus className="w-3.5 h-3.5 text-emerald-600" />
+              <span>+ Thêm món</span>
+            </button>
+          )}
         </div>
 
         {/* Pricing Section */}

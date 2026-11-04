@@ -40,7 +40,7 @@ import {
 
 import { useNotifications, formatTimeAgo, getNotificationLink, NotificationType } from "@/features/notification";
 import { useProfile } from "@/features/profile/hooks/useProfile";
-import { formatVegetarianType, formatAllergies } from "@/features/profile/types";
+import { formatVegetarianType, formatAllergies, formatCompactAllergies } from "@/features/profile/types";
 import { useSubscription } from "@/features/subscription/hooks/useSubscription";
 import { calculateBMI } from "@/features/nutrition/utils/bmi";
 import { calculateDailyNutrition } from "@/features/nutrition/utils/calorieCalculator";
