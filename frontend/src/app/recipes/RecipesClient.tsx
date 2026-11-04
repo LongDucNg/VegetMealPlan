@@ -48,6 +48,7 @@ export function RecipesClient() {
         searchQuery: searchTerm.trim() || undefined,
         mealType: selectedMealType !== "all" ? (selectedMealType as any) : undefined,
         vegetarianType: selectedDiet !== "all" ? (selectedDiet as any) : undefined,
+        exactDiet: selectedDiet !== "all" ? true : undefined,
       });
       setPage(1);
     }, 300);
@@ -151,8 +152,8 @@ export function RecipesClient() {
             </span>
             {[
               { id: "all", label: "Tất cả" },
-              { id: "breakfast_lunch", label: "Bữa sáng / trưa" },
-              { id: "dinner", label: "Bữa tối" },
+              { id: "breakfast", label: "Bữa sáng" },
+              { id: "lunch_dinner", label: "Bữa trưa / tối" },
               { id: "snack", label: "Bữa phụ" },
             ].map((m) => (
               <button
@@ -171,9 +172,9 @@ export function RecipesClient() {
             {[
               { id: "all", label: "Tất cả" },
               { id: "vegan", label: "Thuần chay" },
-              { id: "ovo_lacto", label: "Lacto-Ovo" },
-              { id: "lacto", label: "Lacto" },
-              { id: "ovo", label: "Ovo" },
+              { id: "ovo", label: "Chay có trứng (Ovo)" },
+              { id: "lacto", label: "Chay có sữa (Lacto)" },
+              { id: "ovo_lacto", label: "Trứng & sữa (Ovo-Lacto)" },
             ].map((d) => (
               <button
                 key={d.id}
@@ -277,7 +278,7 @@ export function RecipesClient() {
                     {/* Body */}
                     <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                       <div>
-                        <div className="mb-2">
+                        <div className="mb-2 max-w-full overflow-hidden">
                           <RecipeAllergyBadge recipe={recipe} compact />
                         </div>
 
