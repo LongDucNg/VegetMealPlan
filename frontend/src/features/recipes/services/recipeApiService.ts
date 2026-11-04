@@ -14,6 +14,7 @@ export interface RecipeQueryParams {
   diet_type?: string;
   meal_type?: string;
   created_by?: number;
+  exactDiet?: boolean;
 }
 
 export interface RecommendationQueryParams {

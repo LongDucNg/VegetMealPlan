@@ -260,16 +260,34 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
           const list = Array.isArray(catRes.value)
             ? catRes.value
             : (catRes.value as any)?.data || [];
-          // Ràng buộc nghiêm ngặt: chỉ lấy danh mục thuộc về món ăn (recipe_type, food_type),
-          // tuyệt đối không hiển thị danh mục của diễn đàn (category_type = 'forum' hoặc type = 'forum')
-          const recipeCategories = list.filter(
-            (c: any) =>
-              c.category_type !== "forum" &&
-              c.type !== "forum" &&
-              (c.category_type === "recipe_type" ||
-                c.category_type === "food_type" ||
-                (!c.category_type && c.recipe_count !== undefined))
+          // Giới hạn đúng 10 danh mục ẩm thực chính thức theo quy chuẩn VeggieHub
+          const OFFICIAL_10_CATEGORIES = [
+            "Mì, Bún & Phở",
+            "Cơm, Xôi & Cháo",
+            "Bánh, Bánh bột & Ăn vặt",
+            "Tráng miệng & Đồ uống",
+            "Món kho & Rim",
+            "Xào & Chiên",
+            "Luộc & Hấp",
+            "Cuốn, Gỏi & Sa lát",
+            "Canh & Súp",
+            "Khác",
+          ];
+          const officialSet = new Set(OFFICIAL_10_CATEGORIES.map((x) => x.toLowerCase()));
+          const matched = list.filter((c: any) =>
+            officialSet.has((c.category_name || "").toLowerCase().trim())
           );
+          const existingNames = new Set(
+            matched.map((c: any) => (c.category_name || "").toLowerCase().trim())
+          );
+          const fallbacks = OFFICIAL_10_CATEGORIES
+            .filter((name) => !existingNames.has(name.toLowerCase()))
+            .map((name, i) => ({
+              category_id: 1000 + i,
+              category_name: name,
+              recipe_count: 0,
+            }));
+          const recipeCategories = [...matched, ...fallbacks];
           if (isMounted) setCategories(recipeCategories);
         }
       } catch (err) {
@@ -640,7 +658,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
 
             <div className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                {isApproved ? "Đã duyệt công khai (APPROVED)" : "Đang chờ kiểm duyệt (Pending Review)"}
+                {isApproved ? "Đã duyệt công khai (APPROVED)" : "Đang chờ duyệt"}
               </span>
               <h2 className="font-serif font-bold text-2xl sm:text-3xl text-stone-900">
                 Công thức &ldquo;{successData.title || title}&rdquo; đã được tạo thành công!
@@ -672,7 +690,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                   className={`font-semibold uppercase tracking-wider ${isApproved ? "text-emerald-700" : "text-amber-700"
                     }`}
                 >
-                  {successData.status || (isApproved ? "APPROVED" : "pending_review")}
+                  {isApproved ? "Đã duyệt" : "Chờ duyệt"}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -707,12 +725,14 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                 </Link>
               ) : null}
 
-              <Link
-                href="/recipes"
-                className="px-6 py-2.5 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold transition-all"
-              >
-                Xem trên Thư viện công thức
-              </Link>
+              {isApproved && (
+                <Link
+                  href="/recipes"
+                  className="px-6 py-2.5 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold transition-all"
+                >
+                  Xem trên Thư viện công thức
+                </Link>
+              )}
 
               <button
                 type="button"

@@ -30,7 +30,7 @@ export const ADMIN_RECIPE_CATEGORIES = [
   "Luộc & Hấp",
   "Cuốn, Gỏi & Sa lát",
   "Canh & Súp",
-  "Món đủ bữa",
+  "Khác",
 ] as const;
 
 /** Kiểm tra công thức có thuộc danh mục hay không (hỗ trợ cả mảng categories, category string và từ khóa nhận diện) */
