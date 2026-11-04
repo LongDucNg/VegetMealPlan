@@ -235,77 +235,69 @@ function ForumContent() {
           }
         />
 
-        {/* Filter Controls: Search, Categories & Sort */}
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div className="max-w-md w-full">
-              <Input
-                variant="search"
-                placeholder="Tìm bài viết theo từ khóa hoặc hashtag (#monchay, #dinhduong)…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+                {/* Filter Controls: Search, Category Dropdown & Sort */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-stone-200 shadow-2xs">
+          <div className="max-w-md w-full">
+            <Input
+              variant="search"
+              placeholder="Tìm bài viết theo từ khóa hoặc hashtag (#monchay, #dinhduong)…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 self-end sm:self-auto shrink-0">
+            {/* Category Filter Dropdown */}
+            <div className="flex items-center gap-1.5">
+              <label htmlFor="forum-category-filter" className="text-xs font-semibold text-stone-500 whitespace-nowrap">
+                Danh mục:
+              </label>
+              <select
+                id="forum-category-filter"
+                value={showMyPosts ? "my_posts" : (selectedCategoryId !== undefined ? String(selectedCategoryId) : "all")}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "my_posts") {
+                    setShowMyPosts(true);
+                    setSelectedCategoryId(undefined);
+                  } else if (val === "all") {
+                    setShowMyPosts(false);
+                    setSelectedCategoryId(undefined);
+                  } else {
+                    setShowMyPosts(false);
+                    setSelectedCategoryId(Number(val));
+                  }
+                }}
+                className="h-9 px-3 rounded-xl border border-stone-200 bg-stone-50/60 hover:bg-white text-xs font-semibold text-stone-700 outline-none hover:border-stone-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 cursor-pointer shadow-2xs transition-colors"
+              >
+                <option value="all">Tất cả danh mục</option>
+                {!isGuest && (
+                  <option value="my_posts">Bài viết của tôi {myPostCount > 0 ? `(${myPostCount})` : ""}</option>
+                )}
+                {categories.map((cat) => (
+                  <option key={cat.category_id} value={String(cat.category_id)}>
+                    {cat.category_name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Sort Selector */}
-            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-              <span className="text-xs font-semibold text-stone-500 whitespace-nowrap">
+            <div className="flex items-center gap-1.5">
+              <label htmlFor="forum-sort-filter" className="text-xs font-semibold text-stone-500 whitespace-nowrap">
                 Sắp xếp:
-              </span>
+              </label>
               <select
+                id="forum-sort-filter"
                 value={sort}
                 onChange={(e) => setSort(e.target.value as any)}
-                className="h-9 px-3 rounded-xl border border-stone-200 bg-white text-xs font-semibold text-stone-700 outline-none focus:border-emerald-600 cursor-pointer shadow-2xs"
+                className="h-9 px-3 rounded-xl border border-stone-200 bg-stone-50/60 hover:bg-white text-xs font-semibold text-stone-700 outline-none hover:border-stone-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 cursor-pointer shadow-2xs transition-colors"
               >
                 <option value="newest">Mới nhất</option>
                 <option value="most_viewed">Xem nhiều nhất</option>
                 <option value="oldest">Cũ nhất</option>
               </select>
             </div>
-          </div>
-
-          {/* Category Filter Chips */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            <Chip
-              variant="filter"
-              active={selectedCategoryId === undefined && !showMyPosts}
-              onClick={() => {
-                setShowMyPosts(false);
-                setSelectedCategoryId(undefined);
-              }}
-            >
-              Tất cả thảo luận
-            </Chip>
-
-            {!isGuest && (
-              <Chip
-                variant="filter"
-                active={showMyPosts}
-                onClick={() => {
-                  setShowMyPosts(true);
-                  setSelectedCategoryId(undefined);
-                }}
-              >
-                <span className="inline-flex items-center gap-1.5">
-                  <UserCheck className="w-3.5 h-3.5" />
-                  <span>Bài viết của tôi</span>
-                </span>
-              </Chip>
-            )}
-
-            {categories.map((cat) => (
-              <Chip
-                key={cat.category_id}
-                variant="filter"
-                active={!showMyPosts && selectedCategoryId === cat.category_id}
-                onClick={() => {
-                  setShowMyPosts(false);
-                  setSelectedCategoryId(cat.category_id);
-                }}
-              >
-                {cat.category_name}
-              </Chip>
-            ))}
           </div>
         </div>
 

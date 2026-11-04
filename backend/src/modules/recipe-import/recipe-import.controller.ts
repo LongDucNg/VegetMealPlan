@@ -610,9 +610,20 @@ export class RecipeImportController {
     if (!val) return '';
     const lower = String(val).toLowerCase().trim();
     if (!lower) return '';
-    if (lower.includes('dễ') || lower.includes('easy')) return 'easy';
-    if (lower.includes('khó') || lower.includes('hard')) return 'hard';
-    if (lower.includes('trung bình') || lower.includes('medium')) return 'medium';
+    if (lower.includes('dễ') || lower.includes('de') || lower.includes('easy')) return 'easy';
+    if (lower.includes('khó') || lower.includes('kho') || lower.includes('hard') || lower.includes('advanced')) return 'hard';
+    if (
+      lower.includes('vừa') ||
+      lower.includes('vua') ||
+      lower.includes('trung bình') ||
+      lower.includes('trung binh') ||
+      lower.includes('bình thường') ||
+      lower.includes('binh thuong') ||
+      lower.includes('medium') ||
+      lower.includes('moderate')
+    ) {
+      return 'medium';
+    }
     return lower;
   }
 
