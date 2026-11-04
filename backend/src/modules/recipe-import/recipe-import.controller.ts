@@ -160,7 +160,7 @@ export class RecipeImportController {
         const requiredDisplay = REQUIRED_IMPORT_COLUMNS.map((col) => columnNamesVi[col] || col);
         throw new BadRequestException(
           `File Excel thiếu cột bắt buộc: ${missingDisplay.join(', ')}. ` +
-            `Các cột bắt buộc là: ${requiredDisplay.join(', ')}.`,
+          `Các cột bắt buộc là: ${requiredDisplay.join(', ')}.`,
         );
       }
 
@@ -191,7 +191,7 @@ export class RecipeImportController {
         if (otherSheetsWithData.length > 0) {
           throw new BadRequestException(
             `Sheet đầu tiên "${sheet.name}" không có dữ liệu. File có các sheet khác chứa dữ liệu: ${otherSheetsWithData.join(', ')}. ` +
-              'API chỉ đọc sheet đầu tiên mỗi lần import - vui lòng tách file hoặc xóa các sheet không cần thiết.',
+            'API chỉ đọc sheet đầu tiên mỗi lần import - vui lòng tách file hoặc xóa các sheet không cần thiết.',
           );
         }
 
@@ -203,7 +203,7 @@ export class RecipeImportController {
       if (data.length > MAX_IMPORT_ROWS) {
         throw new BadRequestException(
           `File Excel có ${data.length} dòng dữ liệu, vượt quá giới hạn ` +
-            `${MAX_IMPORT_ROWS} dòng cho 1 lần import. Vui lòng chia nhỏ file.`,
+          `${MAX_IMPORT_ROWS} dòng cho 1 lần import. Vui lòng chia nhỏ file.`,
         );
       }
 
@@ -312,8 +312,7 @@ export class RecipeImportController {
 
       // Log nguyên nhân thật để debug được, nhưng không lộ nội dung file/dữ liệu.
       this.logger.error(
-        `Không đọc được file Excel "${file.originalname}" (${file.size ?? 0} bytes): ${
-          error instanceof Error ? error.message : String(error)
+        `Không đọc được file Excel "${file.originalname}" (${file.size ?? 0} bytes): ${error instanceof Error ? error.message : String(error)
         }`,
         error instanceof Error ? error.stack : undefined,
       );
@@ -610,9 +609,20 @@ export class RecipeImportController {
     if (!val) return '';
     const lower = String(val).toLowerCase().trim();
     if (!lower) return '';
-    if (lower.includes('dễ') || lower.includes('easy')) return 'easy';
-    if (lower.includes('khó') || lower.includes('hard')) return 'hard';
-    if (lower.includes('trung bình') || lower.includes('medium')) return 'medium';
+    if (lower.includes('dễ') || lower.includes('de') || lower.includes('easy')) return 'easy';
+    if (lower.includes('khó') || lower.includes('kho') || lower.includes('hard') || lower.includes('advanced')) return 'hard';
+    if (
+      lower.includes('vừa') ||
+      lower.includes('vua') ||
+      lower.includes('trung bình') ||
+      lower.includes('trung binh') ||
+      lower.includes('bình thường') ||
+      lower.includes('binh thuong') ||
+      lower.includes('medium') ||
+      lower.includes('moderate')
+    ) {
+      return 'medium';
+    }
     return lower;
   }
 
