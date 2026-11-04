@@ -150,6 +150,13 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
   ).toUpperCase() as RecipeStatus;
 
   const reviewReason = r.review_reason || r.reviewReason || null;
+  const diffRaw = String(r.difficulty || "").toLowerCase();
+  const difficulty: "Easy" | "Medium" | "Advanced" =
+    diffRaw === "easy" || diffRaw === "dễ" || diffRaw === "de"
+      ? "Easy"
+      : diffRaw === "hard" || diffRaw === "khó" || diffRaw === "kho" || diffRaw === "advanced"
+      ? "Advanced"
+      : "Medium";
 
   return {
     id,
@@ -182,6 +189,7 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
     review_reason: reviewReason,
     reviewReason: reviewReason,
     source: r.source || { type: "admin", name: "VeggieHub Kitchen" },
+    difficulty,
     duration: `${prepTime + cookTime} min`,
     author: r.author || (r.user ? r.user.full_name || r.user.email : "VeggieHub Kitchen"),
     verified: true,
