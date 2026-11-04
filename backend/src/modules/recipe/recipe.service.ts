@@ -180,6 +180,7 @@ export class RecipeService {
       meal_type,
       vegetarianType,
       diet_type,
+      exactDiet,
       category,
       difficulty,
       maxCalories,
@@ -355,12 +356,27 @@ export class RecipeService {
       // người ăn lacto vẫn ăn được món vegan, người ăn ovo_lacto ăn được cả 4 loại.
       // Nếu so sánh đẳng thức thì GET /recipes?diet_type=lacto chỉ trả về 30 món
       // thay vì 405 món (375 vegan + 30 lacto) -> lệch với luồng sinh thực đơn.
-      const allowedDiets = getAllowedRecipeDiets(dietType);
+      if (
+        dietType === 'lacto_ovo_vegetarian' ||
+        dietType === 'ovo_lacto' ||
+        dietType === 'ovo-lacto' ||
+        dietType === 'lacto-ovo'
+      ) {
+        dietType = 'ovo_lacto';
+      }
 
-      if (allowedDiets && allowedDiets.length > 0) {
-        qb.andWhere('recipe.diet_type IN (:...allowedDiets)', {
-          allowedDiets,
-        });
+      // Khi exactDiet = true (người dùng chọn lọc trên trang thư viện công thức):
+      // So sánh chính xác diet_type của món (vegan -> 545 món thuần chay, ovo -> 46 món chay trứng, lacto -> 33 món chay sữa).
+      // Khi không truyền exactDiet: lọc theo tập tương thích (lacto ăn được cả vegan).
+      if (exactDiet || query.exactDiet) {
+        qb.andWhere('recipe.diet_type = :dietType', { dietType });
+      } else {
+        const allowedDiets = getAllowedRecipeDiets(dietType);
+        if (allowedDiets && allowedDiets.length > 0) {
+          qb.andWhere('recipe.diet_type IN (:...allowedDiets)', {
+            allowedDiets,
+          });
+        }
       }
     }
 
