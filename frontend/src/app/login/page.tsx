@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -23,11 +23,33 @@ function LoginFormContent() {
   const searchParams = useSearchParams();
   const resetSuccess = searchParams.get("reset") === "success";
 
-  const { login } = useAuth();
+  const { login, ready, isAuthenticated, role } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Redirect nếu đã đăng nhập
+  useEffect(() => {
+    if (ready && isAuthenticated) {
+      if (role === "Admin") {
+        router.replace("/admin");
+      } else {
+        router.replace("/me");
+      }
+    }
+  }, [ready, isAuthenticated, role, router]);
+
+  // Hiển thị spinner khi đang check auth hoặc đang redirect
+  if (!ready || isAuthenticated) {
+    return (
+      <AppShell showRightRail={false}>
+        <div className="w-full flex justify-center py-20">
+          <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+        </div>
+      </AppShell>
+    );
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
