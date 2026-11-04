@@ -188,10 +188,50 @@ export const adminRecipeApiService = {
         r.instructions ||
         (Array.isArray(r.steps) ? r.steps.join("\n") : "");
 
+      // Lấy tất cả các danh mục có trong cơ sở dữ liệu liên quan đến công thức
+      const categoryNames: string[] = [];
+      const seenCats = new Set<string>();
+      const addCategoryName = (name: any) => {
+        if (!name || typeof name !== "string") return;
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        if (trimmed.includes(",")) {
+          trimmed.split(",").forEach(addCategoryName);
+          return;
+        }
+        const lower = trimmed.toLowerCase();
+        if (!seenCats.has(lower)) {
+          seenCats.add(lower);
+          categoryNames.push(trimmed);
+        }
+      };
+
+      if (Array.isArray(r.categories)) {
+        for (const c of r.categories) {
+          if (typeof c === "string") addCategoryName(c);
+          else if (c && typeof c === "object") addCategoryName(c.category_name || c.name || c.title);
+        }
+      } else if (typeof r.categories === "string") {
+        addCategoryName(r.categories);
+      }
+
+      if (Array.isArray(r.recipeCategories)) {
+        for (const rc of r.recipeCategories) {
+          addCategoryName(rc.category?.category_name || rc.category?.name || rc.category_name);
+        }
+      }
+
+      if (categoryNames.length === 0) {
+        const raw = typeof r.category === "string" ? r.category : r.category?.category_name;
+        if (raw) addCategoryName(raw);
+      }
+
+      const categoryCell = categoryNames.length > 0 ? categoryNames.join(", ") : "Khác";
+
       return [
         !isNaN(numId) ? numId : r.id,
         r.name || r.title || "",
-        r.category || (Array.isArray(r.categories) ? r.categories.join(", ") : ""),
+        categoryCell,
         r.description || "",
         r.mealType || r.meal_type || "",
         r.vegetarianType || r.diet_type || "",
@@ -215,7 +255,7 @@ export const adminRecipeApiService = {
     ws["!cols"] = [
       { wch: 8 },  // ID
       { wch: 28 }, // Tên món
-      { wch: 18 }, // Danh mục
+      { wch: 28 }, // Danh mục
       { wch: 35 }, // Mô tả
       { wch: 12 }, // Bữa ăn
       { wch: 16 }, // Chế độ ăn chay

@@ -758,26 +758,26 @@ export function useMealPlanner() {
   );
 
   /**
-   * Save currently active plan
+   * Save currently active single day plan
    */
   const saveCurrentMealPlan = useCallback(
-    async (name: string): Promise<SavedMealPlan | null> => {
-      const days = planType === "weekly" ? weeklyPlan.days.filter((d) => d.totalCalories > 0) : monthlyPlan.days.filter((d) => d.totalCalories > 0);
-      if (days.length === 0) return null;
+    async (name: string, customDay?: DayMealPlan): Promise<SavedMealPlan | null> => {
+      const targetDay = customDay || activeDay;
+      if (!targetDay || targetDay.totalCalories === 0) return null;
 
-      const totalCost = days.reduce((sum, d) => sum + d.estimatedCost, 0);
+      const totalCost = targetDay.estimatedCost || 0;
 
       const saved = await favoriteService.saveMealPlan(String(profile.id || "u1"), {
         name,
-        planType,
-        targetCalories: nutritionSummary.dailyCalorieTarget,
+        planType: "daily",
+        targetCalories: Math.round(targetDay.totalCalories),
         totalEstimatedCost: totalCost,
-        days,
+        days: [targetDay],
       });
 
       return saved;
     },
-    [planType, weeklyPlan, monthlyPlan, profile, nutritionSummary]
+    [activeDay, profile]
   );
 
   /**
@@ -786,6 +786,26 @@ export function useMealPlanner() {
   const loadSavedPlan = useCallback((saved: SavedMealPlan) => {
     const newMap = { ...generatedDays };
     const today = new Date();
+
+    if (saved.planType === "daily" || (saved.days && saved.days.length === 1)) {
+      const k = toDateKey(today);
+      const day = saved.days[0];
+      if (day) {
+        newMap[k] = {
+          ...day,
+          dayOfMonth: today.getDate(),
+          month: today.getMonth(),
+          year: today.getFullYear(),
+          dateKey: k,
+          isCurrentMonth: true,
+        };
+        saveGeneratedDays(newMap);
+        setSelectedDateKey(k);
+        setPlanType("daily");
+        return;
+      }
+    }
+
     saved.days.forEach((day, idx) => {
       const d = new Date(today);
       d.setDate(today.getDate() + idx);
@@ -801,7 +821,7 @@ export function useMealPlanner() {
     });
     saveGeneratedDays(newMap);
     setPlanType("weekly");
-  }, [generatedDays, saveGeneratedDays]);
+  }, [generatedDays, saveGeneratedDays, setSelectedDateKey, setPlanType]);
 
   const applyFavoriteDayPlan = useCallback(
     (dayPlan: DayMealPlan, targetDateKey?: string) => {
