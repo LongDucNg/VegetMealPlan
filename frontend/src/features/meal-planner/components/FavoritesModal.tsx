@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   X,
   Heart,
@@ -15,6 +16,10 @@ import {
   ExternalLink,
   BookOpen,
   Utensils,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  Loader2,
 } from "lucide-react";
 import { Recipe, MealType } from "@/features/recipes/types";
 import { UserProfile } from "@/features/profile/types";
@@ -56,6 +61,38 @@ export function FavoritesModal({
 
   const [favRecipes, setFavRecipes] = useState<Recipe[]>(initialFavoriteRecipes || []);
   const [savedPlans, setSavedPlans] = useState<SavedMealPlan[]>([]);
+  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
+  const [selectedDayIdxMap, setSelectedDayIdxMap] = useState<Record<string, number>>({});
+  const [loadingPlanDetailId, setLoadingPlanDetailId] = useState<string | null>(null);
+
+  const handleToggleExpandPlan = async (plan: SavedMealPlan) => {
+    if (expandedPlanId === plan.id) {
+      setExpandedPlanId(null);
+      return;
+    }
+    setExpandedPlanId(plan.id);
+
+    // Nếu thực đơn chưa có ngày chi tiết (do tải metadata từ server), gọi API lấy chi tiết
+    if (!plan.days || plan.days.length === 0) {
+      setLoadingPlanDetailId(plan.id);
+      try {
+        const detail = await favoriteService.getSavedMealPlanDetail(plan.id);
+        if (detail) {
+          const converted = mealPlannerService.convertBackendWeeklyPlan(detail, profile);
+          if (converted?.days && converted.days.length > 0) {
+            plan.days = converted.days;
+            setSavedPlans((prev) =>
+              prev.map((p) => (p.id === plan.id ? { ...p, days: converted.days } : p))
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("Lỗi khi tải chi tiết thực đơn:", err);
+      } finally {
+        setLoadingPlanDetailId(null);
+      }
+    }
+  };
 
   // Selection for Create Meal Plan from Favorites
   const [selectedBreakfast, setSelectedBreakfast] = useState<Recipe | null>(null);
@@ -280,7 +317,7 @@ export function FavoritesModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in">
-      <div className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="p-5 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
           <div className="flex items-center gap-2.5">
@@ -666,68 +703,375 @@ export function FavoritesModal({
               </div>
             ) : (
               <div className="space-y-3">
-                {savedPlans.map((plan) => (
-                  <div
-                    key={plan.id}
-                    className="p-4 rounded-2xl border border-stone-200 bg-white hover:border-emerald-300 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900">
-                          {plan.planType === "monthly" ? "Thực đơn tháng" : plan.planType === "daily" ? "Thực đơn ngày" : "Thực đơn tuần"}
-                        </span>
-                        <h4 className="font-bold text-stone-900 text-sm">
-                          {plan.name}
-                        </h4>
-                      </div>
-                      <p className="text-xs text-stone-500 mt-1">
-                        Kế hoạch {plan.days?.length || 0} ngày · Mục tiêu: ~{Math.round(Number(plan.targetCalories) * 100) / 100} kcal/ngày · Chi phí ước tính: ~{plan.totalEstimatedCost?.toLocaleString("vi-VN")} VNĐ
-                      </p>
-                    </div>
+                {savedPlans.map((plan) => {
+                  const isExpanded = expandedPlanId === plan.id;
+                  const activeDayIdx = selectedDayIdxMap[plan.id] || 0;
+                  const currentDay = plan.days && plan.days.length > 0
+                    ? plan.days[Math.min(activeDayIdx, plan.days.length - 1)]
+                    : null;
+                  const isLoadingDetail = loadingPlanDetailId === plan.id;
 
-                    <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 flex-wrap">
-                      {plan.days && plan.days.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onApplyPlan(plan.days[0], targetDateStr);
-                            onClose();
-                          }}
-                          className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
-                          title={`Áp dụng 4 bữa của thực đơn này vào ngày ${targetDateStr.split("-").reverse().join("/")}`}
+                  return (
+                    <div
+                      key={plan.id}
+                      className={`rounded-2xl border transition-all shadow-2xs overflow-hidden ${
+                        isExpanded
+                          ? "border-emerald-500 bg-white ring-2 ring-emerald-100"
+                          : "border-stone-200 bg-white hover:border-emerald-300"
+                      }`}
+                    >
+                      {/* Plan Header Row - Clickable to preview card */}
+                      <div
+                        onClick={() => handleToggleExpandPlan(plan)}
+                        className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 cursor-pointer hover:bg-stone-50/70 transition-colors"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900">
+                              {plan.planType === "monthly" && (plan.days?.length || 0) > 1
+                                ? "Thực đơn tháng"
+                                : plan.planType === "weekly" && (plan.days?.length || 0) > 1
+                                ? "Thực đơn tuần"
+                                : "Thực đơn 1 ngày"}
+                            </span>
+                            <h4 className="font-bold text-stone-900 text-sm truncate">
+                              {plan.name}
+                            </h4>
+                            <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+                              <Eye className="w-3 h-3 text-emerald-600" />
+                              {isExpanded ? "Đang xem chi tiết" : "Bấm để xem các món"}
+                            </span>
+                          </div>
+                          <p className="text-xs text-stone-500 mt-1">
+                            {plan.days && plan.days.length <= 1
+                              ? `Thực đơn 1 ngày (${plan.days[0]?.dayName || "Ngày đã lưu"}) · Năng lượng: ~${Math.round(Number(plan.targetCalories) * 100) / 100} kcal · Chi phí ước tính: ~${plan.totalEstimatedCost?.toLocaleString("vi-VN")} VNĐ`
+                              : `Kế hoạch ${plan.days?.length || 0} ngày · Mục tiêu: ~${Math.round(Number(plan.targetCalories) * 100) / 100} kcal/ngày · Chi phí ước tính: ~${plan.totalEstimatedCost?.toLocaleString("vi-VN")} VNĐ`}
+                          </p>
+                        </div>
+
+                        <div
+                          className="flex items-center gap-2 self-end sm:self-auto shrink-0 flex-wrap"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-                          <span>Áp dụng vào ngày {targetDateStr.split("-").reverse().join("/")}</span>
-                        </button>
+                          {plan.days && plan.days.length <= 1 ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (plan.days && plan.days.length > 0) {
+                                  onApplyPlan(plan.days[0], targetDateStr);
+                                } else {
+                                  onLoadSavedPlan(plan);
+                                }
+                                onClose();
+                              }}
+                              className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+                              title={`Áp dụng thực đơn 1 ngày này vào ngày ${targetDateStr.split("-").reverse().join("/")}`}
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
+                              <span>Áp dụng vào ngày {targetDateStr.split("-").reverse().join("/")}</span>
+                            </button>
+                          ) : (
+                            <>
+                              {plan.days && plan.days.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onApplyPlan(plan.days[0], targetDateStr);
+                                    onClose();
+                                  }}
+                                  className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+                                  title={`Áp dụng 4 bữa của ngày đầu tiên vào ngày ${targetDateStr.split("-").reverse().join("/")}`}
+                                >
+                                  <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                                  <span>Áp dụng vào ngày {targetDateStr.split("-").reverse().join("/")}</span>
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  onLoadSavedPlan(plan);
+                                  onClose();
+                                }}
+                                className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer"
+                                title="Tải toàn bộ các ngày của thực đơn này"
+                              >
+                                Áp dụng toàn bộ
+                              </button>
+                            </>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSavedPlan(plan.id)}
+                            className="p-2 rounded-xl text-stone-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                            title="Xóa thực đơn"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleExpandPlan(plan)}
+                            className="w-8 h-8 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-600 flex items-center justify-center transition-colors cursor-pointer"
+                            title={isExpanded ? "Thu gọn chi tiết" : "Xem chi tiết món ăn"}
+                          >
+                            {isExpanded ? <ChevronUp className="w-4 h-4 text-emerald-700" /> : <ChevronDown className="w-4 h-4 text-stone-600" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Card Chi Tiết Chứa Các Món Của Thực Đơn */}
+                      {isExpanded && (
+                        <div className="border-t border-emerald-100 bg-stone-50/50 p-4 sm:p-5 space-y-4 animate-in fade-in duration-200">
+                          {isLoadingDetail ? (
+                            <div className="py-8 text-center text-stone-500 space-y-2">
+                              <Loader2 className="w-6 h-6 animate-spin mx-auto text-emerald-700" />
+                              <p className="text-xs font-medium">Đang nạp chi tiết các món ăn trong thực đơn...</p>
+                            </div>
+                          ) : !currentDay ? (
+                            <div className="py-6 text-center text-stone-400">
+                              <p className="text-xs">Chưa có thông tin chi tiết các món của thực đơn này.</p>
+                            </div>
+                          ) : (
+                            <>
+                              {/* Thanh chọn ngày (nếu thực đơn có nhiều ngày) hoặc Header ngày duy nhất */}
+                              {plan.days && plan.days.length > 1 ? (
+                                <div className="space-y-1.5">
+                                  <span className="text-[11px] font-bold uppercase tracking-wider text-stone-600 block">
+                                    Chọn ngày trong thực đơn mẫu ({plan.days.length} ngày):
+                                  </span>
+                                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                                    {plan.days.map((d, dIdx) => {
+                                      const isDayActive = dIdx === activeDayIdx;
+                                      return (
+                                        <button
+                                          key={dIdx}
+                                          type="button"
+                                          onClick={() =>
+                                            setSelectedDayIdxMap((prev) => ({
+                                              ...prev,
+                                              [plan.id]: dIdx,
+                                            }))
+                                          }
+                                          className={`px-3 py-1.5 rounded-xl text-xs shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
+                                            isDayActive
+                                              ? "bg-emerald-700 text-white font-bold shadow-xs scale-[1.02]"
+                                              : "bg-white text-stone-700 hover:bg-stone-100 border border-stone-200"
+                                          }`}
+                                        >
+                                          <span>{d.shortDay || d.dayName || `Ngày ${dIdx + 1}`}</span>
+                                          <span
+                                            className={`text-[10px] ${
+                                              isDayActive ? "text-emerald-200" : "text-stone-400"
+                                            }`}
+                                          >
+                                            (~{Math.round(d.totalCalories)} kcal)
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between pb-2 border-b border-stone-200">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+                                    <span className="font-bold text-xs text-stone-800">
+                                      Chi tiết 4 bữa ăn trong ngày {currentDay.dayName ? `(${currentDay.dayName})` : ""}
+                                    </span>
+                                  </div>
+                                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/90 px-2.5 py-0.5 rounded-full">
+                                    Thực đơn 1 ngày duy nhất
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Tóm tắt dinh dưỡng & chi phí của ngày đang xem */}
+                              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-3 bg-white rounded-2xl border border-stone-200 text-xs text-center shadow-2xs">
+                                <div className="p-1">
+                                  <span className="text-[10px] text-stone-400 block font-medium">Năng lượng</span>
+                                  <span className="font-bold text-amber-700 text-sm">~{Math.round(currentDay.totalCalories)} kcal</span>
+                                </div>
+                                <div className="p-1">
+                                  <span className="text-[10px] text-stone-400 block font-medium">Chất đạm</span>
+                                  <span className="font-bold text-emerald-800 text-sm">~{Math.round(currentDay.totalProtein || 0)}g</span>
+                                </div>
+                                <div className="p-1">
+                                  <span className="text-[10px] text-stone-400 block font-medium">Đường bột</span>
+                                  <span className="font-bold text-stone-800 text-sm">~{Math.round(currentDay.totalCarbs || 0)}g</span>
+                                </div>
+                                <div className="p-1">
+                                  <span className="text-[10px] text-stone-400 block font-medium">Chất béo</span>
+                                  <span className="font-bold text-stone-800 text-sm">~{Math.round(currentDay.totalFat || 0)}g</span>
+                                </div>
+                                <div className="p-1 col-span-2 sm:col-span-1">
+                                  <span className="text-[10px] text-stone-400 block font-medium">Chi phí ước tính</span>
+                                  <span className="font-bold text-emerald-800 text-sm">~{currentDay.estimatedCost?.toLocaleString("vi-VN")} đ</span>
+                                </div>
+                              </div>
+
+                              {/* Card chứa 4 bữa ăn trong ngày */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                <PlanSlotColumn
+                                  title="Bữa Sáng"
+                                  time={currentDay.breakfast?.time || "07:00"}
+                                  badgeColor="bg-amber-50 text-amber-900 border-amber-200"
+                                  dishes={getSlotRecipes(currentDay.breakfast)}
+                                  userId={userId}
+                                />
+                                <PlanSlotColumn
+                                  title="Bữa Trưa"
+                                  time={currentDay.lunch?.time || "12:00"}
+                                  badgeColor="bg-emerald-50 text-emerald-900 border-emerald-200"
+                                  dishes={getSlotRecipes(currentDay.lunch)}
+                                  userId={userId}
+                                />
+                                <PlanSlotColumn
+                                  title="Bữa Tối"
+                                  time={currentDay.dinner?.time || "18:30"}
+                                  badgeColor="bg-purple-50 text-purple-900 border-purple-200"
+                                  dishes={getSlotRecipes(currentDay.dinner)}
+                                  userId={userId}
+                                />
+                                <PlanSlotColumn
+                                  title="Bữa Phụ"
+                                  time={currentDay.snack?.time || "15:00"}
+                                  badgeColor="bg-sky-50 text-sky-900 border-sky-200"
+                                  dishes={getSlotRecipes(currentDay.snack)}
+                                  userId={userId}
+                                />
+                              </div>
+
+                              {/* Card Footer Actions */}
+                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-stone-200">
+                                <div className="text-xs text-stone-600">
+                                  Đang xem thực đơn của <strong>{currentDay.dayName || `Ngày ${activeDayIdx + 1}`}</strong>
+                                  {currentDay.dateText ? ` (${currentDay.dateText})` : ""}
+                                </div>
+                                <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      onApplyPlan(currentDay, targetDateStr);
+                                      onClose();
+                                    }}
+                                    className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Áp dụng ngày này vào lịch ({targetDateStr.split("-").reverse().join("/")})</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedPlanId(null)}
+                                    className="px-3.5 py-2 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-600 font-semibold text-xs transition-colors cursor-pointer"
+                                  >
+                                    Thu gọn
+                                  </button>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       )}
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onLoadSavedPlan(plan);
-                          onClose();
-                        }}
-                        className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer"
-                        title="Tải toàn bộ các ngày của thực đơn này"
-                      >
-                        Áp dụng toàn bộ
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveSavedPlan(plan.id)}
-                        className="p-2 rounded-xl text-stone-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                        title="Xóa thực đơn"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+
+/** Helper lấy danh sách công thức của 1 bữa (hỗ trợ cả mâm cơm nhiều món) */
+function getSlotRecipes(slot?: any): Recipe[] {
+  if (!slot) return [];
+  if (Array.isArray(slot.recipes) && slot.recipes.length > 0) {
+    return slot.recipes.filter(Boolean);
+  }
+  if (slot.recipe) {
+    return [slot.recipe];
+  }
+  return [];
+}
+
+/** Component hiển thị các món của 1 bữa ăn trong card thực đơn ngày */
+function PlanSlotColumn({
+  title,
+  time,
+  badgeColor,
+  dishes,
+  userId,
+}: {
+  title: string;
+  time: string;
+  badgeColor: string;
+  dishes: Recipe[];
+  userId: string;
+}) {
+  return (
+    <div className="bg-white rounded-2xl p-3 border border-stone-200 flex flex-col justify-between space-y-2.5 shadow-2xs">
+      <div>
+        <div className="flex items-center justify-between pb-2 border-b border-stone-100">
+          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${badgeColor}`}>
+            {title}
+          </span>
+          <span className="text-[10px] font-medium text-stone-400">{time}</span>
+        </div>
+
+        <div className="space-y-2 mt-2.5">
+          {dishes.length === 0 ? (
+            <p className="text-xs text-stone-400 py-3 text-center">Chưa có món</p>
+          ) : (
+            dishes.map((dish, idx) => {
+              const cost = priceService.getEffectivePrice(dish, userId);
+              return (
+                <div
+                  key={`${dish.id}-${idx}`}
+                  className="p-2 bg-stone-50/70 rounded-xl border border-stone-100 flex items-center gap-2.5 hover:border-emerald-200 transition-colors"
+                >
+                  <div className="relative w-11 h-11 rounded-lg overflow-hidden bg-stone-200 shrink-0">
+                    {dish.image ? (
+                      <Image
+                        src={dish.image}
+                        alt={dish.name || dish.title || "Món ăn"}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-stone-400">
+                        <Utensils className="w-4 h-4" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      href={`/recipes/${dish.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold text-stone-900 hover:text-emerald-700 hover:underline truncate block"
+                      title={dish.name || dish.title}
+                    >
+                      {dish.name || dish.title}
+                    </Link>
+                    <div className="flex items-center gap-1.5 text-[10px] text-stone-500 mt-0.5">
+                      <span className="text-amber-700 font-bold">~{Math.round(Number(dish.calories) || 0)} kcal</span>
+                      <span>·</span>
+                      <span className="text-emerald-800 font-medium">{cost.formatted}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+      <div className="text-[10px] text-stone-400 text-right pt-1 font-medium border-t border-stone-100">
+        {dishes.length} món
       </div>
     </div>
   );

@@ -135,11 +135,10 @@ function MembersContent() {
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer capitalize ${
-                statusFilter === s
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer capitalize ${statusFilter === s
                   ? "bg-emerald-700 text-white"
                   : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-              }`}
+                }`}
             >
               {s === "all" ? "Tất cả" : s === "Active" ? "Hoạt động" : s === "Suspended" ? "Đã khóa" : "Chờ duyệt"}
             </button>
@@ -153,7 +152,7 @@ function MembersContent() {
         columns={[
           { key: "member", label: "Thành viên" },
           { key: "role", label: "Vai trò" },
-          { key: "content", label: "Đóng góp" },
+
           { key: "joined", label: "Ngày tham gia" },
           { key: "status", label: "Trạng thái" },
           { key: "actions", label: "" },
@@ -181,11 +180,10 @@ function MembersContent() {
               <button
                 onClick={() => toggleSuspend(m.id)}
                 title={m.status === "Suspended" ? "Mở khóa tài khoản" : "Khóa tài khoản"}
-                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                  m.status === "Suspended"
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${m.status === "Suspended"
                     ? "hover:bg-emerald-50 text-stone-500 hover:text-emerald-700"
                     : "hover:bg-red-50 text-stone-500 hover:text-red-600"
-                }`}
+                  }`}
               >
                 {m.status === "Suspended" ? (
                   <UserCheck className="w-3.5 h-3.5" />
@@ -196,9 +194,8 @@ function MembersContent() {
               <button
                 onClick={() => toggleRole(m.id)}
                 title={m.role === "Admin" ? "Hạ xuống Thành viên" : "Cấp quyền Quản trị viên"}
-                className={`p-1.5 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer ${
-                  m.role === "Admin" ? "text-emerald-700 bg-emerald-50" : "text-stone-400 hover:text-stone-600"
-                }`}
+                className={`p-1.5 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer ${m.role === "Admin" ? "text-emerald-700 bg-emerald-50" : "text-stone-400 hover:text-stone-600"
+                  }`}
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
               </button>
