@@ -120,6 +120,13 @@ export function recipeHasCategory(r: Recipe, cat: string): boolean {
 
 /** Lấy tên danh mục hiển thị chuẩn xác nhất cho chip món ăn */
 export function getRecipeDisplayCategory(r: Recipe): string {
+  // 1. Khớp với 1 trong các danh mục quản trị nếu có trong mảng categories từ DB
+  if (Array.isArray(r.categories) && r.categories.length > 0) {
+    const matched = r.categories.find((c) =>
+      ADMIN_RECIPE_CATEGORIES.some((adm) => adm.toLowerCase() === c.trim().toLowerCase())
+    );
+    if (matched) return matched.trim();
+  }
   if (r.category && r.category.trim() && r.category !== "Món chính") {
     return r.category.trim();
   }
