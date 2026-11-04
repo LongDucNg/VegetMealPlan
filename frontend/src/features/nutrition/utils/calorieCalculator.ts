@@ -91,7 +91,7 @@ export function calculateBMR(
 /**
  * Maps activity level to multiplier
  */
-export function getActivityMultiplier(activityLevel?: ActivityLevel): number {
+export function getActivityMultiplier(activityLevel?: ActivityLevel | ""): number {
   switch (activityLevel) {
     case "sedentary":
       return 1.2;
@@ -113,7 +113,7 @@ export function getActivityMultiplier(activityLevel?: ActivityLevel): number {
  */
 export function calculateTDEE(
   profileOrBmr: Partial<UserProfile> | number,
-  explicitActivityLevel?: ActivityLevel
+  explicitActivityLevel?: ActivityLevel | ""
 ): number {
   if (typeof profileOrBmr === "object" && profileOrBmr !== null) {
     const bmr = calculateBMR(profileOrBmr);
@@ -139,11 +139,11 @@ export function getNutritionGoal(bmiStatus: BMIStatus): NutritionGoalInfo {
         recommendedApproach:
           "Tăng dần lượng calo với thực phẩm giàu đạm thực vật và chất béo tốt.",
         suggestions: [
-          "Tăng lượng calorie hợp lý (calorie surplus)",
-          "Ưu tiên protein thực vật",
-          "Bổ sung healthy fats (bơ, các loại hạt)",
-          "Chia đều calories trong ngày",
-          "Không tạo calorie deficit",
+          "Tăng lượng calo hợp lý (dư thừa calo)",
+          "Ưu tiên đạm thực vật",
+          "Bổ sung chất béo tốt (bơ, các loại hạt)",
+          "Chia đều calo trong ngày",
+          "Tránh thâm hụt calo",
         ],
         calorieAdjustment: 350,
       };
@@ -154,10 +154,10 @@ export function getNutritionGoal(bmiStatus: BMIStatus): NutritionGoalInfo {
         recommendedApproach:
           "Thâm hụt calo vừa phải, ưu tiên đạm thực vật, chất xơ và thực phẩm giàu vi chất.",
         suggestions: [
-          "Tạo calorie deficit vừa phải",
-          "Ưu tiên thực phẩm giàu protein và chất xơ",
-          "Hạn chế thực phẩm nhiều đường / calorie rỗng",
-          "Không giảm calorie quá mức",
+          "Tạo thâm hụt calo vừa phải",
+          "Ưu tiên thực phẩm giàu đạm và chất xơ",
+          "Hạn chế thực phẩm nhiều đường / calo rỗng",
+          "Không giảm calo quá mức",
         ],
         calorieAdjustment: -450,
       };
@@ -169,8 +169,8 @@ export function getNutritionGoal(bmiStatus: BMIStatus): NutritionGoalInfo {
         recommendedApproach:
           "Duy trì mức năng lượng cân bằng với chế độ dinh dưỡng thuần thực vật.",
         suggestions: [
-          "Duy trì calorie target",
-          "Cân bằng protein / carbs / healthy fats",
+          "Duy trì mục tiêu calo",
+          "Cân bằng đạm / tinh bột / chất béo tốt",
           "Đảm bảo đủ chất xơ và vi chất",
           "Duy trì chế độ ăn chay phù hợp",
         ],
@@ -288,6 +288,33 @@ export function calculateDailyCalorieTarget(
       fatPct: Math.round(fatPct * 100),
     },
     mealTargets,
+  };
+}
+
+/**
+ * Thay kcal mục tiêu bằng con số backend trả về (GET /users/me/nutrition-summary) rồi tính lại
+ * gram macro và kcal từng bữa theo đúng tỉ lệ cũ. Backend là nguồn chuẩn (cùng hàm với lúc lập thực đơn),
+ * công thức FE ở trên chỉ còn dùng khi chưa đăng nhập hoặc lập thực đơn cho người khác.
+ */
+export function withCalorieTarget(
+  result: CalorieCalculationResult,
+  dailyCalorieTarget: number
+): CalorieCalculationResult {
+  const { proteinPct, carbsPct, fatPct } = result.macros;
+  const breakfast = Math.round(dailyCalorieTarget * 0.22);
+  const lunch = Math.round(dailyCalorieTarget * 0.31);
+  const dinner = Math.round(dailyCalorieTarget * 0.31);
+  const snack = dailyCalorieTarget - (breakfast + lunch + dinner);
+  return {
+    ...result,
+    dailyCalorieTarget,
+    macros: {
+      ...result.macros,
+      proteinGrams: Math.round((dailyCalorieTarget * proteinPct) / 100 / 4),
+      carbsGrams: Math.round((dailyCalorieTarget * carbsPct) / 100 / 4),
+      fatGrams: Math.round((dailyCalorieTarget * fatPct) / 100 / 9),
+    },
+    mealTargets: { breakfast, lunch, dinner, snack: Math.max(200, snack) },
   };
 }
 

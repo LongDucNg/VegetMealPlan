@@ -1,5 +1,6 @@
+
 import { ErrorCode } from '../../common/constants/error-codes.enum';
-import { BadRequestException, Injectable, NotFoundException, } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
 import { UpdateIngredientDto } from './dto/update-ingredient.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -9,6 +10,17 @@ import { Ingredient, IngredientStatus } from './entities/ingredient.entity';
 import { UserAllergy } from './entities/user-allergy.entity';
 import { IngredientConflict } from './entities/ingredient-conflict.entity';
 import { UserIngredientPrice } from './entities/user-ingredient-price.entity';
+import { Recipe } from '../recipe/entities/recipe.entity';
+import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
+import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
+import { calculateNutritionPerServing } from '../recipe/recipe-nutrition.util';
+import {
+  checkIngredientNameKeyword,
+  EGG_NAME_EXCEPTIONS,
+  PLANT_NAME_EXCEPTIONS,
+} from '../../common/services/non-vegetarian-detector.service';
+import { DAIRY_REGEX, EGG_REGEX, hasStandaloneChayToken } from '../../common/utils/diet.util';
+
 
 
 
@@ -33,6 +45,16 @@ export class IngredientService {
     @InjectRepository(UserIngredientPrice)
     private readonly priceOverrideRepo: Repository<UserIngredientPrice>,
 
+    // Cần cho syncAffectedRecipes: sửa giá/dinh dưỡng nguyên liệu thì
+    // tính lại đúng các công thức chứa nguyên liệu đó.
+    @InjectRepository(Recipe)
+    private readonly recipeRepo: Repository<Recipe>,
+
+    @InjectRepository(RecipeIngredient)
+    private readonly recipeIngredientRepo: Repository<RecipeIngredient>,
+
+    @InjectRepository(NutritionInfo)
+    private readonly nutritionRepo: Repository<NutritionInfo>,
 
   ) { }
 
@@ -64,18 +86,101 @@ export class IngredientService {
   // FIND INGREDIENT BY NAME
   // =========================
 
-  findByName(
+  async findByName(
     ingredient_name: string,
   ): Promise<Ingredient | null> {
-    return this.ingredientRepo
+    const trimmed = ingredient_name.trim();
+    if (!trimmed) return null;
+
+    // Chuẩn hoá khoảng trắng thừa (ví dụ '  nấm   mèo  ' -> 'nấm mèo')
+    const normalized = trimmed.replace(/\s+/g, ' ').toLowerCase();
+
+    // 1. So khớp chính xác 100% không phân biệt hoa thường và khoảng trắng
+    const exact = await this.ingredientRepo
       .createQueryBuilder('i')
-      .where(
-        'LOWER(i.ingredient_name) = LOWER(:name)',
-        {
-          name: ingredient_name.trim(),
-        },
-      )
+      .where('LOWER(BTRIM(REGEXP_REPLACE(i.ingredient_name, \'\\s+\', \' \', \'g\'))) = :name', {
+        name: normalized,
+      })
       .getOne();
+
+    if (exact) return exact;
+
+    // 2. Tra cứu từ đồng nghĩa ẩm thực thông dụng chuẩn nếu có
+    const synonyms: Record<string, string> = {
+      'đậu phụ': 'đậu hũ trắng',
+      'đậu phụ trắng': 'đậu hũ trắng',
+      'đậu phụ chiên': 'đậu hũ chiên',
+      'tàu hũ': 'đậu hũ trắng',
+      'tàu hũ chiên': 'đậu hũ chiên',
+      'mộc nhĩ': 'nấm mèo',
+      'mộc nhĩ đen': 'nấm mèo',
+    };
+
+    if (synonyms[normalized]) {
+      return this.ingredientRepo
+        .createQueryBuilder('i')
+        .where('LOWER(BTRIM(REGEXP_REPLACE(i.ingredient_name, \'\\s+\', \' \', \'g\'))) = :name', {
+          name: synonyms[normalized].toLowerCase(),
+        })
+        .getOne();
+    }
+
+    // TUYỆT ĐỐI không dùng ILIKE '%...%' lỏng lẻo vì sẽ làm nguyên liệu không có trong DB
+    // (như "gà", "thịt gà", "thịt bò",...) khớp nhầm với "đậu gà khô", "gà chay", "bò lát chay".
+    return null;
+  }
+
+  // =========================
+  // ADMIN CONFLICT MANAGEMENT
+  // =========================
+
+  async findAllConflicts(): Promise<IngredientConflict[]> {
+    return this.conflictRepo.find({
+      relations: ['ingredient_1', 'ingredient_2'],
+      order: { ingredient_id_1: 'ASC', ingredient_id_2: 'ASC' },
+    });
+  }
+
+  async createConflict(id1: number, id2: number, reason?: string): Promise<IngredientConflict> {
+    if (id1 === id2) {
+      throw new BadRequestException('Hai nguyên liệu xung khắc phải khác nhau');
+    }
+    const ingredient_id_1 = Math.min(id1, id2);
+    const ingredient_id_2 = Math.max(id1, id2);
+
+    await this.findOne(ingredient_id_1);
+    await this.findOne(ingredient_id_2);
+
+    const existing = await this.conflictRepo.findOne({
+      where: { ingredient_id_1, ingredient_id_2 },
+    });
+
+    if (existing) {
+      if (reason) existing.reason = reason;
+      return this.conflictRepo.save(existing);
+    }
+
+    const conflict = new IngredientConflict();
+    conflict.ingredient_id_1 = ingredient_id_1;
+    conflict.ingredient_id_2 = ingredient_id_2;
+    conflict.reason = reason || '';
+    return this.conflictRepo.save(conflict);
+  }
+
+  async deleteConflict(id1: number, id2: number): Promise<{ success: true; message: string }> {
+    const ingredient_id_1 = Math.min(id1, id2);
+    const ingredient_id_2 = Math.max(id1, id2);
+
+    const conflict = await this.conflictRepo.findOne({
+      where: { ingredient_id_1, ingredient_id_2 },
+    });
+
+    if (!conflict) {
+      throw new NotFoundException('Không tìm thấy cặp nguyên liệu kỵ nhau này');
+    }
+
+    await this.conflictRepo.remove(conflict);
+    return { success: true, message: 'Đã xoá cặp nguyên liệu kỵ nhau thành công' };
   }
 
   // =========================
@@ -305,21 +410,25 @@ export class IngredientService {
   async createIngredient(
     dto: CreateIngredientDto,
   ): Promise<Ingredient> {
+    const trimmedName = dto.ingredient_name.trim();
+
+    assertIngredientNameVegetarian(trimmedName);
+
     const existing = await this.findByName(
-      dto.ingredient_name,
+      trimmedName,
     );
 
     if (existing) {
-      throw new BadRequestException(
-        'Ingredient name already exists',
-      );
+      throw new ConflictException({ code: ErrorCode.INGREDIENT_NAME_CONFLICT, message: 'Nguyên liệu này đã tồn tại trong hệ thống.' });
     }
 
     const ingredient = this.ingredientRepo.create({
-      ingredient_name: dto.ingredient_name.trim(),
+      ingredient_name: trimmedName,
       unit: dto.unit,
       description: dto.description,
-      vegan_flag: dto.vegan_flag ?? true,
+      // Không gửi vegan_flag thì suy theo tên: trứng/sữa là "chay nhưng không thuần chay".
+    // Trước đây mặc định luôn true nên "Trứng gà" thêm mới thành nguyên liệu thuần chay.
+    vegan_flag: dto.vegan_flag ?? defaultVeganFlag(trimmedName),
       avg_price_per_unit:
         dto.avg_price_per_unit,
       calories_per_100g:
@@ -337,7 +446,7 @@ export class IngredientService {
       season_months:
         dto.season_months,
       status:
-        dto.status ?? IngredientStatus.ACTIVE,
+        IngredientStatus.ACTIVE,
     });
 
     return this.ingredientRepo.save(ingredient);
@@ -356,31 +465,35 @@ export class IngredientService {
         where: { ingredient_id },
       });
 
-    if (!ingredient) {
-      throw new NotFoundException({ code: ErrorCode.INGREDIENT_NOT_FOUND, message: `Không tìm thấy nguyên liệu #${ingredient_id}` });
+      if (!ingredient) {
+      throw new NotFoundException({ code: ErrorCode.INGREDIENT_NOT_FOUND, message: 'Không tìm thấy nguyên liệu cần cập nhật.' });
     }
 
-    if (dto.ingredient_name) {
+    if (dto.ingredient_name !== undefined) {
+      const trimmedName = dto.ingredient_name.trim();
+
+      if (!trimmedName) {
+        throw new BadRequestException({ code: ErrorCode.INGREDIENT_NAME_EMPTY, message: 'Tên nguyên liệu không được để trống.' });
+      }
+
+      assertIngredientNameVegetarian(trimmedName);
+
       const existing =
         await this.findByName(
-          dto.ingredient_name,
+          trimmedName,
         );
 
       if (
         existing &&
         existing.ingredient_id !== ingredient_id
       ) {
-        throw new BadRequestException(
-          'Ingredient name already exists',
-        );
+        throw new ConflictException({ code: ErrorCode.INGREDIENT_NAME_CONFLICT, message: 'Nguyên liệu này đã tồn tại trong hệ thống.' });
       }
+
+      ingredient.ingredient_name = trimmedName;
     }
 
     Object.assign(ingredient, {
-      ingredient_name:
-        dto.ingredient_name ??
-        ingredient.ingredient_name,
-
       unit:
         dto.unit ??
         ingredient.unit,
@@ -394,8 +507,9 @@ export class IngredientService {
         ingredient.vegan_flag,
 
       avg_price_per_unit:
-        dto.avg_price_per_unit ??
-        ingredient.avg_price_per_unit,
+        dto.avg_price_per_unit != null && dto.avg_price_per_unit > 0
+          ? dto.avg_price_per_unit
+          : ingredient.avg_price_per_unit,
 
       calories_per_100g:
         dto.calories_per_100g ??
@@ -426,10 +540,144 @@ export class IngredientService {
         ingredient.season_months,
 
       status:
-        dto.status ??
-        ingredient.status,
+        IngredientStatus.ACTIVE,
     });
 
-    return this.ingredientRepo.save(ingredient);
+    const saved = await this.ingredientRepo.save(ingredient);
+
+    // Sửa dinh dưỡng / giá của nguyên liệu -> tính lại dinh dưỡng của các
+    // công thức chứa nguyên liệu đó, nếu không nutrition_infos sẽ còn giá trị
+    // cũ (sai lệch so với dữ liệu nguyên liệu hiện tại).
+    await this.syncAffectedRecipes(ingredient_id);
+
+    return saved;
+  }
+
+  // =========================================================
+  // TÍNH LẠI DINH DƯỠNG CHO CÔNG THỨC BỊ ẢNH HƯỞNG
+  // =========================================================
+
+  /**
+   * Tính lại nutrition_infos cho mọi công thức chứa nguyên liệu đã cho.
+   *
+   * Quy tắc: nutrition_infos lưu THEO 1 KHẨU PHẦN -> tổng món chia cho servings.
+   * Dùng CHUNG calculateNutritionPerServing() với RecipeService và import
+   * công thức để không có 2 chỗ tự tính lệch nhau.
+   *
+   * Chỉ ghi đè record của đúng các recipe bị ảnh hưởng, không đụng tới
+   * công thức khác.
+   */
+  async syncAffectedRecipes(ingredient_id: number): Promise<number> {
+    const rows = await this.recipeIngredientRepo.find({
+      where: { ingredient_id },
+    });
+
+    if (rows.length === 0) {
+      return 0;
+    }
+
+    const recipeIds = [...new Set(rows.map((row) => row.recipe_id))];
+
+    const recipes = await this.recipeRepo.find({
+      where: { recipe_id: In(recipeIds) },
+    });
+
+    const recipeById = new Map(recipes.map((r) => [r.recipe_id, r]));
+
+    const allIngredients = await this.recipeIngredientRepo.find({
+      where: { recipe_id: In(recipeIds) },
+      relations: ['ingredient'],
+    });
+
+    const byRecipe = new Map<number, RecipeIngredient[]>();
+
+    for (const row of allIngredients) {
+      const list = byRecipe.get(row.recipe_id) ?? [];
+      list.push(row);
+      byRecipe.set(row.recipe_id, list);
+    }
+
+    const nutritionRows = await this.nutritionRepo.find({
+      where: { recipe_id: In(recipeIds) },
+    });
+
+    const nutritionByRecipe = new Map(
+      nutritionRows.map((n) => [n.recipe_id, n]),
+    );
+
+    let updated = 0;
+
+    for (const recipeId of recipeIds) {
+      const recipe = recipeById.get(recipeId);
+      const recipeIngredients = byRecipe.get(recipeId) ?? [];
+
+      if (!recipe || recipeIngredients.length === 0) {
+        continue;
+      }
+
+      const values = calculateNutritionPerServing(
+        recipeIngredients.map((row) => ({
+          quantity: Number(row.quantity ?? 0),
+          is_optional: row.is_optional,
+          ingredient: row.ingredient
+            ? {
+                calories_per_100g: row.ingredient.calories_per_100g,
+                protein_per_100g: row.ingredient.protein_per_100g,
+                carb_per_100g: row.ingredient.carb_per_100g,
+                fat_per_100g: row.ingredient.fat_per_100g,
+                fiber_per_100g: row.ingredient.fiber_per_100g,
+              }
+            : null,
+        })),
+        recipe.servings,
+      );
+
+      const existing = nutritionByRecipe.get(recipeId);
+
+      if (existing) {
+        Object.assign(existing, values);
+        await this.nutritionRepo.save(existing);
+      } else {
+        await this.nutritionRepo.save(
+          this.nutritionRepo.create({
+            recipe_id: recipeId,
+            ...values,
+          }),
+        );
+      }
+
+      updated++;
+    }
+
+    return updated;
   }
 }
+
+/**
+ * Hệ thống chỉ có nguyên liệu chay: tên có từ khoá mặn (thịt, gà, cá, tôm, mắm...) mà không có chữ
+ * "chay" thì không cho thêm/sửa. Dùng cùng bộ từ khoá và ngoại lệ với kiểm tra công thức
+ * ("Nấm đùi gà", "Đậu gà", "Trứng gà", "Nước mắm chay" vẫn hợp lệ).
+ */
+function assertIngredientNameVegetarian(name: string): void {
+  const result = checkIngredientNameKeyword(name, {
+    extraExceptions: [...PLANT_NAME_EXCEPTIONS, ...EGG_NAME_EXCEPTIONS],
+  });
+  if (result.isClean) return;
+  throw new BadRequestException({
+    code: ErrorCode.INGREDIENT_NON_VEGETARIAN,
+    message:
+      `Nguyên liệu "${name}" chứa từ khóa mặn: ${result.violations.join(', ')}. ` +
+      `Hệ thống chỉ nhận nguyên liệu chay; nếu là sản phẩm chay, hãy đặt tên kèm chữ "chay" (vd. "${name} chay").`,
+  });
+}
+
+/** vegan_flag mặc định khi admin không gửi: trứng hoặc sữa động vật -> false, còn lại -> true. */
+function defaultVeganFlag(name: string): boolean {
+  const lower = name.normalize('NFC').toLowerCase();
+  if (hasStandaloneChayToken(lower)) return true;
+  // Sữa thực vật (sữa hạt, sữa đậu nành, sữa dừa...) là thuần chay dù có chữ "sữa".
+  if (PLANT_MILK_REGEX.test(lower)) return true;
+  return !(EGG_REGEX.test(lower) || DAIRY_REGEX.test(lower));
+}
+
+const PLANT_MILK_REGEX = /sữa\s*(hạt|đậu|dừa|hạnh\s*nhân|yến\s*mạch|gạo|óc\s*chó|mè|bắp|ngô)/;

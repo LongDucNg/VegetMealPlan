@@ -6,6 +6,7 @@ import {
   X,
   Heart,
   CalendarDays,
+  Calendar,
   Sparkles,
   Check,
   AlertTriangle,
@@ -13,13 +14,15 @@ import {
   Trash2,
   ExternalLink,
   BookOpen,
+  Utensils,
 } from "lucide-react";
 import { Recipe, MealType } from "@/features/recipes/types";
 import { UserProfile } from "@/features/profile/types";
-import { favoriteService, SavedMealPlan } from "@/features/recipes/services/favoriteService";
+import { favoriteService, SavedMealPlan, getEffectiveUserId } from "@/features/recipes/services/favoriteService";
 import { favoriteApiService } from "@/features/recipes/services/favoriteApiService";
 import { mapBackendToFrontendRecipe } from "@/features/recipes/utils/recipeMapper";
 import { mealPlannerService } from "../services/mealPlannerService";
+import { mealPlanApiService } from "../services/mealPlanApiService";
 import { priceService } from "@/features/recipes/services/priceService";
 import { DayMealPlan } from "../types";
 
@@ -27,12 +30,13 @@ interface FavoritesModalProps {
   isOpen: boolean;
   onClose: () => void;
   profile: UserProfile;
-  onApplyPlan: (dayPlan: DayMealPlan) => void;
+  onApplyPlan: (dayPlan: DayMealPlan, targetDateKey?: string) => void;
   onLoadSavedPlan: (plan: SavedMealPlan) => void;
   onSelectFavoriteRecipe?: (recipe: Recipe) => void;
   onGenerateWeeklyWithFavorites?: (favoriteRecipeIds: string[]) => void;
   onGenerateMonthlyWithFavorites?: (favoriteRecipeIds: string[]) => void;
   initialFavoriteRecipes?: Recipe[];
+  defaultTab?: "recipes" | "plans";
 }
 
 export function FavoritesModal({
@@ -45,14 +49,15 @@ export function FavoritesModal({
   onGenerateWeeklyWithFavorites,
   onGenerateMonthlyWithFavorites,
   initialFavoriteRecipes,
+  defaultTab = "recipes",
 }: FavoritesModalProps) {
-  const userId = String(profile.id || "1");
-  const [activeTab, setActiveTab] = useState<"recipes" | "plans">("recipes");
+  const userId = getEffectiveUserId(profile.id);
+  const [activeTab, setActiveTab] = useState<"recipes" | "plans">(defaultTab);
 
   const [favRecipes, setFavRecipes] = useState<Recipe[]>(initialFavoriteRecipes || []);
   const [savedPlans, setSavedPlans] = useState<SavedMealPlan[]>([]);
 
-  // Selection for Create Meal Plan from Favorites (Requirement 2)
+  // Selection for Create Meal Plan from Favorites
   const [selectedBreakfast, setSelectedBreakfast] = useState<Recipe | null>(null);
   const [selectedLunch, setSelectedLunch] = useState<Recipe | null>(null);
   const [selectedDinner, setSelectedDinner] = useState<Recipe | null>(null);
@@ -65,17 +70,13 @@ export function FavoritesModal({
   } | null>(null);
 
   const reloadData = async () => {
+    // 1. Fetch Favorite Recipes
     try {
       const res = await favoriteApiService.getMyFavorites();
       const list = Array.isArray(res) ? res : (res as any)?.data || [];
       if (Array.isArray(list) && list.length > 0) {
         const mapped = list.map(mapBackendToFrontendRecipe);
         setFavRecipes(mapped);
-        favoriteService.saveUserFavorites({
-          userId,
-          recipes: mapped.map((r) => String(r.id)),
-          mealPlans: favoriteService.getFavoriteMealPlans(userId),
-        });
       } else if (initialFavoriteRecipes && initialFavoriteRecipes.length > 0) {
         setFavRecipes(initialFavoriteRecipes);
       } else {
@@ -88,20 +89,28 @@ export function FavoritesModal({
         setFavRecipes(favoriteService.getFavoriteRecipes(userId));
       }
     }
-    setSavedPlans(favoriteService.getFavoriteMealPlans(userId));
+
+    // 2. Fetch Saved Meal Plans
+    try {
+      const serverPlans = await favoriteService.fetchServerMealPlans(userId);
+      setSavedPlans(serverPlans);
+    } catch {
+      setSavedPlans(favoriteService.getFavoriteMealPlans(userId));
+    }
   };
 
   useEffect(() => {
     if (isOpen) {
+      if (defaultTab) {
+        setActiveTab(defaultTab);
+      }
       if (initialFavoriteRecipes && initialFavoriteRecipes.length > 0) {
         setFavRecipes(initialFavoriteRecipes);
       }
-      queueMicrotask(() => {
-        reloadData();
-        setValidationResult(null);
-      });
+      reloadData();
+      setValidationResult(null);
     }
-  }, [isOpen, userId, initialFavoriteRecipes]);
+  }, [isOpen, userId, initialFavoriteRecipes, defaultTab]);
 
   // Group recipes by mealType
   const groupedRecipes = useMemo(() => {
@@ -110,6 +119,7 @@ export function FavoritesModal({
       lunch: [],
       dinner: [],
       snack: [],
+      any: [],
     };
     for (const r of favRecipes) {
       const raw = (r.mealType || "").toLowerCase();
@@ -118,6 +128,10 @@ export function FavoritesModal({
       } else if (raw.includes("snack") || raw.includes("vặt") || raw.includes("phụ")) {
         map.snack.push(r);
       } else if (raw.includes("dinner") || raw.includes("tối")) {
+        map.dinner.push(r);
+      } else if (raw === "any" || raw.includes("any")) {
+        map.any.push(r);
+        map.lunch.push(r);
         map.dinner.push(r);
       } else {
         map.lunch.push(r);
@@ -131,9 +145,40 @@ export function FavoritesModal({
   const dinnerOptions = groupedRecipes.dinner.length > 0 ? groupedRecipes.dinner : favRecipes;
   const snackOptions = groupedRecipes.snack.length > 0 ? groupedRecipes.snack : favRecipes;
 
+  // Lựa chọn ngày áp dụng: Chỉ cho phép từ hôm nay đến 2 tháng tới, không cho tạo trong quá khứ
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    return now.toISOString().split("T")[0];
+  }, []);
+
+  const maxDateStr = useMemo(() => {
+    const max = new Date();
+    max.setDate(max.getDate() + 60); // 2 tháng (60 ngày) đổ lại
+    return max.toISOString().split("T")[0];
+  }, []);
+
+  const [targetDateStr, setTargetDateStr] = useState<string>(() => {
+    const now = new Date();
+    return now.toISOString().split("T")[0];
+  });
+
+  const getDayInfoForDate = (dateStr: string) => {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const shortDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const monthShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return {
+      day: dayNames[dateObj.getDay()],
+      short: shortDays[dateObj.getDay()],
+      date: `${monthShort[m - 1]} ${d}`,
+    };
+  };
+
   if (!isOpen) return null;
 
-  const handleValidateSelection = () => {
+  const handleValidateSelection = async () => {
+    const dayInfo = getDayInfoForDate(targetDateStr);
     const result = mealPlannerService.validateAndCreateFromFavorites(
       {
         breakfast: selectedBreakfast || undefined,
@@ -143,41 +188,85 @@ export function FavoritesModal({
       },
       profile
     );
-    setValidationResult(result);
 
-    // If completely compatible without warnings, immediately apply
-    if (result.isCompatible) {
-      onApplyPlan(result.dayPlan);
+    result.dayPlan.dayName = dayInfo.day;
+    result.dayPlan.shortDay = dayInfo.short;
+    result.dayPlan.dateText = dayInfo.date;
+
+    const mealsToValidate = [
+      selectedBreakfast?.id ? { recipe_id: Number(selectedBreakfast.id), servings: 1 } : null,
+      selectedLunch?.id ? { recipe_id: Number(selectedLunch.id), servings: 1 } : null,
+      selectedDinner?.id ? { recipe_id: Number(selectedDinner.id), servings: 1 } : null,
+      selectedSnack?.id ? { recipe_id: Number(selectedSnack.id), servings: 1 } : null,
+    ].filter(Boolean) as Array<{ recipe_id: number; servings: number }>;
+
+    let finalResult = result;
+    if (mealsToValidate.length > 0) {
+      try {
+        const backendCheck = await mealPlanApiService.validateMealPlan({
+          start_date: targetDateStr,
+          end_date: targetDateStr,
+          days: [{ date: targetDateStr, meals: mealsToValidate }],
+        });
+
+        if (backendCheck && !backendCheck.valid && Array.isArray(backendCheck.errors) && backendCheck.errors.length > 0) {
+          finalResult = {
+            ...result,
+            isCompatible: false,
+            warnings: [
+              ...result.warnings,
+              ...backendCheck.errors.map((e: string) => `[Hệ thống kiểm tra]: ${e}`),
+            ],
+          };
+        }
+      } catch (err) {
+        console.warn("[FavoritesModal] Backend validateMealPlan error:", err);
+      }
+    }
+
+    setValidationResult(finalResult);
+
+    if (finalResult.isCompatible) {
+      onApplyPlan(finalResult.dayPlan, targetDateStr);
       onClose();
     }
   };
 
   const handleKeepMySelection = () => {
     if (validationResult) {
-      onApplyPlan(validationResult.dayPlan);
+      const dayInfo = getDayInfoForDate(targetDateStr);
+      const planToApply = {
+        ...validationResult.dayPlan,
+        dayName: dayInfo.day,
+        shortDay: dayInfo.short,
+        dateText: dayInfo.date,
+      };
+      onApplyPlan(planToApply, targetDateStr);
       onClose();
     }
   };
 
   const handleAdjustAutomatically = () => {
     if (validationResult) {
-      // Generate a calibrated day using selected favorite ids as preferred pool
-      const favIds = [
-        selectedBreakfast?.id,
-        selectedLunch?.id,
-        selectedDinner?.id,
-        selectedSnack?.id,
-      ].filter(Boolean) as string[];
-
-      const adjusted = mealPlannerService.generateDayPlan(
-        { day: "Adjusted Day", short: "Adj", date: "AI Balanced" },
+      const dayInfo = getDayInfoForDate(targetDateStr);
+      // Giữ nguyên 100% công thức người dùng đã chọn cho từng bữa, AI chỉ bù món còn thiếu
+      // Vẫn giữ thứ bình thường (ví dụ: Wed), ghi chú AI Balanced ở dưới
+      const adjusted = mealPlannerService.balanceDayFromFavorites(
+        {
+          breakfast: selectedBreakfast || undefined,
+          lunch: selectedLunch || undefined,
+          dinner: selectedDinner || undefined,
+          snack: selectedSnack || undefined,
+        },
         profile,
-        0,
-        1,
-        { planType: "weekly", favoriteRecipeIds: favIds }
+        {
+          day: dayInfo.day,
+          short: dayInfo.short,
+          date: "AI Balanced",
+        }
       );
 
-      onApplyPlan(adjusted);
+      onApplyPlan(adjusted, targetDateStr);
       onClose();
     }
   };
@@ -219,27 +308,29 @@ export function FavoritesModal({
         <div className="flex items-center gap-2 px-6 pt-3 border-b border-stone-100 bg-white">
           <button
             onClick={() => setActiveTab("recipes")}
-            className={`pb-3 text-xs font-bold transition-colors border-b-2 cursor-pointer ${
+            className={`pb-3 text-xs font-bold transition-colors border-b-2 cursor-pointer flex items-center gap-1.5 ${
               activeTab === "recipes"
                 ? "border-emerald-700 text-emerald-800"
                 : "border-transparent text-stone-500 hover:text-stone-800"
             }`}
           >
-            Món ăn yêu thích ({favRecipes.length})
+            <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
+            <span>Món ăn yêu thích ({favRecipes.length})</span>
           </button>
           <button
             onClick={() => setActiveTab("plans")}
-            className={`pb-3 text-xs font-bold transition-colors border-b-2 cursor-pointer ${
+            className={`pb-3 text-xs font-bold transition-colors border-b-2 cursor-pointer flex items-center gap-1.5 ${
               activeTab === "plans"
                 ? "border-emerald-700 text-emerald-800"
                 : "border-transparent text-stone-500 hover:text-stone-800"
             }`}
           >
-            Thực đơn đã lưu ({savedPlans.length})
+            <CalendarDays className="w-3.5 h-3.5 text-emerald-700" />
+            <span>Thực đơn đã lưu ({savedPlans.length})</span>
           </button>
         </div>
 
-        {/* Tab 1: Favorite Recipes & Create Plan from Favorites (Requirement 1, 2) */}
+        {/* Tab 1: Favorite Recipes */}
         {activeTab === "recipes" && (
           <div className="p-6 overflow-y-auto space-y-6 flex-1">
             {favRecipes.length === 0 ? (
@@ -254,7 +345,7 @@ export function FavoritesModal({
               </div>
             ) : (
               <>
-                {/* Quick Plan Generation with All Favorites (Requirement: đưa công thức yêu thích vào làm thực đơn tuần tháng) */}
+                {/* Quick Plan Generation with All Favorites */}
                 <div className="bg-gradient-to-r from-rose-50 to-amber-50 border border-rose-200/80 rounded-3xl p-5 space-y-3">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
@@ -308,154 +399,148 @@ export function FavoritesModal({
                         Tự tạo thực đơn 1 ngày từ món yêu thích
                       </h4>
                       <p className="text-xs text-emerald-800/80">
-                        Chọn món yêu thích cho từng bữa ăn và để AI hỗ trợ cân đối chuẩn mục tiêu calo.
+                        Chọn món cho từng bữa, hệ thống AI sẽ kiểm tra tính tương thích và cân đối calo
                       </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {/* Breakfast Select */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-emerald-900 block">
+                        Bữa sáng
+                      </label>
+                      <select
+                        value={selectedBreakfast?.id || ""}
+                        onChange={(e) => {
+                          const r = favRecipes.find((x) => x.id === e.target.value) || null;
+                          setSelectedBreakfast(r);
+                        }}
+                        className="w-full text-xs p-2 rounded-xl border border-emerald-200 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                      >
+                        <option value="">-- Tự động gợi ý --</option>
+                        {breakfastOptions.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name || r.title} (~{r.calories} kcal)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Lunch Select */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-emerald-900 block">
+                        Bữa trưa
+                      </label>
+                      <select
+                        value={selectedLunch?.id || ""}
+                        onChange={(e) => {
+                          const r = favRecipes.find((x) => x.id === e.target.value) || null;
+                          setSelectedLunch(r);
+                        }}
+                        className="w-full text-xs p-2 rounded-xl border border-emerald-200 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                      >
+                        <option value="">-- Tự động gợi ý --</option>
+                        {lunchOptions.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name || r.title} (~{r.calories} kcal)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Dinner Select */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-emerald-900 block">
+                        Bữa tối
+                      </label>
+                      <select
+                        value={selectedDinner?.id || ""}
+                        onChange={(e) => {
+                          const r = favRecipes.find((x) => x.id === e.target.value) || null;
+                          setSelectedDinner(r);
+                        }}
+                        className="w-full text-xs p-2 rounded-xl border border-emerald-200 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                      >
+                        <option value="">-- Tự động gợi ý --</option>
+                        {dinnerOptions.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name || r.title} (~{r.calories} kcal)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Snack Select */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-emerald-900 block">
+                        Bữa phụ
+                      </label>
+                      <select
+                        value={selectedSnack?.id || ""}
+                        onChange={(e) => {
+                          const r = favRecipes.find((x) => x.id === e.target.value) || null;
+                          setSelectedSnack(r);
+                        }}
+                        className="w-full text-xs p-2 rounded-xl border border-emerald-200 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                      >
+                        <option value="">-- Tự động gợi ý --</option>
+                        {snackOptions.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name || r.title} (~{r.calories} kcal)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-emerald-100">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span className="text-xs font-semibold text-emerald-950">
+                        Chọn ngày tạo lịch (tối đa 2 tháng tới):
+                      </span>
+                      <input
+                        type="date"
+                        min={todayStr}
+                        max={maxDateStr}
+                        value={targetDateStr}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val >= todayStr && val <= maxDateStr) {
+                            setTargetDateStr(val);
+                          }
+                        }}
+                        className="px-2.5 py-1 text-xs font-bold bg-white border border-emerald-300 rounded-xl text-stone-800 shadow-2xs focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                      />
                     </div>
 
                     <button
                       onClick={handleValidateSelection}
                       disabled={!selectedBreakfast && !selectedLunch && !selectedDinner && !selectedSnack}
-                      className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+                      className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                     >
-                      Áp dụng thực đơn
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Kiểm tra & Áp dụng ({targetDateStr.split("-").reverse().join("/")})</span>
                     </button>
                   </div>
 
-                  {/* Slots Selection */}
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    {/* Breakfast */}
-                    <div className="bg-white p-3 rounded-2xl border border-emerald-100 text-xs">
-                      <span className="font-bold text-stone-500 block mb-1">
-                        1. Bữa sáng:
-                      </span>
-                      <select
-                        value={selectedBreakfast?.id || ""}
-                        onChange={(e) => {
-                          const r = favRecipes.find((item) => item.id === e.target.value) || null;
-                          setSelectedBreakfast(r);
-                        }}
-                        className="w-full text-xs p-1.5 rounded-lg border border-stone-200 bg-stone-50 outline-none"
-                      >
-                        <option value="">-- Chọn món hoặc tự động --</option>
-                        {breakfastOptions.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name || r.title} ({r.calories} kcal)
-                          </option>
-                        ))}
-                      </select>
-                      {selectedBreakfast && (
-                        <p className="text-[11px] font-semibold text-emerald-800 mt-1">
-                          {selectedBreakfast.calories} kcal · {priceService.getEffectivePrice(selectedBreakfast, userId).formatted}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Lunch */}
-                    <div className="bg-white p-3 rounded-2xl border border-emerald-100 text-xs">
-                      <span className="font-bold text-stone-500 block mb-1">
-                        2. Bữa trưa:
-                      </span>
-                      <select
-                        value={selectedLunch?.id || ""}
-                        onChange={(e) => {
-                          const r = favRecipes.find((item) => item.id === e.target.value) || null;
-                          setSelectedLunch(r);
-                        }}
-                        className="w-full text-xs p-1.5 rounded-lg border border-stone-200 bg-stone-50 outline-none"
-                      >
-                        <option value="">-- Chọn món hoặc tự động --</option>
-                        {lunchOptions.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name || r.title} ({r.calories} kcal)
-                          </option>
-                        ))}
-                      </select>
-                      {selectedLunch && (
-                        <p className="text-[11px] font-semibold text-emerald-800 mt-1">
-                          {selectedLunch.calories} kcal · {priceService.getEffectivePrice(selectedLunch, userId).formatted}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Dinner */}
-                    <div className="bg-white p-3 rounded-2xl border border-emerald-100 text-xs">
-                      <span className="font-bold text-stone-500 block mb-1">
-                        3. Bữa tối:
-                      </span>
-                      <select
-                        value={selectedDinner?.id || ""}
-                        onChange={(e) => {
-                          const r = favRecipes.find((item) => item.id === e.target.value) || null;
-                          setSelectedDinner(r);
-                        }}
-                        className="w-full text-xs p-1.5 rounded-lg border border-stone-200 bg-stone-50 outline-none"
-                      >
-                        <option value="">-- Chọn món hoặc tự động --</option>
-                        {dinnerOptions.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name || r.title} ({r.calories} kcal)
-                          </option>
-                        ))}
-                      </select>
-                      {selectedDinner && (
-                        <p className="text-[11px] font-semibold text-emerald-800 mt-1">
-                          {selectedDinner.calories} kcal · {priceService.getEffectivePrice(selectedDinner, userId).formatted}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Snack */}
-                    <div className="bg-white p-3 rounded-2xl border border-emerald-100 text-xs">
-                      <span className="font-bold text-stone-500 block mb-1">
-                        4. Bữa phụ:
-                      </span>
-                      <select
-                        value={selectedSnack?.id || ""}
-                        onChange={(e) => {
-                          const r = favRecipes.find((item) => item.id === e.target.value) || null;
-                          setSelectedSnack(r);
-                        }}
-                        className="w-full text-xs p-1.5 rounded-lg border border-stone-200 bg-stone-50 outline-none"
-                      >
-                        <option value="">-- Chọn món hoặc tự động --</option>
-                        {snackOptions.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name || r.title} ({r.calories} kcal)
-                          </option>
-                        ))}
-                      </select>
-                      {selectedSnack && (
-                        <p className="text-[11px] font-semibold text-emerald-800 mt-1">
-                          {selectedSnack.calories} kcal · {priceService.getEffectivePrice(selectedSnack, userId).formatted}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Target Mismatch Warning Dialog (Requirement 2) */}
+                  {/* Validation Result Box */}
                   {validationResult && !validationResult.isCompatible && (
-                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-3 text-xs text-amber-900 animate-in fade-in">
-                      <div className="flex items-start gap-2.5">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-bold">
-                            Một số món ăn chưa hoàn toàn khớp với mục tiêu dinh dưỡng hôm nay:
-                          </p>
-                          <ul className="list-disc pl-4 mt-1 space-y-0.5 text-stone-700">
-                            {validationResult.warnings.map((w, i) => (
-                              <li key={i}>{w}</li>
-                            ))}
-                          </ul>
-                          <p className="mt-2 text-[11px] text-stone-500">
-                            Calo dự tính: <strong>{validationResult.dayPlan.totalCalories} kcal</strong> so với Mục tiêu: <strong>{profile.weight ? `${validationResult.dayPlan.targetCalories} kcal` : "Tùy chỉnh"}</strong>
-                          </p>
-                        </div>
+                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 text-xs space-y-2 animate-in fade-in">
+                      <div className="flex items-center gap-2 font-bold text-amber-900">
+                        <AlertTriangle className="w-4 h-4 text-amber-600" />
+                        <span>Cảnh báo tương thích dinh dưỡng:</span>
                       </div>
-
-                      <div className="flex items-center gap-2 justify-end pt-1">
+                      <ul className="list-disc pl-5 space-y-1 text-amber-800 text-[11px]">
+                        {validationResult.warnings.map((w, idx) => (
+                          <li key={idx}>{w}</li>
+                        ))}
+                      </ul>
+                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-amber-200">
                         <button
                           onClick={handleAdjustAutomatically}
-                          className="px-3.5 py-1.5 rounded-xl bg-white border border-amber-300 hover:bg-amber-100 font-bold text-amber-900 text-xs transition-colors cursor-pointer"
+                          className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 font-bold text-white text-xs shadow-2xs transition-colors cursor-pointer"
                         >
                           Tự động cân bằng AI
                         </button>
@@ -502,23 +587,37 @@ export function FavoritesModal({
                                 {r.name || r.title}
                               </h5>
                               <div className="flex items-center gap-2 text-[11px] text-stone-500">
-                                <span className="text-amber-700 font-bold">{r.calories} kcal</span>
+                                <span className="text-amber-700 font-bold">~{Math.round(Number(r.calories) * 100) / 100} kcal</span>
                                 <span>·</span>
                                 <span className="text-emerald-800 font-medium">{cost.formatted}</span>
                               </div>
                             </div>
                           </div>
 
-                          <button
-                            onClick={() => {
-                              favoriteService.toggleFavoriteRecipe(userId, r.id);
-                              reloadData();
-                            }}
-                            title="Bỏ khỏi yêu thích"
-                            className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 cursor-pointer"
-                          >
-                            <Heart className="w-4 h-4 fill-rose-500" />
-                          </button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {onSelectFavoriteRecipe && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  onSelectFavoriteRecipe(r);
+                                  onClose();
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-semibold text-[11px] cursor-pointer"
+                              >
+                                Chọn
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                favoriteService.toggleFavoriteRecipe(userId, r.id);
+                                reloadData();
+                              }}
+                              title="Bỏ khỏi yêu thích"
+                              className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 cursor-pointer"
+                            >
+                              <Heart className="w-4 h-4 fill-rose-500" />
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -529,9 +628,32 @@ export function FavoritesModal({
           </div>
         )}
 
-        {/* Tab 2: Saved Meal Plans (Requirement 1) */}
+        {/* Tab 2: Saved Meal Plans */}
         {activeTab === "plans" && (
           <div className="p-6 overflow-y-auto space-y-4 flex-1">
+            {/* Lựa chọn ngày áp dụng thực đơn mẫu */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-emerald-50/60 border border-emerald-200 rounded-2xl">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span className="text-xs font-semibold text-emerald-950">
+                  Chọn ngày lịch để áp dụng thực đơn (từ hôm nay đến 2 tháng tới):
+                </span>
+              </div>
+              <input
+                type="date"
+                min={todayStr}
+                max={maxDateStr}
+                value={targetDateStr}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val >= todayStr && val <= maxDateStr) {
+                    setTargetDateStr(val);
+                  }
+                }}
+                className="px-2.5 py-1 text-xs font-bold bg-white border border-emerald-300 rounded-xl text-stone-800 shadow-2xs focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+              />
+            </div>
+
             {savedPlans.length === 0 ? (
               <div className="p-12 text-center text-stone-400">
                 <CalendarDays className="w-10 h-10 mx-auto mb-2 text-stone-300" />
@@ -539,7 +661,7 @@ export function FavoritesModal({
                   Chưa có thực đơn nào được lưu.
                 </p>
                 <p className="text-xs text-stone-400 mt-1">
-                  Khi tạo thực đơn tuần hoặc tháng, hãy nhấn &quot;Lưu thực đơn&quot; để lưu lại làm mẫu kế hoạch mẫu.
+                  Khi tạo thực đơn tuần hoặc tháng, hãy nhấn &quot;Lưu thực đơn&quot; để lưu lại mẫu kế hoạch yêu thích để tái sử dụng.
                 </p>
               </div>
             ) : (
@@ -552,28 +674,47 @@ export function FavoritesModal({
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900">
-                          {plan.planType === "monthly" ? "Thực đơn tháng" : "Thực đơn tuần"}
+                          {plan.planType === "monthly" ? "Thực đơn tháng" : plan.planType === "daily" ? "Thực đơn ngày" : "Thực đơn tuần"}
                         </span>
                         <h4 className="font-bold text-stone-900 text-sm">
                           {plan.name}
                         </h4>
                       </div>
                       <p className="text-xs text-stone-500 mt-1">
-                        Kế hoạch {plan.days.length} ngày · Mục tiêu: {plan.targetCalories} kcal/ngày · Chi phí ước tính: ~{plan.totalEstimatedCost.toLocaleString("vi-VN")} đ
+                        Kế hoạch {plan.days?.length || 0} ngày · Mục tiêu: ~{Math.round(Number(plan.targetCalories) * 100) / 100} kcal/ngày · Chi phí ước tính: ~{plan.totalEstimatedCost?.toLocaleString("vi-VN")} VNĐ
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                    <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 flex-wrap">
+                      {plan.days && plan.days.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onApplyPlan(plan.days[0], targetDateStr);
+                            onClose();
+                          }}
+                          className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+                          title={`Áp dụng 4 bữa của thực đơn này vào ngày ${targetDateStr.split("-").reverse().join("/")}`}
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                          <span>Áp dụng vào ngày {targetDateStr.split("-").reverse().join("/")}</span>
+                        </button>
+                      )}
+
                       <button
+                        type="button"
                         onClick={() => {
                           onLoadSavedPlan(plan);
                           onClose();
                         }}
                         className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer"
+                        title="Tải toàn bộ các ngày của thực đơn này"
                       >
-                        Áp dụng
+                        Áp dụng toàn bộ
                       </button>
+
                       <button
+                        type="button"
                         onClick={() => handleRemoveSavedPlan(plan.id)}
                         className="p-2 rounded-xl text-stone-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                         title="Xóa thực đơn"

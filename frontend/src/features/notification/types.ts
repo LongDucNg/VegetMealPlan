@@ -5,6 +5,14 @@ export type NotificationType =
   | "SUBSCRIPTION_CANCELLED"
   | "CONTENT_COMMENT"
   | "CONTENT_VOTE"
+  | "RECIPE_SUBMITTED"
+  | "RECIPE_APPROVED"
+  | "RECIPE_REJECTED"
+  | "FORUM_POST_SUBMITTED"
+  | "FORUM_POST_APPROVED"
+  | "FORUM_POST_REJECTED"
+  | "SYSTEM_WELCOME"
+  | "SYSTEM_ANNOUNCEMENT"
   | string;
 
 export interface AppNotification {

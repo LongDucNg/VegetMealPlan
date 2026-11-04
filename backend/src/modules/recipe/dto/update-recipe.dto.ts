@@ -1,9 +1,10 @@
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -34,16 +35,21 @@ export class UpdateRecipeIngredientDto {
 }
 
 export class UpdateRecipeDto {
+  // Khi có gửi title thì không được rỗng/khoảng trắng (đã trim trước khi validate).
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
+  @IsNotEmpty({ message: 'Tên món không được để trống.' })
   title?: string;
 
   @IsOptional()
   @IsString()
   description?: string;
 
+  // Khi có gửi instructions thì không được rỗng (DB là NOT NULL).
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   instructions?: string;
 
   @IsOptional()
@@ -73,9 +79,19 @@ export class UpdateRecipeDto {
   @IsString()
   meal_type?: string;
 
+  // Danh sách bữa ăn phù hợp, cách nhau dấu phẩy (vd. "lunch,dinner").
+  // Bỏ trống thì suy ra từ meal_type theo mapping chuẩn.
+  @IsOptional()
+  @IsString()
+  suitable_meals?: string;
+
   @IsOptional()
   @IsEnum(DietType)
   diet_type?: DietType;
+
+  @IsOptional()
+  @IsString()
+  video_url?: string;
 
   @IsOptional()
   @IsInt()

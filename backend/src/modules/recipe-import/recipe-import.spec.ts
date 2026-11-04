@@ -1,0 +1,1002 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { RecipeImportService } from './recipe-import.service';
+import { RecipeImportItem } from './entities/recipe-import-item.entity';
+import { RecipeImportBatch } from './entities/recipe-import-batch.entity';
+import { Recipe } from '../recipe/entities/recipe.entity';
+import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
+import { Ingredient } from '../ingredient/entities/ingredient.entity';
+import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
+import { Category } from '../category/entities/category.entity';
+import { RecipeValidatorService } from '../recipe/recipe-validator.service';
+
+const norm = (s: any) =>
+  String(s ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+const INGREDIENTS: Record<string, any> = {
+  'yến mạch': {
+    ingredient_id: 25,
+    ingredient_name: 'Yến mạch',
+    unit: 'g',
+    calories_per_100g: 380,
+    protein_per_100g: 13,
+    carb_per_100g: 67,
+    fat_per_100g: 7,
+    fiber_per_100g: 10,
+    avg_price_per_unit: 20000,
+    vegan_flag: true,
+  },
+  'bí đỏ': {
+    ingredient_id: 70,
+    ingredient_name: 'Bí đỏ',
+    unit: 'g',
+    calories_per_100g: 26,
+    protein_per_100g: 1,
+    carb_per_100g: 6.5,
+    fat_per_100g: 0.1,
+    fiber_per_100g: 0.5,
+    avg_price_per_unit: 8000,
+    vegan_flag: true,
+  },
+  'nấm rơm': {
+    ingredient_id: 88,
+    ingredient_name: 'Nấm rơm',
+    unit: 'g',
+    calories_per_100g: 32,
+    protein_per_100g: 3.8,
+    carb_per_100g: 4.6,
+    fat_per_100g: 0.7,
+    fiber_per_100g: 2.2,
+    avg_price_per_unit: 30000,
+    vegan_flag: true,
+  },
+  // Nguyên liệu KHÔNG thuần chay (lấy đúng dữ liệu seed hiện tại).
+  'trứng gà': {
+    ingredient_id: 185,
+    ingredient_name: 'Trứng gà',
+    unit: 'g',
+    calories_per_100g: 143,
+    protein_per_100g: 12.6,
+    carb_per_100g: 0.7,
+    fat_per_100g: 9.5,
+    fiber_per_100g: 0,
+    avg_price_per_unit: 70000,
+    vegan_flag: false,
+  },
+  'sữa tươi': {
+    ingredient_id: 179,
+    ingredient_name: 'Sữa tươi',
+    unit: 'g',
+    calories_per_100g: 61,
+    protein_per_100g: 3.2,
+    carb_per_100g: 4.8,
+    fat_per_100g: 3.3,
+    fiber_per_100g: 0,
+    avg_price_per_unit: 38000,
+    vegan_flag: false,
+  },
+  'mật ong': {
+    ingredient_id: 157,
+    ingredient_name: 'Mật ong',
+    unit: 'g',
+    calories_per_100g: 304,
+    protein_per_100g: 0.3,
+    carb_per_100g: 82.4,
+    fat_per_100g: 0,
+    fiber_per_100g: 0.2,
+    avg_price_per_unit: 120000,
+    vegan_flag: false,
+  },
+  // Nguyên liệu mặn do Admin tự thêm (chưa có trong seed).
+  'thịt bò': {
+    ingredient_id: 9001,
+    ingredient_name: 'Thịt bò',
+    unit: 'g',
+    calories_per_100g: 250,
+    protein_per_100g: 26,
+    carb_per_100g: 0,
+    fat_per_100g: 15,
+    fiber_per_100g: 0,
+    avg_price_per_unit: 300000,
+    vegan_flag: false,
+  },
+  'cá hồi': {
+    ingredient_id: 9002,
+    ingredient_name: 'Cá hồi',
+    unit: 'g',
+    calories_per_100g: 208,
+    protein_per_100g: 20,
+    carb_per_100g: 0,
+    fat_per_100g: 13,
+    fiber_per_100g: 0,
+    avg_price_per_unit: 250000,
+    vegan_flag: false,
+  },
+};
+
+interface Ctx {
+  dbTitles: string[];
+  /** ingredient_id của từng món đã tồn tại trong DB (để test trùng theo TẬP nguyên liệu). */
+  dbIngredients: Map<string, number[]>;
+  /** map recipe_id -> title (để mock recipe_ingredients biết món nào). */
+  recipeIdToTitle: Map<number, string>;
+  nextRecipeId: number;
+  savedRecipes: any[];
+  savedItems: any[];
+  savedBatches: any[];
+  /** Bảng categories giả lập (test cột Danh mục). */
+  categories?: any[];
+}
+
+/** Service với mock repository - KHONG ghi vao database that. */
+function buildService(ctx: Ctx): RecipeImportService {
+  const itemRepo: any = {
+    create: (o: any) => o,
+    find: async () => [],
+    findOne: async () => null,
+  };
+
+  const batchRepo: any = {
+    find: async () => [],
+    findOne: async () => null,
+  };
+
+  const recipeRepo: any = {
+    createQueryBuilder: () => {
+      let keys: string[] = [];
+      const qb: any = {
+        select: () => qb,
+        addSelect: () => qb,
+        where: (_sql: string, params: any) => {
+          keys = params?.keys ?? [];
+          return qb;
+        },
+        andWhere: () => qb,
+        // Service dùng getRawMany() (getMany() với select 1 cột trả về mảng rỗng).
+        getRawMany: async () =>
+          ctx.dbTitles
+            .filter((t) => keys.includes(norm(t)))
+            .map((t, i) => ({ recipe_id: i + 1, title: t })),
+      };
+      return qb;
+    },
+  };
+
+  // Mock repo recipe_ingredients: trả về tập ingredient_id theo recipe_id.
+  const recipeIngredientRepo: any = {
+    find: async ({ where }: any) => {
+      const ids: number[] = where?.recipe_id?.value ?? [];
+      const out: any[] = [];
+
+      for (const recipeId of ids) {
+        const title = ctx.dbTitles[recipeId - 1];
+        const ingredientIds = title ? ctx.dbIngredients.get(norm(title)) ?? [] : [];
+
+        for (const ingredientId of ingredientIds) {
+          out.push({ recipe_id: recipeId, ingredient_id: ingredientId });
+        }
+      }
+
+      return out;
+    },
+  };
+
+  const ingredientService: any = {
+    findByName: async (name: string) => {
+      const found = Object.values(INGREDIENTS).find(
+        (i) => norm(i.ingredient_name) === norm(name),
+      );
+      return found ?? null;
+    },
+    findConflictsAmong: async () => [],
+  };
+
+  const makeManager = () => {
+    const recipeRepoM: any = {
+      create: (o: any) => o,
+      save: async (o: any) => {
+        const id = ctx.nextRecipeId++;
+        ctx.savedRecipes.push({ ...o, recipe_id: id });
+        ctx.dbTitles.push(o.title);
+        ctx.recipeIdToTitle.set(id, o.title);
+        return { ...o, recipe_id: id };
+      },
+    };
+    const riRepoM: any = {
+      create: (o: any) => o,
+      save: async (rows: any[]) => {
+        // Ghi lại tập nguyên liệu của món vừa tạo để lần import sau
+        // nhận ra món trùng (cùng tên + cùng tập nguyên liệu).
+        for (const r of rows) {
+          const title = ctx.recipeIdToTitle.get(r.recipe_id);
+
+          if (!title) continue;
+
+          const list = ctx.dbIngredients.get(norm(title)) ?? [];
+          list.push(r.ingredient_id);
+          ctx.dbIngredients.set(norm(title), list);
+        }
+
+        return rows;
+      },
+    };
+    const ingRepoM: any = {
+      findOne: async ({ where }: any) =>
+        Object.values(INGREDIENTS).find(
+          (i) => i.ingredient_id === where.ingredient_id,
+        ) ?? null,
+    };
+    const nutRepoM: any = { create: (o: any) => o, save: async (o: any) => o };
+    const catRepoM: any = {
+      find: async (opts: any) => {
+        const ids: number[] = opts?.where?.category_id?.value ?? [];
+        return (ctx.categories ?? []).filter((c) => ids.includes(c.category_id));
+      },
+      findOne: async (opts: any) => {
+        const name = opts?.where?.category_name;
+        return (ctx.categories ?? []).find((c) => c.category_name === name) ?? null;
+      },
+      create: (o: any) => ({ category_id: 99, ...o }),
+      save: async (o: any) => {
+        const saved = { category_id: o.category_id || 99, ...o };
+        ctx.categories = ctx.categories || [];
+        ctx.categories.push(saved);
+        return saved;
+      },
+    };
+    const batchRepoM: any = {
+      create: (o: any) => o,
+      save: async (o: any) => {
+        const batch = { ...o, batch_id: 1 };
+        ctx.savedBatches.push(batch);
+        return batch;
+      },
+    };
+    const itemRepoM: any = {
+      create: (o: any) => o,
+      save: async (o: any) => {
+        const saved = o.map((x: any) => ({
+          ...x,
+          import_item_id: ctx.savedItems.length + 1,
+        }));
+        ctx.savedItems.push(...saved);
+        return saved;
+      },
+    };
+
+    const byEntity = new Map<any, any>([
+      [Recipe, recipeRepoM],
+      [RecipeIngredient, riRepoM],
+      [Ingredient, ingRepoM],
+      [NutritionInfo, nutRepoM],
+      [Category, catRepoM],
+      [RecipeImportBatch, batchRepoM],
+      [RecipeImportItem, itemRepoM],
+    ]);
+
+    return {
+      getRepository: (e: any) => byEntity.get(e),
+      count: async () => 0,
+      insert: async () => undefined,
+    };
+  };
+
+  const dataSource: any = {
+    transaction: async (cb: any) => cb(makeManager()),
+    getRepository: (e: any) => (e === Category ? {
+      find: async () => ctx.categories ?? [],
+      findOne: async (opts: any) => (ctx.categories ?? []).find((c) => c.category_name === opts?.where?.category_name) ?? null,
+      create: (o: any) => ({ category_id: 99, ...o }),
+      save: async (o: any) => {
+        const s = { category_id: o.category_id || 99, ...o };
+        ctx.categories = ctx.categories || [];
+        ctx.categories.push(s);
+        return s;
+      },
+    } : undefined),
+  };
+
+  // Validator DÙNG CHUNG giữa create / update / import công thức.
+  // Ở unit test dùng đúng instance thật (không DB) để 3 luồng hành xử giống nhau.
+  const recipeValidator = new RecipeValidatorService(ingredientService);
+
+  return new RecipeImportService(
+    batchRepo,
+    itemRepo,
+    recipeRepo,
+    recipeIngredientRepo as any,
+    ingredientService,
+    recipeValidator,
+    dataSource,
+  );
+}
+
+const ing = (name: string, quantity = 100) => ({
+  ingredient_name: name,
+  quantity,
+  unit: 'g',
+  is_optional: false,
+});
+
+const row = (title: string, extra: any = {}) => ({
+  title,
+  description: 'mo ta',
+  instructions: 'nau thoi',
+  prep_time: 10,
+  cook_time: 20,
+  servings: 2,
+  difficulty: 'easy',
+  meal_type: 'lunch',
+  diet_type: 'vegan',
+  ingredients: [ing('Yến mạch')],
+  ...extra,
+});
+
+const newCtx = (
+  dbTitles: string[] = [],
+  dbIngredients: Record<string, number[]> = {},
+): Ctx => ({
+  dbTitles,
+  dbIngredients: new Map(
+    Object.entries(dbIngredients).map(([k, v]) => [norm(k), v]),
+  ),
+  recipeIdToTitle: new Map(),
+  nextRecipeId: 900,
+  savedRecipes: [],
+  savedItems: [],
+  savedBatches: [],
+});
+
+/** Service có sẵn danh sách cặp xung khắc giả lập (để test mức độ chặn). */
+function buildServiceWithConflicts(
+  ctx: Ctx,
+  conflicts: any[],
+): RecipeImportService {
+  const svc = buildService(ctx);
+  const ingredientService = (svc as any).ingredientService;
+  ingredientService.findConflictsAmong = async () => conflicts;
+  return svc;
+}
+
+describe('RecipeImportService - xu ly trung ten', () => {
+  it('skip cong thuc trung DB / trung trong file, va xu ly dong loi doc lap', async () => {
+    // Món đã có trong DB dùng CÙNG tập nguyên liệu (Yến mạch) -> trùng.
+    const ctx = newCtx(['Món Đã Có'], { 'Món Đã Có': [25] });
+    const svc = buildService(ctx);
+
+    const rows = [
+      row('Món Đã Có'), // trùng DB (khác hoa/thường) -> skipped
+      row('  Món Mới  '), // hợp lệ -> success
+      row('món mới'), // trùng trong file -> skipped
+      row('Món lỗi', { ingredients: [ing('Không Tồn Tại')] }), // failed
+      row('Món Lỗi'), // dòng sau dòng lỗi cùng tên -> success
+      row('Món Lỗi'), // trùng dòng 5 -> skipped
+    ];
+
+    const res: any = await svc.importRows(1, 'a.xlsx', rows as any);
+
+    expect(res.success).toBe(true);
+    expect(res.data.summary).toEqual({
+      total: 6,
+      success: 2,
+      skipped: 3,
+      failed: 1,
+    });
+    expect(res.data.details.map((d: any) => d.status)).toEqual([
+      'skipped',
+      'success',
+      'skipped',
+      'failed',
+      'success',
+      'skipped',
+    ]);
+    res.data.details.forEach((d: any) => {
+      expect(d).toHaveProperty('row');
+      expect(d).toHaveProperty('title');
+      expect(d).toHaveProperty('status');
+      expect(d).toHaveProperty('reason');
+    });
+    expect(ctx.savedRecipes.every((r) => r.status === 'pending_review')).toBe(
+      true,
+    );
+    expect(ctx.savedBatches[0].skipped_count).toBe(3);
+  });
+
+  it('dong dau khong hop le thi dong sau cung ten van import duoc', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const rows = [
+      row('Món A', { instructions: '   ' }), // failed
+      row('Món A'), // success
+      row('Món A'), // skipped
+    ];
+
+    const res: any = await svc.importRows(1, 'b.xlsx', rows as any);
+
+    expect(res.data.summary).toEqual({
+      total: 3,
+      success: 1,
+      skipped: 1,
+      failed: 1,
+    });
+  });
+
+  it('import lai cung file khong tao ban sao', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+    const rows = [row('Món Lặp'), row('Món Lặp')];
+
+    const r1: any = await svc.importRows(1, 'c.xlsx', rows as any);
+    expect(r1.data.summary.success).toBe(1);
+    expect(r1.data.summary.skipped).toBe(1);
+
+    const r2: any = await svc.importRows(1, 'c.xlsx', rows as any);
+    expect(r2.data.summary.success).toBe(0);
+    expect(r2.data.summary.skipped).toBe(2);
+
+    expect(ctx.savedRecipes.length).toBe(1);
+  });
+
+  it('bo qua cong thuc trung DB khi khac hoa/thuong va khoang trang', async () => {
+    const ctx = newCtx(['  Món  Có  '], { 'Món  Có': [25] });
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd.xlsx', [
+      row('món có'),
+    ] as any);
+
+    expect(res.data.summary.skipped).toBe(1);
+    expect(res.data.summary.success).toBe(0);
+  });
+
+  it('dong co row_error (JSON ingredients sai) bi danh dau failed', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'e.xlsx', [
+      row('Món X', { row_error: 'cột ingredients không hợp lệ' }),
+      row('Món Y'),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(res.data.summary.success).toBe(1);
+    expect(res.data.details[0].status).toBe('failed');
+    expect(res.data.details[0].reason).toContain('ingredients');
+  });
+
+  it('tinh nutrition va estimated_cost cho dong import thanh cong', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    await svc.importRows(1, 'f.xlsx', [
+      row('Món Cost', { ingredients: [ing('Yến mạch', 200)] }),
+    ] as any);
+
+    const saved = ctx.savedRecipes[0];
+    // 200g yến mạch: 380 * 2 = 760 kcal, giá 20000/kg -> 0.2kg * 20000 = 4000
+    expect(saved.estimated_cost).toBe(4000);
+    expect(saved.status).toBe('pending_review');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Regression: 2 bug BE2 tìm ra khi test file HappyCase thật.
+//
+// 1. getMany() với select chỉ 1 cột -> mảng rỗng -> skip trùng tên
+//    KHÔNG chạy, mỗi lần import lại đều tạo bản sao trong DB.
+// 2. Bảng ingredient_conflicts gộp cả "mẹo tốt" (tip) - đậu hũ + chanh là
+//    mẹo (vitamin C hỗ trợ hấp thu sắt) nhưng lại chặn import công thức.
+// ─────────────────────────────────────────────────────────────
+describe('RecipeImportService - regression BE2', () => {
+  it('skip cong thuc trung trong DB khi import lai file (getRawMany)', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const rows = [row('Món Lặp')];
+
+    const r1: any = await svc.importRows(1, 'g.xlsx', rows as any);
+    expect(r1.data.summary).toEqual({
+      total: 1,
+      success: 1,
+      skipped: 0,
+      failed: 0,
+    });
+
+    // Lần 2: tiêu đề đã có trong DB -> phải skipped, không tạo bản sao.
+    const r2: any = await svc.importRows(1, 'g.xlsx', rows as any);
+    expect(r2.data.summary).toEqual({
+      total: 1,
+      success: 0,
+      skipped: 1,
+      failed: 0,
+    });
+    expect(r2.data.details[0].status).toBe('skipped');
+    expect(r2.data.details[0].reason).toContain('đã tồn tại');
+
+    expect(ctx.savedRecipes.length).toBe(1);
+  });
+
+  it('cặp "tip" (mẹo tốt) KHÔNG chặn import', async () => {
+    const ctx = newCtx();
+    // "tip" = mẹo tốt (vitamin C hỗ trợ hấp thu sắt) -> vẫn import được.
+    const svc = buildServiceWithConflicts(ctx, [
+      {
+        ingredient_id_1: 32,
+        ingredient_id_2: 105,
+        reason: '[tip/B] Vitamin C hỗ trợ hấp thu sắt thực vật',
+      },
+    ]);
+
+    const res: any = await svc.importRows(1, 'h.xlsx', [
+      row('Món Với Tip'),
+    ] as any);
+
+    expect(res.data.summary.success).toBe(1);
+    expect(res.data.summary.failed).toBe(0);
+    expect(ctx.savedRecipes.length).toBe(1);
+  });
+
+  it('cặp "avoid"/"caution" (xung khắc thật) VẪN chặn import', async () => {
+    const ctx = newCtx();
+    const svc = buildServiceWithConflicts(ctx, [
+      {
+        ingredient_id_1: 105,
+        ingredient_id_2: 179,
+        reason: '[avoid/A] Axit làm sữa vón cục',
+      },
+    ]);
+
+    const res: any = await svc.importRows(1, 'i.xlsx', [
+      row('Món Xung Khắc'),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(res.data.summary.success).toBe(0);
+    expect(res.data.details[0].reason).toContain('xung khắc');
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Validation field bắt buộc của file import:
+// title, instructions, meal_type, diet_type, ingredients (>= 1).
+// Không tự gán mặc định cho field bắt buộc.
+// ─────────────────────────────────────────────────────────────
+describe('RecipeImportService - validation field bắt buộc', () => {
+  it('thiếu title -> failed, nêu rõ field bị thiếu', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v1.xlsx', [
+      row('', { title: '   ' }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(res.data.details[0].status).toBe('failed');
+    expect(res.data.details[0].reason).toContain('title');
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('thiếu instructions -> failed', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v2.xlsx', [
+      row('Món A', { instructions: '  ' }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(res.data.details[0].reason).toContain('instructions');
+  });
+
+  it('thiếu meal_type -> failed', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v3.xlsx', [
+      row('Món A', { meal_type: '' }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(res.data.details[0].reason).toContain('meal_type');
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('thiếu diet_type -> failed', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v4.xlsx', [
+      row('Món A', { diet_type: '' }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(res.data.details[0].reason).toContain('diet_type');
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('ingredients rỗng -> failed', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v5.xlsx', [
+      row('Món A', { ingredients: [] }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(res.data.details[0].reason).toContain('ingredients');
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('báo liệt kê nhiều field thiếu cùng lúc', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v6.xlsx', [
+      row('', { title: '', instructions: '', meal_type: '', diet_type: '' }),
+    ] as any);
+
+    const reason = res.data.details[0].reason;
+    expect(reason).toContain('title');
+    expect(reason).toContain('instructions');
+    expect(reason).toContain('meal_type');
+    expect(reason).toContain('diet_type');
+  });
+
+  it('meal_type ngoài danh sách cho phép -> failed (chỉ breakfast/lunch/snack)', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v7.xlsx', [
+      row('Món A', { meal_type: 'dinner' }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(res.data.details[0].reason).toContain('breakfast, lunch, snack');
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('diet_type sai enum -> failed, nêu rõ các giá trị hợp lệ', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v8.xlsx', [
+      row('Món A', { diet_type: 'vegetarian' }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(res.data.details[0].reason).toContain('vegan');
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('các field không bắt buộc thiếu vẫn import thành công', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v9.xlsx', [
+      row('Món Tối Giản', {
+        description: undefined,
+        prep_time: undefined,
+        cook_time: undefined,
+        servings: undefined,
+        difficulty: undefined,
+      }),
+    ] as any);
+
+    expect(res.data.summary.success).toBe(1);
+    expect(res.data.summary.failed).toBe(0);
+    expect(ctx.savedRecipes.length).toBe(1);
+  });
+
+  it('meal_type hợp lệ (breakfast/lunch/snack) đều import được', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'v10.xlsx', [
+      row('Món Sáng', { meal_type: 'breakfast' }),
+      row('Món Trưa', { meal_type: 'lunch' }),
+      row('Món Vặt', { meal_type: 'snack' }),
+    ] as any);
+
+    expect(res.data.summary.success).toBe(3);
+    expect(res.data.summary.failed).toBe(0);
+    expect(ctx.savedRecipes.map((r) => r.meal_type)).toEqual([
+      'breakfast',
+      'lunch',
+      'snack',
+    ]);
+  });
+});
+
+describe('RecipeImportService - kiem tra tuong thiep chu do an chay', () => {
+  it('món vegan chi dung nguyen lieu chay -> import thanh cong, van cho duyet', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd1.xlsx', [
+      row('Món Chay Thuần', { diet_type: 'vegan' }),
+    ] as any);
+
+    expect(res.data.summary.success).toBe(1);
+    expect(res.data.summary.failed).toBe(0);
+    expect(ctx.savedRecipes.length).toBe(1);
+    // Vẫn ở trạng thái chờ duyệt như luồng import hiện có.
+    expect(ctx.savedRecipes[0].status).toBe('pending_review');
+  });
+
+  it('món vegan chứa thịt bò -> dòng FAILED, KHÔNG tạo công thức', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd2.xlsx', [
+      row('Bún Riêu Chay', {
+        diet_type: 'vegan',
+        ingredients: [ing('Yến mạch'), ing('Thịt bò')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.success).toBe(0);
+    expect(res.data.summary.failed).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(0);
+    expect(res.data.details[0].status).toBe('failed');
+    expect(res.data.details[0].reason).toContain('Thịt bò');
+  });
+
+  it('món vegan chứa cá -> dòng FAILED, KHÔNG tạo công thức', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd3.xlsx', [
+      row('Món Cá Chay', {
+        diet_type: 'vegan',
+        ingredients: [ing('Cá hồi')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(0);
+    expect(res.data.details[0].reason).toContain('Cá hồi');
+  });
+
+  it('món vegan chứa trứng -> dòng FAILED', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd4.xlsx', [
+      row('Món Trứng', {
+        diet_type: 'vegan',
+        ingredients: [ing('Trứng gà')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(0);
+    expect(res.data.details[0].reason).toContain('Trứng gà');
+  });
+
+  it('lý do lỗi là DIET_INCOMPATIBLE (đúng enum ImportFailReason)', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd5.xlsx', [
+      row('Món Thịt', {
+        diet_type: 'vegan',
+        ingredients: [ing('Thịt bò')],
+      }),
+    ] as any);
+
+    const item = ctx.savedItems[0];
+    expect(item.status).toBe('failed');
+    expect(item.fail_reason).toBe('DIET_INCOMPATIBLE');
+  });
+
+  it('món lacto chứa sữa -> import thành công (theo dữ liệu seed)', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd6.xlsx', [
+      row('Súp Sữa', {
+        diet_type: 'lacto',
+        ingredients: [ing('Yến mạch'), ing('Sữa tươi')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.success).toBe(1);
+    expect(res.data.summary.failed).toBe(0);
+    expect(ctx.savedRecipes.length).toBe(1);
+  });
+
+  it('món lacto chứa trứng -> dòng FAILED', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd7.xlsx', [
+      row('Món Trứng Sữa', {
+        diet_type: 'lacto',
+        ingredients: [ing('Trứng gà')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('món ovo chứa trứng -> import thành công (theo dữ liệu seed)', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd8.xlsx', [
+      row('Món Trứng Chay', {
+        diet_type: 'ovo',
+        ingredients: [ing('Trứng gà')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.success).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(1);
+  });
+
+  it('món ovo chứa sữa -> dòng FAILED', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd9.xlsx', [
+      row('Món Sữa', {
+        diet_type: 'ovo',
+        ingredients: [ing('Sữa tươi')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('món ovo_lacto chứa cả trứng và sữa -> import thành công', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd10.xlsx', [
+      row('Món Trứng Sữa', {
+        diet_type: 'ovo_lacto',
+        ingredients: [ing('Trứng gà'), ing('Sữa tươi')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.success).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(1);
+  });
+
+  it('món ovo_lacto chứa thịt -> dòng FAILED', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd11.xlsx', [
+      row('Món Thịt Trứng Sữa', {
+        diet_type: 'ovo_lacto',
+        ingredients: [ing('Thịt bò')],
+      }),
+    ] as any);
+
+    expect(res.data.summary.failed).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(0);
+  });
+
+  it('dòng lỗi không làm hỏng các dòng hợp lệ cùng lô', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'd12.xlsx', [
+      row('Món Chay Hợp Lệ'),
+      row('Món Thịt', {
+        diet_type: 'vegan',
+        ingredients: [ing('Thịt bò')],
+      }),
+      row('Món Chay Hợp Lệ 2'),
+    ] as any);
+
+    expect(res.data.summary.success).toBe(2);
+    expect(res.data.summary.failed).toBe(1);
+    expect(ctx.savedRecipes.length).toBe(2);
+    expect(ctx.savedRecipes.every((r) => r.status === 'pending_review')).toBe(
+      true,
+    );
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Quy tac trung moi: trung = cung TEN (chuan hoa) + cung TAP nguyen lieu.
+// Cung ten nhung nguyen lieu khac -> van duoc phep nhap.
+// ─────────────────────────────────────────────────────────────
+describe('RecipeImportService - quy tac trung ten + tap nguyen lieu', () => {
+  it('cung ten nhung nguyen lieu KHAC nhau -> van import duoc', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'k1.xlsx', [
+      row('Món Cùng Tên', { ingredients: [ing('Yến mạch')] }),
+      row('món cùng tên', { ingredients: [ing('Bí đỏ')] }),
+    ] as any);
+
+    expect(res.data.summary).toEqual({
+      total: 2,
+      success: 2,
+      skipped: 0,
+      failed: 0,
+    });
+    expect(ctx.savedRecipes.length).toBe(2);
+  });
+
+  it('hai dong trung trong cung file (cung ten + cung tap nguyen lieu) -> dong sau bi SKIPPED, nêu so dong Excel', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'k2.xlsx', [
+      { ...row('Món Trùng'), row_number: 2 },
+      { ...row('  món trùng  '), row_number: 3 },
+    ] as any);
+
+    expect(res.data.summary).toEqual({
+      total: 2,
+      success: 1,
+      skipped: 1,
+      failed: 0,
+    });
+    expect(res.data.details[0].status).toBe('success');
+    expect(res.data.details[0].row).toBe(2);
+    expect(res.data.details[1].status).toBe('skipped');
+    expect(res.data.details[1].row).toBe(3);
+    // Thông báo phải nêu tên món + số dòng Excel của dòng bị trùng.
+    expect(res.data.details[1].reason).toContain('Món Trùng');
+    expect(res.data.details[1].reason).toContain('dòng 2');
+  });
+});
+
+describe('Import: danh mục và tên món (mục 4, mục 2)', () => {
+  const CATS = [
+    { category_id: 2, category_name: 'Canh & Súp', category_type: 'recipe_type', status: 'active' },
+    { category_id: 11, category_name: 'Canh/súp', category_type: 'food_type', status: 'active' },
+    { category_id: 13, category_name: 'Món mặn', category_type: 'food_type', status: 'active' },
+    { category_id: 20, category_name: 'Hỏi đáp', category_type: 'forum', status: 'active' },
+  ];
+
+  it('ghi danh mục bằng tên -> tạo món và gắn đúng id danh mục', async () => {
+    const ctx = { ...newCtx(), categories: CATS };
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'a.xlsx', [row('Canh rau ngót', { category_raw: 'Canh & Súp, Canh/súp' })] as any);
+
+    expect(res.data.success).toBe(1);
+    expect(ctx.savedItems[0].status).toBe('success');
+  });
+
+  it('danh mục không trùng trong DB -> tự động chuyển sang "Khác", sai loại món / 2 loại món -> FAILED INVALID_CATEGORY', async () => {
+    const ctx = { ...newCtx(), categories: [...CATS] };
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'b.xlsx', [
+      row('Món A', { category_raw: 'Canh & Lẩu' }), // không có trong DB -> tự động chuyển sang danh mục "Khác"
+      row('Món B', { category_ids: [2, 20] }), // 20 là diễn đàn -> FAILED
+      row('Món C', { category_ids: [11, 13] }), // 2 loại món -> FAILED
+      row('Món D', { category_ids: [2, 11] }), // hợp lệ -> success
+    ] as any);
+
+    expect(res.data.failed).toBe(2);
+    expect(res.data.success).toBe(2);
+    const failed = ctx.savedItems.filter((i) => i.status === 'failed');
+    expect(failed.every((i) => i.fail_reason === 'INVALID_CATEGORY')).toBe(true);
+    expect(failed[0].fail_detail).toContain('không gắn được');
+    expect(failed[1].fail_detail).toContain('chỉ thuộc 1 loại món');
+  });
+
+  it('tên món mặn bị chặn khi import dù nguyên liệu chay', async () => {
+    const ctx = newCtx();
+    const svc = buildService(ctx);
+
+    const res: any = await svc.importRows(1, 'c.xlsx', [row('Gà xào xả ớt'), row('Gà kho gừng chay')] as any);
+
+    expect(res.data.failed).toBe(1);
+    expect(res.data.success).toBe(1);
+    expect(ctx.savedItems[0].fail_reason).toBe('DIET_INCOMPATIBLE');
+    expect(ctx.savedItems[0].fail_detail).toContain('Gà xào xả ớt');
+  });
+});

@@ -40,7 +40,7 @@ const UNIT_TABLE: Record<string, UnitInfo> = {
   tbsp: { group: 'volume', factor: 15 },
 };
 
-function normalizeUnit(unit?: string | null): string {
+export function normalizeUnit(unit?: string | null): string {
   const cleaned = (unit ?? '')
     .trim()
     .toLowerCase()
@@ -88,6 +88,64 @@ export function convertQuantity(
 export interface IngredientCostResult {
   cost: number;
   converted: boolean;
+}
+
+/** Dòng nguyên liệu + đơn vị tính giá của nguyên liệu. */
+export interface RecipeCostRow {
+  quantity: number;
+  unit?: string | null;
+  is_optional?: boolean | null;
+  ingredient?: {
+    avg_price_per_unit?: number | null;
+    unit?: string | null;
+  } | null;
+}
+
+export interface RecipeEstimatedCostResult {
+  /** Chi phí CẢ MÓN (đã tính cả nguyên liệu optional). null = thiếu giá. */
+  estimated_cost: number | null;
+  /** true khi thiếu giá của ít nhất 1 nguyên liệu -> không tính được. */
+  is_incomplete: boolean;
+}
+
+/**
+ * Tính estimated_cost của CẢ MÓN từ giá nguyên liệu.
+ *
+ * Dùng CHUNG cho API (create/update recipe) và import công thức để 2 luồng
+ * cho ra cùng một con số.
+ *
+ * Quy ước: nguyên liệu optional VẪN được tính vào chi phí (món không bắt
+ * buộc phải dùng nhưng vẫn tốn tiền), khớp với RecipeService.getRecipeCost
+ * và MealPlanService.getRecipeCostMap.
+ */
+export function calculateRecipeEstimatedCost(
+  rows: RecipeCostRow[],
+): RecipeEstimatedCostResult {
+  let total = 0;
+  let isIncomplete = false;
+
+  for (const row of rows ?? []) {
+    const price = row?.ingredient?.avg_price_per_unit;
+
+    if (price == null) {
+      isIncomplete = true;
+      continue;
+    }
+
+    const { cost } = calculateIngredientCost(
+      Number(row?.quantity ?? 0),
+      row?.unit,
+      row?.ingredient?.unit,
+      Number(price),
+    );
+
+    total += cost;
+  }
+
+  return {
+    estimated_cost: isIncomplete ? null : Math.round(total),
+    is_incomplete: isIncomplete,
+  };
 }
 
 /**

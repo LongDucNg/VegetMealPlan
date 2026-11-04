@@ -11,7 +11,7 @@ export const ADMIN_STATS: AdminStat[] = [
   { label: "Tổng số thành viên", value: "24,850", change: "+12.4% tháng này", positive: true },
   { label: "Công thức món ăn", value: "1,420", change: "+38 tuần này", positive: true },
   { label: "Truy vấn gợi ý AI", value: "184.2K", change: "+24.8% tháng này", positive: true },
-  { label: "Báo cáo chờ duyệt", value: "7 mục", change: "3 mục cần duyệt gấp", positive: false },
+  { label: "Báo cáo chờ duyệt", value: "7 mục", change: "3 mục cần duyệt ", positive: false },
 ];
 
 export const ADMIN_MEMBERS: AdminMember[] = [
@@ -140,6 +140,11 @@ export const ADMIN_CATEGORIES: CategoryItem[] = [
   { id: "cat6", name: "Salad & Cơm tô dinh dưỡng", slug: "bowls", type: "Recipe Category", recipeCount: 420, status: "Active" },
   { id: "cat7", name: "Canh, Súp & Lẩu chay", slug: "soups", type: "Recipe Category", recipeCount: 290, status: "Active" },
   { id: "cat8", name: "Món chay giàu đạm (High-Protein)", slug: "high-protein", type: "Recipe Category", recipeCount: 480, status: "Active" },
+  { id: "cat9", name: "Công thức & Mẹo bếp", slug: "cong-thuc-meo-bep", type: "Forum Category", recipeCount: 0, postCount: 15, status: "Active", description: "Chia sẻ công thức nấu món chay ngon..." },
+  { id: "cat10", name: "Dinh dưỡng & Sức khỏe", slug: "dinh-duong-suc-khoe", type: "Forum Category", recipeCount: 0, postCount: 28, status: "Active", description: "Kiến thức dinh dưỡng, vi chất..." },
+  { id: "cat11", name: "Quán chay ngon", slug: "quan-chay-ngon", type: "Forum Category", recipeCount: 0, postCount: 12, status: "Active", description: "Khám phá các quán ăn chay ngon..." },
+  { id: "cat12", name: "Dành cho người mới", slug: "danh-cho-nguoi-moi", type: "Forum Category", recipeCount: 0, postCount: 9, status: "Active", description: "Hướng dẫn và cẩm nang cho người mới..." },
+  { id: "cat13", name: "Giao lưu cộng đồng", slug: "giao-luu-cong-dong", type: "Forum Category", recipeCount: 0, postCount: 34, status: "Active", description: "Không gian kết nối và thảo luận..." },
 ];
 
 export const AI_MODELS: AIModelMetric[] = [

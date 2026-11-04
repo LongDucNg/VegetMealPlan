@@ -1,15 +1,53 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Sparkles, ArrowRight, TrendingUp } from "lucide-react";
-import { Card } from "@/components/ui/Card";
-import { PlaceRow, VEGAN_PLACES } from "@/features/places";
-import { TRENDING_TOPICS } from "@/features/community";
-import { Meter } from "@/components/ui/Meter";
-import { Badge } from "@/components/ui/Badge";
-import { useRole } from "@/context/RoleContext";
+import {
+  ArrowRight,
+  Refrigerator,
+  CalendarDays,
+  MapPin,
+  MessageSquare,
+  ChevronRight,
+  Sparkles,
+} from "lucide-react";
+import { PlaceRow, VeganPlace, shopToVeganPlace } from "@/features/places";
+import { placeService } from "@/features/places/services/placeService";
 
+const ECOSYSTEM_ITEMS = [
+  {
+    title: "Tủ lạnh thông minh & AI Scan",
+    description: "Nhận diện rau củ qua ảnh & gợi ý món ăn",
+    href: "/planner/scan",
+    badge: "AI Vision",
+    icon: Refrigerator,
+    iconColor: "text-emerald-700 bg-emerald-50 border-emerald-200",
+  },
+  {
+    title: "Kế hoạch thực đơn khoa học",
+    description: "Tính toán calo, macro theo TDEE mục tiêu",
+    href: "/planner",
+    badge: "Dinh dưỡng",
+    icon: CalendarDays,
+    iconColor: "text-blue-700 bg-blue-50 border-blue-200",
+  },
+  {
+    title: "Quán ăn chay lân cận",
+    description: "Bản đồ OpenStreetMap tìm quán ăn gần nhất",
+    href: "/shops",
+    badge: "Bản đồ GPS",
+    icon: MapPin,
+    iconColor: "text-amber-700 bg-amber-50 border-amber-200",
+  },
+  {
+    title: "Diễn đàn ẩm thực thuần chay",
+    description: "Giao lưu, chia sẻ công thức cùng cộng đồng",
+    href: "/forum",
+    badge: "Cộng đồng",
+    icon: MessageSquare,
+    iconColor: "text-teal-700 bg-teal-50 border-teal-200",
+  },
+];
 
 function MapTeardropPin({ className = "" }: { className?: string }) {
   return (
@@ -30,73 +68,59 @@ function MapTeardropPin({ className = "" }: { className?: string }) {
 }
 
 export function RightRail() {
-  const { isGuest } = useRole();
+  const [spots, setSpots] = useState<VeganPlace[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Lấy các quán chay GẦN VỊ TRÍ NGƯỜI DÙNG NHẤT (sắp xếp theo khoảng cách tăng dần)
+  useEffect(() => {
+    let active = true;
+
+    const loadClosestSpots = async (lat: number, lng: number) => {
+      try {
+        const res = await placeService.fetchNearbyPlaces({
+          lat,
+          lng,
+          radiusKm: 25, // Bán kính rộng để lấy các quán gần vị trí hiện tại
+        });
+
+        if (active && res.items && res.items.length > 0) {
+          // res.items đã được Backend sắp xếp theo Haversine distanceM tăng dần (gần nhất lên đầu)
+          const converted = res.items.map(shopToVeganPlace);
+          setSpots(converted.slice(0, 4));
+        }
+      } catch (err) {
+        console.warn("Lỗi tải quán chay gần nhất cho RightRail:", err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    if (typeof window !== "undefined" && "geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          loadClosestSpots(pos.coords.latitude, pos.coords.longitude);
+        },
+        () => {
+          // Fallback TP.HCM
+          loadClosestSpots(10.776889, 106.695345);
+        },
+        { timeout: 8000, maximumAge: 60000 }
+      );
+    } else {
+      loadClosestSpots(10.776889, 106.695345);
+    }
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <aside className="w-[360px] shrink-0 space-y-[22px] select-none">
-      {/* 1. AI Nutritionist Card */}
-      <div className="relative overflow-hidden rounded-[20px] border border-amber-100 bg-gradient-to-br from-amber-50 to-amber-100 p-6 shadow-sm">
-        {/* Decor circle: amber-200 at 60% opacity, 128px, at -top-8 -right-8 */}
-        <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-amber-200/60 pointer-events-none" />
-
-        <div className="relative z-10">
-          {/* Header */}
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-amber-400 flex items-center justify-center text-amber-950 shadow-xs shrink-0">
-              <Sparkles className="w-5 h-5 fill-current" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-serif font-bold text-xl text-stone-900 tracking-tight leading-tight">
-                  AI Nutritionist
-                </h3>
-                {!isGuest && (
-                  <Badge variant="success" className="text-[10px] px-1.5 py-0">
-                    Unlimited
-                  </Badge>
-                )}
-              </div>
-              <p className="text-sm text-amber-800">
-                Macros, swaps & B12 questions
-              </p>
-            </div>
-          </div>
-
-          {/* Body */}
-          <p className="mt-4 text-base leading-[1.6] text-stone-700">
-            “Is this bowl enough protein after a workout?” — ask anything about
-            your plate.
-          </p>
-
-          {/* Meter for Guest only */}
-          {isGuest ? (
-            <Meter
-              label="Free trial"
-              queriesLeft={3}
-              totalQueries={3}
-              className="mt-4"
-            />
-          ) : (
-            <div className="mt-3 text-xs font-semibold text-emerald-800">
-              Active Member Access · Ready to chat
-            </div>
-          )}
-
-          {/* CTA */}
-          <Link
-            href="/ai"
-            className="mt-4 w-full h-10 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-base font-semibold transition-colors cursor-pointer shadow-sm inline-flex items-center justify-center focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
-          >
-            Ask the AI
-          </Link>
-        </div>
-      </div>
-
-      {/* 2. Vegan Spots Card (p-0) */}
+      {/* Vegan Spots Card - Hiển thị các quán gần vị trí của bạn nhất */}
       <div className="overflow-hidden rounded-[20px] border border-stone-200 bg-white shadow-sm">
-        {/* Map Preview: h-[127px], gradient from-map-from to-map-to */}
+        {/* Map Preview header */}
         <div className="relative h-[127px] w-full bg-gradient-to-br from-map-from to-map-to overflow-hidden">
-          {/* Curvy white roads: stroke ≈ 10px, 90% opacity */}
           <svg
             className="absolute inset-0 w-full h-full pointer-events-none"
             viewBox="0 0 360 127"
@@ -118,7 +142,7 @@ export function RightRail() {
             />
           </svg>
 
-          {/* 3 Pins at (102,35), (274,25), (210,61) */}
+          {/* Map Pins */}
           <div
             className="absolute -translate-x-1/2 -translate-y-full"
             style={{ left: "102px", top: "35px" }}
@@ -139,25 +163,37 @@ export function RightRail() {
           </div>
         </div>
 
-        {/* Body (p-6) */}
+        {/* Body */}
         <div className="p-6">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-3">
             <h3 className="font-serif font-bold text-xl text-stone-900 tracking-tight">
               Vegan spots near you
             </h3>
-            <span className="text-sm text-stone-400">Ho Chi Minh City</span>
+            <span className="text-xs text-stone-400">Gần vị trí của bạn</span>
           </div>
 
-          {/* Place Rows (pitch 52) */}
-          <div className="flex flex-col space-y-0.5">
-            {VEGAN_PLACES.slice(0, 3).map((place) => (
-              <PlaceRow
-                key={place.id}
-                name={place.name}
-                sub={`${place.district} · ${place.distance}`}
-                rating={place.rating}
-              />
-            ))}
+          {/* Place Rows */}
+          <div className="flex flex-col space-y-1">
+            {loading ? (
+              <div className="space-y-2 py-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-10 bg-stone-100 rounded-lg animate-pulse" />
+                ))}
+              </div>
+            ) : spots.length > 0 ? (
+              spots.map((place) => (
+                <PlaceRow
+                  key={place.id}
+                  name={place.name}
+                  sub={`${place.district || "TP.HCM"}${place.distance ? ` · Cách ${place.distance}` : ""}`}
+                  rating={place.rating}
+                />
+              ))
+            ) : (
+              <p className="text-xs text-stone-500 py-3 text-center">
+                Đang tìm các quán chay gần bạn...
+              </p>
+            )}
           </div>
 
           {/* Button "Open map" */}
@@ -165,36 +201,61 @@ export function RightRail() {
             href="/shops"
             className="mt-4 w-full h-10 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-base font-medium transition-colors inline-flex items-center justify-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
           >
-            <span>Open map</span>
+            <span>Mở bản đồ đầy đủ</span>
             <ArrowRight className="w-4 h-4" strokeWidth={1.75} />
           </Link>
         </div>
       </div>
 
-      {/* 3. Trending Topics Card */}
-      <Card>
-        <div className="flex items-center gap-2 mb-3.5">
-          <TrendingUp className="w-[18px] h-[18px] text-emerald-600" strokeWidth={2} />
-          <h3 className="font-serif font-bold text-xl text-stone-900 tracking-tight">
-            Trending topics
-          </h3>
+      {/* Ecosystem Box: Hệ sinh thái VeggieHub */}
+      <div className="overflow-hidden rounded-[20px] border border-stone-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between mb-3.5">
+          <div>
+            <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider block">
+              HỆ SINH THÁI VEGGIEHUB
+            </span>
+            <h3 className="font-serif font-bold text-lg text-stone-900 tracking-tight">
+              Tính năng nổi bật
+            </h3>
+          </div>
+          <span className="p-1.5 rounded-full bg-emerald-50 text-emerald-700">
+            <Sparkles className="w-4 h-4" />
+          </span>
         </div>
 
-        <div className="flex flex-col divide-y divide-stone-100">
-          {TRENDING_TOPICS.map((topic) => (
-            <Link
-              key={topic.tag}
-              href="/forum"
-              className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between text-sm transition-colors hover:bg-stone-50 px-1 -mx-1 rounded group cursor-pointer"
-            >
-              <span className="font-medium text-stone-900 group-hover:text-emerald-700">
-                {topic.tag}
-              </span>
-              <span className="text-stone-500">{topic.posts}</span>
-            </Link>
-          ))}
+        <div className="space-y-2">
+          {ECOSYSTEM_ITEMS.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.title}
+                href={item.href}
+                className="group flex items-start gap-3 p-2.5 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50/40 transition-all cursor-pointer"
+              >
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${item.iconColor} group-hover:scale-105 transition-transform`}
+                >
+                  <Icon className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1">
+                    <p className="text-xs font-bold text-stone-900 truncate group-hover:text-emerald-800 transition-colors">
+                      {item.title}
+                    </p>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-600 shrink-0">
+                      {item.badge}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-stone-500 line-clamp-1 mt-0.5">
+                    {item.description}
+                  </p>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-stone-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-transform self-center shrink-0" />
+              </Link>
+            );
+          })}
         </div>
-      </Card>
+      </div>
     </aside>
   );
 }

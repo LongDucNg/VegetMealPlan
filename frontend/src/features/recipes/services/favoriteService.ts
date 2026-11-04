@@ -6,11 +6,10 @@ import { priceService } from "./priceService";
 import { apiClient } from "@/lib/apiClient";
 import { tokenStorage } from "@/lib/tokenStorage";
 
-
 export interface SavedMealPlan {
   id: string;
   name: string;
-  planType: "weekly" | "monthly";
+  planType: "daily" | "weekly" | "monthly";
   createdAt: string;
   targetCalories: number;
   totalEstimatedCost: number;
@@ -23,8 +22,21 @@ export interface UserFavoritesData {
   mealPlans: SavedMealPlan[];
 }
 
-function buildDefaultSavedPlans(_userId: string): SavedMealPlan[] {
-  return [];
+export function getEffectiveUserId(userId?: string | number): string {
+  const authUser = tokenStorage.getUser();
+  if (authUser?.user_id) return String(authUser.user_id);
+  const strId = userId !== undefined && userId !== null ? String(userId) : undefined;
+  if (
+    strId &&
+    strId !== "someone_else_target" &&
+    strId !== "guest" &&
+    strId !== "guest_user" &&
+    strId !== "undefined" &&
+    strId !== ""
+  ) {
+    return strId;
+  }
+  return "user_default";
 }
 
 const isMockRecipeId = (id: string) => /^rec-\d{1,2}$/.test(id);
@@ -34,8 +46,8 @@ export const favoriteService = {
   /**
    * Retrieves all favorites for a specific user without mock data
    */
-  getUserFavorites(userId: string): UserFavoritesData {
-    const safeId = userId || "1";
+  getUserFavorites(userId?: string | number): UserFavoritesData {
+    const safeId = getEffectiveUserId(userId);
     const all = storage.getItem<Record<string, UserFavoritesData>>(
       STORAGE_KEYS.FAVORITES,
       {}
@@ -75,21 +87,38 @@ export const favoriteService = {
    * Saves favorites object for a specific user
    */
   saveUserFavorites(data: UserFavoritesData): void {
-    if (!data.userId) return;
+    const safeId = getEffectiveUserId(data.userId);
     const all = storage.getItem<Record<string, UserFavoritesData>>(
       STORAGE_KEYS.FAVORITES,
       {}
     );
-    all[data.userId] = data;
+    const existing = all[safeId];
+    if (existing) {
+      const sameRecipes =
+        Array.isArray(existing.recipes) &&
+        Array.isArray(data.recipes) &&
+        existing.recipes.length === data.recipes.length &&
+        existing.recipes.every((r, idx) => r === data.recipes[idx]);
+      const sameMealPlans =
+        Array.isArray(existing.mealPlans) &&
+        Array.isArray(data.mealPlans) &&
+        existing.mealPlans.length === data.mealPlans.length &&
+        existing.mealPlans.every((m, idx) => m.id === data.mealPlans[idx]?.id);
+      if (sameRecipes && sameMealPlans) {
+        return;
+      }
+    }
+    all[safeId] = { ...data, userId: safeId };
     storage.setItem(STORAGE_KEYS.FAVORITES, all);
   },
 
   /**
    * Check if a recipe is in user's favorites
    */
-  isRecipeFavorite(userId: string, recipeId: string): boolean {
+  isRecipeFavorite(userId: string | number | undefined, recipeId: string): boolean {
     if (!recipeId) return false;
-    const favs = this.getUserFavorites(userId);
+    const safeId = getEffectiveUserId(userId);
+    const favs = this.getUserFavorites(safeId);
     const cleanId = String(recipeId).trim();
     const numId = cleanId.replace(/\D/g, "");
     return favs.recipes.some((id) => {
@@ -102,12 +131,13 @@ export const favoriteService = {
   /**
    * Toggle favorite recipe status for a user
    */
-  toggleFavoriteRecipe(userId: string, recipeId: string): boolean {
+  toggleFavoriteRecipe(userId: string | number | undefined, recipeId: string): boolean {
     if (!recipeId) return false;
-    const favs = this.getUserFavorites(userId);
+    const safeId = getEffectiveUserId(userId);
+    const favs = this.getUserFavorites(safeId);
     const cleanId = String(recipeId).trim();
     const numId = cleanId.replace(/\D/g, "");
-    const exists = this.isRecipeFavorite(userId, recipeId);
+    const exists = this.isRecipeFavorite(safeId, recipeId);
     let updatedRecipes: string[];
 
     if (exists) {
@@ -140,37 +170,43 @@ export const favoriteService = {
   },
 
   /**
-   * Đồng bộ danh sách yêu thích từ backend
+   * Đồng bộ danh sách yêu thích từ backend (Merge thông minh, không xóa đè cục bộ)
    * GET /users/me/favorites/recipes
    */
-  async fetchServerFavorites(userId: string): Promise<string[]> {
+  async fetchServerFavorites(userId?: string | number): Promise<string[]> {
+    const safeId = getEffectiveUserId(userId);
+    const current = this.getUserFavorites(safeId);
     const token = tokenStorage.getToken();
-    if (!token) return this.getUserFavorites(userId).recipes;
+    if (!token) return current.recipes;
 
     try {
       const res = await apiClient.get<any>(
         "/users/me/favorites/recipes"
       );
       const list = Array.isArray(res) ? res : (res as any)?.data || [];
-      if (Array.isArray(list)) {
-        const ids = list.map((r: any) => String(r.recipe_id || r.id));
-        const current = this.getUserFavorites(userId);
+      if (Array.isArray(list) && list.length > 0) {
+        const serverIds = list.map((r: any) => String(r.recipe_id || r.id));
+        const mergedSet = new Set([...current.recipes, ...serverIds]);
+        const mergedList = Array.from(mergedSet);
         this.saveUserFavorites({
           ...current,
-          recipes: ids,
+          recipes: mergedList,
         });
-        return ids;
+        return mergedList;
       }
-    } catch {}
-    return this.getUserFavorites(userId).recipes;
+    } catch (err) {
+      console.warn("[favoriteService] Không thể đồng bộ yêu thích từ server:", err);
+    }
+    return current.recipes;
   },
 
   /**
    * Get full Recipe objects for user's favorite recipes
    */
-  getFavoriteRecipes(userId: string): Recipe[] {
-    const favs = this.getUserFavorites(userId);
-    const allRecipes = recipeService.getRecipes();
+  getFavoriteRecipes(userId?: string | number): Recipe[] {
+    const safeId = getEffectiveUserId(userId);
+    const favs = this.getUserFavorites(safeId);
+    const allRecipes = recipeService.getRecipes({ includeAll: true });
     return allRecipes.filter((r) => {
       const rNum = String(r.id).replace(/\D/g, "");
       return favs.recipes.some((fid) => {
@@ -182,34 +218,94 @@ export const favoriteService = {
   },
 
   /**
-   * Save a generated meal plan as "Saved Meal Plan" (Requirement 1)
+   * Save a generated meal plan as "Saved Meal Plan"
    * Đồng bộ lưu thực đơn vào backend database PostgreSQL và localStorage
    */
   async saveMealPlan(
-    userId: string,
+    userId: string | number | undefined,
     planData: {
       name: string;
-      planType: "weekly" | "monthly";
+      planType: "daily" | "weekly" | "monthly";
       targetCalories: number;
       totalEstimatedCost: number;
       days: DayMealPlan[];
     }
   ): Promise<SavedMealPlan> {
-    const favs = this.getUserFavorites(userId);
+    const safeId = getEffectiveUserId(userId);
+    const favs = this.getUserFavorites(safeId);
     let planId = `saved-plan-${Date.now()}`;
 
     // Chuẩn bị payload cho backend
     const now = new Date();
     const startDateStr = now.toISOString().split("T")[0];
-    const endDays = planData.planType === "monthly" ? 30 : 7;
+    const endDays = planData.planType === "monthly" ? 29 : planData.planType === "daily" ? 0 : 6;
     const endDate = new Date(now.getTime() + endDays * 24 * 60 * 60 * 1000);
     const endDateStr = endDate.toISOString().split("T")[0];
 
     const token = tokenStorage.getToken();
     if (token) {
       try {
+        const daily_meals: any[] = [];
+        (planData.days || []).forEach((day, dIdx) => {
+          const dDate = new Date(now.getTime() + dIdx * 24 * 60 * 60 * 1000);
+          const meal_date = dDate.toISOString().split("T")[0];
+
+          const extractItems = (slot?: any) => {
+            if (!slot) return [];
+            const recipes = slot.recipes && slot.recipes.length > 0 ? slot.recipes : (slot.recipe ? [slot.recipe] : []);
+            const res: any[] = [];
+            for (const r of recipes) {
+              const num = parseInt(String(r.id).replace(/\D/g, ""), 10);
+              if (!isNaN(num) && num > 0) {
+                res.push({ recipe_id: num, portion_multiplier: 1 });
+              }
+            }
+            return res;
+          };
+
+          const bItems = extractItems(day.breakfast);
+          if (bItems.length > 0) {
+            daily_meals.push({
+              meal_date,
+              meal_type: "breakfast",
+              target_calories: Math.round((day.targetCalories || 2000) * 0.25),
+              meal_items: bItems,
+            });
+          }
+
+          const lItems = extractItems(day.lunch);
+          if (lItems.length > 0) {
+            daily_meals.push({
+              meal_date,
+              meal_type: "lunch",
+              target_calories: Math.round((day.targetCalories || 2000) * 0.35),
+              meal_items: lItems,
+            });
+          }
+
+          const dItems = extractItems(day.dinner);
+          if (dItems.length > 0) {
+            daily_meals.push({
+              meal_date,
+              meal_type: "dinner",
+              target_calories: Math.round((day.targetCalories || 2000) * 0.30),
+              meal_items: dItems,
+            });
+          }
+
+          const sItems = extractItems(day.snack);
+          if (sItems.length > 0) {
+            daily_meals.push({
+              meal_date,
+              meal_type: "snack",
+              target_calories: Math.round((day.targetCalories || 2000) * 0.10),
+              meal_items: sItems,
+            });
+          }
+        });
+
         const dto: any = {
-          plan_type: planData.planType === "monthly" ? "monthly" : "weekly",
+          plan_type: planData.planType,
           start_date: startDateStr,
           end_date: endDateStr,
           has_budget: Boolean(planData.totalEstimatedCost && planData.totalEstimatedCost > 0),
@@ -221,32 +317,8 @@ export const favoriteService = {
               start_date: startDateStr,
               end_date: endDateStr,
               week_budget: planData.totalEstimatedCost ? Math.round(planData.totalEstimatedCost) : undefined,
-              week_calorie_target: planData.targetCalories ? Math.round(planData.targetCalories) : undefined,
-              daily_meals: (planData.days || []).map((day, dIdx) => {
-                const dDate = new Date(now.getTime() + dIdx * 24 * 60 * 60 * 1000);
-                const meal_date = dDate.toISOString().split("T")[0];
-                const items: any[] = [];
-
-                const addSlot = (rec?: Recipe) => {
-                  if (!rec) return;
-                  const num = parseInt(String(rec.id).replace(/\D/g, ""), 10);
-                  if (!isNaN(num) && num > 0) {
-                    items.push({ recipe_id: num, portion_multiplier: 1 });
-                  }
-                };
-
-                addSlot(day.breakfast?.recipe);
-                addSlot(day.lunch?.recipe);
-                addSlot(day.dinner?.recipe);
-                addSlot(day.snack?.recipe);
-
-                return {
-                  meal_date,
-                  meal_type: "lunch",
-                  target_calories: day.targetCalories || 500,
-                  meal_items: items.length > 0 ? items : [{ recipe_id: 1, portion_multiplier: 1 }],
-                };
-              }),
+              week_calorie_target: planData.targetCalories ? Math.round(planData.targetCalories * (planData.days?.length || 1)) : undefined,
+              daily_meals,
             },
           ],
         };
@@ -270,9 +342,10 @@ export const favoriteService = {
       days: planData.days,
     };
 
+    const updatedPlans = [newSavedPlan, ...favs.mealPlans.filter((p) => p.id !== planId)];
     this.saveUserFavorites({
       ...favs,
-      mealPlans: [newSavedPlan, ...favs.mealPlans],
+      mealPlans: updatedPlans,
     });
 
     return newSavedPlan;
@@ -282,8 +355,9 @@ export const favoriteService = {
    * Remove a saved meal plan
    * Xóa thực đơn khỏi database và localStorage
    */
-  async removeSavedMealPlan(userId: string, planId: string): Promise<void> {
-    const favs = this.getUserFavorites(userId);
+  async removeSavedMealPlan(userId: string | number | undefined, planId: string): Promise<void> {
+    const safeId = getEffectiveUserId(userId);
+    const favs = this.getUserFavorites(safeId);
     this.saveUserFavorites({
       ...favs,
       mealPlans: favs.mealPlans.filter((p) => p.id !== planId),
@@ -304,14 +378,15 @@ export const favoriteService = {
    * Đồng bộ danh sách thực đơn đã lưu từ backend
    * GET /users/me/meal-plans
    */
-  async fetchServerMealPlans(userId: string): Promise<SavedMealPlan[]> {
+  async fetchServerMealPlans(userId?: string | number): Promise<SavedMealPlan[]> {
+    const safeId = getEffectiveUserId(userId);
+    const favs = this.getUserFavorites(safeId);
     const token = tokenStorage.getToken();
-    if (!token) return this.getFavoriteMealPlans(userId);
+    if (!token) return favs.mealPlans;
 
     try {
       const serverPlans = await apiClient.get<any[]>("/users/me/meal-plans");
       if (Array.isArray(serverPlans)) {
-        const favs = this.getUserFavorites(userId);
         const mapped: SavedMealPlan[] = serverPlans.map((sp: any) => ({
           id: String(sp.meal_plan_id),
           name: sp.name || `Thực đơn #${sp.meal_plan_id} (${new Date(sp.start_date).toLocaleDateString("vi-VN")})`,
@@ -340,13 +415,49 @@ export const favoriteService = {
     } catch (err) {
       console.warn("[favoriteService] Không thể tải danh sách thực đơn từ server:", err);
     }
-    return this.getFavoriteMealPlans(userId);
+    return favs.mealPlans;
   },
 
   /**
    * Get all saved meal plans for user
    */
-  getFavoriteMealPlans(userId: string): SavedMealPlan[] {
-    return this.getUserFavorites(userId).mealPlans;
+  getFavoriteMealPlans(userId?: string | number): SavedMealPlan[] {
+    const safeId = getEffectiveUserId(userId);
+    return this.getUserFavorites(safeId).mealPlans;
+  },
+
+  /**
+   * Lấy chi tiết thực đơn kèm ngày, bữa, món từ server
+   * GET /users/me/meal-plans/:id
+   */
+  async getSavedMealPlanDetail(planId: string | number): Promise<any> {
+    const numId = typeof planId === "number" ? planId : parseInt(String(planId).replace(/\D/g, ""), 10);
+    if (!isNaN(numId)) {
+      try {
+        return await apiClient.get<any>(`/users/me/meal-plans/${numId}`);
+      } catch (err) {
+        console.warn("[favoriteService] Không thể lấy chi tiết thực đơn từ server:", err);
+      }
+    }
+    return null;
+  },
+
+  /**
+   * Đổi tên hoặc trạng thái áp dụng thực đơn trên server
+   * PATCH /users/me/meal-plans/:id
+   */
+  async updateSavedMealPlan(
+    planId: string | number,
+    payload: { name?: string; is_active?: boolean }
+  ): Promise<any> {
+    const numId = typeof planId === "number" ? planId : parseInt(String(planId).replace(/\D/g, ""), 10);
+    if (!isNaN(numId)) {
+      try {
+        return await apiClient.patch<any>(`/users/me/meal-plans/${numId}`, payload);
+      } catch (err) {
+        console.warn("[favoriteService] Cập nhật thực đơn trên server thất bại:", err);
+      }
+    }
+    return null;
   },
 };

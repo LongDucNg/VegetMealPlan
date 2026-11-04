@@ -14,8 +14,11 @@ import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 import { User } from '../users/entities/user.entity';
 import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
+import { HealthGoal } from '../health-goal/entities/health-goal.entity';
 
 import { SubscriptionModule } from '../subscription/subscription.module';
+import { IngredientModule } from '../ingredient/ingredient.module';
+import { ChatbotModule } from '../chatbot/chatbot.module';
 
 import { MealPlanController } from './meal-plan.controller';
 import { MealPlanService } from './meal-plan.service';
@@ -35,8 +38,11 @@ import { MealPlanService } from './meal-plan.service';
       FavoriteRecipe,
       RecipeIngredient,
       NutritionInfo,
+      HealthGoal,
     ]),
     SubscriptionModule,
+    IngredientModule,
+    ChatbotModule,
   ],
   controllers: [
     MealPlanController,

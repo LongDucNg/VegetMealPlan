@@ -51,6 +51,8 @@ export enum ErrorCode {
   AUTH_PASSWORD_NOT_SET = 'AUTH_PASSWORD_NOT_SET',
   /** 400: mật khẩu mới trùng mật khẩu hiện tại. */
   AUTH_PASSWORD_UNCHANGED = 'AUTH_PASSWORD_UNCHANGED',
+  /** 403: đúng mật khẩu nhưng email chưa xác thực. FE chuyển sang màn nhập OTP (server đã gửi mã mới). */
+  AUTH_EMAIL_NOT_VERIFIED = 'AUTH_EMAIL_NOT_VERIFIED',
 
   // ---- User / hồ sơ ----
   /** 404 */
@@ -63,22 +65,128 @@ export enum ErrorCode {
   USER_PROFILE_INCOMPLETE = 'USER_PROFILE_INCOMPLETE',
   /** 400: ingredient_id trong danh sách dị ứng không tồn tại. */
   USER_ALLERGY_INGREDIENT_NOT_FOUND = 'USER_ALLERGY_INGREDIENT_NOT_FOUND',
+  /** 400: target_date không sau hôm nay. */
+  USER_TARGET_DATE_INVALID = 'USER_TARGET_DATE_INVALID',
   /** 400: admin tự khóa hoặc tự đổi vai trò của chính mình. */
   USER_CANNOT_MODIFY_SELF = 'USER_CANNOT_MODIFY_SELF',
+
+  // ---- Mục tiêu cân nặng → kcal → thực đơn ----
+  /** 400: thiếu hoặc sai dữ liệu mục tiêu cân nặng (cân nặng hiện tại/mục tiêu, thời gian, hướng mục tiêu). */
+  WEIGHT_GOAL_INVALID = 'WEIGHT_GOAL_INVALID',
+  /** 400: mục tiêu cân nặng không an toàn (tốc độ thay đổi quá nhanh, mức thay đổi quá lớn, hoặc không thể tính kcal an toàn). */
+  WEIGHT_GOAL_UNSAFE = 'WEIGHT_GOAL_UNSAFE',
+
+  // ---- Gói Premium ----
+  /** 404 */
+  SUBSCRIPTION_TRANSACTION_NOT_FOUND = 'SUBSCRIPTION_TRANSACTION_NOT_FOUND',
+  /** 404 */
+  SUBSCRIPTION_NOT_FOUND = 'SUBSCRIPTION_NOT_FOUND',
+  /** 400: chế độ cũ đã được gia hạn đang active. */
+  SUBSCRIPTION_NOT_ACTIVE = 'SUBSCRIPTION_NOT_ACTIVE',
+  /** 503: server chưa cấu hình PAYOS_CLIENT_ID / PAYOS_API_KEY / PAYOS_CHECKSUM_KEY. */
+  SUBSCRIPTION_PAYMENT_NOT_CONFIGURED = 'SUBSCRIPTION_PAYMENT_NOT_CONFIGURED',
+  /** 403: kích hoạt Premium không qua thanh toán đang tắt (bật bằng ALLOW_DIRECT_PREMIUM=true khi demo). */
+  SUBSCRIPTION_DIRECT_DISABLED = 'SUBSCRIPTION_DIRECT_DISABLED',
 
   // ---- Danh mục ----
   /** 404 */
   CATEGORY_NOT_FOUND = 'CATEGORY_NOT_FOUND',
- // ---- Diễn đàn ----
+  /** 400: category_id không tồn tại trong bảng categories. */
+  CATEGORY_ID_NOT_FOUND = 'CATEGORY_ID_NOT_FOUND',
+  /** 400: category_id không thuộc loại hợp lệ để gắn vào công thức. */
+  CATEGORY_TYPE_INVALID = 'CATEGORY_TYPE_INVALID',
+  /** 400: danh mục đã bị admin tắt (inactive), không gắn thêm công thức mới được. */
+  CATEGORY_INACTIVE = 'CATEGORY_INACTIVE',
+  /** 409: trùng tên danh mục trong cùng một category_type. */
+  CATEGORY_NAME_DUPLICATE = 'CATEGORY_NAME_DUPLICATE',
+  /** 409: danh mục đang được công thức/nội dung khác sử dụng nên không xoá/đổi loại được. */
+  CATEGORY_IN_USE = 'CATEGORY_IN_USE',
+  // ---- Diễn đàn ----
   /** 404 */
   FORUM_POST_NOT_FOUND = 'FORUM_POST_NOT_FOUND',
   /** 400: category_id không tồn tại, đã tắt, hoặc không thuộc diễn đàn. */
   FORUM_CATEGORY_INVALID = 'FORUM_CATEGORY_INVALID',
+  /** 403: không phải chủ bài viết hoặc admin. */
+  FORUM_FORBIDDEN = 'FORUM_FORBIDDEN',
+  /** 403: không phải chủ bình luận hoặc admin. */
+  FORUM_COMMENT_FORBIDDEN = 'FORUM_COMMENT_FORBIDDEN',
+  /** 404: không tìm thấy bình luận hoặc bình luận không thuộc bài viết này. */
+  FORUM_COMMENT_NOT_FOUND = 'FORUM_COMMENT_NOT_FOUND',
+  /** 400: không thể tự bình chọn cho bài viết của chính mình. */
+  FORUM_SELF_VOTE_FORBIDDEN = 'FORUM_SELF_VOTE_FORBIDDEN',
+  /** 409: bài viết không ở trạng thái chờ duyệt. */
+  FORUM_POST_NOT_PENDING = 'FORUM_POST_NOT_PENDING',
+
+  // ---- Video ----
+  /** 404: không tìm thấy video hoặc video chưa được duyệt. */
+  VIDEO_NOT_FOUND = 'VIDEO_NOT_FOUND',
+  /** 400: category không tồn tại, đã tắt, hoặc không thuộc video. */
+  VIDEO_CATEGORY_INVALID = 'VIDEO_CATEGORY_INVALID',
+  /** 403: không phải chủ video hoặc admin. */
+  VIDEO_FORBIDDEN = 'VIDEO_FORBIDDEN',
+  /** 400: nguyên liệu chứa từ khóa mặn. */
+  VIDEO_NON_VEGETARIAN_INGREDIENT = 'VIDEO_NON_VEGETARIAN_INGREDIENT',
+  /** 404: không tìm thấy bình luận video. */
+  VIDEO_COMMENT_NOT_FOUND = 'VIDEO_COMMENT_NOT_FOUND',
+  /** 400: không thể tự vote cho bình luận của chính mình. */
+  VIDEO_SELF_VOTE_FORBIDDEN = 'VIDEO_SELF_VOTE_FORBIDDEN',
+
   // ---- Recipe / Nguyên liệu / Thực đơn ----
   /** 404 */
   RECIPE_NOT_FOUND = 'RECIPE_NOT_FOUND',
+  /** 409: tiêu đề công thức đã tồn tại (đã chuẩn hoá không phân biệt hoa thường). */
+  RECIPE_TITLE_DUPLICATE = 'RECIPE_TITLE_DUPLICATE',
   /** 404 */
   INGREDIENT_NOT_FOUND = 'INGREDIENT_NOT_FOUND',
+  /** 409: tên nguyên liệu đã tồn tại. */
+  INGREDIENT_NAME_CONFLICT = 'INGREDIENT_NAME_CONFLICT',
+  /** 400: tên nguyên liệu không được để trống. */
+  INGREDIENT_NAME_EMPTY = 'INGREDIENT_NAME_EMPTY',
+  /** 400: tên nguyên liệu có từ khoá mặn (thịt, cá, gà...) mà không có chữ "chay". Hệ thống chỉ nhận nguyên liệu chay. */
+  INGREDIENT_NON_VEGETARIAN = 'INGREDIENT_NON_VEGETARIAN',
+  /** 400: tên món có từ khoá mặn mà không có chữ "chay". */
+  RECIPE_TITLE_NON_VEGETARIAN = 'RECIPE_TITLE_NON_VEGETARIAN',
+  /** 400: công thức có nguyên liệu không tương thích với diet_type của công thức. */
+  RECIPE_DIET_INCOMPATIBLE = 'RECIPE_DIET_INCOMPATIBLE',
   /** 404 */
   MEAL_PLAN_NOT_FOUND = 'MEAL_PLAN_NOT_FOUND',
+
+  // ---- Upload ảnh (Cloudinary) ----
+  /** 503: server chưa cấu hình CLOUDINARY_CLOUD_NAME / API_KEY / API_SECRET. */
+  UPLOAD_NOT_CONFIGURED = 'UPLOAD_NOT_CONFIGURED',
+  /** 400: thiếu file, sai định dạng (chỉ JPG/PNG/WEBP) hoặc quá 5 MB. */
+  UPLOAD_INVALID_FILE = 'UPLOAD_INVALID_FILE',
+  /** 502: Cloudinary từ chối hoặc không phản hồi. */
+  UPLOAD_FAILED = 'UPLOAD_FAILED',
+
+  // ---- Chatbot AI ----
+  /** 429: hết hạn mức câu hỏi chatbot trong ngày. */
+  CHATBOT_QUOTA_EXCEEDED = 'CHATBOT_QUOTA_EXCEEDED',
+  /** 429: gửi câu hỏi quá nhanh (vượt quá 10 req/phút). */
+  CHATBOT_RATE_LIMITED = 'CHATBOT_RATE_LIMITED',
+  /** 400: khách chưa đăng nhập bắt buộc phải gửi session_id. */
+  CHATBOT_SESSION_REQUIRED = 'CHATBOT_SESSION_REQUIRED',
+  /** 503: server chưa cấu hình AI_API_KEY hoặc nhà cung cấp AI. */
+  CHATBOT_AI_NOT_CONFIGURED = 'CHATBOT_AI_NOT_CONFIGURED',
+  /** 503: dịch vụ AI tạm thời không khả dụng, quá thời gian hoặc lỗi mạng. */
+  CHATBOT_SERVICE_UNAVAILABLE = 'CHATBOT_SERVICE_UNAVAILABLE',
+
+  // ---- Scan ảnh nguyên liệu AI ----
+  /** 403: tính năng quét ảnh chỉ dành cho người dùng gói Premium. */
+  PHOTO_SCAN_PREMIUM_REQUIRED = 'PHOTO_SCAN_PREMIUM_REQUIRED',
+  /** 429: hết hạn mức lượt quét ảnh nguyên liệu trong ngày. */
+  PHOTO_SCAN_QUOTA_EXCEEDED = 'PHOTO_SCAN_QUOTA_EXCEEDED',
+  /** 429: gửi yêu cầu quét ảnh quá nhanh (vượt quá 5 req/phút). */
+  PHOTO_SCAN_RATE_LIMITED = 'PHOTO_SCAN_RATE_LIMITED',
+  /** 400: file không phải ảnh hợp lệ hoặc file bị hỏng. */
+  PHOTO_SCAN_IMAGE_INVALID = 'PHOTO_SCAN_IMAGE_INVALID',
+  /** 413: file ảnh vượt quá dung lượng tối đa (mặc định 5 MB). */
+  PHOTO_SCAN_IMAGE_TOO_LARGE = 'PHOTO_SCAN_IMAGE_TOO_LARGE',
+  /** 422: ảnh bị từ chối xử lý hoặc vi phạm bộ lọc an toàn. */
+  PHOTO_SCAN_IMAGE_UNPROCESSABLE = 'PHOTO_SCAN_IMAGE_UNPROCESSABLE',
+  /** 503: server chưa cấu hình GEMINI_API_KEY hoặc GEMINI_MODEL. */
+  PHOTO_SCAN_AI_NOT_CONFIGURED = 'PHOTO_SCAN_AI_NOT_CONFIGURED',
+  /** 503: dịch vụ AI Gemini tạm thời không khả dụng, quá thời gian hoặc lỗi mạng. */
+  PHOTO_SCAN_SERVICE_UNAVAILABLE = 'PHOTO_SCAN_SERVICE_UNAVAILABLE',
 }
+

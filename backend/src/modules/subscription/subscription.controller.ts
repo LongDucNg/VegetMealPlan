@@ -1,32 +1,98 @@
-import { ApiBearerAuth } from '@nestjs/swagger';
-import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Body, Controller, Delete, Get, HttpCode, Logger, Param, ParseIntPipe, Post, Req, Res } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Request, Response } from 'express';
 import { SubscriptionService } from './subscription.service';
+import { Public } from '../../common/decorators/public.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
-@UseGuards(AuthGuard('jwt'))
-@ApiBearerAuth()
+@ApiTags('subscriptions')
 @Controller('subscriptions')
 export class SubscriptionController {
+  private readonly logger = new Logger(SubscriptionController.name);
+
   constructor(private readonly subscriptionService: SubscriptionService) {}
 
+  @Public()
+  @Get('plans')
+  @ApiOperation({ summary: 'Danh sách gói Premium (hiện có một gói tháng)' })
+  plans() {
+    return this.subscriptionService.getPlans();
+  }
+
+  @ApiBearerAuth()
   @Get('me/premium-status')
-  async premiumStatus(@Req() req: any) {
-    const isPremium = await this.subscriptionService.isPremium(req.user.user_id);
-    return { isPremium };
+  @ApiOperation({ summary: 'Trạng thái Premium của tài khoản (kèm ngày hết hạn)' })
+  premiumStatus(@CurrentUser('user_id') userId: number) {
+    return this.subscriptionService.premiumStatus(userId);
   }
 
-  // TODO: tra ve URL redirect sang VNPay (can vnp_TmnCode/vnp_HashSecret that trong .env).
+  @ApiBearerAuth()
   @Post('checkout')
-  async checkout(@Req() req: any) {
-    const transaction = await this.subscriptionService.createPendingTransaction(req.user.user_id);
-    return { gateway_txn_ref: transaction.gateway_txn_ref };
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Tạo giao dịch và lấy link thanh toán VietQR (PayOS)',
+    description: 'Trả về `payment_url` và `qr_code`. Người dùng quét mã VietQR bằng ứng dụng ngân hàng bất kỳ để thanh toán.',
+  })
+  @ApiResponse({ status: 503, description: 'SUBSCRIPTION_PAYMENT_NOT_CONFIGURED: chưa cấu hình khoá PayOS' })
+  checkout(@CurrentUser('user_id') userId: number, @Req() req: Request) {
+    return this.subscriptionService.checkout(userId, clientIp(req));
   }
 
+  /**
+   * PayOS gọi Webhook (server tới server) để báo kết quả thanh toán.
+   */
+  @Public()
+  @Post('payos-webhook')
+  @HttpCode(200)
+  @ApiOperation({ summary: '[PayOS gọi] Nhận kết quả thanh toán Webhook' })
+  async payosWebhook(@Body() body: any, @Res() res: Response) {
+    try {
+      const result = await this.subscriptionService.processPayosWebhook(body);
+      this.logger.log(`PayOS Webhook result: ${JSON.stringify(result)}`);
+      return res.status(200).json({ success: true, message: result.message });
+    } catch (err) {
+      this.logger.error(`Lỗi xử lý PayOS Webhook: ${(err as Error)?.message ?? err}`);
+      return res.status(200).json({ success: false, message: 'Webhook processing error' });
+    }
+  }
+
+  /**
+   * Tra cứu trạng thái giao dịch cho trang Return của Frontend
+   */
+  @Public()
+  @Get('transactions/:orderCode')
+  @ApiOperation({ summary: 'Kiểm tra trạng thái giao dịch thanh toán PayOS' })
+  async checkTransactionStatus(@Param('orderCode') orderCode: string) {
+    return this.subscriptionService.checkPaymentStatus(orderCode);
+  }
+
+  @ApiBearerAuth()
+  @Post('activate-free')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Kích hoạt gói Premium trực tiếp không qua thanh toán' })
+  activateDirect(@CurrentUser('user_id') userId: number) {
+    return this.subscriptionService.activateDirect(userId);
+  }
+
+  @ApiBearerAuth()
+  @Post('switch-free')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Chuyển về gói Miễn phí' })
+  switchFree(@CurrentUser('user_id') userId: number) {
+    return this.subscriptionService.switchFree(userId);
+  }
+
+  @ApiBearerAuth()
   @Delete(':id')
-  cancel(@Req() req: any, @Param('id') id: string) {
-    return this.subscriptionService.cancel(req.user.user_id, Number(id));
+  @ApiOperation({ summary: 'Huỷ gói (không hoàn tiền, vẫn dùng đến hết hạn)' })
+  cancel(@CurrentUser('user_id') userId: number, @Param('id', ParseIntPipe) id: number) {
+    return this.subscriptionService.cancel(userId, id);
   }
 }
 
-// TODO: endpoint rieng (khong qua JwtAuthGuard) nhan IPN callback tu VNPay,
-// verify vnp_SecureHash roi goi subscriptionService.confirmPaymentSuccess/Failed.
+function clientIp(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') return forwarded.split(',')[0].trim();
+  if (Array.isArray(forwarded) && forwarded[0]) return forwarded[0].trim();
+  return req.socket.remoteAddress || '127.0.0.1';
+}
