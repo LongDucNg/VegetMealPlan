@@ -1,45 +1,41 @@
 import { VegetarianType } from "@/features/profile/types";
 
 export type MealType = "breakfast" | "lunch" | "dinner" | "snack" | "any";
-export type MealFilterType = MealType | "all" | "breakfast_lunch";
+export type MealFilterType = MealType | "all" | "breakfast" | "lunch_dinner" | "snack";
 
 export const MEAL_TYPE_LABELS: Record<string, string> = {
   breakfast: "Bữa sáng",
-  lunch: "Bữa trưa",
-  dinner: "Bữa tối",
+  lunch: "Bữa trưa / tối",
+  dinner: "Bữa trưa / tối",
   snack: "Bữa phụ",
-  any: "Bữa sáng / trưa",
-  breakfast_lunch: "Bữa sáng / trưa",
+  any: "Bữa trưa / tối",
+  lunch_dinner: "Bữa trưa / tối",
 };
 
 /**
  * Kiểm tra món ăn có khớp với tiêu chí lọc bữa ăn không.
- * Trong database, phần lớn các món ăn chính được gộp chung là 'any' (phù hợp cho bữa sáng/trưa/tối).
- * Do đó khi chọn "Bữa sáng / trưa", hệ thống sẽ lọc ra tất cả các món ăn sáng, trưa và các món 'any' trong DB.
+ * Trong database có 3 nhóm bữa ăn:
+ * - breakfast: Bữa sáng
+ * - any (hoặc lunch, dinner): Bữa trưa / tối
+ * - snack: Bữa phụ
  */
 export function isMealTypeMatch(recipeMealType?: string, filterMealType?: string): boolean {
   if (!filterMealType || filterMealType === "all") return true;
   const r = (recipeMealType || "").toLowerCase().trim();
   const f = filterMealType.toLowerCase().trim();
 
-  // Bữa sáng / trưa: gộp cả món sáng, trưa, và các món chính trong DB (any)
-  if (
-    f === "breakfast_lunch" ||
-    f === "sang_trua" ||
-    f === "any" ||
-    f === "breakfast" ||
-    f === "lunch"
-  ) {
-    return r === "breakfast" || r === "lunch" || r === "any" || r === "dinner";
+  // Bữa sáng
+  if (f === "breakfast" || f === "sang") {
+    return r === "breakfast";
   }
 
-  // Bữa tối
-  if (f === "dinner") {
-    return r === "dinner" || r === "any" || r === "lunch";
+  // Bữa trưa / tối (trong DB lưu là 'any', hoặc 'lunch', 'dinner')
+  if (f === "lunch_dinner" || f === "trua_toi" || f === "any" || f === "lunch" || f === "dinner") {
+    return r === "any" || r === "lunch" || r === "dinner";
   }
 
-  // Bữa phụ / Ăn vặt
-  if (f === "snack") {
+  // Bữa phụ
+  if (f === "snack" || f === "phu") {
     return r === "snack";
   }
 
@@ -128,4 +124,5 @@ export interface RecipeFilterOptions {
   maxCalories?: number;
   searchQuery?: string;
   category?: string;
+  exactDiet?: boolean;
 }

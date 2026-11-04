@@ -1,5 +1,5 @@
 
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   IsInt,
   IsNumber,
@@ -22,6 +22,10 @@ export class QueryRecipeDto {
   @IsOptional()
   @IsString()
   vegetarianType?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true || value === 1 || value === '1')
+  exactDiet?: boolean;
 
   @IsOptional()
   @IsString()
