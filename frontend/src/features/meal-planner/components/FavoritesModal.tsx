@@ -728,7 +728,11 @@ export function FavoritesModal({
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900">
-                              {plan.planType === "monthly" ? "Thực đơn tháng" : plan.planType === "daily" ? "Thực đơn ngày" : "Thực đơn tuần"}
+                              {plan.planType === "monthly" && (plan.days?.length || 0) > 1
+                                ? "Thực đơn tháng"
+                                : plan.planType === "weekly" && (plan.days?.length || 0) > 1
+                                ? "Thực đơn tuần"
+                                : "Thực đơn 1 ngày"}
                             </span>
                             <h4 className="font-bold text-stone-900 text-sm truncate">
                               {plan.name}
@@ -739,7 +743,9 @@ export function FavoritesModal({
                             </span>
                           </div>
                           <p className="text-xs text-stone-500 mt-1">
-                            Kế hoạch {plan.days?.length || 0} ngày · Mục tiêu: ~{Math.round(Number(plan.targetCalories) * 100) / 100} kcal/ngày · Chi phí ước tính: ~{plan.totalEstimatedCost?.toLocaleString("vi-VN")} VNĐ
+                            {plan.days && plan.days.length <= 1
+                              ? `Thực đơn 1 ngày (${plan.days[0]?.dayName || "Ngày đã lưu"}) · Năng lượng: ~${Math.round(Number(plan.targetCalories) * 100) / 100} kcal · Chi phí ước tính: ~${plan.totalEstimatedCost?.toLocaleString("vi-VN")} VNĐ`
+                              : `Kế hoạch ${plan.days?.length || 0} ngày · Mục tiêu: ~${Math.round(Number(plan.targetCalories) * 100) / 100} kcal/ngày · Chi phí ước tính: ~${plan.totalEstimatedCost?.toLocaleString("vi-VN")} VNĐ`}
                           </p>
                         </div>
 
@@ -747,32 +753,53 @@ export function FavoritesModal({
                           className="flex items-center gap-2 self-end sm:self-auto shrink-0 flex-wrap"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          {plan.days && plan.days.length > 0 && (
+                          {plan.days && plan.days.length <= 1 ? (
                             <button
                               type="button"
                               onClick={() => {
-                                onApplyPlan(plan.days[0], targetDateStr);
+                                if (plan.days && plan.days.length > 0) {
+                                  onApplyPlan(plan.days[0], targetDateStr);
+                                } else {
+                                  onLoadSavedPlan(plan);
+                                }
                                 onClose();
                               }}
-                              className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
-                              title={`Áp dụng 4 bữa của thực đơn này vào ngày ${targetDateStr.split("-").reverse().join("/")}`}
+                              className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+                              title={`Áp dụng thực đơn 1 ngày này vào ngày ${targetDateStr.split("-").reverse().join("/")}`}
                             >
-                              <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                              <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
                               <span>Áp dụng vào ngày {targetDateStr.split("-").reverse().join("/")}</span>
                             </button>
-                          )}
+                          ) : (
+                            <>
+                              {plan.days && plan.days.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onApplyPlan(plan.days[0], targetDateStr);
+                                    onClose();
+                                  }}
+                                  className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+                                  title={`Áp dụng 4 bữa của ngày đầu tiên vào ngày ${targetDateStr.split("-").reverse().join("/")}`}
+                                >
+                                  <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                                  <span>Áp dụng vào ngày {targetDateStr.split("-").reverse().join("/")}</span>
+                                </button>
+                              )}
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onLoadSavedPlan(plan);
-                              onClose();
-                            }}
-                            className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer"
-                            title="Tải toàn bộ các ngày của thực đơn này"
-                          >
-                            Áp dụng toàn bộ
-                          </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  onLoadSavedPlan(plan);
+                                  onClose();
+                                }}
+                                className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer"
+                                title="Tải toàn bộ các ngày của thực đơn này"
+                              >
+                                Áp dụng toàn bộ
+                              </button>
+                            </>
+                          )}
 
                           <button
                             type="button"
@@ -789,7 +816,7 @@ export function FavoritesModal({
                             className="w-8 h-8 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-600 flex items-center justify-center transition-colors cursor-pointer"
                             title={isExpanded ? "Thu gọn chi tiết" : "Xem chi tiết món ăn"}
                           >
-                            {isExpanded ? <ChevronUp className="w-4 h-4 text-emerald-700" /> : <ChevronDown className="w-4 h-4" />}
+                            {isExpanded ? <ChevronUp className="w-4 h-4 text-emerald-700" /> : <ChevronDown className="w-4 h-4 text-stone-600" />}
                           </button>
                         </div>
                       </div>
@@ -808,8 +835,8 @@ export function FavoritesModal({
                             </div>
                           ) : (
                             <>
-                              {/* Thanh chọn ngày (nếu thực đơn có nhiều ngày) */}
-                              {plan.days && plan.days.length > 1 && (
+                              {/* Thanh chọn ngày (nếu thực đơn có nhiều ngày) hoặc Header ngày duy nhất */}
+                              {plan.days && plan.days.length > 1 ? (
                                 <div className="space-y-1.5">
                                   <span className="text-[11px] font-bold uppercase tracking-wider text-stone-600 block">
                                     Chọn ngày trong thực đơn mẫu ({plan.days.length} ngày):
@@ -845,6 +872,18 @@ export function FavoritesModal({
                                       );
                                     })}
                                   </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between pb-2 border-b border-stone-200">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+                                    <span className="font-bold text-xs text-stone-800">
+                                      Chi tiết 4 bữa ăn trong ngày {currentDay.dayName ? `(${currentDay.dayName})` : ""}
+                                    </span>
+                                  </div>
+                                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/90 px-2.5 py-0.5 rounded-full">
+                                    Thực đơn 1 ngày duy nhất
+                                  </span>
                                 </div>
                               )}
 
