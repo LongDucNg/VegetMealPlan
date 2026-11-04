@@ -3,7 +3,7 @@
 import React from "react";
 import { Target, Flame, Activity, Sparkles, AlertCircle, ArrowRight } from "lucide-react";
 import { CalorieCalculationResult } from "@/features/nutrition/utils/calorieCalculator";
-import { UserProfile, formatVegetarianType, formatAllergies } from "@/features/profile/types";
+import { UserProfile, formatVegetarianType, formatAllergies, formatCompactAllergies } from "@/features/profile/types";
 
 interface NutritionGoalBannerProps {
   nutrition: CalorieCalculationResult;
@@ -96,8 +96,11 @@ export function NutritionGoalBanner({
               {formatVegetarianType(profile.vegetarianType)}
             </span>
             {profile.allergies && profile.allergies.length > 0 && (
-              <span className="text-amber-200 font-medium px-2 py-0.5 rounded-full bg-amber-950/60 border border-amber-600/40 text-[10px]">
-                Dị ứng: {formatAllergies(profile.allergies)}
+              <span
+                className="text-amber-200 font-medium px-2 py-0.5 rounded-full bg-amber-950/60 border border-amber-600/40 text-[10px] max-w-full truncate"
+                title={"Dị ứng: " + formatAllergies(profile.allergies)}
+              >
+                Dị ứng: {formatCompactAllergies(profile.allergies, 3)}
               </span>
             )}
           </div>

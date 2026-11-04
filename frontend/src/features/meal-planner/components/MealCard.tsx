@@ -190,7 +190,9 @@ export function MealCard({
                   </Link>
 
                   {/* Allergy warning if any */}
-                  <RecipeAllergyBadge recipe={dish} compact />
+                  <div className="max-w-full overflow-hidden">
+                    <RecipeAllergyBadge recipe={dish} compact />
+                  </div>
                 </div>
 
                 {/* Actions for this specific dish */}

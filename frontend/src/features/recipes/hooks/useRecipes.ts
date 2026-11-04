@@ -35,6 +35,7 @@ export function useRecipes(
             ? filters.vegetarianType
             : undefined,
         category: filters.category,
+        exactDiet: filters.exactDiet,
         maxCalories: filters.maxCalories,
         page,
         limit,
