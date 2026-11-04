@@ -86,6 +86,85 @@ export const ALLERGEN_LABELS_VI: Record<string, string> = {
   "muối": "Muối",
 };
 
+export const ALLERGEN_LABELS_COMPACT: Record<string, string> = {
+  peanut: "Đậu phộng",
+  peanuts: "Đậu phộng",
+  PEANUT: "Đậu phộng",
+
+  soy: "Đậu nành",
+  soya: "Đậu nành",
+  SOY: "Đậu nành",
+
+  gluten: "Gluten",
+  wheat: "Gluten",
+  GLUTEN: "Gluten",
+
+  dairy: "Sữa",
+  milk: "Sữa",
+  lactose: "Sữa",
+  DAIRY: "Sữa",
+
+  treenut: "Hạt cây",
+  treenuts: "Hạt cây",
+  tree_nut: "Hạt cây",
+  tree_nuts: "Hạt cây",
+  TREE_NUT: "Hạt cây",
+  nuts: "Hạt cây",
+
+  sesame: "Mè & Hạt gieo",
+  seed: "Mè & Hạt gieo",
+  seeds: "Mè & Hạt gieo",
+  SEED: "Mè & Hạt gieo",
+
+  corn: "Bắp",
+  maize: "Bắp",
+  CORN: "Bắp",
+
+  egg: "Trứng",
+  eggs: "Trứng",
+  EGG: "Trứng",
+
+  legume: "Họ đậu",
+  legumes: "Họ đậu",
+  LEGUME: "Họ đậu",
+
+  fungi: "Nấm",
+  mushroom: "Nấm",
+  mushrooms: "Nấm",
+  FUNGI: "Nấm",
+
+  allium: "Hành tỏi",
+  ALLIUM: "Hành tỏi",
+
+  salt: "Muối",
+  SALT: "Muối",
+  muoi: "Muối",
+  "muối": "Muối",
+};
+
+export function formatCompactAllergy(allergy?: string): string {
+  if (!allergy) return "";
+  const trimmed = allergy.trim();
+  const lower = trimmed.toLowerCase();
+  return (
+    ALLERGEN_LABELS_COMPACT[trimmed] ||
+    ALLERGEN_LABELS_COMPACT[lower] ||
+    ALLERGEN_LABELS_COMPACT[trimmed.toUpperCase()] ||
+    trimmed
+  );
+}
+
+export function formatCompactAllergies(allergies?: string[] | null, max = 2): string {
+  if (!allergies || !allergies.length) return "";
+  const mapped = allergies.map(formatCompactAllergy);
+  if (mapped.length <= max) {
+    return mapped.join(", ");
+  }
+  const head = mapped.slice(0, max).join(", ");
+  const remaining = mapped.length - max;
+  return head + " (+" + remaining + ")";
+}
+
 export function formatAllergy(allergy?: string): string {
   if (!allergy) return "";
   const trimmed = allergy.trim();
