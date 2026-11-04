@@ -36,16 +36,16 @@ interface AdminRecipeModalProps {
 }
 
 const CATEGORY_PRESETS = [
-  "Bữa sáng & Cháo",
-  "Sinh tố & Cơm tô",
-  "Món xào & Giòn rụm",
-  "Bún, Mì & Phở",
-  "Canh, Súp & Lẩu",
-  "Gỏi cuốn & Salad",
-  "Cà ri & Món kho",
-  "Mâm cơm chay thập cẩm",
-  "Ăn vặt & Bánh ngọt",
-  "Tráng miệng & Thức uống",
+  "Mì, Bún & Phở",
+  "Cơm, Xôi & Cháo",
+  "Bánh, Bánh bột & Ăn vặt",
+  "Tráng miệng & Đồ uống",
+  "Món kho & Rim",
+  "Xào & Chiên",
+  "Luộc & Hấp",
+  "Cuốn, Gỏi & Sa lát",
+  "Canh & Súp",
+  "Khác",
 ];
 
 const SAMPLE_IMAGES = [

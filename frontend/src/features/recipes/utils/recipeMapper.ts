@@ -155,10 +155,30 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
     addCat(rawCat);
   }
 
-  const category =
-    categoriesList.length > 0
-      ? categoriesList[0]
-      : "Khác";
+  // 10 danh mục chuẩn quản trị từ cơ sở dữ liệu
+  const STANDARD_CATEGORIES = [
+    "Mì, Bún & Phở",
+    "Cơm, Xôi & Cháo",
+    "Bánh, Bánh bột & Ăn vặt",
+    "Tráng miệng & Đồ uống",
+    "Món kho & Rim",
+    "Xào & Chiên",
+    "Luộc & Hấp",
+    "Cuốn, Gỏi & Sa lát",
+    "Canh & Súp",
+  ];
+
+  // Chỉ giữ các danh mục thuộc 10 danh mục chuẩn (loại bỏ nhãn dinh dưỡng nội bộ như Món mặn, Món đủ bữa)
+  const validStandardCats: string[] = [];
+  for (const cat of categoriesList) {
+    const matched = STANDARD_CATEGORIES.find((sc) => sc.toLowerCase() === cat.toLowerCase());
+    if (matched && !validStandardCats.includes(matched)) {
+      validStandardCats.push(matched);
+    }
+  }
+
+  const category = validStandardCats.length > 0 ? validStandardCats[0] : "Khác";
+  const finalCategories = validStandardCats.length > 0 ? validStandardCats : ["Khác"];
 
   // Status
   const status: RecipeStatus = (
@@ -188,7 +208,7 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
       r.image ||
       "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop&q=80",
     category,
-    categories: categoriesList.length > 0 ? categoriesList : [category],
+    categories: finalCategories,
     mealType,
     vegetarianType,
     prepTime,

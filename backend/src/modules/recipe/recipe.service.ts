@@ -670,6 +670,7 @@ export class RecipeService {
 
     const categoriesByRecipe = new Map<number, string[]>();
     for (const row of categoryRows) {
+      if (row.category?.category_type === 'food_type') continue;
       const name = row.category?.category_name;
       if (!name) continue;
       const list = categoriesByRecipe.get(row.recipe_id) ?? [];
@@ -2371,11 +2372,19 @@ export class RecipeService {
         const catName = rc.category?.category_name;
         if (!catName) continue;
         const list = categoriesByRecipe.get(rc.recipe_id) ?? [];
-        list.push(catName);
+        if (rc.category?.category_type === 'recipe_type') {
+          list.unshift(catName);
+        } else {
+          list.push(catName);
+        }
         categoriesByRecipe.set(rc.recipe_id, list);
 
         const rcs = rcByRecipe.get(rc.recipe_id) ?? [];
-        rcs.push(rc);
+        if (rc.category?.category_type === 'recipe_type') {
+          rcs.unshift(rc);
+        } else {
+          rcs.push(rc);
+        }
         rcByRecipe.set(rc.recipe_id, rcs);
       }
 
