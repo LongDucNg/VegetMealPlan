@@ -67,7 +67,26 @@ export class SubscriptionService {
     const user = await this.userRepo.findOne({ where: { user_id }, select: { user_id: true, role: true, premium_until: true } });
     const premium_until = user?.premium_until ?? null;
     const isPremium = user?.role === 'admin' || (!!premium_until && premium_until.getTime() > Date.now());
-    return { isPremium, premium_until };
+
+    let start_date: string | null = null;
+    let end_date: string | null = null;
+
+    if (isPremium) {
+      const sub = await this.subscriptionRepo.findOne({
+        where: { user_id, status: SubscriptionStatus.ACTIVE },
+        order: { subscription_id: 'DESC' },
+      });
+      if (sub) {
+        start_date = typeof sub.start_date === 'string' ? sub.start_date : (sub.start_date ? new Date(sub.start_date).toISOString() : null);
+        end_date = typeof sub.end_date === 'string' ? sub.end_date : (sub.end_date ? new Date(sub.end_date).toISOString() : null);
+      } else if (premium_until) {
+        end_date = premium_until.toISOString();
+        const derivedStart = new Date(premium_until.getTime() - PLAN_DURATION_DAYS * 86_400_000);
+        start_date = derivedStart.toISOString();
+      }
+    }
+
+    return { isPremium, premium_until, start_date, end_date };
   }
 
   /**

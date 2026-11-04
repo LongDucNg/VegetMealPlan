@@ -68,6 +68,61 @@ export const subscriptionService = {
   },
 
   /**
+   * Lấy chu kỳ gói đăng ký 30 ngày (ngày bắt đầu và ngày hết hạn)
+   */
+  getSubscriptionPeriod(): {
+    isPremium: boolean;
+    startDate: Date;
+    endDate: Date;
+    startDateKey: string;
+    endDateKey: string;
+    totalDays: number;
+  } {
+    const sub = this.getSubscription();
+    const isPrem = this.isPremium();
+    const now = new Date();
+
+    let endDate: Date;
+    let startDate: Date;
+
+    const rawEnd = sub.endDate || sub.expiresAt;
+    if (rawEnd) {
+      endDate = new Date(rawEnd);
+    } else {
+      const user = tokenStorage.getUser();
+      if (user?.premium_until) {
+        endDate = new Date(user.premium_until);
+      } else {
+        endDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      }
+    }
+
+    const rawStart = sub.startDate || sub.activatedAt;
+    if (rawStart) {
+      startDate = new Date(rawStart);
+    } else {
+      // 30 ngày chuẩn trước ngày hết hạn
+      startDate = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
+
+    const toDateKey = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+
+    return {
+      isPremium: isPrem,
+      startDate,
+      endDate,
+      startDateKey: toDateKey(startDate),
+      endDateKey: toDateKey(endDate),
+      totalDays: 30,
+    };
+  },
+
+  /**
    * Đồng bộ trạng thái Premium thật từ backend:
    * GET /subscriptions/me/premium-status
    */
@@ -89,7 +144,10 @@ export const subscriptionService = {
           status: "active",
           planId: "premium",
           planName: "Premium 1 tháng",
-          expiresAt: res.premium_until || undefined,
+          activatedAt: res.start_date || undefined,
+          expiresAt: res.end_date || res.premium_until || undefined,
+          startDate: res.start_date || undefined,
+          endDate: res.end_date || res.premium_until || undefined,
           autoRenew: false,
         };
         storage.setItem(STORAGE_KEYS.SUBSCRIPTION, activeSub);
