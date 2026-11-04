@@ -124,4 +124,5 @@ export interface RecipeFilterOptions {
   maxCalories?: number;
   searchQuery?: string;
   category?: string;
+  exactDiet?: boolean;
 }
