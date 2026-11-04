@@ -197,17 +197,7 @@ export function AdminIngredientModal({
               <span>Nguyên liệu theo mùa</span>
             </label>
 
-            <div className="flex items-center gap-2 ml-auto">
-              <span className="font-semibold text-stone-600">Trạng thái:</span>
-              <select
-                value={form.status}
-                onChange={(e) => handleChange("status", e.target.value as any)}
-                className="h-8 px-2.5 rounded-lg border border-stone-200 text-xs bg-white focus:border-emerald-600 outline-none"
-              >
-                <option value="active">Hoạt động</option>
-                <option value="inactive">Tạm ngưng</option>
-              </select>
-            </div>
+
           </div>
         </div>
 
