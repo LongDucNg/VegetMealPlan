@@ -117,28 +117,48 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
     instructions = ["Chuẩn bị nguyên liệu", "Sơ chế và chế biến theo công thức", "Trình bày ra đĩa và thưởng thức"];
   }
 
-  // Category
+  // Category: Thu thập đầy đủ các danh mục có trong cơ sở dữ liệu liên quan đến công thức
   const categoriesList: string[] = [];
+  const seenCat = new Set<string>();
+  const addCat = (name: any) => {
+    if (!name || typeof name !== "string") return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (trimmed.includes(",")) {
+      trimmed.split(",").forEach(addCat);
+      return;
+    }
+    const lower = trimmed.toLowerCase();
+    if (!seenCat.has(lower)) {
+      seenCat.add(lower);
+      categoriesList.push(trimmed);
+    }
+  };
+
   if (Array.isArray(r.categories)) {
-    categoriesList.push(...r.categories.filter(Boolean));
+    for (const c of r.categories) {
+      if (typeof c === "string") addCat(c);
+      else if (c && typeof c === "object") addCat(c.category_name || c.name);
+    }
+  } else if (typeof r.categories === "string") {
+    addCat(r.categories);
   }
+
   if (Array.isArray(r.recipeCategories)) {
     for (const rc of r.recipeCategories) {
-      const name = rc.category?.category_name || rc.category?.name || rc.category_name;
-      if (name && !categoriesList.includes(name)) {
-        categoriesList.push(name);
-      }
+      addCat(rc.category?.category_name || rc.category?.name || rc.category_name);
     }
   }
+
   const rawCat = typeof r.category === "string" ? r.category : r.category?.category_name;
-  if (rawCat && !categoriesList.includes(rawCat)) {
-    categoriesList.push(rawCat);
+  if (rawCat) {
+    addCat(rawCat);
   }
 
   const category =
     categoriesList.length > 0
       ? categoriesList[0]
-      : (rawCat && rawCat.trim() ? rawCat.trim() : "Khác");
+      : "Khác";
 
   // Status
   const status: RecipeStatus = (
