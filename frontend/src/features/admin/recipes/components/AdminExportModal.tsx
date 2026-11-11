@@ -419,8 +419,8 @@ export function AdminExportModal({
               type="button"
               onClick={() => setMode("by_recipes")}
               className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${mode === "by_recipes"
-                  ? "bg-white text-emerald-800 shadow-xs font-bold"
-                  : "text-stone-600 hover:text-stone-900"
+                ? "bg-white text-emerald-800 shadow-xs font-bold"
+                : "text-stone-600 hover:text-stone-900"
                 }`}
             >
               <Layers className="w-4 h-4" />
@@ -436,8 +436,8 @@ export function AdminExportModal({
               type="button"
               onClick={() => setMode("by_filter")}
               className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${mode === "by_filter"
-                  ? "bg-white text-emerald-800 shadow-xs font-bold"
-                  : "text-stone-600 hover:text-stone-900"
+                ? "bg-white text-emerald-800 shadow-xs font-bold"
+                : "text-stone-600 hover:text-stone-900"
                 }`}
             >
               <Filter className="w-4 h-4" />
@@ -571,15 +571,15 @@ export function AdminExportModal({
                       type="button"
                       onClick={() => setQuickCategoryFilter("all")}
                       className={`px-3 py-1.5 rounded-full text-xs shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${quickCategoryFilter === "all"
-                          ? "bg-emerald-800 text-white font-bold shadow-2xs"
-                          : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
+                        ? "bg-emerald-800 text-white font-bold shadow-2xs"
+                        : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
                         }`}
                     >
                       <span>Tất cả</span>
                       <span
                         className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${quickCategoryFilter === "all"
-                            ? "bg-emerald-900 text-emerald-100"
-                            : "bg-stone-100 text-stone-500"
+                          ? "bg-emerald-900 text-emerald-100"
+                          : "bg-stone-100 text-stone-500"
                           }`}
                       >
                         ({approvedRecipes.length})
@@ -594,15 +594,15 @@ export function AdminExportModal({
                           type="button"
                           onClick={() => setQuickCategoryFilter(c)}
                           className={`px-3 py-1.5 rounded-full text-xs shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${quickCategoryFilter === c
-                              ? "bg-emerald-800 text-white font-bold shadow-2xs"
-                              : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
+                            ? "bg-emerald-800 text-white font-bold shadow-2xs"
+                            : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
                             }`}
                         >
                           <span>{c}</span>
                           <span
                             className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${quickCategoryFilter === c
-                                ? "bg-emerald-900 text-emerald-100"
-                                : "bg-stone-100 text-stone-500"
+                              ? "bg-emerald-900 text-emerald-100"
+                              : "bg-stone-100 text-stone-500"
                               }`}
                           >
                             ({count})
@@ -644,16 +644,16 @@ export function AdminExportModal({
                           type="button"
                           onClick={() => toggleRecipe(numId)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${isSelected
-                              ? "bg-emerald-700 text-white font-semibold shadow-2xs scale-[1.02]"
-                              : "bg-stone-50 text-stone-700 hover:bg-stone-100 border border-stone-200"
+                            ? "bg-emerald-700 text-white font-semibold shadow-2xs scale-[1.02]"
+                            : "bg-stone-50 text-stone-700 hover:bg-stone-100 border border-stone-200"
                             }`}
                         >
                           {isSelected && <Check className="w-3.5 h-3.5 text-emerald-200 shrink-0" />}
                           <span className="truncate max-w-[180px]">{r.name || r.title}</span>
                           <span
                             className={`text-[9px] px-1.5 py-0.2 rounded-md ${isSelected
-                                ? "bg-emerald-800 text-emerald-100"
-                                : "bg-stone-200 text-stone-600"
+                              ? "bg-emerald-800 text-emerald-100"
+                              : "bg-stone-200 text-stone-600"
                               }`}
                           >
                             {getRecipeDisplayCategory(r)}

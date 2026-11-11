@@ -96,22 +96,22 @@ export function RecipeAllergyBadge({
     title = "⚠ Không phù hợp chế độ Thuần chay (Vegan)";
     if (isEggDietViolation && isDairyDietViolation) {
       compactDietText = "Chứa Trứng & Sữa (Thuần chay)";
-      description = "Món ăn có chứa cả Trứng và Sữa/Chế phẩm sữa — hệ thống tự động né đối với chế độ Thuần chay.";
+      description = "Món ăn có chứa cả Trứng và Sữa/Chế phẩm sữa — cảnh báo cần tránh theo trường phái Thuần chay.";
     } else if (isEggDietViolation) {
       compactDietText = "Chứa Trứng (Thuần chay)";
-      description = "Món ăn có chứa Trứng — hệ thống tự động né đối với chế độ Thuần chay.";
+      description = "Món ăn có chứa Trứng — cảnh báo cần tránh theo trường phái Thuần chay.";
     } else {
       compactDietText = "Chứa Sữa (Thuần chay)";
-      description = "Món ăn có chứa Sữa & Chế phẩm sữa — hệ thống tự động né đối với chế độ Thuần chay.";
+      description = "Món ăn có chứa Sữa & Chế phẩm sữa — cảnh báo cần tránh theo trường phái Thuần chay.";
     }
   } else if (vegType === "lacto_vegetarian" && isEggDietViolation) {
     title = "⚠ Không phù hợp chế độ Chay có sữa (Lacto)";
     compactDietText = "Chứa Trứng (Chay có sữa)";
-    description = "Món ăn có chứa Trứng — chế độ Chay có sữa tự động né Trứng (chỉ cho phép dùng sữa và chế phẩm sữa).";
+    description = "Món ăn có chứa Trứng — cảnh báo cần tránh Trứng theo trường phái Chay có sữa (chỉ cho phép dùng sữa và chế phẩm sữa).";
   } else if (vegType === "ovo_vegetarian" && isDairyDietViolation) {
     title = "⚠ Không phù hợp chế độ Chay có trứng (Ovo)";
     compactDietText = "Chứa Sữa (Chay có trứng)";
-    description = "Món ăn có chứa Sữa & Chế phẩm sữa — chế độ Chay có trứng tự động né Sữa (chỉ cho phép dùng trứng).";
+    description = "Món ăn có chứa Sữa & Chế phẩm sữa — cảnh báo cần tránh Sữa theo trường phái Chay có trứng (chỉ cho phép dùng trứng).";
   }
 
   // Danh sách tên dị ứng đầy đủ cho tooltip

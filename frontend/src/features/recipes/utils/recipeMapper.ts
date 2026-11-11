@@ -175,8 +175,8 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
     diffRaw === "easy" || diffRaw === "dễ" || diffRaw === "de"
       ? "Easy"
       : diffRaw === "hard" || diffRaw === "khó" || diffRaw === "kho" || diffRaw === "advanced"
-      ? "Advanced"
-      : "Medium";
+        ? "Advanced"
+        : "Medium";
 
   return {
     id,
