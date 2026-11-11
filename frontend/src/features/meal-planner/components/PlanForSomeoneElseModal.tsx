@@ -12,12 +12,15 @@ import {
   Activity,
   Target,
   Plus,
+  ShieldCheck,
 } from "lucide-react";
 import { UserProfile, Gender, ActivityLevel, HealthGoal, VegetarianType } from "@/features/profile/types";
 import { calculateBMI } from "@/features/nutrition/utils/bmi";
 import { calculateDailyCalorieTarget } from "@/features/nutrition/utils/calorieCalculator";
 import {
   ALLERGY_MASTER_LIST,
+  FOOD_ALLERGY_MASTER_LIST,
+  AVOIDANCE_PREFERENCE_LIST,
   HEALTH_GOAL_OPTIONS,
   ACTIVITY_LEVEL_OPTIONS,
   VEGETARIAN_TYPE_OPTIONS,
@@ -121,20 +124,36 @@ export function PlanForSomeoneElseModal({
   const isOverweight = Boolean(bmiInfo && (bmiInfo.category === "Overweight" || bmiInfo.bmi >= 23));
 
   // Auto exclusion for Egg & Dairy according to Vegetarian Diet
+  // Phân loại danh sách Dị ứng thực phẩm vs Thực phẩm cần tránh
+  const isAvoidancePreferenceItem = (item: string) => {
+    const s = item.toLowerCase().trim();
+    return (
+      s === "allium" ||
+      s.includes("hành tỏi") ||
+      s.includes("ngũ vị tân") ||
+      s.includes("ngu vi tan")
+    );
+  };
+
+  const foodAllergies = allergies.filter(
+    (a) => !isAvoidancePreferenceItem(a) && !isEggAllergyItem(a) && !isDairyAllergyItem(a)
+  );
+  const avoidanceList = allergies.filter((a) => isAvoidancePreferenceItem(a));
+
   const isAllergyDisabledByDiet = (allergyId: string) => {
     const isEgg = isEggAllergyItem(allergyId);
     const isDairy = isDairyAllergyItem(allergyId);
 
     if (vegetarianType === "vegan") {
-      if (isEgg) return "Thuần chay (Vegan) đã tự động né Trứng";
-      if (isDairy) return "Thuần chay (Vegan) đã tự động né Sữa & Chế phẩm sữa";
+      if (isEgg) return "Thuần chay (Vegan) cảnh báo cần tránh Trứng";
+      if (isDairy) return "Thuần chay (Vegan) cảnh báo cần tránh Sữa & Chế phẩm sữa";
     }
     if (vegetarianType === "lacto_vegetarian") {
-      if (isEgg) return "Chay có sữa (Lacto) đã tự động né Trứng";
+      if (isEgg) return "Chay có sữa (Lacto) cảnh báo cần tránh Trứng";
       if (isDairy) return "Bạn đang chọn Chay có sữa (Lacto). Nếu dị ứng Sữa, hãy chọn Thuần chay (Vegan).";
     }
     if (vegetarianType === "ovo_vegetarian") {
-      if (isDairy) return "Chay có trứng (Ovo) đã tự động né Sữa & Chế phẩm sữa";
+      if (isDairy) return "Chay có trứng (Ovo) cảnh báo cần tránh Sữa & Chế phẩm sữa";
       if (isEgg) return "Bạn đang chọn Chay có trứng (Ovo). Nếu dị ứng Trứng, hãy chọn Thuần chay (Vegan).";
     }
     return null;
@@ -161,8 +180,8 @@ export function PlanForSomeoneElseModal({
     }
   };
 
-  const handleAddCustomAllergy = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddCustomAllergy = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const trimmed = customAllergyInput.trim();
     if (!trimmed) return;
     if (allergies.some((a) => a.toLowerCase() === trimmed.toLowerCase())) {
@@ -345,11 +364,10 @@ export function PlanForSomeoneElseModal({
                   <label
                     key={opt.id}
                     onClick={() => setActivityLevel(opt.id as ActivityLevel)}
-                    className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer text-xs transition-all ${
-                      isSelected
-                        ? "border-violet-500 bg-violet-50 text-violet-950 font-medium"
-                        : "border-stone-200 hover:bg-stone-50 text-stone-700"
-                    }`}
+                    className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer text-xs transition-all ${isSelected
+                      ? "border-violet-500 bg-violet-50 text-violet-950 font-medium"
+                      : "border-stone-200 hover:bg-stone-50 text-stone-700"
+                      }`}
                   >
                     <input
                       type="radio"
@@ -619,117 +637,202 @@ export function PlanForSomeoneElseModal({
             })()}
           </div>
 
-          {/* 4. Allergies Identical to Profile */}
-          <div>
-            <div className="flex items-center justify-between border-b pb-1.5 mb-2.5">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-                4. Dị ứng thực phẩm / Cần tránh
-              </h4>
-              <button
-                type="button"
-                onClick={() => setAllergies([])}
-                className="text-[11px] text-stone-500 hover:text-stone-800 underline cursor-pointer"
-              >
-                Tôi không dị ứng gì
-              </button>
-            </div>
-
-            {/* Diet auto-exclude note */}
-            {vegetarianType === "vegan" && (
-              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-950 text-xs mb-2.5">
-                🌿 <strong>Thuần chay (Vegan):</strong> Hệ thống tự động loại trừ mọi món có Trứng và Sữa. Bạn không cần chọn Trứng / Sữa ở mục dị ứng.
-              </div>
-            )}
-            {vegetarianType === "lacto_vegetarian" && (
-              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-950 text-xs mb-2.5">
-                🥛 <strong>Chay có sữa (Lacto):</strong> Hệ thống tự động loại trừ mọi món có Trứng.
-              </div>
-            )}
-            {vegetarianType === "ovo_vegetarian" && (
-              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-950 text-xs mb-2.5">
-                🥚 <strong>Chay có trứng (Ovo):</strong> Hệ thống tự động loại trừ mọi món có Sữa.
-              </div>
-            )}
-
-            {/* 11 Allergy Tags */}
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              {ALLERGY_MASTER_LIST.map((item) => {
-                const isSelected = allergies.includes(item.id);
-                const disabledReason = isAllergyDisabledByDiet(item.id);
-                const isAutoExcluded =
-                  (vegetarianType === "vegan" && (item.id === "egg" || item.id === "dairy")) ||
-                  (vegetarianType === "lacto_vegetarian" && item.id === "egg") ||
-                  (vegetarianType === "ovo_vegetarian" && item.id === "dairy");
-
-                if (isAutoExcluded) {
-                  return (
-                    <span
-                      key={item.id}
-                      title={disabledReason || "Đã tự động né theo trường phái ăn chay"}
-                      className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-emerald-50 border border-emerald-200 text-emerald-800 opacity-80 cursor-not-allowed flex items-center gap-1"
-                    >
-                      ✓ {item.label} <span className="text-[10px] text-emerald-600">(Đã tự động né)</span>
-                    </span>
-                  );
-                }
-
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => toggleAllergy(item.id)}
-                    className={`px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer flex items-center gap-1 ${
-                      isSelected
-                        ? "bg-amber-100 border-amber-300 text-amber-900 font-bold"
-                        : "bg-stone-50 border-stone-200 text-stone-600 hover:bg-stone-100"
+          {/* 4. Dị ứng thực phẩm & Thực phẩm cần tránh */}
+          <div className="space-y-4">
+            {/* Mục A: Dị ứng thực phẩm */}
+            <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 space-y-3">
+              <div className="flex items-center justify-between border-b border-stone-200 pb-1.5">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-stone-700">
+                    4. Dị ứng thực phẩm
+                  </h4>
+                  <p className="text-[11px] text-stone-500 mt-0.5">
+                    Chọn nhóm dị ứng có sẵn hoặc nhập tự do nguyên liệu để hệ thống loại trừ.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAllergies((prev) => prev.filter(isAvoidancePreferenceItem))}
+                  className={`text-[11px] font-semibold transition-colors ${foodAllergies.length > 0
+                    ? "text-violet-700 hover:text-violet-900 underline cursor-pointer"
+                    : "text-stone-400 cursor-default"
                     }`}
-                  >
-                    {isSelected ? `⚠ ${item.label}` : `+ ${item.label}`}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Free text custom allergy */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={customAllergyInput}
-                onChange={(e) => setCustomAllergyInput(e.target.value)}
-                placeholder="Nhập tên nguyên liệu dị ứng khác (VD: Muối tiêu, Cà chua...)"
-                className="flex-1 text-xs rounded-xl border border-stone-200 p-2.5 focus:border-violet-500 focus:outline-none"
-              />
-              <button
-                type="button"
-                onClick={handleAddCustomAllergy}
-                className="px-3.5 py-2.5 rounded-xl bg-stone-900 text-white text-xs font-bold hover:bg-black cursor-pointer flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Thêm
-              </button>
-            </div>
-
-            {/* Selected tags */}
-            {allergies.length > 0 && (
-              <div className="mt-2.5 flex flex-wrap gap-1.5 items-center">
-                <span className="text-[10px] text-stone-400 font-bold uppercase">Đã chọn:</span>
-                {allergies.map((a) => (
-                  <span
-                    key={a}
-                    className="px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-semibold flex items-center gap-1"
-                  >
-                    {ALLERGY_MASTER_LIST.find((m) => m.id === a)?.label || a}
-                    <button
-                      type="button"
-                      onClick={() => setAllergies(allergies.filter((x) => x !== a))}
-                      className="hover:text-red-600 font-bold cursor-pointer"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
+                  title={foodAllergies.length > 0 ? "Bỏ chọn tất cả dị ứng thực phẩm" : "Chưa chọn dị ứng nào"}
+                >
+                  Tôi không dị ứng gì
+                </button>
               </div>
-            )}
+
+              {/* VÙNG CÁC PHẦN ĐƯỢC CHỌN - ĐẶT Ở TRÊN HÀNG ĐẦU */}
+              <div className="p-2.5 rounded-xl bg-white border border-stone-200 space-y-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-bold text-stone-700 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                    Dị ứng đã chọn ({foodAllergies.length}):
+                  </span>
+                  {foodAllergies.length > 0 && (
+                    <span className="text-[10px] text-stone-400">Nhấn × để gỡ</span>
+                  )}
+                </div>
+
+                {foodAllergies.length === 0 ? (
+                  <p className="text-[11px] text-stone-400 italic">
+                    Chưa chọn dị ứng nào (Hệ thống không loại trừ món vì lý do dị ứng)
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    {foodAllergies.map((a) => (
+                      <span
+                        key={a}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs"
+                      >
+                        <span>⚠ {ALLERGY_MASTER_LIST.find((m) => m.id === a)?.label || a}</span>
+                        <button
+                          type="button"
+                          onClick={() => setAllergies(allergies.filter((x) => x !== a))}
+                          className="hover:text-red-700 font-bold cursor-pointer transition-colors"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Nhóm dị ứng phổ biến (gồm cả nguyên liệu tự thêm như Nấm rơm) */}
+              <div className="space-y-1">
+                <span className="text-[11px] font-semibold text-stone-600">Nhóm dị ứng phổ biến:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {/* Nhóm chuẩn */}
+                  {FOOD_ALLERGY_MASTER_LIST.map((item) => {
+                    const isSelected = foodAllergies.includes(item.id);
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => toggleAllergy(item.id)}
+                        className={`px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer flex items-center gap-1 ${isSelected
+                            ? "bg-amber-100 border-amber-400 text-amber-950 font-bold shadow-2xs"
+                            : "bg-white border-stone-200 text-stone-700 hover:bg-stone-100"
+                          }`}
+                      >
+                        {isSelected ? `✓ ${item.label}` : `+ ${item.label}`}
+                      </button>
+                    );
+                  })}
+
+                  {/* Nguyên liệu tự do do người dùng thêm */}
+                  {foodAllergies
+                    .filter((a) => !FOOD_ALLERGY_MASTER_LIST.some((m) => m.id === a))
+                    .map((customItem) => (
+                      <button
+                        key={customItem}
+                        type="button"
+                        onClick={() => setAllergies(allergies.filter((x) => x !== customItem))}
+                        className="px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer flex items-center gap-1.5 bg-amber-100 border-amber-400 text-amber-950 font-bold shadow-2xs animate-in fade-in"
+                      >
+                        <span>✓ {ALLERGY_MASTER_LIST.find((m) => m.id === customItem)?.label || customItem}</span>
+                        <span className="hover:text-red-700 font-bold">×</span>
+                      </button>
+                    ))}
+                </div>
+              </div>
+
+              {/* Nhập nguyên liệu dị ứng tự do - thêm là xuất hiện ngay lên trên phần được chọn */}
+              <div className="space-y-1 pt-1 border-t border-stone-200">
+                <span className="text-[11px] font-semibold text-stone-600">Thêm nguyên liệu dị ứng khác:</span>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customAllergyInput}
+                    onChange={(e) => setCustomAllergyInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddCustomAllergy();
+                      }
+                    }}
+                    placeholder="Nhập tên nguyên liệu dị ứng khác (VD: Muối tiêu, Cà chua, Nấm rơm...)"
+                    className="flex-1 text-xs rounded-xl border border-stone-200 p-2.5 bg-white focus:border-violet-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCustomAllergy}
+                    className="px-3.5 py-2.5 rounded-xl bg-stone-900 text-white text-xs font-bold hover:bg-black cursor-pointer flex items-center gap-1 shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Thêm vào dị ứng
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Mục B: Thực phẩm cần tránh / Kiêng kỵ */}
+            <div className="p-3.5 rounded-2xl bg-white border border-stone-200 space-y-3">
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-stone-700">
+                  5. Thực phẩm cần tránh / Kiêng kỵ
+                </h4>
+                <p className="text-[11px] text-stone-500 mt-0.5">
+                  Cảnh báo theo trường phái ăn chay hoặc kiêng kỵ theo tín ngưỡng cá nhân.
+                </p>
+              </div>
+
+              {/* Khối cảnh báo theo trường phái */}
+              <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Cảnh báo cần tránh theo trường phái ({VEGETARIAN_TYPE_OPTIONS.find(v => v.id === vegetarianType)?.label || "ăn chay"}):</span>
+                </div>
+
+                {vegetarianType === "vegan" && (
+                  <div className="flex flex-wrap gap-2 pt-0.5">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs">
+                      <span>⚠️ Sữa &amp; Chế phẩm sữa (Lactose)</span>
+                      <span className="text-[10px] bg-amber-200 text-amber-900 px-1 py-0.2 rounded font-bold">Cảnh báo</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs">
+                      <span>⚠️ Trứng (Trứng gà / vịt)</span>
+                      <span className="text-[10px] bg-amber-200 text-amber-900 px-1 py-0.2 rounded font-bold">Cảnh báo</span>
+                    </span>
+                  </div>
+                )}
+
+                {vegetarianType === "lacto_vegetarian" && (
+                  <div className="flex flex-wrap gap-2 pt-0.5">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs">
+                      <span>⚠️ Trứng (Trứng gà / vịt)</span>
+                      <span className="text-[10px] bg-amber-200 text-amber-900 px-1 py-0.2 rounded font-bold">Cảnh báo</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs text-stone-700 bg-stone-100 border border-stone-200">
+                      X Sữa &amp; chế phẩm từ sữa: Dùng được
+                    </span>
+                  </div>
+                )}
+
+                {vegetarianType === "ovo_vegetarian" && (
+                  <div className="flex flex-wrap gap-2 pt-0.5">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs">
+                      <span>⚠️ Sữa &amp; Chế phẩm sữa (Lactose)</span>
+                      <span className="text-[10px] bg-amber-200 text-amber-900 px-1 py-0.2 rounded font-bold">Cảnh báo</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs text-stone-700 bg-stone-100 border border-stone-200">
+                      ✓ Trứng gà / vịt: Dùng được
+                    </span>
+                  </div>
+                )}
+
+                {vegetarianType === "lacto_ovo_vegetarian" && (
+                  <p className="text-xs text-stone-600">
+                    X Chế độ này dùng được cả Trứng và Sữa (không có thành phần cảnh báo cần tránh theo trường phái).
+                  </p>
+                )}
+              </div>
+
+              {/* Nhóm kiêng kỵ bổ sung */}
+
+            </div>
           </div>
 
           {/* 5. Live Nutrition Calculation Preview */}

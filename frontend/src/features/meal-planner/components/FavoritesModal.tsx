@@ -345,22 +345,20 @@ export function FavoritesModal({
         <div className="flex items-center gap-2 px-6 pt-3 border-b border-stone-100 bg-white">
           <button
             onClick={() => setActiveTab("recipes")}
-            className={`pb-3 text-xs font-bold transition-colors border-b-2 cursor-pointer flex items-center gap-1.5 ${
-              activeTab === "recipes"
+            className={`pb-3 text-xs font-bold transition-colors border-b-2 cursor-pointer flex items-center gap-1.5 ${activeTab === "recipes"
                 ? "border-emerald-700 text-emerald-800"
                 : "border-transparent text-stone-500 hover:text-stone-800"
-            }`}
+              }`}
           >
             <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
             <span>Món ăn yêu thích ({favRecipes.length})</span>
           </button>
           <button
             onClick={() => setActiveTab("plans")}
-            className={`pb-3 text-xs font-bold transition-colors border-b-2 cursor-pointer flex items-center gap-1.5 ${
-              activeTab === "plans"
+            className={`pb-3 text-xs font-bold transition-colors border-b-2 cursor-pointer flex items-center gap-1.5 ${activeTab === "plans"
                 ? "border-emerald-700 text-emerald-800"
                 : "border-transparent text-stone-500 hover:text-stone-800"
-            }`}
+              }`}
           >
             <CalendarDays className="w-3.5 h-3.5 text-emerald-700" />
             <span>Thực đơn đã lưu ({savedPlans.length})</span>
@@ -714,11 +712,10 @@ export function FavoritesModal({
                   return (
                     <div
                       key={plan.id}
-                      className={`rounded-2xl border transition-all shadow-2xs overflow-hidden ${
-                        isExpanded
+                      className={`rounded-2xl border transition-all shadow-2xs overflow-hidden ${isExpanded
                           ? "border-emerald-500 bg-white ring-2 ring-emerald-100"
                           : "border-stone-200 bg-white hover:border-emerald-300"
-                      }`}
+                        }`}
                     >
                       {/* Plan Header Row - Clickable to preview card */}
                       <div
@@ -731,8 +728,8 @@ export function FavoritesModal({
                               {plan.planType === "monthly" && (plan.days?.length || 0) > 1
                                 ? "Thực đơn tháng"
                                 : plan.planType === "weekly" && (plan.days?.length || 0) > 1
-                                ? "Thực đơn tuần"
-                                : "Thực đơn 1 ngày"}
+                                  ? "Thực đơn tuần"
+                                  : "Thực đơn 1 ngày"}
                             </span>
                             <h4 className="font-bold text-stone-900 text-sm truncate">
                               {plan.name}
@@ -854,17 +851,15 @@ export function FavoritesModal({
                                               [plan.id]: dIdx,
                                             }))
                                           }
-                                          className={`px-3 py-1.5 rounded-xl text-xs shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
-                                            isDayActive
+                                          className={`px-3 py-1.5 rounded-xl text-xs shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${isDayActive
                                               ? "bg-emerald-700 text-white font-bold shadow-xs scale-[1.02]"
                                               : "bg-white text-stone-700 hover:bg-stone-100 border border-stone-200"
-                                          }`}
+                                            }`}
                                         >
                                           <span>{d.shortDay || d.dayName || `Ngày ${dIdx + 1}`}</span>
                                           <span
-                                            className={`text-[10px] ${
-                                              isDayActive ? "text-emerald-200" : "text-stone-400"
-                                            }`}
+                                            className={`text-[10px] ${isDayActive ? "text-emerald-200" : "text-stone-400"
+                                              }`}
                                           >
                                             (~{Math.round(d.totalCalories)} kcal)
                                           </span>
