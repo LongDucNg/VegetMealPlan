@@ -5,6 +5,8 @@ import { UserProfile, Gender, ActivityLevel, HealthGoal, VegetarianType, formatA
 import { useProfile } from "../hooks/useProfile";
 import {
   ALLERGY_MASTER_LIST,
+  FOOD_ALLERGY_MASTER_LIST,
+  AVOIDANCE_PREFERENCE_LIST,
   HEALTH_GOAL_OPTIONS,
   VEGETARIAN_TYPE_OPTIONS,
   ACTIVITY_LEVEL_OPTIONS,
@@ -48,6 +50,7 @@ export function ProfileEditor() {
   const [allergies, setAllergies] = useState<string[]>(profile.allergies || []);
 
   // Free-form allergy input with validation (Cô #13)
+  const [customAllergens, setCustomAllergens] = useState<string[]>([]);
   const [customAllergyInput, setCustomAllergyInput] = useState("");
   const [customAllergyError, setCustomAllergyError] = useState<string | null>(null);
 
@@ -121,6 +124,19 @@ export function ProfileEditor() {
       baseAllergies = baseAllergies.filter((a) => !isEggAllergyItem(a) && !isDairyAllergyItem(a));
     }
     setAllergies(baseAllergies);
+
+    // Lưu các nguyên liệu dị ứng riêng do người dùng thêm vào
+    const initialCustom = (profile.allergies || []).filter((a) => {
+      const aLower = a.toLowerCase();
+      const isStd = FOOD_ALLERGY_MASTER_LIST.some(
+        (m) => m.id.toLowerCase() === aLower || m.label.toLowerCase() === aLower
+      );
+      const isAvoid = isAvoidancePreferenceItem(a);
+      const isEgg = isEggAllergyItem(a);
+      const isDairy = isDairyAllergyItem(a);
+      return !isStd && !isAvoid && !isEgg && !isDairy;
+    });
+    setCustomAllergens(initialCustom);
   }, [profile]);
 
   // Load server nutrition summary on mount and when profile changes
@@ -159,6 +175,22 @@ export function ProfileEditor() {
   const hasEggAllergy = allergies.some(isEggAllergyItem);
   const hasDairyAllergy = allergies.some(isDairyAllergyItem);
 
+  // Phân loại danh sách Dị ứng thực phẩm vs Thực phẩm cần tránh
+  const isAvoidancePreferenceItem = (item: string) => {
+    const s = item.toLowerCase().trim();
+    return (
+      s === "allium" ||
+      s.includes("hành tỏi") ||
+      s.includes("ngũ vị tân") ||
+      s.includes("ngu vi tan")
+    );
+  };
+
+  const foodAllergies = allergies.filter(
+    (a) => !isAvoidancePreferenceItem(a) && !isEggAllergyItem(a) && !isDairyAllergyItem(a)
+  );
+  const avoidanceList = allergies.filter((a) => isAvoidancePreferenceItem(a));
+
   // 1. Chiều 1: Kiểm tra dị ứng có bị vô hiệu hóa hoặc mâu thuẫn bởi trường phái ăn chay hiện tại hay không
   // Chế độ Thuần chay làm mờ cả Trứng và Sữa; Chay có sữa làm mờ Trứng; Chay có trứng làm mờ Sữa
   const isAllergyDisabledByDiet = (allergyId: string) => {
@@ -167,19 +199,19 @@ export function ProfileEditor() {
 
     // Thuần chay (Vegan): Tự động né cả Trứng và Sữa -> Làm mờ cả hai, không cho chọn vào dị ứng
     if (vegetarianType === "vegan") {
-      if (isEgg) return "Chế độ Thuần chay (Vegan) đã tự động né Trứng";
-      if (isDairy) return "Chế độ Thuần chay (Vegan) đã tự động né Sữa & Chế phẩm sữa";
+      if (isEgg) return "Chế độ Thuần chay (Vegan) cảnh báo cần tránh Trứng";
+      if (isDairy) return "Chế độ Thuần chay (Vegan) cảnh báo cần tránh Sữa & Chế phẩm sữa";
     }
 
     // Chay có sữa (Lacto): Tự động né Trứng -> Làm mờ Trứng; và không cho chọn Sữa vì đang theo chế độ uống sữa
     if (vegetarianType === "lacto_vegetarian") {
-      if (isEgg) return "Chế độ Chay có sữa (Lacto) đã tự động né Trứng";
+      if (isEgg) return "Chế độ Chay có sữa (Lacto) cảnh báo cần tránh Trứng";
       if (isDairy) return "Bạn đang theo trường phái Chay có sữa (Lacto). Nếu dị ứng Sữa, hãy chuyển sang Thuần chay (Vegan).";
     }
 
     // Chay có trứng (Ovo): Tự động né Sữa -> Làm mờ Sữa; và không cho chọn Trứng vì đang theo chế độ ăn trứng
     if (vegetarianType === "ovo_vegetarian") {
-      if (isDairy) return "Chế độ Chay có trứng (Ovo) đã tự động né Sữa & Chế phẩm sữa";
+      if (isDairy) return "Chế độ Chay có trứng (Ovo) cảnh báo cần tránh Sữa & Chế phẩm sữa";
       if (isEgg) return "Bạn đang theo trường phái Chay có trứng (Ovo). Nếu dị ứng Trứng, hãy chuyển sang Thuần chay (Vegan).";
     }
 
@@ -290,7 +322,7 @@ export function ProfileEditor() {
 
     const lower = trimmed.toLowerCase();
 
-    // 1. Kiểm tra theo nhóm chuẩn có sẵn (VD gõ "Nấm", "Trứng", "Bắp")
+    // 1. Kiểm tra theo nhóm chuẩn có sẵn (VD gõ "Nấm", "Bắp", "Đậu phộng")
     const matchedMaster = ALLERGY_MASTER_LIST.find(
       (m) => m.label.toLowerCase() === lower || m.id.toLowerCase() === lower
     );
@@ -301,27 +333,21 @@ export function ProfileEditor() {
     const matchedIngSub = SYSTEM_INGREDIENTS.find((ing) => ing.name.toLowerCase().includes(lower));
     const matchedIng = matchedIngExact || (!matchedMaster ? (matchedIngPrefix || matchedIngSub) : null);
 
-    if (!matchedIng && !matchedMaster) {
-      setCustomAllergyError(
-        `Nguyên liệu "${trimmed}" không có trong danh mục nguyên liệu của hệ thống. Vui lòng chọn nguyên liệu có sẵn.`
-      );
-      return;
-    }
+    // Nếu không thuộc nhóm chuẩn hay 190 nguyên liệu, vẫn cho phép thêm như nguyên liệu riêng biệt
+    const canonicalName = matchedIng ? matchedIng.name : (matchedMaster ? matchedMaster.label : trimmed);
+    const itemToAdd = matchedIng ? matchedIng.name : (matchedMaster ? matchedMaster.id : trimmed);
 
-    const canonicalName = matchedIng ? matchedIng.name : matchedMaster!.label;
-    const itemToAdd = matchedIng ? matchedIng.name : matchedMaster!.id;
-
-    // Chặn thêm dị ứng mâu thuẫn hoặc đã được tự động né bởi trường phái ăn chay đã chọn
+    // Chặn thêm dị ứng mâu thuẫn hoặc đã có cảnh báo theo trường phái ăn chay
     const isEgg = isEggAllergyItem(canonicalName);
     const isDairy = isDairyAllergyItem(canonicalName);
 
     if (vegetarianType === "vegan" && (isEgg || isDairy)) {
-      setCustomAllergyError("Chế độ Thuần chay (Vegan) đã tự động né cả Trứng và Sữa, bạn không cần thêm vào danh sách dị ứng.");
+      setCustomAllergyError("Trường phái Thuần chay (Vegan) đã có cảnh báo cần tránh cả Trứng và Sữa ở mục Thực phẩm cần tránh.");
       return;
     }
     if (vegetarianType === "lacto_vegetarian") {
       if (isEgg) {
-        setCustomAllergyError("Chế độ Chay có sữa (Lacto) đã tự động né Trứng, bạn không cần thêm vào danh sách dị ứng.");
+        setCustomAllergyError("Chế độ Chay có sữa (Lacto) cảnh báo cần tránh Trứng, bạn không cần thêm vào danh sách dị ứng.");
         return;
       }
       if (isDairy) {
@@ -331,7 +357,7 @@ export function ProfileEditor() {
     }
     if (vegetarianType === "ovo_vegetarian") {
       if (isDairy) {
-        setCustomAllergyError("Chế độ Chay có trứng (Ovo) đã tự động né Sữa, bạn không cần thêm vào danh sách dị ứng.");
+        setCustomAllergyError("Chế độ Chay có trứng (Ovo) cảnh báo cần tránh Sữa, bạn không cần thêm vào danh sách dị ứng.");
         return;
       }
       if (isEgg) {
@@ -354,6 +380,10 @@ export function ProfileEditor() {
     }
 
     setAllergies((prev) => [...prev, itemToAdd]);
+    setCustomAllergens((prev) => {
+      if (prev.some((c) => c.toLowerCase() === itemToAdd.toLowerCase())) return prev;
+      return [...prev, itemToAdd];
+    });
     setCustomAllergyInput("");
   };
 
@@ -404,12 +434,11 @@ export function ProfileEditor() {
   };
 
   const handleDeclareNoAllergies = () => {
-    // Nếu chưa chọn dị ứng nào thì không làm gì cả
-    if (!allergies || allergies.length === 0) {
+    if (!foodAllergies || foodAllergies.length === 0) {
       return;
     }
-    // Xóa hết dị ứng người dùng đã chọn
-    setAllergies([]);
+    // Chỉ xóa các dị ứng thực phẩm, giữ nguyên các kiêng kỵ cá nhân / tôn giáo
+    setAllergies((prev) => prev.filter(isAvoidancePreferenceItem));
     setCustomAllergyInput("");
     setCustomAllergyError(null);
   };
@@ -1050,16 +1079,7 @@ export function ProfileEditor() {
                         <p className="text-[11px] leading-relaxed text-amber-800">
                           Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Thừa cân / Béo phì). Việc nạp calo thặng dư để tăng cân có thể gia tăng mỡ nội tạng và áp lực lên tim mạch.
                         </p>
-                        <div className="pt-1">
-                          <button
-                            type="button"
-                            onClick={() => setHealthGoal("lose_weight")}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-                            Chuyển sang mục tiêu: Giảm cân lành mạnh
-                          </button>
-                        </div>
+
                       </div>
                     </div>
                   </div>
@@ -1079,16 +1099,7 @@ export function ProfileEditor() {
                         <p className="text-[11px] leading-relaxed text-amber-800">
                           Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Thừa cân / Béo phì). Việc duy trì mức cân nặng này không phù hợp vì có thể duy trì áp lực lên hệ xương khớp, tim mạch và nguy cơ rối loạn chuyển hóa. Khuyến nghị bạn nên chọn mục tiêu <strong>Giảm cân lành mạnh</strong> để đưa cân nặng về ngưỡng chuẩn an toàn (BMI 18.5 - 22.9).
                         </p>
-                        <div className="pt-1">
-                          <button
-                            type="button"
-                            onClick={() => setHealthGoal("lose_weight")}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-                            Chuyển sang mục tiêu: Giảm cân lành mạnh
-                          </button>
-                        </div>
+
                       </div>
                     </div>
                   </div>
@@ -1137,49 +1148,58 @@ export function ProfileEditor() {
                 })}
               </div>
 
-              {/* Thông báo quy tắc né Trứng / Sữa theo trường phái ăn chay */}
+              {/* Cảnh báo quy tắc thành phần cần tránh theo trường phái ăn chay */}
               {vegetarianType && (
-                <div className="mt-3 p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 text-emerald-950 text-xs space-y-1 animate-in fade-in">
-                  <div className="flex items-start gap-2">
-                    <Sparkles className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-                    <div>
+                <div className="mt-3 p-3.5 rounded-2xl bg-amber-50/80 border border-amber-300 text-amber-950 text-xs space-y-1 animate-in fade-in shadow-2xs">
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5 flex-1">
                       {vegetarianType === "vegan" && (
                         <>
-                          <p className="font-bold text-emerald-900">
-                            Thuần chay (Vegan): Tự động né Trứng và Sữa
+                          <p className="font-bold text-amber-950 flex flex-wrap items-center gap-1.5">
+                            <span>Cảnh báo cần tránh theo trường phái Thuần chay (Vegan):</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-200/90 text-amber-900 border border-amber-300">
+                              Tránh Trứng &amp; Sữa
+                            </span>
                           </p>
-                          <p className="text-[11px] text-emerald-800 leading-relaxed mt-0.5">
-                            Hệ thống tự động loại trừ mọi món ăn và nguyên liệu có chứa Trứng, Sữa hoặc chế phẩm từ sữa khi gợi ý món và tạo thực đơn. Bạn không cần chọn Trứng / Sữa ở mục dị ứng.
+                          <p className="text-[11px] text-amber-800 leading-relaxed">
+                            Hệ thống cảnh báo và loại trừ mọi món ăn và nguyên liệu có chứa Trứng, Sữa hoặc chế phẩm từ sữa khi gợi ý món và tạo thực đơn. Bạn có thể theo dõi chi tiết ở mục Thực phẩm cần tránh bên dưới.
                           </p>
                         </>
                       )}
                       {vegetarianType === "lacto_vegetarian" && (
                         <>
-                          <p className="font-bold text-emerald-900">
-                            Chay có sữa (Lacto): Tự động né Trứng — Dùng được Sữa
+                          <p className="font-bold text-amber-950 flex flex-wrap items-center gap-1.5">
+                            <span>Cảnh báo cần tránh theo trường phái Chay có sữa (Lacto):</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-200/90 text-amber-900 border border-amber-300">
+                              Tránh Trứng
+                            </span>
                           </p>
-                          <p className="text-[11px] text-emerald-800 leading-relaxed mt-0.5">
-                            Hệ thống tự động loại trừ mọi món ăn có chứa Trứng gà / vịt; cho phép bạn tiêu thụ sữa tươi, sữa chua, phô mai và các chế phẩm từ sữa.
+                          <p className="text-[11px] text-amber-800 leading-relaxed">
+                            Hệ thống cảnh báo và loại trừ mọi món ăn có chứa Trứng gà / vịt; cho phép bạn tiêu thụ sữa tươi, sữa chua, phô mai và các chế phẩm từ sữa.
                           </p>
                         </>
                       )}
                       {vegetarianType === "ovo_vegetarian" && (
                         <>
-                          <p className="font-bold text-emerald-900">
-                            Chay có trứng (Ovo): Tự động né Sữa — Dùng được Trứng
+                          <p className="font-bold text-amber-950 flex flex-wrap items-center gap-1.5">
+                            <span>Cảnh báo cần tránh theo trường phái Chay có trứng (Ovo):</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-200/90 text-amber-900 border border-amber-300">
+                              Tránh Sữa
+                            </span>
                           </p>
-                          <p className="text-[11px] text-emerald-800 leading-relaxed mt-0.5">
-                            Hệ thống tự động loại trừ mọi món ăn có chứa Sữa &amp; chế phẩm từ sữa; cho phép bạn tiêu thụ trứng gà, trứng vịt.
+                          <p className="text-[11px] text-amber-800 leading-relaxed">
+                            Hệ thống cảnh báo và loại trừ mọi món ăn có chứa Sữa &amp; chế phẩm từ sữa; cho phép bạn tiêu thụ trứng gà, trứng vịt.
                           </p>
                         </>
                       )}
                       {vegetarianType === "lacto_ovo_vegetarian" && (
                         <>
-                          <p className="font-bold text-emerald-900">
-                            Chay có trứng &amp; sữa (Ovo-Lacto): Dùng được cả Trứng và Sữa
+                          <p className="font-bold text-stone-900">
+                            Trường phái Chay có trứng &amp; sữa (Ovo-Lacto): Dùng được cả Trứng và Sữa
                           </p>
-                          <p className="text-[11px] text-emerald-800 leading-relaxed mt-0.5">
-                            Chế độ này cho phép tiêu thụ cả Trứng và Sữa (không cần né gì mặc định). Nếu bạn có dị ứng thực phẩm cụ thể (đậu phộng, đậu nành, gluten...), hệ thống vẫn né theo danh sách dị ứng bên dưới.
+                          <p className="text-[11px] text-stone-600 leading-relaxed">
+                            Chế độ này cho phép tiêu thụ cả Trứng và Sữa (không có thành phần cảnh báo cần tránh theo trường phái). Các dị ứng thực phẩm cụ thể bạn chọn bên dưới vẫn được áp dụng chặt chẽ.
                           </p>
                         </>
                       )}
@@ -1206,137 +1226,280 @@ export function ProfileEditor() {
               )}
             </div>
 
-            {/* Allergies & Free text input */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-stone-700">
-                  Dị ứng thực phẩm / Cần tránh
-                </label>
-                <button
-                  type="button"
-                  onClick={handleDeclareNoAllergies}
-                  className={`text-[11px] font-semibold transition-colors ${allergies && allergies.length > 0
-                    ? "text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
-                    : "text-stone-400 cursor-default"
-                    }`}
-                  title={allergies && allergies.length > 0 ? "Bỏ chọn tất cả dị ứng" : "Chưa chọn dị ứng nào"}
-                >
-                  Tôi không dị ứng gì
-                </button>
-              </div>
-              <p className="text-[11px] text-stone-500 mb-2">
-                Chọn các nhóm có sẵn hoặc nhập tự do nguyên liệu bạn dị ứng để AI tự động loại trừ.
-              </p>
-
-              {/* Master allergy list tags */}
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {ALLERGY_MASTER_LIST.map((item) => {
-                  const itemCode = ALLERGEN_MAP_TO_BACKEND[item.id.toLowerCase()];
-                  const isSelected = allergies.some((a) => {
-                    const aLower = a.toLowerCase();
-                    const aCode = ALLERGEN_MAP_TO_BACKEND[aLower];
-                    return (
-                      aLower === item.id.toLowerCase() ||
-                      aLower === item.label.toLowerCase() ||
-                      (itemCode && aCode === itemCode)
-                    );
-                  });
-                  const disabledReason = isAllergyDisabledByDiet(item.id);
-                  const isDisabled = Boolean(disabledReason);
-                  const isEgg = isEggAllergyItem(item.id);
-                  const isDairy = isDairyAllergyItem(item.id);
-                  const isAutoExcludedByDiet =
-                    (vegetarianType === "vegan" && (isEgg || isDairy)) ||
-                    (vegetarianType === "lacto_vegetarian" && isEgg) ||
-                    (vegetarianType === "ovo_vegetarian" && isDairy);
-
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      disabled={isDisabled}
-                      title={disabledReason || undefined}
-                      onClick={() => !isDisabled && toggleAllergy(item.id)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                        isAutoExcludedByDiet
-                          ? "bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-2xs cursor-default font-medium"
-                          : isDisabled
-                          ? "bg-stone-100 text-stone-400 border border-stone-200 cursor-not-allowed opacity-50"
-                          : isSelected
-                          ? "bg-amber-100 text-amber-900 border border-amber-300 ring-1 ring-amber-300 shadow-2xs cursor-pointer"
-                          : "bg-stone-100 text-stone-600 hover:bg-stone-200 border border-stone-200 cursor-pointer"
-                      }`}
-                    >
-                      {isAutoExcludedByDiet
-                        ? `✓ ${item.label} (Đã tự động né)`
-                        : isDisabled
-                        ? `${item.label} (Không khả dụng)`
-                        : isSelected
-                        ? `⚠ ${item.label}`
-                        : item.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Free-form allergy input form (Cô #13) */}
-              <div className="space-y-1.5 pt-1">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={customAllergyInput}
-                    onChange={(e) => {
-                      setCustomAllergyInput(e.target.value);
-                      if (customAllergyError) setCustomAllergyError(null);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddCustomAllergy(e);
-                      }
-                    }}
-                    placeholder="Nhập tên nguyên liệu dị ứng (VD: Muối, Cà chua, Nấm rơm...)"
-                    className="flex-1 h-9 rounded-xl border border-stone-200 bg-stone-50 px-3 text-xs focus:bg-white focus:border-emerald-600 outline-none"
-                  />
-
+            {/* TÁCH RIÊNG 2 MỤC: DỊ ỨNG THỰC PHẨM & THỰC PHẨM CẦN TRÁNH */}
+            <div className="space-y-5 pt-1">
+              {/* MỤC 1: DỊ ỨNG THỰC PHẨM (FOOD ALLERGIES) */}
+              <div className="p-4 rounded-2xl bg-white border border-stone-200 shadow-2xs space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-900">
+                      1. Dị ứng thực phẩm
+                    </label>
+                    <p className="text-[11px] text-stone-500 mt-0.5">
+                      Chọn các nhóm có sẵn hoặc nhập tự do nguyên liệu bạn dị ứng để AI và hệ thống tuyệt đối loại trừ khỏi bữa ăn.
+                    </p>
+                  </div>
                   <button
                     type="button"
-                    onClick={handleAddCustomAllergy}
-                    className="h-9 px-3.5 rounded-xl bg-stone-800 hover:bg-stone-900 text-white text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                    onClick={handleDeclareNoAllergies}
+                    className={`text-[11px] font-semibold transition-colors ${foodAllergies.length > 0
+                      ? "text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
+                      : "text-stone-400 cursor-default"
+                      }`}
+                    title={foodAllergies.length > 0 ? "Bỏ chọn tất cả dị ứng thực phẩm" : "Chưa chọn dị ứng nào"}
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    Thêm
+                    Tôi không dị ứng gì
                   </button>
                 </div>
 
-                {customAllergyError && (
-                  <p className="text-[11px] text-red-600 font-medium flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {customAllergyError}
-                  </p>
-                )}
-
-                {/* Danh sách dị ứng tự do đã thêm */}
-                {allergies.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-2">
-                    <span className="text-[11px] text-stone-400 self-center mr-1">Đã chọn:</span>
-                    {allergies.map((item) => (
-                      <span
-                        key={item}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200"
-                      >
-                        ⚠ {getAllergyDisplayLabel(item)}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAllergy(item)}
-                          className="hover:text-red-700 cursor-pointer"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))}
+                {/* VÙNG CÁC PHẦN ĐƯỢC CHỌN - ĐƯỢC ĐẶT LÊN TRÊN HÀNG ĐẦU */}
+                <div className="p-3 rounded-xl bg-stone-50 border border-stone-200/90 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-stone-700 flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                      Dị ứng đã chọn ({foodAllergies.length}):
+                    </span>
+                    {foodAllergies.length > 0 && (
+                      <span className="text-[10px] text-stone-400">Nhấn × để gỡ bỏ</span>
+                    )}
                   </div>
-                )}
+
+                  {foodAllergies.length === 0 ? (
+                    <p className="text-[11px] text-stone-400 italic pt-0.5">
+                      Chưa chọn dị ứng nào (Hệ thống không loại trừ món vì lý do dị ứng)
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {foodAllergies.map((item) => (
+                        <span
+                          key={item}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs animate-in fade-in"
+                        >
+                          <span>⚠ {getAllergyDisplayLabel(item)}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAllergy(item)}
+                            className="hover:text-red-700 cursor-pointer p-0.5 rounded-full hover:bg-amber-200/60 transition-colors"
+                            title={`Xóa ${getAllergyDisplayLabel(item)}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Nhóm dị ứng thực phẩm phổ biến (bao gồm Nấm và các nguyên liệu tự thêm như Nấm rơm) */}
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-semibold text-stone-600">
+                    Nhóm dị ứng thực phẩm phổ biến:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {/* Các nhóm chuẩn có sẵn (Đậu phộng, Đậu nành, Gluten, Nấm...) */}
+                    {FOOD_ALLERGY_MASTER_LIST.map((item) => {
+                      const itemCode = ALLERGEN_MAP_TO_BACKEND[item.id.toLowerCase()];
+                      const isSelected = foodAllergies.some((a) => {
+                        const aLower = a.toLowerCase();
+                        const aCode = ALLERGEN_MAP_TO_BACKEND[aLower];
+                        return (
+                          aLower === item.id.toLowerCase() ||
+                          aLower === item.label.toLowerCase() ||
+                          (itemCode && aCode === itemCode)
+                        );
+                      });
+
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => toggleAllergy(item.id)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${isSelected
+                            ? "bg-amber-100 text-amber-900 border border-amber-400 ring-1 ring-amber-300 shadow-2xs font-bold"
+                            : "bg-stone-100 text-stone-700 hover:bg-stone-200 border border-stone-200"
+                            }`}
+                        >
+                          {isSelected ? `✓ ${item.label}` : `+ ${item.label}`}
+                        </button>
+                      );
+                    })}
+
+                    {/* Các nguyên liệu dị ứng riêng do người dùng tự nhập (VD: Nấm rơm) - thêm vào ô này luôn */}
+                    {Array.from(
+                      new Set([
+                        ...customAllergens,
+                        ...foodAllergies.filter((a) => {
+                          const aLower = a.toLowerCase();
+                          return !FOOD_ALLERGY_MASTER_LIST.some((m) => {
+                            const mLower = m.id.toLowerCase();
+                            const mCode = ALLERGEN_MAP_TO_BACKEND[mLower];
+                            const aCode = ALLERGEN_MAP_TO_BACKEND[aLower];
+                            return (
+                              mLower === aLower ||
+                              m.label.toLowerCase() === aLower ||
+                              (mCode && aCode === mCode)
+                            );
+                          });
+                        }),
+                      ])
+                    ).map((customItem) => {
+                      const isSelected = foodAllergies.some(
+                        (a) => a.toLowerCase() === customItem.toLowerCase()
+                      );
+
+                      return (
+                        <button
+                          key={customItem}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setAllergies((prev) =>
+                                prev.filter((a) => a.toLowerCase() !== customItem.toLowerCase())
+                              );
+                            } else {
+                              setAllergies((prev) => [...prev, customItem]);
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 animate-in fade-in ${isSelected
+                            ? "bg-amber-100 text-amber-950 border border-amber-400 ring-1 ring-amber-300 shadow-2xs font-bold"
+                            : "bg-stone-100 text-stone-700 hover:bg-stone-200 border border-stone-200"
+                            }`}
+                        >
+                          <span>
+                            {isSelected
+                              ? `✓ ${getAllergyDisplayLabel(customItem)}`
+                              : `+ ${getAllergyDisplayLabel(customItem)}`}
+                          </span>
+                          <span
+                            role="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAllergies((prev) =>
+                                prev.filter((a) => a.toLowerCase() !== customItem.toLowerCase())
+                              );
+                              setCustomAllergens((prev) =>
+                                prev.filter((c) => c.toLowerCase() !== customItem.toLowerCase())
+                              );
+                            }}
+                            className="hover:text-red-700 p-0.5 rounded-full hover:bg-stone-200/80 ml-0.5 transition-colors cursor-pointer"
+                            title={`Xóa hoàn toàn ${getAllergyDisplayLabel(customItem)}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Ô nhập nguyên liệu dị ứng tự do - thêm là xuất hiện ngay lên trên phần được chọn */}
+                <div className="space-y-1.5 pt-1 border-t border-stone-100">
+                  <span className="text-[11px] font-semibold text-stone-600">Thêm nguyên liệu dị ứng khác:</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={customAllergyInput}
+                      onChange={(e) => {
+                        setCustomAllergyInput(e.target.value);
+                        if (customAllergyError) setCustomAllergyError(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddCustomAllergy(e);
+                        }
+                      }}
+                      placeholder="Nhập tên nguyên liệu dị ứng (VD: Muối, Cà chua, Nấm rơm...)"
+                      className="flex-1 h-9 rounded-xl border border-stone-200 bg-stone-50 px-3 text-xs focus:bg-white focus:border-amber-600 outline-none"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={handleAddCustomAllergy}
+                      className="h-9 px-3.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Thêm vào dị ứng
+                    </button>
+                  </div>
+
+                  {customAllergyError && (
+                    <p className="text-[11px] text-red-600 font-medium flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {customAllergyError}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* MỤC 2: THỰC PHẨM CẦN TRÁNH / KIÊNG KỴ (FOODS TO AVOID & PREFERENCES) */}
+              <div className="p-4 rounded-2xl bg-white border border-stone-200 shadow-2xs space-y-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-stone-900">
+                    2. Thực phẩm cần tránh
+                  </label>
+                  <p className="text-[11px] text-stone-500 mt-0.5">
+                    Các thành phần cảnh báo cần tránh theo trường phái ăn chay hoặc kiêng kỵ theo tín ngưỡng, khẩu vị riêng.
+                  </p>
+                </div>
+
+                {/* Khối 1: Cảnh báo theo trường phái ăn chay (bỏ chữ tự động né, hiển thị dạng cảnh báo) */}
+                <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Cảnh báo cần tránh theo trường phái {VEGETARIAN_TYPE_OPTIONS.find(v => v.id === vegetarianType)?.label || "ăn chay"}:</span>
+                  </div>
+
+                  {vegetarianType === "vegan" && (
+                    <div className="flex flex-wrap gap-2 pt-0.5">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs">
+                        <span>⚠️ Sữa &amp; Chế phẩm sữa (Lactose)</span>
+                        <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-bold">Cảnh báo</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs">
+                        <span>⚠️ Trứng (Trứng gà / vịt)</span>
+                        <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-bold">Cảnh báo</span>
+                      </span>
+                    </div>
+                  )}
+
+                  {vegetarianType === "lacto_vegetarian" && (
+                    <div className="flex flex-wrap gap-2 pt-0.5">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs">
+                        <span>⚠️ Trứng (Trứng gà / vịt)</span>
+                        <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-bold">Cảnh báo</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs text-stone-700 bg-stone-100 border border-stone-200">
+                        ✓ Sữa &amp; chế phẩm từ sữa: Dùng được
+                      </span>
+                    </div>
+                  )}
+
+                  {vegetarianType === "ovo_vegetarian" && (
+                    <div className="flex flex-wrap gap-2 pt-0.5">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs">
+                        <span>⚠️ Sữa &amp; Chế phẩm sữa (Lactose)</span>
+                        <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-bold">Cảnh báo</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs text-stone-700 bg-stone-100 border border-stone-200">
+                        ✓ Trứng gà / vịt: Dùng được
+                      </span>
+                    </div>
+                  )}
+
+                  {vegetarianType === "lacto_ovo_vegetarian" && (
+                    <p className="text-xs text-stone-600">
+                      ✓ Chế độ này dùng được cả Trứng và Sữa (không có thành phần cảnh báo cần tránh theo trường phái).
+                    </p>
+                  )}
+                  {!vegetarianType && (
+                    <p className="text-xs text-stone-400 italic">
+                      Chọn trường phái ăn chay ở trên để hệ thống tự động thiết lập cảnh báo các thành phần cần tránh.
+                    </p>
+                  )}
+                </div>
+
+
               </div>
             </div>
           </div>
