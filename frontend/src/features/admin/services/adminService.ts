@@ -80,7 +80,64 @@ function mapBackendUserToMember(u: any): AdminMember {
   };
 }
 
+/** Chứng thực chuyển tiền đọc từ PayOS (khớp backend payos-proof.util.ts). Số tài khoản người chuyển đã được che. */
+export interface PayosProof {
+  source: "payos_webhook" | "payos_api" | "none";
+  hasProof: boolean;
+  payosStatus: string | null;
+  amount: number | null;
+  amountPaid: number | null;
+  reference: string | null;
+  transactionDateTime: string | null;
+  description: string | null;
+  paymentLinkId: string | null;
+  sender: { name: string | null; account: string | null; bankId: string | null; bankName: string | null };
+  receiver: { name: string | null; account: string | null; bank: string | null };
+}
+
+export interface AdminTransaction {
+  transaction_id: number;
+  user_id: number;
+  user: { user_id: number; full_name?: string; email?: string } | null;
+  amount: number;
+  gateway: string;
+  gateway_txn_ref: string;
+  gateway_transaction_no?: string | null;
+  status: "success" | "pending" | "failed" | string;
+  created_at: string;
+  paid_at?: string | null;
+  proof: PayosProof;
+}
+
+export interface TransactionProofCheck {
+  order_code: string;
+  checked_at: string;
+  found_on_payos: boolean;
+  message: string;
+  db: {
+    transaction_id: number;
+    status: string;
+    amount: number;
+    created_at: string;
+    paid_at?: string | null;
+    user: { user_id: number; full_name?: string; email?: string } | null;
+  };
+  proof: PayosProof | null;
+  consistency: { status_matches: boolean; amount_matches: boolean | null } | null;
+  payos_raw: unknown;
+}
+
 export const adminService = {
+  /** Lịch sử giao dịch kèm chứng thực người chuyển/người nhận tách từ webhook PayOS đã lưu. */
+  async fetchTransactions(params?: { search?: string; status?: string; gateway?: string }): Promise<AdminTransaction[]> {
+    const res = await apiClient.get<any>("/subscriptions/admin/transactions", { params });
+    return Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+  },
+  /** Đối soát trực tiếp một giao dịch với API PayOS (chỉ đọc). */
+  async fetchTransactionProof(orderCode: string): Promise<TransactionProofCheck> {
+    const res = await apiClient.get<any>(`/subscriptions/admin/transactions/${encodeURIComponent(orderCode)}/proof`);
+    return (res?.order_code ? res : res?.data) as TransactionProofCheck;
+  },
   getStats(): AdminStat[] {
     return ADMIN_STATS;
   },
