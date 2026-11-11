@@ -513,11 +513,10 @@ function PlannerContent() {
           <button
             type="button"
             onClick={() => setPlanType("daily")}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              planType === "daily"
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${planType === "daily"
                 ? "bg-white text-emerald-900 shadow-xs"
                 : "text-stone-600 hover:text-stone-900 hover:bg-stone-200/60"
-            }`}
+              }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
             <span>Xem Ngày</span>
@@ -526,11 +525,10 @@ function PlannerContent() {
           <button
             type="button"
             onClick={() => setPlanType("weekly")}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              planType === "weekly"
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${planType === "weekly"
                 ? "bg-white text-emerald-900 shadow-xs"
                 : "text-stone-600 hover:text-stone-900 hover:bg-stone-200/60"
-            }`}
+              }`}
           >
             <CalendarDays className="w-3.5 h-3.5 text-emerald-600" />
             <span>Xem Tuần</span>
@@ -539,11 +537,10 @@ function PlannerContent() {
           <button
             type="button"
             onClick={() => setPlanType("monthly")}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              planType === "monthly"
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${planType === "monthly"
                 ? "bg-white text-emerald-900 shadow-xs"
                 : "text-stone-600 hover:text-stone-900 hover:bg-stone-200/60"
-            }`}
+              }`}
           >
             <Calendar className="w-3.5 h-3.5 text-stone-800" />
             <span>Xem Tháng</span>
@@ -680,30 +677,27 @@ function PlannerContent() {
                   setActiveDayIndex(index);
                   if (calDay.dateKey) setSelectedDateKey(calDay.dateKey);
                 }}
-                className={`shrink-0 px-4 py-2 rounded-2xl text-xs font-semibold transition-all cursor-pointer flex flex-col justify-between ${
-                  isSelected
+                className={`shrink-0 px-4 py-2 rounded-2xl text-xs font-semibold transition-all cursor-pointer flex flex-col justify-between ${isSelected
                     ? "bg-emerald-700 text-white shadow-xs"
                     : hasPlan
-                    ? "bg-emerald-50/70 border border-emerald-300 text-emerald-950 hover:bg-emerald-100"
-                    : "bg-white border border-dashed border-stone-300 text-stone-500 hover:border-emerald-300 hover:text-stone-900"
-                }`}
+                      ? "bg-emerald-50/70 border border-emerald-300 text-emerald-950 hover:bg-emerald-100"
+                      : "bg-white border border-dashed border-stone-300 text-stone-500 hover:border-emerald-300 hover:text-stone-900"
+                  }`}
               >
                 <div className="font-bold">{d.shortDay}</div>
                 <div
-                  className={`text-[10px] ${
-                    isSelected ? "text-emerald-200" : "text-stone-400"
-                  }`}
+                  className={`text-[10px] ${isSelected ? "text-emerald-200" : "text-stone-400"
+                    }`}
                 >
                   {d.dateText}
                 </div>
                 <div
-                  className={`text-[10px] mt-0.5 font-bold ${
-                    isSelected
+                  className={`text-[10px] mt-0.5 font-bold ${isSelected
                       ? "text-amber-300"
                       : hasPlan
-                      ? "text-emerald-700"
-                      : "text-stone-400 italic"
-                  }`}
+                        ? "text-emerald-700"
+                        : "text-stone-400 italic"
+                    }`}
                 >
                   {hasPlan ? `~${Math.round(d.totalCalories)} kcal` : "Chưa tạo"}
                 </div>
