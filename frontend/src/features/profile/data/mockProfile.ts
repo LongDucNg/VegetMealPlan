@@ -16,24 +16,32 @@ export const DEFAULT_MOCK_PROFILE: UserProfile = {
   bio: "",
 };
 
-export const ALLERGY_MASTER_LIST = [
+export const FOOD_ALLERGY_MASTER_LIST = [
   { id: "peanut", label: "Đậu phộng (Lạc)" },
   { id: "soy", label: "Đậu nành & Đậu hũ" },
   { id: "gluten", label: "Gluten / Lúa mì" },
-  { id: "dairy", label: "Sữa & Chế phẩm sữa (Lactose)" },
   { id: "treenut", label: "Hạt cây (Điều, Hạnh nhân, Óc chó)" },
   { id: "sesame", label: "Mè & Hạt gieo (Vừng, Hướng dương, Bí)" },
   { id: "corn", label: "Bắp (Ngô)" },
-  { id: "egg", label: "Trứng" },
   { id: "legume", label: "Họ Đậu khác (Đậu đen, xanh, đỏ, gà...)" },
   { id: "fungi", label: "Nấm" },
+];
+
+export const AVOIDANCE_PREFERENCE_LIST = [
   { id: "allium", label: "Họ hành tỏi (Ngũ vị tân)" },
 ];
 
+export const ALLERGY_MASTER_LIST = [
+  ...FOOD_ALLERGY_MASTER_LIST,
+  { id: "dairy", label: "Sữa & Chế phẩm sữa (Lactose)" },
+  { id: "egg", label: "Trứng" },
+  ...AVOIDANCE_PREFERENCE_LIST,
+];
+
 export const VEGETARIAN_TYPE_OPTIONS: { id: UserProfile["vegetarianType"]; label: string; desc: string }[] = [
-  { id: "vegan", label: "Thuần chay (Vegan)", desc: "100% nguồn gốc thực vật, tự động né Trứng & Sữa" },
-  { id: "lacto_vegetarian", label: "Chay có sữa (Lacto)", desc: "Ăn thực vật + chế phẩm sữa (tự động né Trứng)" },
-  { id: "ovo_vegetarian", label: "Chay có trứng (Ovo)", desc: "Ăn thực vật + trứng gà/vịt (tự động né Sữa)" },
+  { id: "vegan", label: "Thuần chay (Vegan)", desc: "100% nguồn gốc thực vật (Cảnh báo: Tránh Trứng & Sữa)" },
+  { id: "lacto_vegetarian", label: "Chay có sữa (Lacto)", desc: "Ăn thực vật + chế phẩm sữa (Cảnh báo: Tránh Trứng)" },
+  { id: "ovo_vegetarian", label: "Chay có trứng (Ovo)", desc: "Ăn thực vật + trứng gà/vịt (Cảnh báo: Tránh Sữa)" },
   { id: "lacto_ovo_vegetarian", label: "Chay có trứng & sữa (Ovo-Lacto)", desc: "Ăn thực vật + dùng được cả Trứng và Sữa" },
 ];
 

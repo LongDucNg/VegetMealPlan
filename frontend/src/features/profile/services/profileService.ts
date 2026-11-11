@@ -129,6 +129,13 @@ function mapBackendProfileToUserProfile(backend: BackendProfile): UserProfile {
     }
   }
 
+  const savedCustom = storage.getItem<string[]>("veggie_custom_allergies", []);
+  for (const customItem of savedCustom) {
+    if (!mappedAllergies.some((m) => m.toLowerCase() === customItem.toLowerCase())) {
+      mappedAllergies.push(customItem);
+    }
+  }
+
   return {
     id: backend.user_id,
     name: backend.full_name,
@@ -207,12 +214,11 @@ export const profileService = {
           }
           const ing = SYSTEM_INGREDIENTS.find((i) => i.name.toLowerCase() === lower);
           if (ing) {
-            const parentGroup = SYSTEM_ALLERGEN_GROUPS.find((g) => g.ingredient_ids.includes(ing.id));
-            if (parentGroup) {
-              const feId = ALLERGEN_MAP_FROM_BACKEND[parentGroup.code];
-              if (feId && !cleaned.includes(feId)) cleaned.push(feId);
-              continue;
+            // Giữ nguyên nguyên liệu dị ứng riêng biệt của người dùng (VD: Nấm rơm, Cà chua)
+            if (!cleaned.some((c) => c.toLowerCase() === lower)) {
+              cleaned.push(item);
             }
+            continue;
           }
           if (!cleaned.some((c) => c.toLowerCase() === lower)) {
             cleaned.push(item);
@@ -399,6 +405,23 @@ export const profileService = {
       }
 
       const mapped = mapBackendProfileToUserProfile(serverProfile);
+      if (updates.allergies !== undefined) {
+        for (const rawItem of updates.allergies) {
+          const itemStr = String(rawItem).trim();
+          if (!itemStr) continue;
+          if (!mapped.allergies.some((a) => a.toLowerCase() === itemStr.toLowerCase())) {
+            mapped.allergies.push(itemStr);
+          }
+        }
+        const customOnly = updates.allergies.filter((a) => {
+          const aLower = a.toLowerCase();
+          const isStd = [
+            "peanut", "soy", "gluten", "treenut", "sesame", "corn", "legume", "fungi", "allium", "egg", "dairy"
+          ].includes(aLower);
+          return !isStd;
+        });
+        storage.setItem("veggie_custom_allergies", customOnly);
+      }
       storage.setItem(STORAGE_KEYS.USER_PROFILE, mapped);
       return mapped;
     } catch (err) {

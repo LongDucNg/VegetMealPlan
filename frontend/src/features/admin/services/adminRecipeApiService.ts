@@ -173,15 +173,15 @@ export const adminRecipeApiService = {
       const ingList = r.ingredients || [];
       const ingText = Array.isArray(ingList)
         ? ingList
-            .map((ing: any) => {
-              if (typeof ing === "string") return ing;
-              const name = ing.name || ing.ingredient_name || ing.ingredient?.ingredient_name || "Nguyên liệu";
-              const qty = ing.quantity ?? 1;
-              const unit = ing.unit ?? "g";
-              const opt = ing.is_optional ? " (tuỳ chọn)" : "";
-              return `${name} (${qty}${unit}${opt})`;
-            })
-            .join(", ")
+          .map((ing: any) => {
+            if (typeof ing === "string") return ing;
+            const name = ing.name || ing.ingredient_name || ing.ingredient?.ingredient_name || "Nguyên liệu";
+            const qty = ing.quantity ?? 1;
+            const unit = ing.unit ?? "g";
+            const opt = ing.is_optional ? " (tuỳ chọn)" : "";
+            return `${name} (${qty}${unit}${opt})`;
+          })
+          .join(", ")
         : String(ingList);
 
       const instructions =
