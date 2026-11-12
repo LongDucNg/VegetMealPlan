@@ -56,7 +56,7 @@ export class AdminForumController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateForumPostStatusDto,
   ) {
-    return this.service.adminUpdateStatus(adminId, id, dto.status);
+    return this.service.adminUpdateStatus(adminId, id, dto.status, dto.reason);
   }
 
   @Delete('posts/:id')

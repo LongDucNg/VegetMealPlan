@@ -1,21 +1,25 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { UserProfile, Gender, ActivityLevel, HealthGoal, VegetarianType } from "../types";
+import { UserProfile, Gender, ActivityLevel, HealthGoal, VegetarianType, formatAllergy } from "../types";
 import { useProfile } from "../hooks/useProfile";
 import {
   ALLERGY_MASTER_LIST,
+  FOOD_ALLERGY_MASTER_LIST,
+  AVOIDANCE_PREFERENCE_LIST,
   HEALTH_GOAL_OPTIONS,
   VEGETARIAN_TYPE_OPTIONS,
   ACTIVITY_LEVEL_OPTIONS,
 } from "../data/mockProfile";
+import { SYSTEM_INGREDIENTS, SYSTEM_ALLERGEN_GROUPS } from "@/features/recipes/data/systemIngredients";
+import { profileService, ALLERGEN_MAP_TO_BACKEND } from "../services/profileService";
+import { storage, STORAGE_KEYS } from "@/utils/storage/storage";
 import { calculateBMI } from "@/features/nutrition/utils/bmi";
 import {
   nutritionService,
   ServerNutritionSummary,
   NutritionWarnings,
   CalorieExplanationSection,
-  calculateDailyCalorieTarget,
 } from "@/features/nutrition";
 import { Modal } from "@/components/ui/Modal";
 import {
@@ -25,12 +29,11 @@ import {
   Activity,
   Plus,
   X,
-  Calendar,
-  Scale,
   ShieldCheck,
   AlertCircle,
   AlertTriangle,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 
 export function ProfileEditor() {
@@ -46,15 +49,8 @@ export function ProfileEditor() {
   const [vegetarianType, setVegetarianType] = useState<VegetarianType | "">(profile.vegetarianType || "");
   const [allergies, setAllergies] = useState<string[]>(profile.allergies || []);
 
-  // New fields from BE: Target weight and target date
-  const [targetWeightKg, setTargetWeightKg] = useState<number | string>(
-    profile.target_weight_kg ?? ""
-  );
-  const [targetDate, setTargetDate] = useState<string>(
-    profile.target_date ? profile.target_date.split("T")[0] : ""
-  );
-
   // Free-form allergy input with validation (Cô #13)
+  const [customAllergens, setCustomAllergens] = useState<string[]>([]);
   const [customAllergyInput, setCustomAllergyInput] = useState("");
   const [customAllergyError, setCustomAllergyError] = useState<string | null>(null);
 
@@ -75,10 +71,30 @@ export function ProfileEditor() {
   };
   const [showResetModal, setShowResetModal] = useState(false);
 
-  // Tomorrow's date for target_date min attribute (YYYY-MM-DD)
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const minTargetDate = tomorrow.toISOString().split("T")[0];
+  // Helper kiểm tra dị ứng trứng và sữa (hỗ trợ cả mã code lẫn tiếng Việt và text tự do)
+  const isEggAllergyItem = (item: string) => {
+    const s = item.toLowerCase().trim();
+    return (
+      s === "egg" ||
+      s === "trứng" ||
+      s === "trung" ||
+      s.includes("trứng") ||
+      s.includes("trung")
+    );
+  };
+
+  const isDairyAllergyItem = (item: string) => {
+    const s = item.toLowerCase().trim();
+    return (
+      s === "dairy" ||
+      s === "sữa" ||
+      s === "sua" ||
+      s === "lactose" ||
+      s.includes("sữa") ||
+      s.includes("sua") ||
+      s.includes("lactose")
+    );
+  };
 
   // Loại bỏ số 0 đứng ở đầu khi nhập số (VD: "001" -> "1", "0170" -> "170")
   const cleanNumberInput = (raw: string) => {
@@ -97,9 +113,30 @@ export function ProfileEditor() {
     setActivityLevel(profile.activityLevel || "");
     setHealthGoal(profile.healthGoal || "");
     setVegetarianType(profile.vegetarianType || "");
-    setAllergies(profile.allergies || []);
-    setTargetWeightKg(profile.target_weight_kg ?? "");
-    setTargetDate(profile.target_date ? profile.target_date.split("T")[0] : "");
+
+    let baseAllergies = [...(profile.allergies || [])];
+    // Nếu đang ở các chế độ tự động né Trứng/Sữa, loại bỏ khỏi danh sách dị ứng hiển thị (không mặc định chọn vào dị ứng)
+    if (profile.vegetarianType === "vegan") {
+      baseAllergies = baseAllergies.filter((a) => !isEggAllergyItem(a) && !isDairyAllergyItem(a));
+    } else if (profile.vegetarianType === "lacto_vegetarian") {
+      baseAllergies = baseAllergies.filter((a) => !isEggAllergyItem(a) && !isDairyAllergyItem(a));
+    } else if (profile.vegetarianType === "ovo_vegetarian") {
+      baseAllergies = baseAllergies.filter((a) => !isEggAllergyItem(a) && !isDairyAllergyItem(a));
+    }
+    setAllergies(baseAllergies);
+
+    // Lưu các nguyên liệu dị ứng riêng do người dùng thêm vào
+    const initialCustom = (profile.allergies || []).filter((a) => {
+      const aLower = a.toLowerCase();
+      const isStd = FOOD_ALLERGY_MASTER_LIST.some(
+        (m) => m.id.toLowerCase() === aLower || m.label.toLowerCase() === aLower
+      );
+      const isAvoid = isAvoidancePreferenceItem(a);
+      const isEgg = isEggAllergyItem(a);
+      const isDairy = isDairyAllergyItem(a);
+      return !isStd && !isAvoid && !isEgg && !isDairy;
+    });
+    setCustomAllergens(initialCustom);
   }, [profile]);
 
   // Load server nutrition summary on mount and when profile changes
@@ -131,110 +168,138 @@ export function ProfileEditor() {
     healthGoal,
     vegetarianType,
     allergies,
-    target_weight_kg: targetWeightKg ? Number(targetWeightKg) : null,
-    target_date: targetDate ? targetDate : null,
-  };
-
-  // Helper kiểm tra dị ứng trứng và sữa (hỗ trợ cả mã code lẫn tiếng Việt và text tự do)
-  const isEggAllergyItem = (item: string) => {
-    const s = item.toLowerCase().trim();
-    return (
-      s === "egg" ||
-      s === "trứng" ||
-      s === "trung" ||
-      s.includes("trứng") ||
-      s.includes("trung")
-    );
-  };
-
-  const isDairyAllergyItem = (item: string) => {
-    const s = item.toLowerCase().trim();
-    return (
-      s === "dairy" ||
-      s === "sữa" ||
-      s === "sua" ||
-      s === "lactose" ||
-      s.includes("sữa") ||
-      s.includes("sua") ||
-      s.includes("lactose")
-    );
+    target_weight_kg: null,
+    target_date: null,
   };
 
   const hasEggAllergy = allergies.some(isEggAllergyItem);
   const hasDairyAllergy = allergies.some(isDairyAllergyItem);
 
-  // 1. Chiều 1: Kiểm tra dị ứng có bị vô hiệu hóa bởi trường phái ăn chay hiện tại hay không
+  // Phân loại danh sách Dị ứng thực phẩm vs Thực phẩm cần tránh
+  const isAvoidancePreferenceItem = (item: string) => {
+    const s = item.toLowerCase().trim();
+    return (
+      s === "allium" ||
+      s.includes("hành tỏi") ||
+      s.includes("ngũ vị tân") ||
+      s.includes("ngu vi tan")
+    );
+  };
+
+  const foodAllergies = allergies.filter(
+    (a) => !isAvoidancePreferenceItem(a) && !isEggAllergyItem(a) && !isDairyAllergyItem(a)
+  );
+  const avoidanceList = allergies.filter((a) => isAvoidancePreferenceItem(a));
+
+  // 1. Chiều 1: Kiểm tra dị ứng có bị vô hiệu hóa hoặc mâu thuẫn bởi trường phái ăn chay hiện tại hay không
+  // Chế độ Thuần chay làm mờ cả Trứng và Sữa; Chay có sữa làm mờ Trứng; Chay có trứng làm mờ Sữa
   const isAllergyDisabledByDiet = (allergyId: string) => {
     const isEgg = isEggAllergyItem(allergyId);
     const isDairy = isDairyAllergyItem(allergyId);
 
-    if (vegetarianType === "ovo_vegetarian" && isEgg) {
-      return "Không thể chọn do bạn đang theo trường phái Chay có trứng (Ovo)";
+    // Thuần chay (Vegan): Tự động né cả Trứng và Sữa -> Làm mờ cả hai, không cho chọn vào dị ứng
+    if (vegetarianType === "vegan") {
+      if (isEgg) return "Chế độ Thuần chay (Vegan) cảnh báo cần tránh Trứng";
+      if (isDairy) return "Chế độ Thuần chay (Vegan) cảnh báo cần tránh Sữa & Chế phẩm sữa";
     }
-    if (vegetarianType === "lacto_vegetarian" && isDairy) {
-      return "Không thể chọn do bạn đang theo trường phái Chay có sữa (Lacto)";
+
+    // Chay có sữa (Lacto): Tự động né Trứng -> Làm mờ Trứng; và không cho chọn Sữa vì đang theo chế độ uống sữa
+    if (vegetarianType === "lacto_vegetarian") {
+      if (isEgg) return "Chế độ Chay có sữa (Lacto) cảnh báo cần tránh Trứng";
+      if (isDairy) return "Bạn đang theo trường phái Chay có sữa (Lacto). Nếu dị ứng Sữa, hãy chuyển sang Thuần chay (Vegan).";
     }
+
+    // Chay có trứng (Ovo): Tự động né Sữa -> Làm mờ Sữa; và không cho chọn Trứng vì đang theo chế độ ăn trứng
+    if (vegetarianType === "ovo_vegetarian") {
+      if (isDairy) return "Chế độ Chay có trứng (Ovo) cảnh báo cần tránh Sữa & Chế phẩm sữa";
+      if (isEgg) return "Bạn đang theo trường phái Chay có trứng (Ovo). Nếu dị ứng Trứng, hãy chuyển sang Thuần chay (Vegan).";
+    }
+
     if (vegetarianType === "lacto_ovo_vegetarian") {
-      if (isEgg) return "Không thể chọn do bạn đang theo trường phái Chay có trứng & sữa";
-      if (isDairy) return "Không thể chọn do bạn đang theo trường phái Chay có trứng & sữa";
+      // Chay có trứng & sữa: Dùng được cả trứng và sữa, không tự động khóa dị ứng nào
+      return null;
     }
     return null;
   };
 
   // 2. Chiều 2: Kiểm tra trường phái ăn chay có bị vô hiệu hóa do đã chọn dị ứng tương ứng hay không
-  const isDietDisabledByAllergy = (type: VegetarianType | "") => {
-    if (type === "ovo_vegetarian" && hasEggAllergy) {
-      return "Không thể chọn do bạn đã chọn dị ứng Trứng";
-    }
-    if (type === "lacto_vegetarian" && hasDairyAllergy) {
-      return "Không thể chọn do bạn đã chọn dị ứng Sữa & Chế phẩm sữa";
-    }
-    if (type === "lacto_ovo_vegetarian") {
-      if (hasEggAllergy && hasDairyAllergy) {
-        return "Không thể chọn do bạn đã chọn dị ứng cả Trứng và Sữa";
-      }
-      if (hasEggAllergy) {
-        return "Không thể chọn do bạn đã chọn dị ứng Trứng";
-      }
-      if (hasDairyAllergy) {
-        return "Không thể chọn do bạn đã chọn dị ứng Sữa & Chế phẩm sữa";
-      }
-    }
+  // Chuyển chế độ luôn được cho phép vì handleSelectVegetarianType sẽ tự động cân bằng né Trứng/Sữa tương ứng
+  const isDietDisabledByAllergy = (_type: VegetarianType | "") => {
     return null;
   };
 
-  // Khi người dùng chọn trường phái ăn chay: tự động loại bỏ các dị ứng bị mâu thuẫn để tránh xung đột
+  // Khi người dùng chọn trường phái ăn chay: Tự động dọn sạch Trứng / Sữa khỏi mảng dị ứng vì hệ thống đã tự động né theo trường phái ăn chay
   const handleSelectVegetarianType = (type: VegetarianType | "") => {
-    if (isDietDisabledByAllergy(type)) {
-      return;
-    }
     setVegetarianType(type);
-    if (type === "ovo_vegetarian") {
-      setAllergies((prev) => prev.filter((a) => !isEggAllergyItem(a)));
+    // Tự động dọn sạch Trứng và Sữa khỏi mảng dị ứng để không bị mặc định chọn
+    if (type === "vegan") {
+      setAllergies((prev) => prev.filter((a) => !isEggAllergyItem(a) && !isDairyAllergyItem(a)));
     } else if (type === "lacto_vegetarian") {
-      setAllergies((prev) => prev.filter((a) => !isDairyAllergyItem(a)));
+      setAllergies((prev) => prev.filter((a) => !isEggAllergyItem(a) && !isDairyAllergyItem(a)));
+    } else if (type === "ovo_vegetarian") {
+      setAllergies((prev) => prev.filter((a) => !isEggAllergyItem(a) && !isDairyAllergyItem(a)));
     } else if (type === "lacto_ovo_vegetarian") {
       setAllergies((prev) => prev.filter((a) => !isEggAllergyItem(a) && !isDairyAllergyItem(a)));
     }
   };
 
+  // Helper lấy các tên nguyên liệu con thuộc một nhóm dị ứng
+  const getGroupMemberNames = (groupId: string): string[] => {
+    const lower = groupId.toLowerCase();
+    const code = ALLERGEN_MAP_TO_BACKEND[lower] || groupId.toUpperCase();
+    const groupDef = SYSTEM_ALLERGEN_GROUPS.find(
+      (g) => g.code === code || g.code.toLowerCase() === lower
+    );
+    if (!groupDef) return [];
+    return groupDef.ingredient_ids
+      .map((id) => SYSTEM_INGREDIENTS.find((i) => i.id === id)?.name.toLowerCase())
+      .filter((n): n is string => Boolean(n));
+  };
+
   const toggleAllergy = (allergyId: string) => {
-    // Nếu dị ứng bị vô hiệu hóa bởi trường phái ăn chay thì không cho chọn
-    if (isAllergyDisabledByDiet(allergyId)) {
+    // Nếu dị ứng bị vô hiệu hóa / làm mờ bởi trường phái ăn chay thì không cho chọn
+    const conflictMsg = isAllergyDisabledByDiet(allergyId);
+    if (conflictMsg) {
+      setSaveError(conflictMsg);
       return;
     }
 
+    const lowerId = allergyId.toLowerCase();
+    const memberNames = getGroupMemberNames(lowerId);
+    const targetCode = ALLERGEN_MAP_TO_BACKEND[lowerId] || lowerId.toUpperCase();
+
     setAllergies((prev) => {
-      const exists = prev.some((a) => a.toLowerCase() === allergyId.toLowerCase());
+      const exists = prev.some((a) => {
+        const aLower = a.toLowerCase();
+        const aCode = ALLERGEN_MAP_TO_BACKEND[aLower] || aLower.toUpperCase();
+        return aLower === lowerId || (targetCode && aCode === targetCode);
+      });
+
       if (exists) {
-        return prev.filter((a) => a.toLowerCase() !== allergyId.toLowerCase());
+        // Bỏ chọn nhóm: loại bỏ mã nhóm và bất kỳ nguyên liệu con nào của nhóm đó
+        return prev.filter((a) => {
+          const aLower = a.toLowerCase();
+          const aCode = ALLERGEN_MAP_TO_BACKEND[aLower] || aLower.toUpperCase();
+          if (aLower === lowerId) return false;
+          if (targetCode && aCode === targetCode) return false;
+          if (memberNames.includes(aLower)) return false;
+          return true;
+        });
       } else {
-        return [...prev, allergyId];
+        // Chọn nhóm: thêm mã nhóm vào và dọn dẹp các nguyên liệu con lẻ (nếu có) để chỉ giữ đúng tên nhóm
+        const filtered = prev.filter((a) => {
+          const aLower = a.toLowerCase();
+          const aCode = ALLERGEN_MAP_TO_BACKEND[aLower] || aLower.toUpperCase();
+          if (targetCode && aCode === targetCode) return false;
+          if (memberNames.includes(aLower)) return false;
+          return true;
+        });
+        return [...filtered, allergyId];
       }
     });
   };
 
-  // Thêm dị ứng tự do có kiểm tra (Cô #13)
+  // Thêm dị ứng tự do có kiểm tra (phải thuộc danh mục nguyên liệu hệ thống)
   const handleAddCustomAllergy = (e: React.FormEvent) => {
     e.preventDefault();
     setCustomAllergyError(null);
@@ -255,45 +320,125 @@ export function ProfileEditor() {
       return;
     }
 
-    if (!/^[\p{L}\p{N}\s,\-_]+$/u.test(trimmed)) {
-      setCustomAllergyError("Tên nguyên liệu chỉ được chứa chữ cái, số và khoảng trắng.");
-      return;
-    }
-
-    // Chặn thêm dị ứng mâu thuẫn với trường phái ăn chay đã chọn
-    if (isEggAllergyItem(trimmed) && (vegetarianType === "ovo_vegetarian" || vegetarianType === "lacto_ovo_vegetarian")) {
-      setCustomAllergyError("Bạn đang chọn trường phái ăn chay có trứng, không thể chọn dị ứng Trứng.");
-      return;
-    }
-    if (isDairyAllergyItem(trimmed) && (vegetarianType === "lacto_vegetarian" || vegetarianType === "lacto_ovo_vegetarian")) {
-      setCustomAllergyError("Bạn đang chọn trường phái ăn chay có sữa, không thể chọn dị ứng Sữa.");
-      return;
-    }
-
     const lower = trimmed.toLowerCase();
-    const isExisted = allergies.some((a) => a.toLowerCase() === lower);
-    if (isExisted) {
-      setCustomAllergyError(`"${trimmed}" đã có trong danh sách dị ứng của bạn.`);
+
+    // 1. Kiểm tra theo nhóm chuẩn có sẵn (VD gõ "Nấm", "Bắp", "Đậu phộng")
+    const matchedMaster = ALLERGY_MASTER_LIST.find(
+      (m) => m.label.toLowerCase() === lower || m.id.toLowerCase() === lower
+    );
+
+    // 2. Kiểm tra theo danh mục 190 nguyên liệu của hệ thống
+    const matchedIngExact = SYSTEM_INGREDIENTS.find((ing) => ing.name.toLowerCase() === lower);
+    const matchedIngPrefix = SYSTEM_INGREDIENTS.find((ing) => ing.name.toLowerCase().startsWith(lower));
+    const matchedIngSub = SYSTEM_INGREDIENTS.find((ing) => ing.name.toLowerCase().includes(lower));
+    const matchedIng = matchedIngExact || (!matchedMaster ? (matchedIngPrefix || matchedIngSub) : null);
+
+    // Nếu không thuộc nhóm chuẩn hay 190 nguyên liệu, vẫn cho phép thêm như nguyên liệu riêng biệt
+    const canonicalName = matchedIng ? matchedIng.name : (matchedMaster ? matchedMaster.label : trimmed);
+    const itemToAdd = matchedIng ? matchedIng.name : (matchedMaster ? matchedMaster.id : trimmed);
+
+    // Chặn thêm dị ứng mâu thuẫn hoặc đã có cảnh báo theo trường phái ăn chay
+    const isEgg = isEggAllergyItem(canonicalName);
+    const isDairy = isDairyAllergyItem(canonicalName);
+
+    if (vegetarianType === "vegan" && (isEgg || isDairy)) {
+      setCustomAllergyError("Trường phái Thuần chay (Vegan) đã có cảnh báo cần tránh cả Trứng và Sữa ở mục Thực phẩm cần tránh.");
+      return;
+    }
+    if (vegetarianType === "lacto_vegetarian") {
+      if (isEgg) {
+        setCustomAllergyError("Chế độ Chay có sữa (Lacto) cảnh báo cần tránh Trứng, bạn không cần thêm vào danh sách dị ứng.");
+        return;
+      }
+      if (isDairy) {
+        setCustomAllergyError("Bạn đang chọn trường phái Chay có sữa (Lacto), không thể chọn dị ứng Sữa.");
+        return;
+      }
+    }
+    if (vegetarianType === "ovo_vegetarian") {
+      if (isDairy) {
+        setCustomAllergyError("Chế độ Chay có trứng (Ovo) cảnh báo cần tránh Sữa, bạn không cần thêm vào danh sách dị ứng.");
+        return;
+      }
+      if (isEgg) {
+        setCustomAllergyError("Bạn đang chọn trường phái Chay có trứng (Ovo), không thể chọn dị ứng Trứng.");
+        return;
+      }
+    }
+    if (vegetarianType === "lacto_ovo_vegetarian" && (isEgg || isDairy)) {
+      setCustomAllergyError("Bạn đang chọn trường phái Chay có trứng & sữa, không thể chọn dị ứng Trứng/Sữa.");
       return;
     }
 
-    setAllergies((prev) => [...prev, trimmed]);
+    const isExisted = allergies.some((a) => {
+      const aLower = a.toLowerCase();
+      return aLower === itemToAdd.toLowerCase() || aLower === canonicalName.toLowerCase();
+    });
+    if (isExisted) {
+      setCustomAllergyError(`"${canonicalName}" đã có trong danh sách dị ứng của bạn.`);
+      return;
+    }
+
+    setAllergies((prev) => [...prev, itemToAdd]);
+    setCustomAllergens((prev) => {
+      if (prev.some((c) => c.toLowerCase() === itemToAdd.toLowerCase())) return prev;
+      return [...prev, itemToAdd];
+    });
     setCustomAllergyInput("");
   };
 
   const handleRemoveAllergy = (item: string) => {
-    setAllergies((prev) => prev.filter((a) => !item || a.toLowerCase() !== item.toLowerCase()));
+    const lower = item.toLowerCase();
+    const memberNames = getGroupMemberNames(lower);
+    const targetCode = ALLERGEN_MAP_TO_BACKEND[lower] || lower.toUpperCase();
+
+    setAllergies((prev) =>
+      prev.filter((a) => {
+        const aLower = a.toLowerCase();
+        const aCode = ALLERGEN_MAP_TO_BACKEND[aLower] || aLower.toUpperCase();
+        if (aLower === lower) return false;
+        if (targetCode && aCode === targetCode) return false;
+        if (memberNames.includes(aLower)) return false;
+        return true;
+      })
+    );
   };
 
   const getAllergyDisplayLabel = (item: string) => {
-    const found = ALLERGY_MASTER_LIST.find(
-      (m) => m.id.toLowerCase() === item.toLowerCase() || m.label.toLowerCase() === item.toLowerCase()
+    const lower = item.toLowerCase();
+    const code = ALLERGEN_MAP_TO_BACKEND[lower];
+
+    // 1. Kiểm tra theo danh sách nhóm chuẩn
+    const foundMaster = ALLERGY_MASTER_LIST.find((m) => {
+      const mLower = m.id.toLowerCase();
+      const mCode = ALLERGEN_MAP_TO_BACKEND[mLower];
+      return (
+        mLower === lower ||
+        m.label.toLowerCase() === lower ||
+        (code && mCode === code)
+      );
+    });
+    if (foundMaster) return foundMaster.label;
+
+    // 2. Format theo từ điển formatAllergy (tiếng Việt chuẩn)
+    const formatted = formatAllergy(item);
+    if (formatted && formatted.toLowerCase() !== lower) return formatted;
+
+    // 3. Kiểm tra theo 190 nguyên liệu của hệ thống
+    const foundIng = SYSTEM_INGREDIENTS.find(
+      (ing) => ing.name.toLowerCase() === lower || String(ing.id) === item
     );
-    return found ? found.label : item;
+    if (foundIng) return foundIng.name;
+
+    return item;
   };
 
   const handleDeclareNoAllergies = () => {
-    setAllergies([]);
+    if (!foodAllergies || foodAllergies.length === 0) {
+      return;
+    }
+    // Chỉ xóa các dị ứng thực phẩm, giữ nguyên các kiêng kỵ cá nhân / tôn giáo
+    setAllergies((prev) => prev.filter(isAvoidancePreferenceItem));
     setCustomAllergyInput("");
     setCustomAllergyError(null);
   };
@@ -424,62 +569,6 @@ export function ProfileEditor() {
   const isSevereUnderweight = Boolean(bmiInfo && bmiInfo.bmi < 16.5);
   const isOverweight = Boolean(bmiInfo && bmiInfo.category === "Overweight");
 
-  const targetWeightNum = targetWeightKg ? Number(targetWeightKg) : null;
-  const currentWeightNum = weight ? Number(weight) : null;
-
-  // Kiểm tra mâu thuẫn giữa cân nặng mục tiêu, mục tiêu sức khỏe và thể trạng
-  const targetWeightConflictInfo = (() => {
-    if (!targetWeightNum || !currentWeightNum || targetWeightNum <= 0 || currentWeightNum <= 0) {
-      return null;
-    }
-
-    // 1. Mâu thuẫn khi chọn mục tiêu Tăng cân nhưng cân nặng mục tiêu <= cân nặng hiện tại
-    if (healthGoal === "gain_weight" && targetWeightNum <= currentWeightNum) {
-      return {
-        title: "Mục tiêu cân nặng mâu thuẫn với mục tiêu Tăng cân",
-        message: `Bạn đang chọn mục tiêu "Tăng cơ / Tăng cân" nhưng cân nặng mục tiêu (${targetWeightNum} kg) lại không lớn hơn cân nặng hiện tại (${currentWeightNum} kg). Để tăng cân, cân nặng mục tiêu phải lớn hơn ${currentWeightNum} kg.`,
-      };
-    }
-
-    // 2. Mâu thuẫn khi chọn mục tiêu Giảm cân nhưng cân nặng mục tiêu >= cân nặng hiện tại
-    if (healthGoal === "lose_weight" && targetWeightNum >= currentWeightNum) {
-      return {
-        title: "Mục tiêu cân nặng mâu thuẫn với mục tiêu Giảm cân",
-        message: `Bạn đang chọn mục tiêu "Giảm cân" nhưng cân nặng mục tiêu (${targetWeightNum} kg) lại không nhỏ hơn cân nặng hiện tại (${currentWeightNum} kg). Để giảm cân, cân nặng mục tiêu phải nhỏ hơn ${currentWeightNum} kg.`,
-      };
-    }
-
-    // 3. Mâu thuẫn khi thể trạng đang thiếu cân nhưng cân nặng mục tiêu lại muốn giảm thêm
-    if (isUnderweight && targetWeightNum < currentWeightNum) {
-      return {
-        title: "Mục tiêu cân nặng nguy hiểm cho thể trạng thiếu cân",
-        message: `Bạn đang ở thể trạng thiếu cân (BMI ${bmiInfo?.formattedBMI}) nhưng cân nặng mục tiêu (${targetWeightNum} kg) lại thấp hơn cân nặng hiện tại (${currentWeightNum} kg). Giảm thêm cân sẽ gây suy nhược cơ thể nghiêm trọng.`,
-      };
-    }
-
-    // 4. Mâu thuẫn khi mục tiêu cân nặng hướng tới thể trạng thiếu cân nghiêm trọng (BMI < 16.5)
-    if (height && Number(height) > 0) {
-      const heightM = Number(height) / 100;
-      const targetBmi = targetWeightNum / (heightM * heightM);
-      if (targetBmi < 16.5) {
-        return {
-          title: "Cân nặng mục tiêu gây suy dinh dưỡng nghiêm trọng",
-          message: `Cân nặng mục tiêu (${targetWeightNum} kg) tương ứng với chỉ số BMI ${targetBmi.toFixed(1)} (Thiếu cân nghiêm trọng). Hệ thống không cho phép đặt mục tiêu gây nguy hiểm đến tính mạng.`,
-        };
-      }
-    }
-
-    // 5. Mâu thuẫn khi thể trạng đang thừa cân nhưng cân nặng mục tiêu lại cao hơn hiện tại
-    if (isOverweight && targetWeightNum > currentWeightNum) {
-      return {
-        title: "Mục tiêu cân nặng không phù hợp với thể trạng thừa cân",
-        message: `Bạn đang ở thể trạng thừa cân / béo phì (BMI ${bmiInfo?.formattedBMI}) nhưng cân nặng mục tiêu (${targetWeightNum} kg) lại cao hơn cân nặng hiện tại (${currentWeightNum} kg).`,
-      };
-    }
-
-    return null;
-  })();
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaveError(null);
@@ -508,11 +597,6 @@ export function ProfileEditor() {
       errors.push("Vui lòng chọn trường phái ăn chay.");
     }
 
-    // Frontend validation for target_date if targetWeightKg is specified
-    if (targetDate && new Date(targetDate) <= new Date()) {
-      errors.push("Ngày mục tiêu phải sau ngày hôm nay.");
-    }
-
     // Chặn mâu thuẫn thiếu cân nghiêm trọng vs giảm cân
     if (isSevereUnderweight && healthGoal === "lose_weight") {
       errors.push(
@@ -528,13 +612,6 @@ export function ProfileEditor() {
     if (vegetarianConflict) {
       errors.push(
         `Mâu thuẫn chế độ ăn: ${vegetarianConflict.title}. Vui lòng giải quyết mâu thuẫn trước khi lưu.`
-      );
-    }
-
-    // Chặn mâu thuẫn mục tiêu cân nặng cụ thể
-    if (targetWeightConflictInfo) {
-      errors.push(
-        `${targetWeightConflictInfo.title}: ${targetWeightConflictInfo.message}`
       );
     }
 
@@ -578,8 +655,6 @@ export function ProfileEditor() {
     setHealthGoal("");
     setVegetarianType("");
     setAllergies([]);
-    setTargetWeightKg("");
-    setTargetDate("");
     setCustomAllergyInput("");
     setCustomAllergyError(null);
     setSaveError(null);
@@ -598,23 +673,18 @@ export function ProfileEditor() {
     return BMI_LABEL_MAP[cat] || cat;
   };
 
-  // Tính toán dinh dưỡng trực tiếp theo thời gian thực (Real-time live calculations)
-  const liveNutrition = hasPhysicalMetrics ? calculateDailyCalorieTarget(liveProfile) : null;
-
   const displayBmi = bmiInfo ? bmiInfo.formattedBMI : (hasPhysicalMetrics && serverSummary?.bmi ? serverSummary.bmi : "—");
   const displayCategory = bmiInfo ? bmiInfo.category : (hasPhysicalMetrics && serverSummary?.bmi_category ? serverSummary.bmi_category : undefined);
 
-  const displayCalories = liveNutrition
-    ? `~${liveNutrition.dailyCalorieTarget.toLocaleString("vi-VN")} kcal/ngày`
-    : (hasPhysicalMetrics && serverSummary?.target_calories ? `~${serverSummary.target_calories.toLocaleString()} kcal/ngày` : "—");
+  // Calo và macro LẤY TỪ BACKEND (GET /users/me/nutrition-summary), cùng một hàm tính với lúc lập thực đơn,
+  // nên số trên trang hồ sơ khớp với thực đơn. Trước đây FE tự tính bằng công thức riêng (sàn 1350 kcal)
+  // nên cùng một người có thể thấy hai con số khác nhau. Số mới cập nhật sau khi bấm Lưu.
+  const displayCalories =
+    hasPhysicalMetrics && serverSummary?.target_calories
+      ? `~${serverSummary.target_calories.toLocaleString("vi-VN")} kcal/ngày`
+      : "—";
 
-  const displayMacros = liveNutrition
-    ? {
-      protein_g: liveNutrition.macros.proteinGrams,
-      carbs_g: liveNutrition.macros.carbsGrams,
-      fat_g: liveNutrition.macros.fatGrams,
-    }
-    : serverSummary?.macros;
+  const displayMacros = serverSummary?.macros;
 
   return (
     <div className="space-y-6">
@@ -724,8 +794,8 @@ export function ProfileEditor() {
                   className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50 px-3 text-sm focus:bg-white focus:border-emerald-600 outline-none"
                 >
                   <option value="">-- Chọn giới tính --</option>
-                  <option value="male">Nam (Sàn 1.500 kcal)</option>
-                  <option value="female">Nữ (Sàn 1.200 kcal)</option>
+                  <option value="male">Nam</option>
+                  <option value="female">Nữ</option>
                   <option value="other">Khác</option>
                 </select>
               </div>
@@ -809,40 +879,87 @@ export function ProfileEditor() {
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {HEALTH_GOAL_OPTIONS.map((g) => {
-                  const isLoseWeightDisabled = isSevereUnderweight && g.id === "lose_weight";
+                  const isLoseWeight = g.id === "lose_weight";
+                  const isGainWeight = g.id === "gain_weight";
+                  const isMaintainWeight = g.id === "maintain_weight";
                   const isSelected = healthGoal === g.id;
+
+                  // Chỉ hiển thị trạng thái cảnh báo khi mục tiêu đó ĐƯỢC CHỌN (tránh cảnh báo mặc định khi chưa chọn)
+                  let badge = null;
+                  let cardStyle = "border-stone-200 text-stone-700 hover:bg-stone-50";
+
+                  if (isSelected) {
+                    if (isLoseWeight && isSevereUnderweight) {
+                      cardStyle = "border-red-500 bg-red-50 text-red-950 font-bold";
+                      badge = (
+                        <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded shrink-0">
+                          Nguy hiểm
+                        </span>
+                      );
+                    } else if (isLoseWeight && isUnderweight) {
+                      cardStyle = "border-amber-500 bg-amber-50 text-amber-950 font-bold";
+                      badge = (
+                        <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded shrink-0">
+                          Không khuyên dùng
+                        </span>
+                      );
+                    } else if (isGainWeight && isOverweight) {
+                      cardStyle = "border-amber-500 bg-amber-50 text-amber-950 font-bold";
+                      badge = (
+                        <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded shrink-0">
+                          Không phù hợp
+                        </span>
+                      );
+                    } else if (isMaintainWeight && isSevereUnderweight) {
+                      cardStyle = "border-red-500 bg-red-50 text-red-950 font-bold";
+                      badge = (
+                        <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded shrink-0">
+                          Không an toàn
+                        </span>
+                      );
+                    } else if (isMaintainWeight && isUnderweight) {
+                      cardStyle = "border-amber-500 bg-amber-50 text-amber-950 font-bold";
+                      badge = (
+                        <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded shrink-0">
+                          Không phù hợp
+                        </span>
+                      );
+                    } else if (isMaintainWeight && isOverweight) {
+                      cardStyle = "border-amber-500 bg-amber-50 text-amber-950 font-bold";
+                      badge = (
+                        <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded shrink-0">
+                          Không phù hợp
+                        </span>
+                      );
+                    } else {
+                      cardStyle = "border-emerald-600 bg-emerald-50 text-emerald-950 font-bold";
+                      if (isGainWeight && isUnderweight) {
+                        badge = (
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded shrink-0">
+                            Khuyên dùng
+                          </span>
+                        );
+                      } else if (isLoseWeight && isOverweight) {
+                        badge = (
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded shrink-0">
+                            Khuyên dùng
+                          </span>
+                        );
+
+                      }
+                    }
+                  }
 
                   return (
                     <button
                       key={g.id}
                       type="button"
                       onClick={() => setHealthGoal(g.id)}
-                      className={`p-2.5 rounded-xl border text-left text-xs transition-all cursor-pointer relative ${isSelected
-                        ? isLoseWeightDisabled
-                          ? "border-red-500 bg-red-50 text-red-950 font-bold"
-                          : "border-emerald-600 bg-emerald-50 text-emerald-950 font-bold"
-                        : isLoseWeightDisabled
-                          ? "border-red-200 bg-red-50/40 text-stone-500 hover:bg-red-50/60"
-                          : "border-stone-200 text-stone-700 hover:bg-stone-50"
-                        }`}
+                      className={`p-2.5 rounded-xl border text-left text-xs transition-all cursor-pointer relative ${cardStyle}`}
                     >
                       <div className="flex items-center justify-between gap-1">
                         <p className="font-semibold">{g.label}</p>
-                        {isLoseWeightDisabled && (
-                          <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded shrink-0">
-                            Nguy hiểm
-                          </span>
-                        )}
-                        {!isSevereUnderweight && isUnderweight && g.id === "lose_weight" && (
-                          <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded shrink-0">
-                            Không khuyên dùng
-                          </span>
-                        )}
-                        {isUnderweight && g.id === "gain_weight" && (
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded shrink-0">
-                            Khuyên dùng
-                          </span>
-                        )}
+                        {badge}
                       </div>
                       <p className="text-[10px] text-stone-500 mt-0.5">{g.desc}</p>
                     </button>
@@ -855,9 +972,11 @@ export function ProfileEditor() {
             {bmiInfo && (() => {
               const hasConflict =
                 (isUnderweight && healthGoal === "lose_weight") ||
-                (isOverweight && healthGoal === "gain_weight");
+                (isUnderweight && healthGoal === "maintain_weight") ||
+                (isOverweight && healthGoal === "gain_weight") ||
+                (isOverweight && healthGoal === "maintain_weight");
 
-              if (!hasConflict && !targetWeightConflictInfo) return null;
+              if (!hasConflict) return null;
 
               // Trường hợp 1: Thiếu cân nghiêm trọng (BMI < 16.5) mà chọn Giảm cân
               if (isSevereUnderweight && healthGoal === "lose_weight") {
@@ -865,17 +984,18 @@ export function ProfileEditor() {
                   <div className="p-4 rounded-2xl bg-red-50 border border-red-300 text-red-950 space-y-2.5 animate-in fade-in">
                     <div className="flex items-start gap-2.5">
                       <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-                      <div className="space-y-1 flex-1">
-                        <span className="text-xs font-bold text-red-900">
-                          🚨 Báo động sức khỏe: Thể trạng thiếu cân nghiêm trọng (BMI {bmiInfo.formattedBMI} &lt; 16.5)
+                      <div className="space-y-1.5 flex-1">
+                        <span className="text-xs font-bold text-red-900 block">
+                          Báo động sức khỏe: Thể trạng thiếu cân nghiêm trọng (BMI {bmiInfo.formattedBMI} &lt; 16.5)
                         </span>
                         <p className="text-[11px] leading-relaxed text-red-800">
                           Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Mức suy dinh dưỡng nặng, dưới ngưỡng an toàn 18.5 rất nhiều). Việc nạp thâm hụt calo để <strong>Giảm cân</strong> lúc này sẽ làm suy kiệt cơ bắp, rối loạn trao đổi chất và suy giảm miễn dịch nghiêm trọng. Hệ thống yêu cầu bạn chọn chế độ dinh dưỡng an toàn hơn để bảo vệ sức khỏe.
                         </p>
+                        <div className="pt-1">
+
+                        </div>
                       </div>
                     </div>
-
-
                   </div>
                 );
               }
@@ -886,137 +1006,108 @@ export function ProfileEditor() {
                   <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-2 animate-in fade-in">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                      <div className="space-y-1 flex-1">
-                        <span className="text-xs font-bold text-amber-900">
+                      <div className="space-y-1.5 flex-1">
+                        <span className="text-xs font-bold text-amber-900 block">
                           Cảnh báo dinh dưỡng: Đang thiếu cân nhưng chọn Giảm cân
                         </span>
                         <p className="text-[11px] leading-relaxed text-amber-800">
-                          Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Thiếu cân). Thâm hụt calo trong lúc thiếu cân có thể gây mệt mỏi, suy nhược và thiếu hụt vi chất. Khuyến nghị bạn nên chuyển sang mục tiêu <strong>Tăng cân</strong> hoặc <strong>Duy trì</strong> để đạt thể trạng cân đối trước.
+                          Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Thiếu cân). Thâm hụt calo trong lúc thiếu cân có thể gây mệt mỏi, suy nhược và thiếu hụt vi chất. Khuyến nghị bạn nên chuyển sang mục tiêu <strong>Tăng cơ / Tăng cân</strong> để đạt thể trạng cân đối trước.
                         </p>
-                      </div>
-                    </div>
+                        <div className="pt-1">
 
-                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-200/80">
-                      <span className="text-[10px] font-bold text-amber-900">Giải pháp gợi ý:</span>
-                      <button
-                        type="button"
-                        onClick={() => setHealthGoal("gain_weight")}
-                        className="text-xs px-2.5 py-1 rounded-lg font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
-                      >
-                        Chuyển sang: Tăng cân (+400 kcal)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setHealthGoal("maintain_weight")}
-                        className="text-xs px-2.5 py-1 rounded-lg font-semibold bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 cursor-pointer"
-                      >
-                        Chuyển sang: Duy trì vóc dáng
-                      </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );
               }
 
-              // Trường hợp 3: Thừa cân nhưng chọn Tăng cân
+              // Trường hợp 3: Quá nhẹ cân / Thiếu cân nghiêm trọng (BMI < 16.5) mà chọn Duy trì vóc dáng
+              if (isSevereUnderweight && healthGoal === "maintain_weight") {
+                return (
+                  <div className="p-4 rounded-2xl bg-red-50 border border-red-300 text-red-950 space-y-2.5 animate-in fade-in">
+                    <div className="flex items-start gap-2.5">
+                      <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                      <div className="space-y-1.5 flex-1">
+                        <span className="text-xs font-bold text-red-900 block">
+                          Cảnh báo sức khỏe: Thể trạng quá nhẹ cân (BMI {bmiInfo.formattedBMI} &lt; 16.5) không nên chọn Duy trì vóc dáng
+                        </span>
+                        <p className="text-[11px] leading-relaxed text-red-800">
+                          Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Mức thiếu cân nghiêm trọng, thấp hơn nhiều so với ngưỡng an toàn 18.5). Việc chọn <strong>Duy trì vóc dáng</strong> ở mức thể trạng này là không hợp lý và không an toàn vì cơ thể đang trong tình trạng suy kiệt dinh dưỡng, giảm sức đề kháng và có nguy cơ ảnh hưởng xấu đến sức khỏe lâu dài. Khuyến nghị bạn nên chọn mục tiêu <strong>Tăng cơ / Tăng cân</strong> để nạp đủ năng lượng và hồi phục thể trạng an toàn.
+                        </p>
+                        <div className="pt-1">
+
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Trường hợp 4: Thiếu cân (16.5 <= BMI < 18.5) mà chọn Duy trì vóc dáng
+              if (isUnderweight && healthGoal === "maintain_weight") {
+                return (
+                  <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-2 animate-in fade-in">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="space-y-1.5 flex-1">
+                        <span className="text-xs font-bold text-amber-900 block">
+                          Cảnh báo dinh dưỡng: Thể trạng nhẹ cân nhưng chọn Duy trì vóc dáng
+                        </span>
+                        <p className="text-[11px] leading-relaxed text-amber-800">
+                          Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Thể trạng thiếu cân, dưới mức chuẩn 18.5). Việc chọn <strong>Duy trì vóc dáng</strong> ở mức này không thực sự hợp lý vì cơ thể cần đạt ngưỡng cân đối (BMI từ 18.5 - 22.9) để đảm bảo mật độ xương, cơ bắp và hệ miễn dịch tối ưu. Bạn nên chuyển sang mục tiêu <strong>Tăng cơ / Tăng cân</strong> để xây dựng thực đơn giàu dinh dưỡng hơn.
+                        </p>
+                        <div className="pt-1">
+
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Trường hợp 5: Thừa cân nhưng chọn Tăng cân
               if (isOverweight && healthGoal === "gain_weight") {
                 return (
                   <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-2 animate-in fade-in">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                      <div className="space-y-1 flex-1">
-                        <span className="text-xs font-bold text-amber-900">
+                      <div className="space-y-1.5 flex-1">
+                        <span className="text-xs font-bold text-amber-900 block">
                           Cảnh báo dinh dưỡng: Thể trạng thừa cân nhưng chọn Tăng cân
                         </span>
                         <p className="text-[11px] leading-relaxed text-amber-800">
                           Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Thừa cân / Béo phì). Việc nạp calo thặng dư để tăng cân có thể gia tăng mỡ nội tạng và áp lực lên tim mạch.
                         </p>
-                      </div>
-                    </div>
 
-                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-200/80">
-                      <span className="text-[10px] font-bold text-amber-900">Giải pháp gợi ý:</span>
-                      <button
-                        type="button"
-                        onClick={() => setHealthGoal("lose_weight")}
-                        className="text-xs px-2.5 py-1 rounded-lg font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
-                      >
-                        Chuyển sang: Giảm cân lành mạnh
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setHealthGoal("maintain_weight")}
-                        className="text-xs px-2.5 py-1 rounded-lg font-semibold bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 cursor-pointer"
-                      >
-                        Chuyển sang: Duy trì vóc dáng
-                      </button>
+                      </div>
                     </div>
                   </div>
                 );
               }
 
-              // Trường hợp 4: Cân nặng mục tiêu mâu thuẫn
-              if (targetWeightConflictInfo) {
+              // Trường hợp 6: Thừa cân nhưng chọn Duy trì vóc dáng
+              if (isOverweight && healthGoal === "maintain_weight") {
                 return (
-                  <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-1.5 animate-in fade-in">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                      <span className="text-xs font-bold text-amber-900">
-                        {targetWeightConflictInfo.title}
-                      </span>
+                  <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-2 animate-in fade-in">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="space-y-1.5 flex-1">
+                        <span className="text-xs font-bold text-amber-900 block">
+                          Cảnh báo dinh dưỡng: Thể trạng thừa cân nhưng chọn Duy trì vóc dáng
+                        </span>
+                        <p className="text-[11px] leading-relaxed text-amber-800">
+                          Chỉ số BMI hiện tại của bạn là <strong>{bmiInfo.formattedBMI}</strong> (Thừa cân / Béo phì). Việc duy trì mức cân nặng này không phù hợp vì có thể duy trì áp lực lên hệ xương khớp, tim mạch và nguy cơ rối loạn chuyển hóa. Khuyến nghị bạn nên chọn mục tiêu <strong>Giảm cân lành mạnh</strong> để đưa cân nặng về ngưỡng chuẩn an toàn (BMI 18.5 - 22.9).
+                        </p>
+
+                      </div>
                     </div>
-                    <p className="text-[11px] leading-relaxed text-amber-800">
-                      {targetWeightConflictInfo.message}
-                    </p>
                   </div>
                 );
               }
 
               return null;
             })()}
-
-            {/* Target Weight & Target Date Inputs (Cô #6, #14) */}
-            <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 space-y-3">
-              <div className="flex items-center gap-2">
-                <Scale className="w-4 h-4 text-emerald-700" />
-                <span className="text-xs font-bold text-stone-900">
-                  Mục tiêu cân nặng cụ thể (Tuỳ chọn)
-                </span>
-              </div>
-              <p className="text-[11px] text-stone-500">
-                Nhập số cân nặng mục tiêu và ngày bạn muốn đạt được. Để trống nếu muốn xoá mục tiêu.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div>
-                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">
-                    Cân nặng mục tiêu (20 - 300 kg)
-                  </label>
-                  <input
-                    type="number"
-                    min="20"
-                    max="300"
-                    step="any"
-                    value={targetWeightKg}
-                    onChange={(e) => setTargetWeightKg(cleanNumberInput(e.target.value))}
-                    placeholder="VD: 58"
-                    className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-xs focus:border-emerald-600 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">
-                    Thời hạn dự kiến (sau hôm nay)
-                  </label>
-                  <input
-                    type="date"
-                    min={minTargetDate}
-                    value={targetDate}
-                    onChange={(e) => setTargetDate(e.target.value)}
-                    className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-xs focus:border-emerald-600 outline-none"
-                  />
-                </div>
-              </div>
-            </div>
 
             {/* Vegetarian Type */}
             <div>
@@ -1037,10 +1128,10 @@ export function ProfileEditor() {
                       title={disabledReason || undefined}
                       onClick={() => !isDisabled && handleSelectVegetarianType(v.id)}
                       className={`p-2.5 rounded-xl border text-left text-xs transition-all relative ${isDisabled
-                          ? "border-stone-200 bg-stone-100/70 text-stone-400 cursor-not-allowed opacity-50"
-                          : isSelected
-                            ? "border-emerald-600 bg-emerald-50 text-emerald-950 font-bold cursor-pointer"
-                            : "border-stone-200 text-stone-700 hover:bg-stone-50 cursor-pointer"
+                        ? "border-stone-200 bg-stone-100/70 text-stone-400 cursor-not-allowed opacity-50"
+                        : isSelected
+                          ? "border-emerald-600 bg-emerald-50 text-emerald-950 font-bold cursor-pointer"
+                          : "border-stone-200 text-stone-700 hover:bg-stone-50 cursor-pointer"
                         }`}
                     >
                       <div className="flex items-center justify-between gap-1">
@@ -1056,6 +1147,66 @@ export function ProfileEditor() {
                   );
                 })}
               </div>
+
+              {/* Cảnh báo quy tắc thành phần cần tránh theo trường phái ăn chay */}
+              {vegetarianType && (
+                <div className="mt-3 p-3.5 rounded-2xl bg-amber-50/80 border border-amber-300 text-amber-950 text-xs space-y-1 animate-in fade-in shadow-2xs">
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5 flex-1">
+                      {vegetarianType === "vegan" && (
+                        <>
+                          <p className="font-bold text-amber-950 flex flex-wrap items-center gap-1.5">
+                            <span>Cảnh báo cần tránh theo trường phái Thuần chay (Vegan):</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-200/90 text-amber-900 border border-amber-300">
+                              Tránh Trứng &amp; Sữa
+                            </span>
+                          </p>
+                          <p className="text-[11px] text-amber-800 leading-relaxed">
+                            Hệ thống cảnh báo và loại trừ mọi món ăn và nguyên liệu có chứa Trứng, Sữa hoặc chế phẩm từ sữa khi gợi ý món và tạo thực đơn. Bạn có thể theo dõi chi tiết ở mục Thực phẩm cần tránh bên dưới.
+                          </p>
+                        </>
+                      )}
+                      {vegetarianType === "lacto_vegetarian" && (
+                        <>
+                          <p className="font-bold text-amber-950 flex flex-wrap items-center gap-1.5">
+                            <span>Cảnh báo cần tránh theo trường phái Chay có sữa (Lacto):</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-200/90 text-amber-900 border border-amber-300">
+                              Tránh Trứng
+                            </span>
+                          </p>
+                          <p className="text-[11px] text-amber-800 leading-relaxed">
+                            Hệ thống cảnh báo và loại trừ mọi món ăn có chứa Trứng gà / vịt; cho phép bạn tiêu thụ sữa tươi, sữa chua, phô mai và các chế phẩm từ sữa.
+                          </p>
+                        </>
+                      )}
+                      {vegetarianType === "ovo_vegetarian" && (
+                        <>
+                          <p className="font-bold text-amber-950 flex flex-wrap items-center gap-1.5">
+                            <span>Cảnh báo cần tránh theo trường phái Chay có trứng (Ovo):</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-200/90 text-amber-900 border border-amber-300">
+                              Tránh Sữa
+                            </span>
+                          </p>
+                          <p className="text-[11px] text-amber-800 leading-relaxed">
+                            Hệ thống cảnh báo và loại trừ mọi món ăn có chứa Sữa &amp; chế phẩm từ sữa; cho phép bạn tiêu thụ trứng gà, trứng vịt.
+                          </p>
+                        </>
+                      )}
+                      {vegetarianType === "lacto_ovo_vegetarian" && (
+                        <>
+                          <p className="font-bold text-stone-900">
+                            Trường phái Chay có trứng &amp; sữa (Ovo-Lacto): Dùng được cả Trứng và Sữa
+                          </p>
+                          <p className="text-[11px] text-stone-600 leading-relaxed">
+                            Chế độ này cho phép tiêu thụ cả Trứng và Sữa (không có thành phần cảnh báo cần tránh theo trường phái). Các dị ứng thực phẩm cụ thể bạn chọn bên dưới vẫn được áp dụng chặt chẽ.
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Hộp thông báo mâu thuẫn giữa Trường phái ăn chay và Dị ứng kèm giải pháp 1-click */}
               {vegetarianConflict && (
@@ -1075,104 +1226,280 @@ export function ProfileEditor() {
               )}
             </div>
 
-            {/* Allergies & Free text input */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-stone-700">
-                  Dị ứng thực phẩm / Cần tránh
-                </label>
-                <button
-                  type="button"
-                  onClick={handleDeclareNoAllergies}
-                  className="text-[11px] text-emerald-700 hover:text-emerald-900 font-semibold underline cursor-pointer"
-                >
-                  Tôi không dị ứng gì
-                </button>
-              </div>
-              <p className="text-[11px] text-stone-500 mb-2">
-                Chọn các nhóm có sẵn hoặc nhập tự do nguyên liệu bạn dị ứng để AI tự động loại trừ.
-              </p>
-
-              {/* Master allergy list tags */}
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {ALLERGY_MASTER_LIST.map((item) => {
-                  const isSelected = allergies.some(
-                    (a) => a.toLowerCase() === item.id.toLowerCase() || a.toLowerCase() === item.label.toLowerCase()
-                  );
-                  const disabledReason = isAllergyDisabledByDiet(item.id);
-                  const isDisabled = Boolean(disabledReason);
-
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      disabled={isDisabled}
-                      title={disabledReason || undefined}
-                      onClick={() => !isDisabled && toggleAllergy(item.id)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${isDisabled
-                          ? "bg-stone-100 text-stone-400 border border-stone-200 cursor-not-allowed opacity-50"
-                          : isSelected
-                            ? "bg-amber-100 text-amber-900 border border-amber-300 ring-1 ring-amber-300 shadow-2xs cursor-pointer"
-                            : "bg-stone-100 text-stone-600 hover:bg-stone-200 border border-stone-200 cursor-pointer"
-                        }`}
-                    >
-                      {isDisabled ? `${item.label} (Không khả dụng)` : isSelected ? `⚠ ${item.label}` : item.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Free-form allergy input form (Cô #13) */}
-              <div className="space-y-1.5 pt-1">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={customAllergyInput}
-                    onChange={(e) => {
-                      setCustomAllergyInput(e.target.value);
-                      if (customAllergyError) setCustomAllergyError(null);
-                    }}
-                    placeholder="Nhập tên dị ứng khác (VD: đậu phộng, kiwi, mè đen...)"
-                    className="flex-1 h-9 rounded-xl border border-stone-200 bg-stone-50 px-3 text-xs focus:bg-white focus:border-emerald-600 outline-none"
-                  />
+            {/* TÁCH RIÊNG 2 MỤC: DỊ ỨNG THỰC PHẨM & THỰC PHẨM CẦN TRÁNH */}
+            <div className="space-y-5 pt-1">
+              {/* MỤC 1: DỊ ỨNG THỰC PHẨM (FOOD ALLERGIES) */}
+              <div className="p-4 rounded-2xl bg-white border border-stone-200 shadow-2xs space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-900">
+                      1. Dị ứng thực phẩm
+                    </label>
+                    <p className="text-[11px] text-stone-500 mt-0.5">
+                      Chọn các nhóm có sẵn hoặc nhập tự do nguyên liệu bạn dị ứng để AI và hệ thống tuyệt đối loại trừ khỏi bữa ăn.
+                    </p>
+                  </div>
                   <button
                     type="button"
-                    onClick={handleAddCustomAllergy}
-                    className="h-9 px-3.5 rounded-xl bg-stone-800 hover:bg-stone-900 text-white text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                    onClick={handleDeclareNoAllergies}
+                    className={`text-[11px] font-semibold transition-colors ${foodAllergies.length > 0
+                      ? "text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
+                      : "text-stone-400 cursor-default"
+                      }`}
+                    title={foodAllergies.length > 0 ? "Bỏ chọn tất cả dị ứng thực phẩm" : "Chưa chọn dị ứng nào"}
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    Thêm
+                    Tôi không dị ứng gì
                   </button>
                 </div>
 
-                {customAllergyError && (
-                  <p className="text-[11px] text-red-600 font-medium flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {customAllergyError}
-                  </p>
-                )}
-
-                {/* Danh sách dị ứng tự do đã thêm */}
-                {allergies.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-2">
-                    <span className="text-[11px] text-stone-400 self-center mr-1">Đã chọn:</span>
-                    {allergies.map((item) => (
-                      <span
-                        key={item}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200"
-                      >
-                        ⚠ {getAllergyDisplayLabel(item)}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAllergy(item)}
-                          className="hover:text-red-700 cursor-pointer"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))}
+                {/* VÙNG CÁC PHẦN ĐƯỢC CHỌN - ĐƯỢC ĐẶT LÊN TRÊN HÀNG ĐẦU */}
+                <div className="p-3 rounded-xl bg-stone-50 border border-stone-200/90 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-stone-700 flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                      Dị ứng đã chọn ({foodAllergies.length}):
+                    </span>
+                    {foodAllergies.length > 0 && (
+                      <span className="text-[10px] text-stone-400">Nhấn × để gỡ bỏ</span>
+                    )}
                   </div>
-                )}
+
+                  {foodAllergies.length === 0 ? (
+                    <p className="text-[11px] text-stone-400 italic pt-0.5">
+                      Chưa chọn dị ứng nào (Hệ thống không loại trừ món vì lý do dị ứng)
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {foodAllergies.map((item) => (
+                        <span
+                          key={item}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs animate-in fade-in"
+                        >
+                          <span>⚠ {getAllergyDisplayLabel(item)}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAllergy(item)}
+                            className="hover:text-red-700 cursor-pointer p-0.5 rounded-full hover:bg-amber-200/60 transition-colors"
+                            title={`Xóa ${getAllergyDisplayLabel(item)}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Nhóm dị ứng thực phẩm phổ biến (bao gồm Nấm và các nguyên liệu tự thêm như Nấm rơm) */}
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-semibold text-stone-600">
+                    Nhóm dị ứng thực phẩm phổ biến:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {/* Các nhóm chuẩn có sẵn (Đậu phộng, Đậu nành, Gluten, Nấm...) */}
+                    {FOOD_ALLERGY_MASTER_LIST.map((item) => {
+                      const itemCode = ALLERGEN_MAP_TO_BACKEND[item.id.toLowerCase()];
+                      const isSelected = foodAllergies.some((a) => {
+                        const aLower = a.toLowerCase();
+                        const aCode = ALLERGEN_MAP_TO_BACKEND[aLower];
+                        return (
+                          aLower === item.id.toLowerCase() ||
+                          aLower === item.label.toLowerCase() ||
+                          (itemCode && aCode === itemCode)
+                        );
+                      });
+
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => toggleAllergy(item.id)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${isSelected
+                            ? "bg-amber-100 text-amber-900 border border-amber-400 ring-1 ring-amber-300 shadow-2xs font-bold"
+                            : "bg-stone-100 text-stone-700 hover:bg-stone-200 border border-stone-200"
+                            }`}
+                        >
+                          {isSelected ? `✓ ${item.label}` : `+ ${item.label}`}
+                        </button>
+                      );
+                    })}
+
+                    {/* Các nguyên liệu dị ứng riêng do người dùng tự nhập (VD: Nấm rơm) - thêm vào ô này luôn */}
+                    {Array.from(
+                      new Set([
+                        ...customAllergens,
+                        ...foodAllergies.filter((a) => {
+                          const aLower = a.toLowerCase();
+                          return !FOOD_ALLERGY_MASTER_LIST.some((m) => {
+                            const mLower = m.id.toLowerCase();
+                            const mCode = ALLERGEN_MAP_TO_BACKEND[mLower];
+                            const aCode = ALLERGEN_MAP_TO_BACKEND[aLower];
+                            return (
+                              mLower === aLower ||
+                              m.label.toLowerCase() === aLower ||
+                              (mCode && aCode === mCode)
+                            );
+                          });
+                        }),
+                      ])
+                    ).map((customItem) => {
+                      const isSelected = foodAllergies.some(
+                        (a) => a.toLowerCase() === customItem.toLowerCase()
+                      );
+
+                      return (
+                        <button
+                          key={customItem}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setAllergies((prev) =>
+                                prev.filter((a) => a.toLowerCase() !== customItem.toLowerCase())
+                              );
+                            } else {
+                              setAllergies((prev) => [...prev, customItem]);
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 animate-in fade-in ${isSelected
+                            ? "bg-amber-100 text-amber-950 border border-amber-400 ring-1 ring-amber-300 shadow-2xs font-bold"
+                            : "bg-stone-100 text-stone-700 hover:bg-stone-200 border border-stone-200"
+                            }`}
+                        >
+                          <span>
+                            {isSelected
+                              ? `✓ ${getAllergyDisplayLabel(customItem)}`
+                              : `+ ${getAllergyDisplayLabel(customItem)}`}
+                          </span>
+                          <span
+                            role="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAllergies((prev) =>
+                                prev.filter((a) => a.toLowerCase() !== customItem.toLowerCase())
+                              );
+                              setCustomAllergens((prev) =>
+                                prev.filter((c) => c.toLowerCase() !== customItem.toLowerCase())
+                              );
+                            }}
+                            className="hover:text-red-700 p-0.5 rounded-full hover:bg-stone-200/80 ml-0.5 transition-colors cursor-pointer"
+                            title={`Xóa hoàn toàn ${getAllergyDisplayLabel(customItem)}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Ô nhập nguyên liệu dị ứng tự do - thêm là xuất hiện ngay lên trên phần được chọn */}
+                <div className="space-y-1.5 pt-1 border-t border-stone-100">
+                  <span className="text-[11px] font-semibold text-stone-600">Thêm nguyên liệu dị ứng khác:</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={customAllergyInput}
+                      onChange={(e) => {
+                        setCustomAllergyInput(e.target.value);
+                        if (customAllergyError) setCustomAllergyError(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddCustomAllergy(e);
+                        }
+                      }}
+                      placeholder="Nhập tên nguyên liệu dị ứng (VD: Muối, Cà chua, Nấm rơm...)"
+                      className="flex-1 h-9 rounded-xl border border-stone-200 bg-stone-50 px-3 text-xs focus:bg-white focus:border-amber-600 outline-none"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={handleAddCustomAllergy}
+                      className="h-9 px-3.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Thêm vào dị ứng
+                    </button>
+                  </div>
+
+                  {customAllergyError && (
+                    <p className="text-[11px] text-red-600 font-medium flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {customAllergyError}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* MỤC 2: THỰC PHẨM CẦN TRÁNH / KIÊNG KỴ (FOODS TO AVOID & PREFERENCES) */}
+              <div className="p-4 rounded-2xl bg-white border border-stone-200 shadow-2xs space-y-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-stone-900">
+                    2. Thực phẩm cần tránh
+                  </label>
+                  <p className="text-[11px] text-stone-500 mt-0.5">
+                    Các thành phần cảnh báo cần tránh theo trường phái ăn chay hoặc kiêng kỵ theo tín ngưỡng, khẩu vị riêng.
+                  </p>
+                </div>
+
+                {/* Khối 1: Cảnh báo theo trường phái ăn chay (bỏ chữ tự động né, hiển thị dạng cảnh báo) */}
+                <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Cảnh báo cần tránh theo trường phái {VEGETARIAN_TYPE_OPTIONS.find(v => v.id === vegetarianType)?.label || "ăn chay"}:</span>
+                  </div>
+
+                  {vegetarianType === "vegan" && (
+                    <div className="flex flex-wrap gap-2 pt-0.5">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs">
+                        <span>⚠️ Sữa &amp; Chế phẩm sữa (Lactose)</span>
+                        <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-bold">Cảnh báo</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs">
+                        <span>⚠️ Trứng (Trứng gà / vịt)</span>
+                        <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-bold">Cảnh báo</span>
+                      </span>
+                    </div>
+                  )}
+
+                  {vegetarianType === "lacto_vegetarian" && (
+                    <div className="flex flex-wrap gap-2 pt-0.5">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs">
+                        <span>⚠️ Trứng (Trứng gà / vịt)</span>
+                        <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-bold">Cảnh báo</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs text-stone-700 bg-stone-100 border border-stone-200">
+                        ✓ Sữa &amp; chế phẩm từ sữa: Dùng được
+                      </span>
+                    </div>
+                  )}
+
+                  {vegetarianType === "ovo_vegetarian" && (
+                    <div className="flex flex-wrap gap-2 pt-0.5">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs">
+                        <span>⚠️ Sữa &amp; Chế phẩm sữa (Lactose)</span>
+                        <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-bold">Cảnh báo</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs text-stone-700 bg-stone-100 border border-stone-200">
+                        ✓ Trứng gà / vịt: Dùng được
+                      </span>
+                    </div>
+                  )}
+
+                  {vegetarianType === "lacto_ovo_vegetarian" && (
+                    <p className="text-xs text-stone-600">
+                      ✓ Chế độ này dùng được cả Trứng và Sữa (không có thành phần cảnh báo cần tránh theo trường phái).
+                    </p>
+                  )}
+                  {!vegetarianType && (
+                    <p className="text-xs text-stone-400 italic">
+                      Chọn trường phái ăn chay ở trên để hệ thống tự động thiết lập cảnh báo các thành phần cần tránh.
+                    </p>
+                  )}
+                </div>
+
+
               </div>
             </div>
           </div>

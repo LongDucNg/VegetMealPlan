@@ -13,11 +13,11 @@ export function useRecipes(
   initialPage = 1,
   initialLimit = 24
 ) {
-  const [recipes, setRecipes] = useState<Recipe[]>(() =>
-    recipeService.getRecipes()
-  );
+  // Server không có localStorage: khởi tạo rỗng để HTML server và lần render đầu ở client giống nhau
+  // (trước đây server render 17 món mẫu, client render 500 món trong cache -> lỗi hydration).
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [filters, setFilters] = useState<RecipeFilterOptions>(initialFilters || {});
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [page, setPage] = useState<number>(initialPage);
   const [limit, setLimit] = useState<number>(initialLimit);
   const [total, setTotal] = useState<number>(0);
@@ -35,6 +35,7 @@ export function useRecipes(
             ? filters.vegetarianType
             : undefined,
         category: filters.category,
+        exactDiet: filters.exactDiet,
         maxCalories: filters.maxCalories,
         page,
         limit,
@@ -95,6 +96,8 @@ export function useRecipes(
           instructions: Array.isArray(data.instructions)
             ? data.instructions.join("\n")
             : data.instructions,
+          image_url: data.image,
+          video_url: data.video_url || data.videoUrl,
           prep_time: data.prepTime,
           cook_time: data.cookTime,
           servings: data.serving,
@@ -126,10 +129,26 @@ export function useRecipes(
           await recipeApiService.updateRecipe(numericId, {
             title: updates.title || updates.name,
             description: updates.description,
+            instructions: Array.isArray(updates.instructions)
+              ? updates.instructions.join("\n")
+              : updates.instructions,
+            image_url: updates.image,
+            video_url: updates.video_url || updates.videoUrl,
             prep_time: updates.prepTime,
             cook_time: updates.cookTime,
             servings: updates.serving,
+            meal_type: updates.mealType,
+            diet_type: updates.vegetarianType,
             estimated_cost: updates.estimatedCost,
+            ingredients: updates.ingredients
+              ? updates.ingredients
+                  .filter((ing) => Number(ing.id) > 0 && Number(ing.quantity) > 0)
+                  .map((ing) => ({
+                    ingredient_id: Number(ing.id),
+                    quantity: Number(ing.quantity),
+                    unit: "g",
+                  }))
+              : undefined,
           });
         } catch {
           // Keep working locally

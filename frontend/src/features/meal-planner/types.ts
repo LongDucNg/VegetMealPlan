@@ -1,11 +1,19 @@
 import { Recipe } from "@/features/recipes/types";
 import { UserProfile } from "@/features/profile/types";
 
-export type MealPlanType = "weekly" | "monthly";
+export type MealPlanType = "daily" | "weekly" | "monthly";
+
+export interface MealIngredientSummaryItem {
+  ingredient_name: string;
+  quantity_g: number;
+  note: string;
+}
 
 export interface MealSlotItem {
   recipe: Recipe;
+  recipes?: Recipe[];
   time: string;
+  portion?: number;
 }
 
 export interface DayMealPlan {
@@ -23,6 +31,8 @@ export interface DayMealPlan {
   targetCalories: number;
   remainingCalories: number;
   estimatedCost: number; // in VND (Requirement 4, 7)
+  ingredient_summary?: MealIngredientSummaryItem[];
+  ai_cookability_notes?: string;
 }
 
 export interface WeeklyMealPlan {
@@ -33,6 +43,8 @@ export interface WeeklyMealPlan {
   totalEstimatedCost: number;
   averageDailyCost: number;
   budgetLimit?: number;
+  ai_cookability_notes?: string;
+  ingredient_summary?: MealIngredientSummaryItem[];
 }
 
 export interface CalendarDayMealPlan extends DayMealPlan {
@@ -53,10 +65,12 @@ export interface MonthlyMealPlan {
   averageDailyCost: number;
   targetCalories: number;
   budgetLimit?: number;
+  ai_cookability_notes?: string;
+  ingredient_summary?: MealIngredientSummaryItem[];
 }
 
 export interface GenerationPlanOptions {
-  planType: MealPlanType;
+  planType?: MealPlanType;
   isSomeoneElse?: boolean;
   targetProfile?: UserProfile;
   budgetLimit?: number; // e.g. 500,000 VND
@@ -64,6 +78,8 @@ export interface GenerationPlanOptions {
   selectedYear?: number;
   favoriteRecipeIds?: string[];
   seed?: number;
+  recentRecipeIds?: string[]; // Danh sách món đã dùng trong 14 ngày (2 tuần) gần nhất
+  excludedRecipeIds?: string[];
 }
 
 export interface MealItem {
@@ -100,4 +116,3 @@ export interface ScanPreset {
   detected: DetectedIngredient[];
   matchingRecipeIds: string[];
 }
-

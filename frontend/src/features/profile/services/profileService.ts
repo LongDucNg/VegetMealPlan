@@ -12,48 +12,64 @@ import {
   Gender,
 } from "../types";
 import { DEFAULT_MOCK_PROFILE } from "../data/mockProfile";
+import { SYSTEM_INGREDIENTS, SYSTEM_ALLERGEN_GROUPS } from "@/features/recipes/data/systemIngredients";
 
-const ALLERGEN_MAP_TO_BACKEND: Record<string, string> = {
+export const ALLERGEN_MAP_TO_BACKEND: Record<string, string> = {
+  peanuts: "PEANUT",
   peanut: "PEANUT",
   PEANUT: "PEANUT",
+
   soy: "SOY",
   SOY: "SOY",
+
+  wheat: "GLUTEN",
   gluten: "GLUTEN",
   GLUTEN: "GLUTEN",
+
   dairy: "DAIRY",
   DAIRY: "DAIRY",
-  treenut: "TREE_NUT",
+
+  tree_nuts: "TREE_NUT",
   tree_nut: "TREE_NUT",
+  treenut: "TREE_NUT",
   nuts: "TREE_NUT",
   TREE_NUT: "TREE_NUT",
+
   sesame: "SEED",
   seed: "SEED",
   SEED: "SEED",
-  egg: "EGG",
-  EGG: "EGG",
-  fungi: "FUNGI",
-  mushroom: "FUNGI",
-  FUNGI: "FUNGI",
-  allium: "ALLIUM",
-  ALLIUM: "ALLIUM",
-  legume: "LEGUME",
-  LEGUME: "LEGUME",
+
   corn: "CORN",
   CORN: "CORN",
+
+  egg: "EGG",
+  EGG: "EGG",
+
+  legumes: "LEGUME",
+  legume: "LEGUME",
+  LEGUME: "LEGUME",
+
+  mushrooms: "FUNGI",
+  mushroom: "FUNGI",
+  fungi: "FUNGI",
+  FUNGI: "FUNGI",
+
+  allium: "ALLIUM",
+  ALLIUM: "ALLIUM",
 };
 
-const ALLERGEN_MAP_FROM_BACKEND: Record<string, string> = {
+export const ALLERGEN_MAP_FROM_BACKEND: Record<string, string> = {
   PEANUT: "peanut",
   SOY: "soy",
   GLUTEN: "gluten",
   DAIRY: "dairy",
   TREE_NUT: "treenut",
   SEED: "sesame",
+  CORN: "corn",
   EGG: "egg",
+  LEGUME: "legume",
   FUNGI: "fungi",
   ALLIUM: "allium",
-  LEGUME: "legume",
-  CORN: "corn",
 };
 
 function mapBackendDietToFrontend(diet?: string): VegetarianType {
@@ -87,19 +103,36 @@ function mapFrontendGoalToId(goal?: HealthGoal | ""): number {
   return 3; // maintain
 }
 
-function mapBackendProfileToUserProfile(
-  backend: BackendProfile,
-  existingCustomAllergies: string[] = []
-): UserProfile {
+function mapBackendProfileToUserProfile(backend: BackendProfile): UserProfile {
   const allergenGroups = backend.allergies?.allergen_groups || [];
   const mappedAllergies = allergenGroups.map(
     (code) => ALLERGEN_MAP_FROM_BACKEND[code] || code.toLowerCase()
   );
 
-  // Giữ lại các dị ứng tự do / nguyên liệu riêng lẻ không thuộc nhóm chuẩn
-  for (const custom of existingCustomAllergies) {
-    if (!mappedAllergies.some((m) => m.toLowerCase() === custom.toLowerCase())) {
-      mappedAllergies.push(custom);
+  // Tập hợp các ingredient_id thuộc về các nhóm allergenGroups đang được chọn
+  const activeGroupIngredientIds = new Set<number>();
+  for (const groupCode of allergenGroups) {
+    const groupDef = SYSTEM_ALLERGEN_GROUPS.find((g) => g.code === groupCode);
+    if (groupDef) {
+      groupDef.ingredient_ids.forEach((id) => activeGroupIngredientIds.add(id));
+    }
+  }
+
+  // Chỉ lấy những nguyên liệu tự do / riêng lẻ KHÔNG nằm trong nhóm chuẩn đã được chọn
+  const backendIngredients = backend.allergies?.ingredients || [];
+  for (const ing of backendIngredients) {
+    if (!activeGroupIngredientIds.has(ing.ingredient_id)) {
+      const ingName = ing.ingredient_name;
+      if (ingName && !mappedAllergies.some((m) => m.toLowerCase() === ingName.toLowerCase())) {
+        mappedAllergies.push(ingName);
+      }
+    }
+  }
+
+  const savedCustom = storage.getItem<string[]>("veggie_custom_allergies", []);
+  for (const customItem of savedCustom) {
+    if (!mappedAllergies.some((m) => m.toLowerCase() === customItem.toLowerCase())) {
+      mappedAllergies.push(customItem);
     }
   }
 
@@ -134,8 +167,19 @@ export const profileService = {
    * Lấy hồ sơ người dùng hiện tại (đồng bộ tức thì từ cache)
    */
   getProfile(): UserProfile {
-    const raw = storage.getItem<UserProfile | null>(STORAGE_KEYS.USER_PROFILE, null);
+    const token = tokenStorage.getToken();
     const authUser = tokenStorage.getUser();
+
+    // Khách vãng lai (chưa đăng nhập): Tuyệt đối không hiển thị dị ứng hoặc thông tin cá nhân cũ
+    if (!token || !authUser) {
+      return {
+        ...DEFAULT_MOCK_PROFILE,
+        id: "guest",
+        allergies: [],
+      };
+    }
+
+    const raw = storage.getItem<UserProfile | null>(STORAGE_KEYS.USER_PROFILE, null);
 
     // If cache contains legacy mock data, purge it
     if (raw && (raw.name === "Demo User" || raw.email === "demo@veggiehub.vn" || raw.handle === "demouser")) {
@@ -155,6 +199,32 @@ export const profileService = {
           if (!authUser.gender) raw.gender = "";
           if (!authUser.activity_level) raw.activityLevel = "";
         }
+      }
+
+      // Chuẩn hoá cache dị ứng nếu có các nguyên liệu con bị bung ra thành từng loại đậu/hạt
+      if (raw.allergies && raw.allergies.length > 0) {
+        const cleaned: string[] = [];
+        for (const item of raw.allergies) {
+          const lower = item.toLowerCase();
+          const mappedGroup = ALLERGEN_MAP_TO_BACKEND[lower];
+          if (mappedGroup) {
+            const feId = ALLERGEN_MAP_FROM_BACKEND[mappedGroup];
+            if (feId && !cleaned.includes(feId)) cleaned.push(feId);
+            continue;
+          }
+          const ing = SYSTEM_INGREDIENTS.find((i) => i.name.toLowerCase() === lower);
+          if (ing) {
+            // Giữ nguyên nguyên liệu dị ứng riêng biệt của người dùng (VD: Nấm rơm, Cà chua)
+            if (!cleaned.some((c) => c.toLowerCase() === lower)) {
+              cleaned.push(item);
+            }
+            continue;
+          }
+          if (!cleaned.some((c) => c.toLowerCase() === lower)) {
+            cleaned.push(item);
+          }
+        }
+        raw.allergies = cleaned;
       }
       return raw;
     }
@@ -289,6 +359,7 @@ export const profileService = {
         ]);
 
         const allergenGroups: string[] = [];
+        const customIngredientIds: number[] = [];
 
         for (const raw of updates.allergies) {
           const item = String(raw).trim();
@@ -303,24 +374,54 @@ export const profileService = {
               allergenGroups.push(mapped);
             }
           } else {
-            if (!customAllergies.some((c) => c.toLowerCase() === item.toLowerCase())) {
-              customAllergies.push(item);
+            // Đây là nguyên liệu cụ thể (VD: Muối, Cà chua, Nấm rơm, Tiêu đen,...)
+            const lowerItem = item.toLowerCase();
+            const foundIng = SYSTEM_INGREDIENTS.find(
+              (ing) => ing.name.toLowerCase() === lowerItem || String(ing.id) === item
+            );
+
+            if (foundIng) {
+              if (!customIngredientIds.includes(foundIng.id)) {
+                customIngredientIds.push(foundIng.id);
+              }
+              if (!customAllergies.some((c) => c.toLowerCase() === foundIng.name.toLowerCase())) {
+                customAllergies.push(foundIng.name);
+              }
+            } else {
+              if (!customAllergies.some((c) => c.toLowerCase() === item.toLowerCase())) {
+                customAllergies.push(item);
+              }
             }
           }
         }
 
-        // BE: Chỉ gửi các allergen_groups hợp lệ (ngăn lỗi class-validator 400 nếu có dị ứng nhập tự do)
-        await apiClient.put<AllergiesData>("/users/me/allergies", {
+        // Gửi cả allergen_groups VÀ ingredient_ids hợp lệ lên backend
+        const savedAllergies = await apiClient.put<AllergiesData>("/users/me/allergies", {
           allergen_groups: allergenGroups,
-          ingredient_ids: [],
+          ingredient_ids: customIngredientIds,
         });
-        if (serverProfile.allergies) {
-          serverProfile.allergies.allergen_groups = allergenGroups;
-        }
+        serverProfile.allergies = savedAllergies;
         serverProfile.allergies_declared = true;
       }
 
-      const mapped = mapBackendProfileToUserProfile(serverProfile, customAllergies);
+      const mapped = mapBackendProfileToUserProfile(serverProfile);
+      if (updates.allergies !== undefined) {
+        for (const rawItem of updates.allergies) {
+          const itemStr = String(rawItem).trim();
+          if (!itemStr) continue;
+          if (!mapped.allergies.some((a) => a.toLowerCase() === itemStr.toLowerCase())) {
+            mapped.allergies.push(itemStr);
+          }
+        }
+        const customOnly = updates.allergies.filter((a) => {
+          const aLower = a.toLowerCase();
+          const isStd = [
+            "peanut", "soy", "gluten", "treenut", "sesame", "corn", "legume", "fungi", "allium", "egg", "dairy"
+          ].includes(aLower);
+          return !isStd;
+        });
+        storage.setItem("veggie_custom_allergies", customOnly);
+      }
       storage.setItem(STORAGE_KEYS.USER_PROFILE, mapped);
       return mapped;
     } catch (err) {

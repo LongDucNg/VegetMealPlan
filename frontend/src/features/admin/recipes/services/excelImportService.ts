@@ -68,12 +68,14 @@ export const excelImportService = {
       "Khẩu phần",
       "Độ khó",
       "Nguyên liệu",
+      // Tên danh mục đúng như trong trang Quản lý danh mục: 1 nhóm món + 1 loại món, cách nhau dấu phẩy.
+      "Danh mục",
     ];
 
     const sampleRows = [
       [
         "Đậu phụ sốt cà chua",
-        "Đậu phụ chiên giòn sốt cùng cà chua tươi, hành hoa đậm đà thanh ngọt.",
+        "Đậu hũ chiên giòn sốt cùng cà chua tươi, hành hoa đậm đà thanh ngọt.",
         "1. Cắt đậu phụ miếng vừa ăn, chiên vàng đều hai mặt.\n2. Phi thơm hành, xào nhuyễn cà chua với chút muối và hạt nêm chay.\n3. Cho đậu phụ vào đảo nhỏ lửa 5 phút cho ngấm sốt, rắc hành lá rồi tắt bếp.",
         "Trưa/Tối",
         "Thuần chay",
@@ -81,7 +83,8 @@ export const excelImportService = {
         15,
         2,
         "Dễ",
-        "Đậu phụ (200g), Cà chua (150g), Hành lá (20g)",
+        "Đậu hũ trắng (200g), Cà chua (150g), Hành lá (20g)",
+        "Xào & Chiên, Món mặn",
       ],
       [
         "Canh chua chay Nam Bộ",
@@ -93,7 +96,8 @@ export const excelImportService = {
         15,
         4,
         "Trung bình",
-        "Đậu phụ (150g), Cà chua (100g), Dứa (100g), Đậu bắp (50g), Giá đỗ (50g)",
+        "Đậu hũ trắng (150g), Cà chua (100g), Thơm (dứa) (100g), Đậu bắp (50g), Giá đỗ (50g)",
+        "Canh & Súp, Canh/súp",
       ],
       [
         "Bún xào rau nấm chay",
@@ -106,6 +110,7 @@ export const excelImportService = {
         2,
         "Dễ",
         "Bún tươi (250g), Nấm rơm (100g), Cà rốt (60g), Cải ngọt (100g)",
+        "Mì, Bún & Phở, Món đủ bữa",
       ],
     ];
 
@@ -122,6 +127,7 @@ export const excelImportService = {
       { wch: 12 }, // Khẩu phần
       { wch: 12 }, // Độ khó
       { wch: 45 }, // Nguyên liệu
+      { wch: 30 }, // Danh mục
     ];
 
     const wb = XLSX.utils.book_new();

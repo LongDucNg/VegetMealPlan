@@ -1,9 +1,11 @@
-import { Controller, Delete, Get, HttpCode, Logger, Param, ParseIntPipe, Post, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Logger, Param, ParseIntPipe, Post, Query, Req, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
-import { SubscriptionService, IPN } from './subscription.service';
+import { SubscriptionService } from './subscription.service';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 
 @ApiTags('subscriptions')
 @Controller('subscriptions')
@@ -11,6 +13,31 @@ export class SubscriptionController {
   private readonly logger = new Logger(SubscriptionController.name);
 
   constructor(private readonly subscriptionService: SubscriptionService) {}
+
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @Get('admin/transactions')
+  @ApiOperation({
+    summary: 'Admin: lịch sử giao dịch kèm chứng thực PayOS (người chuyển, người nhận, mã tham chiếu)',
+    description: 'Lọc: `search` (tên, email, mã giao dịch), `status` (success|pending|failed), `gateway` (PAYOS|VNPAY). Tối đa 500 dòng.',
+  })
+  adminTransactions(
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('gateway') gateway?: string,
+  ) {
+    return this.subscriptionService.adminListTransactions({ search, status, gateway });
+  }
+
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @Get('admin/transactions/:orderCode/proof')
+  @ApiOperation({ summary: 'Admin: đối soát trực tiếp một giao dịch với API PayOS (chỉ đọc)' })
+  @ApiResponse({ status: 404, description: 'RESOURCE_NOT_FOUND: không có giao dịch này trong hệ thống' })
+  @ApiResponse({ status: 503, description: 'SUBSCRIPTION_PAYMENT_NOT_CONFIGURED: chưa cấu hình khoá PayOS' })
+  adminTransactionProof(@Param('orderCode') orderCode: string) {
+    return this.subscriptionService.adminPayosProof(orderCode);
+  }
 
   @Public()
   @Get('plans')
@@ -30,48 +57,56 @@ export class SubscriptionController {
   @Post('checkout')
   @HttpCode(200)
   @ApiOperation({
-    summary: 'Tạo giao dịch và lấy link thanh toán VNPay',
-    description: 'FE chuyển cả trang sang `payment_url`. Thanh toán xong VNPay đưa người dùng về VNPAY_RETURN_URL (trang FE).',
+    summary: 'Tạo giao dịch và lấy link thanh toán VietQR (PayOS)',
+    description: 'Trả về `payment_url` và `qr_code`. Người dùng quét mã VietQR bằng ứng dụng ngân hàng bất kỳ để thanh toán.',
   })
-  @ApiResponse({ status: 503, description: 'SUBSCRIPTION_PAYMENT_NOT_CONFIGURED: chưa cấu hình khoá VNPay' })
+  @ApiResponse({ status: 503, description: 'SUBSCRIPTION_PAYMENT_NOT_CONFIGURED: chưa cấu hình khoá PayOS' })
   checkout(@CurrentUser('user_id') userId: number, @Req() req: Request) {
     return this.subscriptionService.checkout(userId, clientIp(req));
   }
 
   /**
-   * VNPay gọi thẳng vào đây (server tới server) để báo kết quả. Đây là nguồn sự thật để kích hoạt Premium.
-   * Trả đúng định dạng VNPay yêu cầu { RspCode, Message }, không bọc envelope chung, không bao giờ ném lỗi.
-   * URL này khai trên trang quản trị VNPay (sandbox: dùng ngrok khi chạy local).
+   * PayOS gọi Webhook (server tới server) để báo kết quả thanh toán.
    */
   @Public()
-  @Get('vnpay-ipn')
-  @ApiOperation({ summary: '[VNPay gọi] Nhận kết quả thanh toán (IPN)' })
-  async vnpayIpn(@Query() query: Record<string, string>, @Res() res: Response) {
+  @Post('payos-webhook')
+  @HttpCode(200)
+  @ApiOperation({ summary: '[PayOS gọi] Nhận kết quả thanh toán Webhook' })
+  async payosWebhook(@Body() body: any, @Res() res: Response) {
     try {
-      const result = await this.subscriptionService.processVnpayResult(query);
-      this.logger.log(`IPN ${query.vnp_TxnRef ?? '?'}: ${result.ipn.RspCode} ${result.status}`);
-      return res.status(200).json(result.ipn);
+      const result = await this.subscriptionService.processPayosWebhook(body);
+      this.logger.log(`PayOS Webhook result: ${JSON.stringify(result)}`);
+      return res.status(200).json({ success: true, message: result.message });
     } catch (err) {
-      this.logger.error(`IPN ${query.vnp_TxnRef ?? '?'} lỗi: ${(err as Error)?.message ?? err}`);
-      return res.status(200).json(IPN.UNKNOWN);
+      this.logger.error(`Lỗi xử lý PayOS Webhook: ${(err as Error)?.message ?? err}`);
+      return res.status(200).json({ success: false, message: 'Webhook processing error' });
     }
   }
 
   /**
-   * Trang return của FE gọi API này kèm nguyên query VNPay gắn trên URL để hiển thị kết quả.
-   * Kiểm tra chữ ký như IPN, nên không giả được bằng cách tự gõ vnp_ResponseCode=00.
-   * Nếu IPN chưa tới (chạy local không có ngrok) thì kích hoạt luôn ở đây; IPN tới sau sẽ nhận "đã xác nhận".
+   * Tra cứu trạng thái giao dịch cho trang Return của Frontend
    */
   @Public()
-  @Get('vnpay-return')
-  @ApiOperation({ summary: 'Xác nhận kết quả thanh toán cho trang return của FE' })
-  async vnpayReturn(@Query() query: Record<string, string>) {
-    const r = await this.subscriptionService.processVnpayResult(query);
-    return {
-      success: r.status === 'success',
-      data: { status: r.status, txn_ref: r.txn_ref ?? null, premium_until: r.premium_until ?? null },
-      message: r.message,
-    };
+  @Get('transactions/:orderCode')
+  @ApiOperation({ summary: 'Kiểm tra trạng thái giao dịch thanh toán PayOS' })
+  async checkTransactionStatus(@Param('orderCode') orderCode: string) {
+    return this.subscriptionService.checkPaymentStatus(orderCode);
+  }
+
+  @ApiBearerAuth()
+  @Post('activate-free')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Kích hoạt gói Premium trực tiếp không qua thanh toán' })
+  activateDirect(@CurrentUser('user_id') userId: number) {
+    return this.subscriptionService.activateDirect(userId);
+  }
+
+  @ApiBearerAuth()
+  @Post('switch-free')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Chuyển về gói Miễn phí' })
+  switchFree(@CurrentUser('user_id') userId: number) {
+    return this.subscriptionService.switchFree(userId);
   }
 
   @ApiBearerAuth()
@@ -82,9 +117,9 @@ export class SubscriptionController {
   }
 }
 
-/** VNPay cần IPv4; localhost IPv6 (::1) đổi thành 127.0.0.1. */
-function clientIp(req: Request) {
-  const forwarded = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim();
-  const ip = (forwarded || req.ip || '127.0.0.1').replace(/^::ffff:/, '');
-  return ip === '::1' ? '127.0.0.1' : ip;
+function clientIp(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') return forwarded.split(',')[0].trim();
+  if (Array.isArray(forwarded) && forwarded[0]) return forwarded[0].trim();
+  return req.socket.remoteAddress || '127.0.0.1';
 }

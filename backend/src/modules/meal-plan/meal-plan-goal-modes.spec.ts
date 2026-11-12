@@ -54,11 +54,12 @@ const TDEE = Math.round(1748.75 * 1.55);
 /** BMR cho user 60 kg: 10*60 + 6,25*175 − 5*30 + 5 = 1608,75 ; TDEE = 2493,56 */
 const TDEE_60KG = Math.round(1608.75 * 1.55);
 
-/** Master data `health_goals` (id 1/2/3 theo thứ tự lose_weight/gain_muscle/maintain). */
+/** Master data `health_goals` (id 1/2/3/4 theo thứ tự lose_weight/gain_muscle/maintain/healthy_eating). */
 const HEALTH_GOALS = [
   { goal_id: 1, name: 'lose_weight', description: 'Giảm cân' },
   { goal_id: 2, name: 'gain_muscle', description: 'Tăng cơ' },
   { goal_id: 3, name: 'maintain', description: 'Duy trì cân nặng' },
+  { goal_id: 4, name: 'healthy_eating', description: 'Ăn uống lành mạnh' },
 ];
 
 function buildService(opts: {

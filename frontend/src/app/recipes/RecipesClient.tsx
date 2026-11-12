@@ -48,6 +48,7 @@ export function RecipesClient() {
         searchQuery: searchTerm.trim() || undefined,
         mealType: selectedMealType !== "all" ? (selectedMealType as any) : undefined,
         vegetarianType: selectedDiet !== "all" ? (selectedDiet as any) : undefined,
+        exactDiet: selectedDiet !== "all" ? true : undefined,
       });
       setPage(1);
     }, 300);
@@ -152,8 +153,8 @@ export function RecipesClient() {
             {[
               { id: "all", label: "Tất cả" },
               { id: "breakfast", label: "Bữa sáng" },
+              { id: "lunch_dinner", label: "Bữa trưa / tối" },
               { id: "snack", label: "Bữa phụ" },
-              { id: "any", label: "Trưa & Tối (Linh hoạt)" },
             ].map((m) => (
               <button
                 key={m.id}
@@ -171,9 +172,9 @@ export function RecipesClient() {
             {[
               { id: "all", label: "Tất cả" },
               { id: "vegan", label: "Thuần chay" },
-              { id: "ovo_lacto", label: "Lacto-Ovo" },
-              { id: "lacto", label: "Lacto" },
-              { id: "ovo", label: "Ovo" },
+              { id: "ovo", label: "Chay có trứng (Ovo)" },
+              { id: "lacto", label: "Chay có sữa (Lacto)" },
+              { id: "ovo_lacto", label: "Trứng & sữa (Ovo-Lacto)" },
             ].map((d) => (
               <button
                 key={d.id}
@@ -277,7 +278,7 @@ export function RecipesClient() {
                     {/* Body */}
                     <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                       <div>
-                        <div className="mb-2">
+                        <div className="mb-2 max-w-full overflow-hidden">
                           <RecipeAllergyBadge recipe={recipe} compact />
                         </div>
 
@@ -295,7 +296,7 @@ export function RecipesClient() {
                         <div className="flex items-center gap-2 mt-2.5 text-xs text-stone-500">
                           <span className="flex items-center gap-1 font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
                             <Flame className="w-3 h-3 text-amber-500 fill-amber-500" />
-                            {recipe.calories} kcal
+                            ~{Math.round(Number(recipe.calories) * 100) / 100} kcal
                           </span>
                           <span className="flex items-center gap-1 text-[11px]">
                             <Clock className="w-3 h-3 text-stone-400" />
