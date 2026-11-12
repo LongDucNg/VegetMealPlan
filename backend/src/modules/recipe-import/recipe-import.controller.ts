@@ -24,6 +24,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { RecipeImportService } from './recipe-import.service';
+import { isCategoryIdList } from './import-category.util';
 import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
 import {
   ImportRecipeRow,
@@ -42,6 +43,7 @@ const REQUIRED_IMPORT_COLUMNS = [
   'meal_type',
   'diet_type',
   'ingredients',
+  'category_ids',
 ] as const;
 
 /** Giới hạn số dòng dữ liệu trong 1 lần import để tránh quá tải server. */
@@ -146,9 +148,19 @@ export class RecipeImportController {
       );
 
       if (missingColumns.length > 0) {
+        const columnNamesVi: Record<string, string> = {
+          title: 'Tên món',
+          instructions: 'Hướng dẫn',
+          meal_type: 'Bữa ăn',
+          diet_type: 'Chế độ ăn chay',
+          ingredients: 'Nguyên liệu',
+          category_ids: 'Danh mục món ăn',
+        };
+        const missingDisplay = missingColumns.map((col) => columnNamesVi[col] || col);
+        const requiredDisplay = REQUIRED_IMPORT_COLUMNS.map((col) => columnNamesVi[col] || col);
         throw new BadRequestException(
-          `File Excel thiếu cột bắt buộc: ${missingColumns.join(', ')}. ` +
-            `Các cột bắt buộc là: ${REQUIRED_IMPORT_COLUMNS.join(', ')}.`,
+          `File Excel thiếu cột bắt buộc: ${missingDisplay.join(', ')}. ` +
+          `Các cột bắt buộc là: ${requiredDisplay.join(', ')}.`,
         );
       }
 
@@ -179,7 +191,7 @@ export class RecipeImportController {
         if (otherSheetsWithData.length > 0) {
           throw new BadRequestException(
             `Sheet đầu tiên "${sheet.name}" không có dữ liệu. File có các sheet khác chứa dữ liệu: ${otherSheetsWithData.join(', ')}. ` +
-              'API chỉ đọc sheet đầu tiên mỗi lần import - vui lòng tách file hoặc xóa các sheet không cần thiết.',
+            'API chỉ đọc sheet đầu tiên mỗi lần import - vui lòng tách file hoặc xóa các sheet không cần thiết.',
           );
         }
 
@@ -191,7 +203,7 @@ export class RecipeImportController {
       if (data.length > MAX_IMPORT_ROWS) {
         throw new BadRequestException(
           `File Excel có ${data.length} dòng dữ liệu, vượt quá giới hạn ` +
-            `${MAX_IMPORT_ROWS} dòng cho 1 lần import. Vui lòng chia nhỏ file.`,
+          `${MAX_IMPORT_ROWS} dòng cho 1 lần import. Vui lòng chia nhỏ file.`,
         );
       }
 
@@ -237,13 +249,25 @@ export class RecipeImportController {
 
         // Cột category_ids (tuỳ chọn). Giá trị sai -> đánh dấu dòng FAILED
         // thay vì âm thầm bỏ qua (tạo công thức không có danh mục).
-        const categoryIds = this.toCategoryIds(row.category_ids);
-
-        if (categoryIds.error) {
-          row_error = row_error
-            ? `${row_error}; ${categoryIds.error}`
-            : `Dòng Excel ${rowNumber}: ${categoryIds.error}`;
-        }
+        // Ô ghi bằng tên danh mục ("Canh & Súp, Canh/súp") để service đối chiếu với bảng categories;
+        // ô chỉ gồm số thì đọc như danh sách id như trước.
+        const categoryCell = row.category_ids;
+        const categoryText =
+          typeof categoryCell === 'string' ? categoryCell.trim() : '';
+        const isBlankCategory =
+          categoryCell === undefined ||
+          categoryCell === null ||
+          (typeof categoryCell === 'string' && categoryText === '');
+        const categoryByName =
+          isBlankCategory || (categoryText !== '' && !isCategoryIdList(categoryText));
+        const categoryIds = (categoryByName || isBlankCategory)
+          ? {}
+          : this.toCategoryIds(categoryCell);
+        const resolvedCategoryRaw = isBlankCategory
+          ? 'Khác'
+          : categoryByName
+            ? categoryText
+            : undefined;
 
         return {
           title: String(row.title || '').trim(),
@@ -266,6 +290,7 @@ export class RecipeImportController {
             : undefined,
           diet_type: this.normalizeDietType(row.diet_type),
           category_ids: categoryIds.ids,
+          category_raw: resolvedCategoryRaw,
           row_error,
           row_number: rowNumber,
           ingredients: ingredients.map((ingredient) => ({
@@ -287,8 +312,7 @@ export class RecipeImportController {
 
       // Log nguyên nhân thật để debug được, nhưng không lộ nội dung file/dữ liệu.
       this.logger.error(
-        `Không đọc được file Excel "${file.originalname}" (${file.size ?? 0} bytes): ${
-          error instanceof Error ? error.message : String(error)
+        `Không đọc được file Excel "${file.originalname}" (${file.size ?? 0} bytes): ${error instanceof Error ? error.message : String(error)
         }`,
         error instanceof Error ? error.stack : undefined,
       );
@@ -411,13 +435,19 @@ export class RecipeImportController {
   }
 
   // Chuẩn hoá tên cột tiếng Việt và tiếng Anh về tên trường chuẩn
+  // Thứ tự kiểm quan trọng: cột cụ thể xét trước cột chung, vì "category_ids" sau khi chuẩn hoá
+  // thành "category ids", "suitable_meals" chứa chữ "meal", "Cách nấu" chứa chữ "nấu".
   private canonicalColumnName(raw: string): string {
     const clean = raw.toLowerCase().trim().replace(/[\s\-_()]+/g, ' ');
+    if (/danh mục|category|categories|nhóm món|loại món/i.test(clean)) return 'category_ids';
     if (/tên món|tên công thức|tiêu đề|recipe name|title/i.test(clean)) return 'title';
     if (/mô tả|giới thiệu|description|desc/i.test(clean)) return 'description';
-    if (/hướng dẫn|cách làm|các bước|công thức|instructions|steps/i.test(clean)) return 'instructions';
+    if (/suitable|bữa phù hợp|bữa ăn phù hợp/i.test(clean)) return 'suitable_meals';
+    // Cột thời gian xét trước cột hướng dẫn: "Thời gian chế biến" là số phút, không phải các bước.
     if (/chuẩn bị|prep/i.test(clean)) return 'prep_time';
-    if (/thời gian nấu|nấu|cook/i.test(clean)) return 'cook_time';
+    if (/thời gian|cook/i.test(clean)) return 'cook_time';
+    if (/hướng dẫn|cách làm|cách nấu|cách chế biến|chế biến|các bước|công thức|instructions|steps/i.test(clean)) return 'instructions';
+    if (/^nấu$/i.test(clean)) return 'cook_time';
     if (/khẩu phần|số người|phần ăn|servings|serving/i.test(clean)) return 'servings';
     if (/độ khó|difficulty/i.test(clean)) return 'difficulty';
     if (/bữa ăn|bữa|loại bữa|meal/i.test(clean)) return 'meal_type';
@@ -579,9 +609,20 @@ export class RecipeImportController {
     if (!val) return '';
     const lower = String(val).toLowerCase().trim();
     if (!lower) return '';
-    if (lower.includes('dễ') || lower.includes('easy')) return 'easy';
-    if (lower.includes('khó') || lower.includes('hard')) return 'hard';
-    if (lower.includes('trung bình') || lower.includes('medium')) return 'medium';
+    if (lower.includes('dễ') || lower.includes('de') || lower.includes('easy')) return 'easy';
+    if (lower.includes('khó') || lower.includes('kho') || lower.includes('hard') || lower.includes('advanced')) return 'hard';
+    if (
+      lower.includes('vừa') ||
+      lower.includes('vua') ||
+      lower.includes('trung bình') ||
+      lower.includes('trung binh') ||
+      lower.includes('bình thường') ||
+      lower.includes('binh thuong') ||
+      lower.includes('medium') ||
+      lower.includes('moderate')
+    ) {
+      return 'medium';
+    }
     return lower;
   }
 

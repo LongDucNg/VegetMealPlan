@@ -15,6 +15,7 @@ const HEADERS = [
   'meal_type',
   'diet_type',
   'ingredients',
+  'category_ids',
 ];
 
 const ingJson = (name: string) =>
@@ -33,6 +34,7 @@ const happyRow = (title: string): any[] => [
   'lunch',
   'vegan',
   ingJson('Yến mạch'),
+  'Canh & Súp',
 ];
 
 async function makeWorkbook(
@@ -89,6 +91,17 @@ describe('RecipeImportController - đọc file Excel', () => {
     });
   });
 
+  it('chuẩn hóa độ khó tiếng Việt: "Vừa" / "vừa" / "trung bình" -> medium', async () => {
+    const rowVua = happyRow('Món Vừa');
+    rowVua[6] = 'Vừa';
+    const buffer = await makeWorkbook([
+      { name: 'recipes', rows: [rowVua] },
+    ]);
+
+    const { rows } = await callImport(buffer);
+    expect(rows[0].difficulty).toBe('medium');
+  });
+
   it('chỉ đọc sheet đầu tiên, bỏ qua sheet thứ 2', async () => {
     const buffer = await makeWorkbook([
       { name: 'HappyCase', rows: [happyRow('Món Hợp Lệ')] },
@@ -117,6 +130,7 @@ describe('RecipeImportController - đọc file Excel', () => {
             'lunch',
             'vegan',
             JSON.stringify([null]),
+            'Canh & Súp',
           ],
           happyRow('Món Bình Thường'),
         ],
@@ -149,6 +163,7 @@ describe('RecipeImportController - đọc file Excel', () => {
             'lunch',
             'vegan',
             'không phải JSON',
+            'Canh & Súp',
           ],
           happyRow('Món Tốt'),
         ],

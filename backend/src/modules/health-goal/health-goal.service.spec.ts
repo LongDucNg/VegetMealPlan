@@ -72,13 +72,13 @@ describe('HealthGoalService - khởi tạo health_goals', () => {
   it('bảng THIẾU một dòng -> chỉ thêm đúng dòng còn thiếu', async () => {
     const repo = buildRepo([
       { goal_id: 1, name: 'lose_weight', description: 'Giảm cân' },
+      { goal_id: 2, name: 'gain_muscle', description: 'Tăng cơ' },
     ]);
     const service = new HealthGoalService(repo as any);
 
     await service.ensureMasterData();
 
     expect(repo.rows).toHaveLength(3);
-    expect(repo.rows.find((r) => r.name === 'lose_weight')).toBeDefined();
     expect(repo.rows.find((r) => r.name === 'maintain')).toBeDefined();
   });
 

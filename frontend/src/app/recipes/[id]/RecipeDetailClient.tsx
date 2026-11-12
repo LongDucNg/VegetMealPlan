@@ -19,6 +19,7 @@ import {
   Layers,
   Scale,
   CalendarPlus,
+  Video,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { recipeApiService, RecipeCostResponse } from "@/features/recipes/services/recipeApiService";
@@ -26,13 +27,19 @@ import { favoriteApiService } from "@/features/recipes/services/favoriteApiServi
 import { recipeService } from "@/features/recipes/services/recipeService";
 import { priceService } from "@/features/recipes/services/priceService";
 import { RecipeAllergyBadge } from "@/features/recipes/components/RecipeAllergyBadge";
+import { isIngredientAllergenic } from "@/features/allergy/utils/checkRecipeAllergy";
 import { useProfile } from "@/features/profile/hooks/useProfile";
+import { useAuth } from "@/features/auth/context/AuthContext";
 import { formatVegetarianType } from "@/features/profile/types";
 import { favoriteService } from "@/features/recipes/services/favoriteService";
 import { formatMealType } from "@/features/recipes";
 import { tokenStorage } from "@/lib/tokenStorage";
 import { mapBackendToFrontendRecipe } from "@/features/recipes/utils/recipeMapper";
 import { Recipe } from "@/features/recipes/types";
+import {
+  getIngredientCaloriesPer100g,
+  calculateIngredientCalories,
+} from "@/features/recipes/utils/ingredientNutrition";
 
 interface RecipeDetailClientProps {
   recipeId: string;
@@ -47,8 +54,10 @@ export function RecipeDetailClient({
   initialCost = null,
   initialReplacements = [],
 }: RecipeDetailClientProps) {
+  const { isAuthenticated } = useAuth();
   const { profile } = useProfile();
   const userId = String(profile?.id || "u1");
+  const userAllergies = isAuthenticated && profile?.allergies?.length ? profile.allergies : [];
 
   const [loading, setLoading] = useState(!initialRecipe);
   const [recipe, setRecipe] = useState<Recipe | null>(initialRecipe);
@@ -327,7 +336,7 @@ export function RecipeDetailClient({
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 font-bold text-sm">
               <Flame className="w-4 h-4 text-amber-500 fill-amber-500" />
-              <span>{recipe.calories} kcal</span>
+              <span>~{Math.round(Number(recipe.calories) * 100) / 100} kcal</span>
             </div>
           </div>
 
@@ -369,6 +378,9 @@ export function RecipeDetailClient({
             </div>
           </div>
         </div>
+
+        {/* Cảnh báo dị ứng nổi bật nếu công thức chứa thành phần dị ứng của người dùng */}
+        <RecipeAllergyBadge recipe={recipe} />
 
         {/* 2-Column Layout: Ingredients & Cost Breakdown on Left, Instructions & Substitutions on Right */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -414,6 +426,49 @@ export function RecipeDetailClient({
                       ? ing.quantity * servingsMultiplier
                       : ing.quantity;
 
+                  const lowerIng = (ing.name || "").toLowerCase();
+                  const vegType = (profile?.vegetarianType || "").toLowerCase();
+                  const isEgg = lowerIng.includes("trứng") || lowerIng.includes("trung");
+                  const isDairy =
+                    lowerIng.includes("sữa") ||
+                    lowerIng.includes("sua") ||
+                    lowerIng.includes("bơ") ||
+                    lowerIng.includes("phô mai") ||
+                    lowerIng.includes("kem tươi");
+
+                  const isDeclaredAllergy =
+                    userAllergies.length > 0 && isIngredientAllergenic(ing.name, userAllergies);
+
+                  const isDietViolation =
+                    (vegType === "vegan" && (isEgg || isDairy)) ||
+                    (vegType === "lacto_vegetarian" && isEgg) ||
+                    (vegType === "ovo_vegetarian" && isDairy);
+
+                  const isFlagged = isDeclaredAllergy || isDietViolation;
+
+                  let violationTag = null;
+                  if (isDeclaredAllergy) {
+                    violationTag = "⚠ Dị ứng";
+                  } else if (vegType === "vegan" && isEgg) {
+                    violationTag = "⚠ Chứa Trứng (Né)";
+                  } else if (vegType === "vegan" && isDairy) {
+                    violationTag = "⚠ Chứa Sữa (Né)";
+                  } else if (vegType === "lacto_vegetarian" && isEgg) {
+                    violationTag = "⚠ Chứa Trứng (Né)";
+                  } else if (vegType === "ovo_vegetarian" && isDairy) {
+                    violationTag = "⚠ Chứa Sữa (Né)";
+                  }
+
+                  const calPer100 =
+                    ing.caloriesPer100g !== undefined && ing.caloriesPer100g !== null
+                      ? Number(ing.caloriesPer100g)
+                      : getIngredientCaloriesPer100g(ing.name);
+                  const calculatedKcal = calculateIngredientCalories(
+                    adjustedQuantity,
+                    ing.unit,
+                    calPer100
+                  );
+
                   return (
                     <div
                       key={idx}
@@ -421,24 +476,46 @@ export function RecipeDetailClient({
                       className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                         isChecked
                           ? "bg-stone-50/70 border-stone-200 text-stone-400 line-through"
-                          : "bg-white border-stone-200/80 hover:border-emerald-300 text-stone-800"
+                          : isFlagged
+                            ? "bg-amber-50/50 border-amber-300 text-amber-950 hover:border-amber-400"
+                            : "bg-white border-stone-200/80 hover:border-emerald-300 text-stone-800"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-colors ${
+                          className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-colors shrink-0 ${
                             isChecked
                               ? "bg-emerald-600 border-emerald-600 text-white"
-                              : "border-stone-300 bg-white"
+                              : isFlagged
+                                ? "border-amber-400 bg-amber-100 text-amber-900"
+                                : "border-stone-300 bg-white"
                           }`}
                         >
                           {isChecked && <CheckCircle2 className="w-3.5 h-3.5" />}
                         </div>
-                        <span className="text-xs font-semibold">{ing.name}</span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-semibold">{ing.name}</span>
+                            {violationTag && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-0.5">
+                                {violationTag}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-stone-400 flex items-center gap-1 mt-0.5 font-medium">
+                            <span className="text-amber-700 font-semibold">~{Math.round(Number(calPer100) * 100) / 100} kcal</span>
+                            <span className="text-stone-400">/ 100g</span>
+                          </div>
+                        </div>
                       </div>
-                      <span className="text-xs font-bold text-emerald-800">
-                        {adjustedQuantity} {ing.unit}
-                      </span>
+                      <div className="text-right shrink-0 ml-3">
+                        <span className="text-xs font-bold text-emerald-800 block">
+                          {adjustedQuantity} {ing.unit}
+                        </span>
+                        <span className="text-[11px] font-bold text-amber-700 bg-amber-50/90 px-1.5 py-0.5 rounded-md border border-amber-200/60 inline-block mt-0.5 shadow-2xs">
+                          ~{Math.round(Number(calculatedKcal) * 100) / 100} kcal
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
@@ -451,24 +528,38 @@ export function RecipeDetailClient({
                     Chi tiết giá nguyên liệu thị trường
                   </span>
                   <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                    {costData.ingredients.map((cIng: any, i: number) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between text-xs py-1 border-b border-stone-50"
-                      >
-                        <span className="text-stone-600 truncate max-w-[180px]">
-                          {cIng.ingredient_name}
-                        </span>
-                        <div className="text-right shrink-0">
-                          <span className="font-semibold text-stone-900">
-                            {Number(cIng.cost || 0).toLocaleString("vi-VN")} VNĐ
-                          </span>
-                          <span className="text-[10px] text-stone-400 block">
-                            ({Number(cIng.unit_price || 0).toLocaleString("vi-VN")} VNĐ/{cIng.price_unit || cIng.unit})
-                          </span>
+                    {costData.ingredients.map((cIng: any, i: number) => {
+                      const ingCalPer100 =
+                        cIng.calories_per_100g != null
+                          ? Number(cIng.calories_per_100g)
+                          : getIngredientCaloriesPer100g(cIng.ingredient_name);
+                      const ingQty = Number(cIng.quantity || 0) * servingsMultiplier;
+                      const ingKcal = calculateIngredientCalories(ingQty, cIng.unit, ingCalPer100);
+
+                      return (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between text-xs py-1.5 border-b border-stone-50"
+                        >
+                          <div>
+                            <span className="text-stone-700 font-medium truncate max-w-[180px] block">
+                              {cIng.ingredient_name}
+                            </span>
+                            <span className="text-[10px] text-stone-400 block mt-0.5">
+                              ~{Math.round(Number(ingCalPer100) * 100) / 100} kcal/100g · ~{Math.round(Number(ingKcal) * 100) / 100} kcal
+                            </span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="font-semibold text-stone-900 block">
+                              {Number(cIng.cost || 0).toLocaleString("vi-VN")} VNĐ
+                            </span>
+                            <span className="text-[10px] text-stone-400 block">
+                              ({Number(cIng.unit_price || 0).toLocaleString("vi-VN")} VNĐ/{cIng.price_unit || cIng.unit})
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   <div className="flex items-center justify-between pt-2 text-xs font-bold text-emerald-900">
                     <span>Tổng chi phí:</span>
@@ -523,6 +614,43 @@ export function RecipeDetailClient({
 
           {/* Right Column: Cooking Instructions & Tips (7 cols) */}
           <div className="lg:col-span-7 space-y-6">
+                        {/* Video hướng dẫn nấu ăn */}
+            {(recipe.video_url || recipe.videoUrl) ? (
+              <div className="p-6 rounded-3xl bg-stone-900 border border-stone-800 shadow-md text-white space-y-3">
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <Video className="w-5 h-5" />
+                  <h3 className="font-serif font-bold text-lg text-white">
+                    Video hướng dẫn nấu ăn
+                  </h3>
+                </div>
+                <video
+                  src={(recipe.video_url || recipe.videoUrl)!.startsWith('/') ? `http://localhost:3000${recipe.video_url || recipe.videoUrl}` : (recipe.video_url || recipe.videoUrl)}
+                  controls
+                  className="w-full max-h-[380px] rounded-2xl bg-black"
+                />
+              </div>
+            ) : (
+              <div className="p-6 rounded-3xl bg-white border border-stone-200/80 shadow-xs space-y-3">
+                <div className="flex items-center gap-2 text-emerald-700">
+                  <Video className="w-5 h-5" />
+                  <h3 className="font-serif font-bold text-lg text-stone-900">
+                    Video hướng dẫn nấu ăn
+                  </h3>
+                </div>
+                <div className="py-10 px-6 rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 flex flex-col items-center justify-center text-center space-y-2.5">
+                  <div className="w-12 h-12 rounded-2xl bg-stone-100 border border-stone-200 flex items-center justify-center text-stone-400">
+                    <Video className="w-6 h-6" />
+                  </div>
+                  <h4 className="font-semibold text-sm text-stone-700">
+                    Video cách nấu sẽ được update trong tương lai
+                  </h4>
+                  <p className="text-xs text-stone-400 max-w-sm">
+                    Đội ngũ đầu bếp VeggieHub đang ghi hình và hoàn thiện video hướng dẫn từng bước cho món ăn này.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="p-6 sm:p-8 rounded-3xl bg-white border border-stone-200/80 shadow-xs space-y-6">
               <div>
                 <h3 className="font-serif font-bold text-xl text-stone-900">

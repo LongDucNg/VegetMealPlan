@@ -45,6 +45,7 @@ describe('RecipeService.findAll - lọc diet_type', () => {
       { find: async () => [], findOne: async () => null } as any,
       { find: async () => [], findOne: async () => null } as any,
       { find: async () => [], findOne: async () => null } as any,
+      {} as any, // recipeValidator (không dùng khi lọc danh sách)
       { transaction: async (cb: any) => cb({}) } as any,
     );
 
@@ -87,6 +88,29 @@ describe('RecipeService.findAll - lọc diet_type', () => {
     expect(dietCondition(conditions)!.params.allowedDiets).toEqual([
       'vegan',
     ]);
+  });
+
+
+  it('exactDiet=true với ovo -> so sánh đẳng thức recipe.diet_type = :dietType', async () => {
+    const { svc, conditions } = buildService();
+
+    await svc.findAll({ diet_type: 'ovo', exactDiet: true } as any);
+
+    const condition = dietCondition(conditions);
+    expect(condition).toBeDefined();
+    expect(condition!.sql).toContain('recipe.diet_type = :dietType');
+    expect(condition!.params.dietType).toEqual('ovo');
+  });
+
+  it('exactDiet=true với lacto -> so sánh đẳng thức recipe.diet_type = :dietType', async () => {
+    const { svc, conditions } = buildService();
+
+    await svc.findAll({ vegetarianType: 'lacto', exactDiet: true } as any);
+
+    const condition = dietCondition(conditions);
+    expect(condition).toBeDefined();
+    expect(condition!.sql).toContain('recipe.diet_type = :dietType');
+    expect(condition!.params.dietType).toEqual('lacto');
   });
 
   it('không truyền diet_type -> không thêm điều kiện lọc chế độ ăn', async () => {

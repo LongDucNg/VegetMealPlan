@@ -19,6 +19,8 @@ export interface ChatbotMessage {
   text: string;
   timestamp: string;
   suggestedRecipeId?: string;
+  suggested_recipes?: Array<{ recipe_id: number; title: string }>;
+  remaining_queries?: number | null;
   substitution?: SubstitutionItem;
 }
 

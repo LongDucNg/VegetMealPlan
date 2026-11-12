@@ -1,4 +1,4 @@
-import { registerDecorator, ValidationOptions, ValidatorConstraint, ValidatorConstraintInterface, ValidationArguments } from 'class-validator';
+import { registerDecorator, ValidationOptions, ValidatorConstraint, ValidatorConstraintInterface } from 'class-validator';
 
 /**
  * Chỉ cho phép chữ cái (Unicode letters) và khoảng trắng.
@@ -9,7 +9,7 @@ import { registerDecorator, ValidationOptions, ValidatorConstraint, ValidatorCon
 export class IsVietnameseNameConstraint implements ValidatorConstraintInterface {
   private readonly pattern = /^[\p{L}\p{M} &,\/.'\-()]+$/u;
 
-  validate(value: any, args: ValidationArguments): boolean {
+  validate(value: unknown): boolean {
     if (typeof value !== 'string') return false;
     return this.pattern.test(value.trim());
   }

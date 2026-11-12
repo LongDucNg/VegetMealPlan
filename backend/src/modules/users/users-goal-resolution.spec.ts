@@ -15,6 +15,7 @@ const STANDARD_GOALS = [
   { goal_id: 1, name: 'lose_weight', description: 'Giảm cân' },
   { goal_id: 2, name: 'gain_muscle', description: 'Tăng cơ' },
   { goal_id: 3, name: 'maintain', description: 'Duy trì cân nặng' },
+  { goal_id: 4, name: 'healthy_eating', description: 'Ăn uống lành mạnh' },
 ];
 
 function buildRepo(initial: any[] = []) {

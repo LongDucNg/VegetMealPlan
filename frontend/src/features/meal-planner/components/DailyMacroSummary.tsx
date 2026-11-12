@@ -48,19 +48,19 @@ export function DailyMacroSummary({ day }: DailyMacroSummaryProps) {
           <div
             className={`px-3.5 py-1.5 rounded-full border text-xs font-semibold flex items-center gap-1.5 ${
               isOver
-                ? "bg-red-50 text-red-700 border-red-200"
+                ? "bg-amber-50 text-amber-800 border-amber-300"
                 : "bg-emerald-50 text-emerald-800 border-emerald-200"
             }`}
           >
             {isOver ? (
               <>
-                <AlertCircle className="w-3.5 h-3.5 text-red-600" />
-                <span>Vượt mức tiêu chuẩn {Math.abs(remaining)} kcal</span>
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                <span>Vượt mức tiêu chuẩn ~{Math.round(Math.abs(remaining) * 100) / 100} kcal</span>
               </>
             ) : (
               <>
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Còn dư {remaining} kcal cho bữa phụ/đồ uống</span>
+                <span>Còn dư ~{Math.round(remaining * 100) / 100} kcal cho bữa phụ/đồ uống</span>
               </>
             )}
           </div>

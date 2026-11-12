@@ -1,4 +1,11 @@
+import * as fs from 'fs';
+import * as path from 'path';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const multer = require('multer');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const cloudinary = require('cloudinary').v2;
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -10,7 +17,10 @@ import {
   UseGuards,
   Req,
   Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { RecipeService } from './recipe.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
@@ -20,16 +30,22 @@ import {
   RecommendationQueryDto,
 } from './dto/query-recipe.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiProduces } from '@nestjs/swagger';
+import { ErrorCode } from '../../common/constants/error-codes.enum';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiProduces, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
+import { CurrentUser, AuthUser } from '../../common/decorators/current-user.decorator';
+import { RecipeImageService, RECIPE_IMAGE_MAX_BYTES, UploadedImageFile } from './recipe-image.service';
 
 @ApiTags('recipes')
 @Controller('recipes')
 export class RecipeController {
-  constructor(private readonly recipeService: RecipeService) {}
+  constructor(
+    private readonly recipeService: RecipeService,
+    private readonly recipeImageService: RecipeImageService,
+  ) {}
 
   // =========================
   // PUBLIC / COMMON ROUTES
@@ -135,6 +151,121 @@ export class RecipeController {
   // PROTECTED ROUTES (USER)
   // =========================
 
+  // =========================
+  // UPLOAD MEDIA (IMAGE & VIDEO)
+  // =========================
+
+  @Post('upload')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Tải lên hình ảnh hoặc video cho công thức món ăn' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: multer.diskStorage({
+        destination: (_req: any, _file: any, cb: any) => {
+          const uploadPath = path.join(process.cwd(), 'uploads', 'recipes');
+          fs.mkdirSync(uploadPath, { recursive: true });
+          cb(null, uploadPath);
+        },
+        filename: (_req: any, file: any, cb: any) => {
+          const ext = path.extname(file.originalname).toLowerCase();
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, 'recipe-' + uniqueSuffix + ext);
+        },
+      }),
+      fileFilter: (_req: any, file: any, cb: any) => {
+        const allowedMimes = [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/gif',
+          'video/mp4',
+          'video/webm',
+          'video/quicktime',
+        ];
+        const allowedExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.mp4', '.webm', '.mov'];
+        const ext = path.extname(file.originalname).toLowerCase();
+        // Cần đúng CẢ mimetype lẫn đuôi file: trước đây chỉ cần một trong hai nên file .html khai mimetype
+        // image/png vẫn lọt vào uploads/ và được phục vụ tĩnh từ origin của backend (XSS).
+        if (allowedMimes.includes(file.mimetype) && allowedExts.includes(ext)) {
+          cb(null, true);
+        } else {
+          cb(
+            new BadRequestException({
+              code: ErrorCode.VALIDATION_FAILED,
+              message: 'Chỉ chấp nhận file ảnh (jpg, png, webp, gif) hoặc video (mp4, webm, mov)',
+            }),
+            false,
+          );
+        }
+      },
+      limits: {
+        fileSize: 100 * 1024 * 1024,
+      },
+    }),
+  )
+  async uploadMedia(@UploadedFile() file: any) {
+    if (!file) {
+      throw new BadRequestException({
+        code: ErrorCode.VALIDATION_FAILED,
+        message: 'Vui lòng chọn file để tải lên',
+      });
+    }
+
+    const isVideo =
+      file.mimetype?.startsWith('video/') ||
+      ['.mp4', '.webm', '.mov'].includes(path.extname(file.originalname).toLowerCase());
+
+    // Nếu cấu hình Cloudinary trong .env, ưu tiên tải thẳng lên Cloudinary
+    if (
+      process.env.CLOUDINARY_CLOUD_NAME &&
+      process.env.CLOUDINARY_API_KEY &&
+      process.env.CLOUDINARY_API_SECRET
+    ) {
+      cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      });
+
+      try {
+        const uploadResult = await cloudinary.uploader.upload(file.path, {
+          resource_type: isVideo ? 'video' : 'image',
+          folder: 'vegetmealplan/recipes',
+        });
+
+        // Xoá file tạm local sau khi đẩy lên Cloudinary
+        try {
+          fs.unlinkSync(file.path);
+        } catch {
+          // Bỏ qua lỗi xoá file tạm
+        }
+
+        return {
+          url: uploadResult.secure_url,
+          file_type: isVideo ? 'video' : 'image',
+          public_id: uploadResult.public_id,
+          size: file.size,
+        };
+      } catch (err: any) {
+        console.error('Lỗi khi tải file lên Cloudinary:', err);
+        throw new BadRequestException({
+          code: ErrorCode.VALIDATION_FAILED,
+          message: 'Lỗi khi tải file lên Cloudinary: ' + (err.message || 'Không xác định'),
+        });
+      }
+    }
+
+    const relativeUrl = '/uploads/recipes/' + file.filename;
+
+    return {
+      url: relativeUrl,
+      file_type: isVideo ? 'video' : 'image',
+      filename: file.filename,
+      size: file.size,
+    };
+  }
+
   @Post()
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
@@ -174,13 +305,35 @@ export class RecipeController {
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
-  remove(
+  async remove(
     @Param('id', PositiveIntPipe) id: number,
     @Req() req: any,
   ) {
     const userId = req.user.user_id;
     const userRole = req.user.role;
 
-    return this.recipeService.removeRecipe(id, userId, userRole);
+    const result = await this.recipeService.removeRecipe(id, userId, userRole);
+    // Món đã xoá hẳn thì dọn luôn ảnh trên Cloudinary; món chỉ bị ẩn (REMOVED, còn trong thực đơn) giữ ảnh.
+    await this.recipeImageService.removeIfRecipeDeleted(id);
+    return result;
+  }
+
+  /**
+   * Tải ảnh món lên Cloudinary (multipart, trường "image"; JPG/PNG/WEBP, tối đa 5 MB).
+   * Gọi SAU khi tạo/sửa món thành công. Chỉ người tạo món hoặc admin. Đổi ảnh = ghi đè ảnh cũ.
+   */
+  @Post(':id/image')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Tải ảnh món ăn lên Cloudinary và gắn vào công thức' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', properties: { image: { type: 'string', format: 'binary' } }, required: ['image'] } })
+  // Multer chặn cứng file trên 10 MB (không đọc file khổng lồ vào RAM); 5–10 MB để service báo lỗi tiếng Việt rõ ràng.
+  @UseInterceptors(FileInterceptor('image', { limits: { fileSize: RECIPE_IMAGE_MAX_BYTES * 2, files: 1 } }))
+  uploadImage(
+    @Param('id', PositiveIntPipe) id: number,
+    @CurrentUser() user: AuthUser,
+    @UploadedFile() file?: UploadedImageFile,
+  ) {
+    return this.recipeImageService.upload(id, user.user_id, user.role, file);
   }
 }

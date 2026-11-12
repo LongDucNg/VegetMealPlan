@@ -20,7 +20,7 @@ export function MockPaymentModal({
   defaultPlanId = "premium",
 }: MockPaymentModalProps) {
   const [selectedPlanId, setSelectedPlanId] = useState<SubscriptionPlan["id"]>(defaultPlanId);
-  const [paymentMethod, setPaymentMethod] = useState<"vnpay" | "card" | "momo">("vnpay");
+  const [paymentMethod, setPaymentMethod] = useState<"vietqr" | "card" | "momo">("vietqr");
   const [processing, setProcessing] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -34,7 +34,7 @@ export function MockPaymentModal({
     setErrorMessage(null);
 
     // Nếu chọn cổng VNPay thật: gọi API POST /subscriptions/checkout
-    if (paymentMethod === "vnpay") {
+    if (paymentMethod === "vietqr") {
       setProcessing(true);
       try {
         const res = await subscriptionService.createCheckout();
@@ -51,7 +51,7 @@ export function MockPaymentModal({
             "Cổng thanh toán VNPay đang ở chế độ chờ cấu hình khóa bí mật (VNPAY_TMN_CODE) trên server. Bạn có thể chọn 'Kích hoạt thử nghiệm (Demo)' bên dưới để trải nghiệm."
           );
         } else {
-          setErrorMessage(err?.message || "Không thể khởi tạo giao dịch thanh toán VNPay.");
+          setErrorMessage(err?.message || "Không thể khởi tạo giao dịch thanh toán VietQR.");
         }
       }
       return;
@@ -147,15 +147,15 @@ export function MockPaymentModal({
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => setPaymentMethod("vnpay")}
+                onClick={() => setPaymentMethod("vietqr")}
                 className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border text-xs font-medium cursor-pointer transition-all ${
-                  paymentMethod === "vnpay"
-                    ? "border-blue-600 bg-blue-50 text-blue-900 ring-2 ring-blue-500/20"
+                  paymentMethod === "vietqr"
+                    ? "border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/20 font-bold"
                     : "border-stone-200 text-stone-600 hover:bg-stone-50"
                 }`}
               >
-                <ShieldCheck className="w-4 h-4 text-blue-600" />
-                VNPay Gateway
+                <QrCode className="w-4 h-4 text-emerald-700" />
+                VietQR (PayOS)
               </button>
               <button
                 type="button"
@@ -218,13 +218,34 @@ export function MockPaymentModal({
             </div>
           )}
 
+          {/* Direct Upgrade Button (No Payment Required) */}
+          <div className="p-3.5 bg-emerald-50 border border-emerald-200/90 rounded-2xl flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                Mở khóa trực tiếp không qua thanh toán
+              </p>
+              <p className="text-[11px] text-emerald-800">
+                Kích hoạt ngay gói Premium để sử dụng toàn bộ tính năng.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleDemoUpgrade}
+              disabled={processing || completed}
+              className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs cursor-pointer shadow-xs transition-colors shrink-0"
+            >
+              Mở khóa ngay
+            </button>
+          </div>
+
           {/* Action buttons */}
           <div className="pt-2">
             <button
               onClick={handleConfirm}
               disabled={processing || completed}
               className={`w-full h-12 rounded-2xl text-white font-semibold text-base shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 ${
-                paymentMethod === "vnpay"
+                paymentMethod === "vietqr"
                   ? "bg-blue-600 hover:bg-blue-700"
                   : "bg-emerald-700 hover:bg-emerald-800"
               }`}
@@ -238,13 +259,13 @@ export function MockPaymentModal({
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   <span>
-                    {paymentMethod === "vnpay" ? "Đang kết nối cổng VNPay..." : "Đang xử lý giao dịch..."}
+                    {paymentMethod === "vietqr" ? "Đang tạo mã VietQR..." : "Đang xử lý giao dịch..."}
                   </span>
                 </>
-              ) : paymentMethod === "vnpay" ? (
+              ) : paymentMethod === "vietqr" ? (
                 <>
                   <ShieldCheck className="w-5 h-5 text-white" />
-                  <span>Thanh toán VNPay · {currentPlan.formattedPrice}</span>
+                  <span>Thanh toán VietQR · {currentPlan.formattedPrice}</span>
                   <ExternalLink className="w-4 h-4 text-blue-200" />
                 </>
               ) : (
@@ -255,8 +276,8 @@ export function MockPaymentModal({
               )}
             </button>
             <p className="text-[11px] text-center text-stone-400 mt-2">
-              {paymentMethod === "vnpay"
-                ? "Giao dịch được bảo mật và xử lý trực tiếp qua Cổng thanh toán điện tử VNPay."
+              {paymentMethod === "vietqr"
+                ? "Quét mã VietQR bằng ứng dụng ngân hàng bất kỳ (MBBank, Vietcombank, Techcombank...). Xử lý bảo mật qua PayOS."
                 : "Mô phỏng thanh toán trực tiếp trên môi trường thử nghiệm."}
             </p>
           </div>

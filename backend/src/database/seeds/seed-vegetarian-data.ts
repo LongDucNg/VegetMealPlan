@@ -11,6 +11,7 @@ import { deriveSuitableMeals } from '../../modules/recipe/recipe-meals.util';
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { assertSeedResetAllowed } from '../../config/database.config';
 
 // Đọc bằng fs (không cần bật resolveJsonModule trong tsconfig). Seed chạy bằng ts-node nên dùng __dirname.
 const load = (file: string): any[] =>
@@ -96,6 +97,8 @@ function calculateCostAndNutrition(
 
 export async function seedVegetarianData(ds: DataSource) {
   const reset = process.env.SEED_RESET === 'true';
+  // DB dùng chung (deploy): phải gõ thêm SEED_RESET_CONFIRM=<tên DB> mới cho xoá.
+  if (reset) assertSeedResetAllowed((key) => process.env[key]);
 
   const existing = await ds.getRepository(Ingredient).count();
   if (existing > 0 && !reset) {
@@ -141,6 +144,8 @@ export async function seedVegetarianData(ds: DataSource) {
       groupNames.add(r.categories[0]);
       courseNames.add(r.categories[1]);
     }
+    // Danh mục "Khác" chuẩn 10 danh mục
+    groupNames.add('Khác');
     const catId = new Map<string, number>();
     const upsertCat = async (name: string, type: string) => {
       let c = await m.findOne(Category, { where: { category_name: name, category_type: type } });

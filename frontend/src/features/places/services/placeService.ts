@@ -1,6 +1,14 @@
 import { apiClient } from "@/lib/apiClient";
 import { VEGAN_PLACES, SHOP_FILTERS, SUGGESTED_FOOD_SPOTS } from "../data/mockPlaces";
-import { VeganPlace, ShopFilter, FoodSpotItem } from "../types";
+import { VeganPlace, ShopFilter, FoodSpotItem, Shop, shopToVeganPlace } from "../types";
+
+export interface NearbyPlacesParams {
+  lat: number;
+  lng: number;
+  radiusKm?: number;
+  dish?: string;
+  category?: string;
+}
 
 export const placeService = {
   getPlaces(): VeganPlace[] {
@@ -20,34 +28,65 @@ export const placeService = {
   },
 
   /**
-   * Lấy danh sách quán chay từ backend (Endpoint 29: GET /places)
+   * Lấy danh sách quán ăn chay gần vị trí người dùng (Backend Haversine + OSM Crawler + Spatial Cache)
+   * GET /places/nearby
+   */
+  async fetchNearbyPlaces(params: NearbyPlacesParams): Promise<{ items: Shop[] }> {
+    try {
+      const res = await apiClient.get<{ items: Shop[] }>("/places/nearby", {
+        params: {
+          lat: params.lat,
+          lng: params.lng,
+          radiusKm: params.radiusKm ?? 5,
+          dish: params.dish?.trim() || undefined,
+          category: params.category?.trim() || undefined,
+        },
+      });
+      if (res && Array.isArray(res.items)) {
+        return res;
+      }
+    } catch (err) {
+      console.warn("fetchNearbyPlaces error, returning empty fallback:", err);
+    }
+    return { items: [] };
+  },
+
+  /**
+   * Lấy danh sách quán chay từ backend (GET /places)
    */
   async fetchPlaces(filter?: ShopFilter | "All", query?: string): Promise<VeganPlace[]> {
     try {
-      const res = await apiClient.get<VeganPlace[]>("/places", {
+      const res = await apiClient.get<Shop[]>("/places", {
         params: {
           type: filter && filter !== "All" ? filter : undefined,
           q: query ? query.trim() : undefined,
         },
       });
-      if (Array.isArray(res) && res.length > 0) return res;
+      if (Array.isArray(res) && res.length > 0) {
+        return res.map(shopToVeganPlace);
+      }
     } catch {}
     return this.filterPlaces(filter || "All", query);
   },
 
   /**
-   * Chi tiết quán (Endpoint 30: GET /places/:id)
+   * Chi tiết quán (GET /places/:id)
    */
   async fetchPlaceById(id: string): Promise<VeganPlace | undefined> {
     try {
-      const res = await apiClient.get<VeganPlace>(`/places/${id}`);
-      if (res && res.id) return res;
+      const numericId = parseInt(id, 10);
+      if (!isNaN(numericId)) {
+        const res = await apiClient.get<Shop>(`/places/${numericId}`);
+        if (res && res.shopId) {
+          return shopToVeganPlace(res);
+        }
+      }
     } catch {}
     return this.getPlaceById(id);
   },
 
   /**
-   * Bộ lọc loại quán (Endpoint 31: GET /places/filters)
+   * Bộ lọc loại quán (GET /places/filters)
    */
   async fetchShopFilters(): Promise<readonly ShopFilter[]> {
     try {
@@ -58,7 +97,7 @@ export const placeService = {
   },
 
   /**
-   * Gợi ý điểm ăn theo món (Endpoint 32: GET /places/food-spots/suggested)
+   * Gợi ý điểm ăn theo món (GET /places/food-spots/suggested)
    */
   async fetchSuggestedFoodSpots(): Promise<FoodSpotItem[]> {
     try {
@@ -69,24 +108,52 @@ export const placeService = {
   },
 
   /**
-   * Thêm quán mới - Admin (Endpoint 33: POST /places)
+   * Thêm quán mới - Admin (POST /places)
    */
   async createPlace(data: Partial<VeganPlace>): Promise<VeganPlace> {
-    return await apiClient.post<VeganPlace>("/places", data);
+    const payload = {
+      name: data.name,
+      address: data.address,
+      latitude: data.latitude ?? 10.776889,
+      longitude: data.longitude ?? 106.695345,
+      category: data.type,
+      specialDish: data.popularDish,
+      rating: data.rating,
+      phoneNumber: data.phoneNumber,
+      isOpen: data.isOpen ?? true,
+    };
+    const created = await apiClient.post<Shop>("/places", payload);
+    return shopToVeganPlace(created);
   },
 
   /**
-   * Sửa quán - Admin (Endpoint 34: PUT /places/:id)
+   * Sửa quán - Admin (PUT /places/:id)
    */
   async updatePlace(id: string, data: Partial<VeganPlace>): Promise<VeganPlace> {
-    return await apiClient.put<VeganPlace>(`/places/${id}`, data);
+    const numericId = parseInt(id, 10);
+    const payload = {
+      name: data.name,
+      address: data.address,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      category: data.type,
+      specialDish: data.popularDish,
+      rating: data.rating,
+      phoneNumber: data.phoneNumber,
+      isOpen: data.isOpen,
+    };
+    const updated = await apiClient.put<Shop>(`/places/${numericId}`, payload);
+    return shopToVeganPlace(updated);
   },
 
   /**
-   * Xóa quán - Admin (Endpoint 35: DELETE /places/:id)
+   * Xóa quán - Admin (DELETE /places/:id)
    */
   async deletePlace(id: string): Promise<void> {
-    await apiClient.delete<void>(`/places/${id}`);
+    const numericId = parseInt(id, 10);
+    if (!isNaN(numericId)) {
+      await apiClient.delete<void>(`/places/${numericId}`);
+    }
   },
 
   filterPlaces(filter: ShopFilter | "All", query?: string): VeganPlace[] {
@@ -101,7 +168,6 @@ export const placeService = {
       result = result.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
-          p.district.toLowerCase().includes(q) ||
           p.address.toLowerCase().includes(q) ||
           p.popularDish.toLowerCase().includes(q)
       );

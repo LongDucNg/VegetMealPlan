@@ -13,6 +13,7 @@ import { WeeklyPlan } from './weekly-plan.entity';
 import { MealPlanProfile } from './meal-plan-profile.entity';
 
 export enum PlanType {
+  DAILY = 'daily',
   WEEKLY = 'weekly',
   MONTHLY = 'monthly',
 }
@@ -81,6 +82,9 @@ export class MealPlan {
 
   @Column({ type: 'varchar', nullable: true })
   generated_by: string | null; // AI / manual
+
+  @Column({ type: 'text', nullable: true })
+  ai_cookability_notes: string | null;
 
   @OneToMany(() => WeeklyPlan, (w) => w.meal_plan)
   weekly_plans: WeeklyPlan[];

@@ -33,6 +33,52 @@ interface RequestOptions extends RequestInit {
   _retry?: boolean;
 }
 
+let activeRefreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (activeRefreshPromise) {
+    return activeRefreshPromise;
+  }
+
+  activeRefreshPromise = (async () => {
+    const refreshToken = tokenStorage.getRefreshToken();
+    if (!refreshToken) return null;
+
+    try {
+      const refreshUrl = `${API_BASE_URL.replace(/\/$/, "")}/auth/refresh`;
+      const refreshRes = await fetch(refreshUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+
+      if (refreshRes.ok) {
+        const refreshJson = await refreshRes.json();
+        const payload = refreshJson?.data || refreshJson;
+        if (payload?.access_token) {
+          tokenStorage.saveAuthSession({
+            access_token: payload.access_token,
+            refresh_token: payload.refresh_token,
+            user: payload.user,
+          });
+          return payload.access_token as string;
+        }
+      }
+      return null;
+    } catch (err) {
+      console.warn("[apiClient] Token refresh failed:", err);
+      return null;
+    } finally {
+      activeRefreshPromise = null;
+    }
+  })();
+
+  return activeRefreshPromise;
+}
+
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const { params, headers, ...customConfig } = options;
 
@@ -94,44 +140,22 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
           endpoint.includes("/auth/google");
 
         if (!options._retry && !isAuthEndpoint) {
-          const refreshToken = tokenStorage.getRefreshToken();
-          if (refreshToken) {
-            try {
-              const refreshUrl = `${API_BASE_URL.replace(/\/$/, "")}/auth/refresh`;
-              const refreshRes = await fetch(refreshUrl, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Accept: "application/json",
-                },
-                body: JSON.stringify({ refresh_token: refreshToken }),
-              });
-
-              if (refreshRes.ok) {
-                const refreshJson = await refreshRes.json();
-                const payload = refreshJson?.data || refreshJson;
-                if (payload?.access_token) {
-                  tokenStorage.saveAuthSession({
-                    access_token: payload.access_token,
-                    refresh_token: payload.refresh_token,
-                    user: payload.user,
-                  });
-
-                  // Retry the original request with new credentials
-                  return request<T>(endpoint, {
-                    ...options,
-                    _retry: true,
-                  });
-                }
-              }
-            } catch (refreshErr) {
-              console.warn("[apiClient] Token refresh failed:", refreshErr);
-            }
+          const newToken = await refreshAccessToken();
+          if (newToken) {
+            const nextHeaders: Record<string, string> = {
+              ...(options.headers as Record<string, string>),
+              Authorization: `Bearer ${newToken}`,
+            };
+            return request<T>(endpoint, {
+              ...options,
+              headers: nextHeaders,
+              _retry: true,
+            });
           }
         }
 
-        // If refresh failed or was an auth endpoint or no refresh token available
-        if (typeof window !== "undefined") {
+        // Chỉ xóa session khi refresh thực sự thất bại trên endpoint thông thường
+        if (typeof window !== "undefined" && !isAuthEndpoint) {
           tokenStorage.clearAll();
         }
       }

@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { Sparkles, Check, Crown, ArrowRight } from "lucide-react";
+import { Sparkles, Check, Crown, ArrowRight, Refrigerator } from "lucide-react";
 import { useSubscription } from "../hooks/useSubscription";
 import { MockPaymentModal } from "../components/MockPaymentModal";
+import { GatedSkeleton } from "@/components/ui/LockedState";
 
 interface PremiumGuardProps {
   children: React.ReactNode;
-  feature: "meal-planner" | "ai-chatbot";
+  feature: "meal-planner" | "ai-chatbot" | "smart-fridge";
   customTitle?: string;
   customDescription?: string;
 }
@@ -18,8 +19,12 @@ export function PremiumGuard({
   customTitle,
   customDescription,
 }: PremiumGuardProps) {
-  const { isPremium, purchase, toggle, subscription } = useSubscription();
+  const { isPremium, purchase, toggle, subscription, isReady } = useSubscription();
   const [modalOpen, setModalOpen] = useState(false);
+
+  if (!isReady) {
+    return <GatedSkeleton />;
+  }
 
   if (isPremium) {
     return (
@@ -36,13 +41,7 @@ export function PremiumGuard({
               · 99.000 VNĐ / tháng
             </span>
           </div>
-          <button
-            onClick={() => toggle()}
-            className="text-[11px] font-medium text-emerald-800 hover:text-red-700 underline underline-offset-2 transition-colors cursor-pointer"
-            title="Nhấn để chuyển sang gói Miễn phí (kiểm thử)"
-          >
-            [Thử nghiệm: Về gói Thường]
-          </button>
+
         </div>
         {children}
       </div>
@@ -99,16 +98,78 @@ export function PremiumGuard({
                 Nâng cấp Premium
                 <ArrowRight className="w-4 h-4" />
               </button>
-              <button
-                onClick={() => toggle()}
-                className="text-xs text-stone-500 hover:text-stone-800 underline underline-offset-2 py-2 px-3 cursor-pointer"
-              >
-                [Thử nghiệm: Mở nhanh]
-              </button>
+
             </div>
 
             <p className="text-xs text-stone-400 mt-4">
               99.000 VNĐ / tháng · Hủy bất cứ lúc nào · Thanh toán mô phỏng
+            </p>
+          </div>
+        </div>
+
+        <MockPaymentModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          onSuccess={(planId) => purchase(planId)}
+        />
+      </>
+    );
+  }
+
+  // Content for Smart Fridge
+  if (feature === "smart-fridge") {
+    return (
+      <>
+        <div className="max-w-2xl mx-auto my-10 p-8 sm:p-12 bg-white border border-stone-200 rounded-3xl shadow-sm text-center relative overflow-hidden">
+          {/* Subtle decorative glow */}
+          <div className="absolute -top-16 -right-16 w-40 h-40 bg-emerald-200/40 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-16 -left-16 w-40 h-40 bg-amber-200/40 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="relative z-10">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center mx-auto mb-6 shadow-xs">
+              <Refrigerator className="w-8 h-8 text-emerald-600" strokeWidth={1.75} />
+            </div>
+
+            <h2 className="font-serif font-bold text-3xl text-stone-900 mb-3 tracking-tight">
+              {customTitle || "Quản lý Tủ lạnh & Quét AI Thông minh"}
+            </h2>
+
+            <p className="text-stone-600 text-base max-w-lg mx-auto mb-6">
+              {customDescription ||
+                "Tính năng cao cấp giúp bạn tối ưu hóa thực phẩm sẵn có trong tủ lạnh, chống lãng phí và gợi ý món ăn dinh dưỡng ngay tức thì:"}
+            </p>
+
+            {/* Feature Checklist */}
+            <div className="bg-stone-50 border border-stone-200/90 rounded-2xl p-5 max-w-md mx-auto mb-8 text-left space-y-2.5">
+              {[
+                "Quét ảnh tủ lạnh bằng Vision AI tự động nhận diện rau củ, nấm, đậu hũ",
+                "Theo dõi số lượng, hạn sử dụng & cảnh báo nguyên liệu sắp hết hạn",
+                "Gợi ý công thức nấu ăn khớp nhiều nguyên liệu có sẵn nhất",
+                "Tự động đồng bộ với danh sách mua sắm và kế hoạch thực đơn",
+                "Bảo vệ sức khỏe bằng cách loại trừ dị ứng và thực phẩm không phù hợp",
+              ].map((item) => (
+                <div key={item} className="flex items-start gap-2.5 text-sm text-stone-700">
+                  <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
+                    <Check className="w-3 h-3 stroke-[2.5]" />
+                  </div>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                onClick={() => setModalOpen(true)}
+                className="w-full sm:w-auto h-12 px-8 rounded-full bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold text-base shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-amber-900 fill-amber-900" />
+                Nâng cấp Premium để sử dụng
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-stone-400 mt-4">
+              99.000 VNĐ / tháng · Mở khóa toàn bộ tính năng thông minh VeggieHub
             </p>
           </div>
         </div>
@@ -163,12 +224,7 @@ export function PremiumGuard({
             Nâng cấp Premium
             <ArrowRight className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => toggle()}
-            className="text-xs text-stone-500 hover:text-stone-800 underline underline-offset-2 py-2 px-3 cursor-pointer"
-          >
-            [Thử nghiệm: Mở nhanh]
-          </button>
+
         </div>
 
         <p className="text-xs text-stone-400 mt-4">

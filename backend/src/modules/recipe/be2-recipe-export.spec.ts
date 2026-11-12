@@ -54,7 +54,7 @@ const svcOf = (r: any[] = [], i: any[] = [], n: any[] = [], c: any[] = []) =>
   new RecipeService(
     repoOf(r) as any, repoOf(i) as any, repoOf() as any, repoOf() as any,
     repoOf() as any, repoOf() as any, {} as any, repoOf() as any,
-    repoOf(n) as any, repoOf(c) as any, repoOf() as any, {} as any,
+    repoOf(n) as any, repoOf(c) as any, repoOf() as any, {} as any, {} as any,
   );
 
 const RECIPE: any = {
@@ -65,10 +65,14 @@ const RECIPE: any = {
   estimated_cost: 45000, status: 'approved', created_by: 7,
   created_at: new Date('2026-01-02T03:04:05Z'),
 };
-const ING: any = { recipe_id: 15, ingredient_id: 3, quantity: 200, unit: 'g',
-  note: null, is_optional: false, ingredient: { ingredient_name: 'Nam rom' } };
-const NUT: any = { recipe_id: 15, calories: 320, protein: 12.5,
-  carbs: 40, fat: 8, fiber: 5 };
+const ING: any = {
+  recipe_id: 15, ingredient_id: 3, quantity: 200, unit: 'g',
+  note: null, is_optional: false, ingredient: { ingredient_name: 'Nam rom' }
+};
+const NUT: any = {
+  recipe_id: 15, calories: 320, protein: 12.5,
+  carbs: 40, fat: 8, fiber: 5
+};
 
 describe('BE2 - Export cong thuc (CSV)', () => {
   it('escapeCsvValue: boc nhay kep, nhan doi nhay kep, giu gia tri thuong', () => {
@@ -222,7 +226,7 @@ describe('BE2 - Export cong thuc (CSV)', () => {
         content: 'x',
       })),
     };
-    const ctrl = new RecipeController(svc as any);
+    const ctrl = new RecipeController(svc as any, {} as any);
     const headers: Record<string, string> = {};
     const res: any = {
       setHeader: jest.fn((k: string, v: string) => { headers[k] = v; }),
@@ -244,4 +248,4 @@ describe('BE2 - Export cong thuc (CSV)', () => {
     expect(r.content).toContain('Ga nam chay');
     expect(r.content).toContain('Tofu nuong');
   });
-});
+});

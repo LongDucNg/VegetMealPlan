@@ -10,6 +10,7 @@ import {
 import { User } from '../../users/entities/user.entity';
 
 export enum PaymentGateway {
+  PAYOS = 'PAYOS',
   VNPAY = 'VNPAY',
 }
 
@@ -38,7 +39,7 @@ export class PaymentTransaction {
   @Column('float')
   amount: number;
 
-  @Column({ type: 'enum', enum: PaymentGateway, default: PaymentGateway.VNPAY })
+  @Column({ type: 'enum', enum: PaymentGateway, default: PaymentGateway.PAYOS })
   gateway: PaymentGateway;
 
   // Mã đơn hàng phía mình sinh ra, gửi cho VNPay (vnp_TxnRef). Unique để IPN tra đúng một giao dịch.

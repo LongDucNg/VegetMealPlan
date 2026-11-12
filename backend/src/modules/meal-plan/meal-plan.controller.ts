@@ -47,6 +47,17 @@ export class MealPlanController {
     return this.mealPlanService.saveMealPlan(req.user.user_id, dto);
   }
 
+  @Post('meal-plans/generate/daily')
+  generateDailyMealPlan(
+    @Req() req: any,
+    @Body() dto: GenerateMealPlanDto,
+  ) {
+    return this.mealPlanService.generateDailyMealPlan(
+      req.user.user_id,
+      dto,
+    );
+  }
+
   @Post('meal-plans/generate/weekly')
   generateWeeklyMealPlan(
     @Req() req: any,

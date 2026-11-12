@@ -40,7 +40,7 @@ const UNIT_TABLE: Record<string, UnitInfo> = {
   tbsp: { group: 'volume', factor: 15 },
 };
 
-function normalizeUnit(unit?: string | null): string {
+export function normalizeUnit(unit?: string | null): string {
   const cleaned = (unit ?? '')
     .trim()
     .toLowerCase()
