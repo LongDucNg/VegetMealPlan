@@ -285,6 +285,11 @@ ${recipesPrompt}`;
             text: 'Thuc don chay giau protein tren 60g dam/ngay cho nguoi tap luyen?',
             category: 'macros',
           });
+        } else if (goal === 'healthy_eating') {
+          suggestions.unshift({
+            text: 'Goi y thuc don chay da dang vi chat, thanh loc co the va tot cho tieu hoa?',
+            category: 'general',
+          });
         }
 
         // Goi y theo truong phai an chay.

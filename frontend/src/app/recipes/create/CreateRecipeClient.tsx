@@ -7,6 +7,9 @@ import { useRouter, usePathname } from "next/navigation";
 import {
   ArrowLeft,
   ChefHat,
+  Upload,
+  Video,
+  Loader2,
   Plus,
   Trash2,
   Clock,
@@ -132,14 +135,65 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState(SAMPLE_PRESET_IMAGES[0].url);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingVideo(true);
+      const res = await recipeApiService.uploadMedia(file);
+      const fullUrl = (res as any)?.data?.url || res?.url;
+      if (fullUrl) {
+        setVideoUrl(fullUrl);
+      }
+    } catch (err: any) {
+      alert("Lỗi khi tải video: " + (err.message || "Không thể tải file lên"));
+    } finally {
+      setUploadingVideo(false);
+    }
+  };
+
+  // Ảnh chọn từ máy: tải lên Cloudinary SAU khi tạo món (POST /recipes/:id/image), imageUrl lúc đó chỉ để xem trước.
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageWarning, setImageWarning] = useState("");
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const clearImageFile = () => {
+    setImageFile(null);
+    if (imageUrl.startsWith("blob:")) URL.revokeObjectURL(imageUrl);
+  };
+
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setErrorMsg("Ảnh món chỉ nhận JPG, PNG hoặc WEBP.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg("Ảnh món tối đa 5 MB.");
+      return;
+    }
+    clearImageFile();
+    setImageFile(file);
+    setImageUrl(URL.createObjectURL(file));
+  };
+
+  const pickImageUrl = (url: string) => {
+    clearImageFile();
+    setImageUrl(url);
+  };
 
   // Gộp trưa/tối thành 1 lựa chọn "any" (Trưa & Tối)
   const [mealType, setMealType] = useState<string>("any");
   const [dietType, setDietType] = useState<string>("vegan");
   const [difficulty, setDifficulty] = useState<string>("easy");
-  const [prepTime, setPrepTime] = useState<number | "">(0);
-  const [cookTime, setCookTime] = useState<number | "">(0);
-  const [servings, setServings] = useState<number | "">(0);
+  const [prepTime, setPrepTime] = useState<number | "">("");
+  const [cookTime, setCookTime] = useState<number | "">("");
+  const [servings, setServings] = useState<number | "">("");
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
 
   // Category Dropdown State (thay vì show ra 1 đống)
@@ -153,7 +207,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
       keyId: "init-1",
       ingredient_id: 0,
       name: "",
-      quantity: 0,
+      quantity: "",
       unit: "g",
       note: "",
       is_optional: false,
@@ -172,6 +226,12 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
   // UI States
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Khung báo lỗi nằm trên đầu form, còn nút gửi ở cuối trang: có lỗi thì cuộn lên để người dùng thấy
+  // (trước đây chỉ lỗi thiếu tên món mới cuộn, các lỗi khác như "0 bước" hay lỗi từ backend bị khuất).
+  useEffect(() => {
+    if (errorMsg) window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [errorMsg]);
   const [successData, setSuccessData] = useState<any | null>(null);
 
   // Active searching ingredient dropdown
@@ -200,7 +260,35 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
           const list = Array.isArray(catRes.value)
             ? catRes.value
             : (catRes.value as any)?.data || [];
-          if (isMounted) setCategories(list);
+          // Giới hạn đúng 10 danh mục ẩm thực chính thức theo quy chuẩn VeggieHub
+          const OFFICIAL_10_CATEGORIES = [
+            "Mì, Bún & Phở",
+            "Cơm, Xôi & Cháo",
+            "Bánh, Bánh bột & Ăn vặt",
+            "Tráng miệng & Đồ uống",
+            "Món kho & Rim",
+            "Xào & Chiên",
+            "Luộc & Hấp",
+            "Cuốn, Gỏi & Sa lát",
+            "Canh & Súp",
+            "Khác",
+          ];
+          const officialSet = new Set(OFFICIAL_10_CATEGORIES.map((x) => x.toLowerCase()));
+          const matched = list.filter((c: any) =>
+            officialSet.has((c.category_name || "").toLowerCase().trim())
+          );
+          const existingNames = new Set(
+            matched.map((c: any) => (c.category_name || "").toLowerCase().trim())
+          );
+          const fallbacks = OFFICIAL_10_CATEGORIES
+            .filter((name) => !existingNames.has(name.toLowerCase()))
+            .map((name, i) => ({
+              category_id: 1000 + i,
+              category_name: name,
+              recipe_count: 0,
+            }));
+          const recipeCategories = [...matched, ...fallbacks];
+          if (isMounted) setCategories(recipeCategories);
         }
       } catch (err) {
         console.error("Error loading master data for recipe creation:", err);
@@ -293,8 +381,8 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
 
     const numServings = Number(servings) > 0 ? Number(servings) : 1;
     return {
-      totalCalories: Math.round(calories),
-      caloriesPerServing: Math.round(calories / numServings),
+      totalCalories: Math.round(calories * 100) / 100,
+      caloriesPerServing: Math.round((calories / numServings) * 100) / 100,
       totalProtein: Math.round(protein * 10) / 10,
       proteinPerServing: Math.round((protein / numServings) * 10) / 10,
       totalCarbs: Math.round(carbs * 10) / 10,
@@ -335,7 +423,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
         keyId: `row-${Date.now()}-${Math.random()}`,
         ingredient_id: 0,
         name: "",
-        quantity: 0,
+        quantity: "",
         unit: "g",
         note: "",
         is_optional: false,
@@ -411,9 +499,10 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
     setTitle("");
     setDescription("");
     setImageUrl(SAMPLE_PRESET_IMAGES[0].url);
-    setPrepTime(0);
-    setCookTime(0);
-    setServings(0);
+    setVideoUrl("");
+    setPrepTime("");
+    setCookTime("");
+    setServings("");
     setSelectedCategoryIds([]);
     setIngredients([
       {
@@ -443,18 +532,39 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
 
     if (!title.trim()) {
       setErrorMsg("Vui lòng nhập tên công thức món ăn.");
-      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
-    const validIngredients = ingredients.filter(
-      (ing) => ing.ingredient_id > 0 && Number(ing.quantity) > 0
-    );
-
-    if (validIngredients.length === 0) {
-      setErrorMsg("Vui lòng chọn ít nhất một nguyên liệu từ kho hệ thống và nhập số lượng (g) lớn hơn 0.");
+    // Kiểm tra tất cả nguyên liệu người dùng nhập
+    const nonEmptyRows = ingredients.filter((ing) => ing.name.trim() !== "");
+    if (nonEmptyRows.length === 0) {
+      setErrorMsg("Vui lòng thêm ít nhất một nguyên liệu từ kho dữ liệu hệ thống.");
       return;
     }
+
+    // Auto-match nếu người dùng gõ tên trùng với DB mà chưa click gợi ý
+    for (const ing of nonEmptyRows) {
+      if (!ing.ingredient_id || ing.ingredient_id === 0) {
+        const found = availableIngredients.find(
+          (a) => a.ingredient_name.trim().toLowerCase() === ing.name.trim().toLowerCase()
+        );
+        if (found) {
+          ing.ingredient_id = found.ingredient_id;
+          ing.avg_price_per_unit = Number(found.avg_price_per_unit || 0);
+          ing.calories_per_100g = Number(found.calories_per_100g || 0);
+        }
+      }
+      if (!ing.ingredient_id || ing.ingredient_id === 0) {
+        setErrorMsg(`Nguyên liệu "${ing.name}" không có trong DB. Theo quy tắc hệ thống, bạn chỉ được chọn nguyên liệu có sẵn trong cơ sở dữ liệu.`);
+        return;
+      }
+      if (!ing.quantity || Number(ing.quantity) <= 0) {
+        setErrorMsg(`Vui lòng nhập số lượng theo đơn vị gam (g) lớn hơn 0 cho nguyên liệu "${ing.name}".`);
+        return;
+      }
+    }
+
+    const validIngredients = nonEmptyRows;
 
     // Kiểm tra tính tương thích giữa nguyên liệu đã chọn và chế độ ăn chay
     for (const ing of validIngredients) {
@@ -480,7 +590,9 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
       title: title.trim(),
       description: description.trim() || undefined,
       instructions: instructionsText,
-      image_url: imageUrl.trim() || undefined,
+      // Ảnh từ máy được tải lên riêng sau khi tạo món, không gửi link blob: tạm của trình duyệt.
+      image_url: imageFile ? undefined : imageUrl.trim() || undefined,
+      video_url: videoUrl.trim() || undefined,
       prep_time: Math.max(0, Number(prepTime) || 0),
       cook_time: Math.max(0, Number(cookTime) || 0),
       servings: Math.max(1, Number(servings) || 1),
@@ -502,6 +614,18 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
     try {
       const res = await recipeApiService.createRecipe(payload);
       const data = res?.data || res;
+      const newId = data?.recipe_id ?? data?.id;
+      if (imageFile && newId) {
+        try {
+          const uploaded: any = await recipeApiService.uploadRecipeImage(newId, imageFile);
+          data.image_url = uploaded?.data?.image_url ?? uploaded?.image_url ?? data.image_url;
+        } catch (uploadErr: any) {
+          // Món đã tạo xong, chỉ ảnh lỗi: báo để người dùng đổi ảnh sau, không coi cả lần tạo là thất bại.
+          setImageWarning(
+            `Công thức đã tạo nhưng chưa tải được ảnh: ${uploadErr?.message || "lỗi không xác định"}. Bạn có thể đổi ảnh sau.`,
+          );
+        }
+      }
       setSuccessData(data);
     } catch (err: any) {
       const msg =
@@ -534,7 +658,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
 
             <div className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                {isApproved ? "Đã duyệt công khai (APPROVED)" : "Đang chờ kiểm duyệt (Pending Review)"}
+                {isApproved ? "Đã duyệt công khai (APPROVED)" : "Đang chờ duyệt"}
               </span>
               <h2 className="font-serif font-bold text-2xl sm:text-3xl text-stone-900">
                 Công thức &ldquo;{successData.title || title}&rdquo; đã được tạo thành công!
@@ -546,6 +670,13 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
               </p>
             </div>
 
+            {imageWarning && (
+              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-800 text-left flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{imageWarning}</span>
+              </div>
+            )}
+
             <div className="p-4 rounded-2xl bg-stone-50 border border-stone-100 text-xs text-stone-600 space-y-2 text-left max-w-md mx-auto">
               <div className="flex justify-between">
                 <span className="text-stone-400">Mã công thức:</span>
@@ -556,17 +687,16 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
               <div className="flex justify-between">
                 <span className="text-stone-400">Trạng thái:</span>
                 <span
-                  className={`font-semibold uppercase tracking-wider ${
-                    isApproved ? "text-emerald-700" : "text-amber-700"
-                  }`}
+                  className={`font-semibold uppercase tracking-wider ${isApproved ? "text-emerald-700" : "text-amber-700"
+                    }`}
                 >
-                  {successData.status || (isApproved ? "APPROVED" : "pending_review")}
+                  {isApproved ? "Đã duyệt" : "Chờ duyệt"}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-stone-400">Năng lượng ước tính:</span>
                 <span className="font-bold text-amber-700">
-                  {nutrition.totalCalories} kcal ({nutrition.caloriesPerServing} kcal/phần)
+                  ~{nutrition.totalCalories} kcal (~{nutrition.caloriesPerServing} kcal/phần)
                 </span>
               </div>
               <div className="flex justify-between">
@@ -595,12 +725,14 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                 </Link>
               ) : null}
 
-              <Link
-                href="/recipes"
-                className="px-6 py-2.5 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold transition-all"
-              >
-                Xem trên Thư viện công thức
-              </Link>
+              {isApproved && (
+                <Link
+                  href="/recipes"
+                  className="px-6 py-2.5 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold transition-all"
+                >
+                  Xem trên Thư viện công thức
+                </Link>
+              )}
 
               <button
                 type="button"
@@ -677,18 +809,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
           </p>
         </div>
 
-        {/* Notice Banner */}
-        <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-100 flex items-start gap-3 text-xs text-emerald-950">
-          <Info className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-          <div className="space-y-0.5 leading-relaxed">
-            <span className="font-bold text-emerald-900">Quy trình kiểm duyệt công thức:</span>
-            <p className="text-stone-600">
-              {isActuallyAdmin
-                ? "Tài khoản Quản trị viên: Công thức tạo bởi quản trị viên sẽ được tự động kích hoạt trạng thái APPROVED."
-                : "Công thức của bạn sẽ được lưu ở trạng thái PENDING_REVIEW để ban quản trị kiểm tra tính an toàn dinh dưỡng và tiêu chuẩn chay. Sau khi được duyệt, món ăn sẽ hiển thị công khai trên toàn hệ thống."}
-            </p>
-          </div>
-        </div>
+
 
         {/* Error Alert if any */}
         {errorMsg && (
@@ -751,44 +872,132 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                 />
               </div>
 
-              {/* Image URL & Presets */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-stone-700 flex items-center justify-between">
-                  <span>Ảnh món ăn (URL)</span>
-                  <span className="text-[11px] font-normal text-stone-400">
-                    Chọn nhanh ảnh mẫu bên dưới hoặc nhập link
-                  </span>
-                </label>
-                <input
-                  type="url"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://images.unsplash.com/photo-..."
-                  className="w-full px-4 py-2 text-xs rounded-2xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:outline-hidden focus:border-emerald-600 transition-all font-mono text-stone-600"
-                />
+              {/* Image URL & Presets & Cloudinary Upload */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-stone-700 flex items-center justify-between">
+                    <span>Ảnh món ăn (URL)</span>
+                    <span className="text-[11px] font-normal text-stone-400">
+                      Chọn nhanh ảnh mẫu bên dưới hoặc nhập link
+                    </span>
+                  </label>
+                  <input
+                    type="url"
+                    value={imageFile ? "" : imageUrl}
+                    disabled={!!imageFile}
+                    onChange={(e) => pickImageUrl(e.target.value)}
+                    placeholder="https://images.unsplash.com/photo-..."
+                    className="w-full px-4 py-2 text-xs rounded-2xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:outline-hidden focus:border-emerald-600 transition-all font-mono text-stone-600"
+                  />
 
-                {/* Preset image thumbnails */}
-                <div className="flex items-center gap-2 overflow-x-auto py-1">
-                  {SAMPLE_PRESET_IMAGES.map((preset, idx) => (
+                  {/* Tải ảnh từ máy lên Cloudinary */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={handleImageFileChange}
+                    />
                     <button
                       type="button"
-                      key={idx}
-                      onClick={() => setImageUrl(preset.url)}
-                      className={`relative w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
-                        imageUrl === preset.url
+                      onClick={() => imageInputRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-emerald-600 text-emerald-700 hover:bg-emerald-50 transition-colors"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      Tải ảnh từ máy
+                    </button>
+                    {imageFile ? (
+                      <span className="flex items-center gap-1.5 text-[11px] text-stone-600 min-w-0">
+                        <span className="truncate max-w-[180px]">{imageFile.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => pickImageUrl(SAMPLE_PRESET_IMAGES[0].url)}
+                          className="text-stone-400 hover:text-red-600"
+                          title="Bỏ ảnh đã chọn"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-stone-400">JPG, PNG, WEBP · tối đa 5 MB</span>
+                    )}
+                  </div>
+
+                  {/* Preset image thumbnails */}
+                  <div className="flex items-center gap-2 overflow-x-auto py-1">
+                    {SAMPLE_PRESET_IMAGES.map((preset, idx) => (
+                      <button
+                        type="button"
+                        key={idx}
+                        onClick={() => pickImageUrl(preset.url)}
+                        className={`relative w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${imageUrl === preset.url
                           ? "border-emerald-600 ring-2 ring-emerald-600/30"
                           : "border-stone-200 hover:border-emerald-400 opacity-70 hover:opacity-100"
-                      }`}
-                      title={preset.name}
-                    >
-                      <Image
-                        src={preset.url}
-                        alt={preset.name}
-                        fill
-                        className="object-cover"
+                          }`}
+                        title={preset.name}
+                      >
+                        <Image
+                          src={preset.url}
+                          alt={preset.name}
+                          fill
+                          className="object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Video Section */}
+                <div className="space-y-2 pt-2 border-t border-stone-100">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-stone-700">
+                      Video nấu ăn (tùy chọn)
+                    </label>
+                    <label className={`text-xs px-3 py-1.5 rounded-xl border border-violet-600 bg-violet-50 text-violet-800 font-bold hover:bg-violet-100 cursor-pointer flex items-center gap-1.5 transition-all ${uploadingVideo ? "opacity-50 pointer-events-none" : ""}`}>
+                      {uploadingVideo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                      <span>{uploadingVideo ? "Đang tải video..." : "Tải video từ máy"}</span>
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm,video/quicktime"
+                        onChange={handleVideoUpload}
+                        className="hidden"
                       />
-                    </button>
-                  ))}
+                    </label>
+                  </div>
+
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={videoUrl}
+                      onChange={(e) => setVideoUrl(e.target.value)}
+                      placeholder="Hoặc dán đường link video (mp4, webm...)..."
+                      className="flex-1 px-4 py-2 text-xs rounded-2xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:outline-hidden focus:border-emerald-600 transition-all font-mono text-stone-600"
+                    />
+                    {videoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setVideoUrl("")}
+                        className="text-xs px-3 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 font-semibold hover:bg-rose-100 cursor-pointer"
+                      >
+                        Gỡ video
+                      </button>
+                    )}
+                  </div>
+
+                  {videoUrl && (
+                    <div className="p-3 bg-stone-900 rounded-2xl overflow-hidden mt-1">
+                      <div className="flex items-center gap-1.5 text-white/90 text-xs font-semibold mb-2">
+                        <Video className="w-4 h-4 text-emerald-400" />
+                        <span>Xem trước video đã tải lên:</span>
+                      </div>
+                      <video
+                        src={videoUrl.startsWith('/') ? `http://localhost:3000${videoUrl}` : videoUrl}
+                        controls
+                        className="w-full max-h-48 rounded-xl bg-black"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -840,13 +1049,14 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                   <input
                     type="number"
                     min="0"
-                    value={prepTime === "" ? "" : prepTime}
+                    value={prepTime === 0 ? "" : prepTime}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => {
-                      const v = e.target.value;
+                      let v = e.target.value;
+                      if (v.length > 1 && v.startsWith("0") && !v.startsWith("0.")) {
+                        v = v.replace(/^0+/, "");
+                      }
                       setPrepTime(v === "" ? "" : Math.max(0, Number(v)));
-                    }}
-                    onBlur={() => {
-                      if (prepTime === "") setPrepTime(0);
                     }}
                     placeholder="0"
                     className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:border-emerald-600 font-bold text-stone-800 text-center"
@@ -860,13 +1070,14 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                   <input
                     type="number"
                     min="0"
-                    value={cookTime === "" ? "" : cookTime}
+                    value={cookTime === 0 ? "" : cookTime}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => {
-                      const v = e.target.value;
+                      let v = e.target.value;
+                      if (v.length > 1 && v.startsWith("0") && !v.startsWith("0.")) {
+                        v = v.replace(/^0+/, "");
+                      }
                       setCookTime(v === "" ? "" : Math.max(0, Number(v)));
-                    }}
-                    onBlur={() => {
-                      if (cookTime === "") setCookTime(0);
                     }}
                     placeholder="0"
                     className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:border-emerald-600 font-bold text-stone-800 text-center"
@@ -880,13 +1091,14 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                   <input
                     type="number"
                     min="0"
-                    value={servings === "" ? "" : servings}
+                    value={servings === 0 ? "" : servings}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => {
-                      const v = e.target.value;
+                      let v = e.target.value;
+                      if (v.length > 1 && v.startsWith("0") && !v.startsWith("0.")) {
+                        v = v.replace(/^0+/, "");
+                      }
                       setServings(v === "" ? "" : Math.max(0, Number(v)));
-                    }}
-                    onBlur={() => {
-                      if (servings === "") setServings(0);
                     }}
                     placeholder="0"
                     className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:border-emerald-600 font-bold text-stone-800 text-center"
@@ -939,9 +1151,8 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                       )}
                     </div>
                     <ChevronDown
-                      className={`w-4 h-4 text-stone-400 transition-transform ${
-                        categoryDropdownOpen ? "rotate-180" : ""
-                      }`}
+                      className={`w-4 h-4 text-stone-400 transition-transform ${categoryDropdownOpen ? "rotate-180" : ""
+                        }`}
                     />
                   </div>
 
@@ -970,19 +1181,17 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                               <div
                                 key={cat.category_id}
                                 onClick={() => handleToggleCategory(cat.category_id)}
-                                className={`px-3 py-2 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-between transition-colors ${
-                                  isSelected
-                                    ? "bg-emerald-50 text-emerald-950 font-semibold"
-                                    : "hover:bg-stone-50 text-stone-700"
-                                }`}
+                                className={`px-3 py-2 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-between transition-colors ${isSelected
+                                  ? "bg-emerald-50 text-emerald-950 font-semibold"
+                                  : "hover:bg-stone-50 text-stone-700"
+                                  }`}
                               >
                                 <div className="flex items-center gap-2.5">
                                   <div
-                                    className={`w-4 h-4 rounded-md border flex items-center justify-center transition-colors ${
-                                      isSelected
-                                        ? "bg-emerald-700 border-emerald-700 text-white"
-                                        : "border-stone-300 bg-white"
-                                    }`}
+                                    className={`w-4 h-4 rounded-md border flex items-center justify-center transition-colors ${isSelected
+                                      ? "bg-emerald-700 border-emerald-700 text-white"
+                                      : "border-stone-300 bg-white"
+                                      }`}
                                   >
                                     {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                                   </div>
@@ -1061,7 +1270,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold text-amber-700 flex items-center gap-1 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
                     <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                    <span>{nutrition.totalCalories} kcal</span>
+                    <span>~{nutrition.totalCalories} kcal</span>
                   </span>
                   <span className="text-xs text-stone-500 font-medium">
                     {ingredients.filter((i) => i.ingredient_id > 0).length} nguyên liệu
@@ -1090,8 +1299,8 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
               <div className="space-y-2" ref={ingredientDropdownRef}>
                 {ingredients.map((item, idx) => {
                   const rowKcal = Math.round(
-                    ((Number(item.quantity) || 0) / 100) * (Number(item.calories_per_100g) || 0)
-                  );
+                    (((Number(item.quantity) || 0) / 100) * (Number(item.calories_per_100g) || 0)) * 100
+                  ) / 100;
                   const rowCost = Math.round(
                     ((Number(item.quantity) || 0) / 1000) * (Number(item.avg_price_per_unit) || 0)
                   );
@@ -1124,14 +1333,14 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                                 name: val,
                                 ...(val.trim() === ""
                                   ? {
-                                      ingredient_id: 0,
-                                      avg_price_per_unit: 0,
-                                      calories_per_100g: 0,
-                                      protein_per_100g: 0,
-                                      carb_per_100g: 0,
-                                      fat_per_100g: 0,
-                                      fiber_per_100g: 0,
-                                    }
+                                    ingredient_id: 0,
+                                    avg_price_per_unit: 0,
+                                    calories_per_100g: 0,
+                                    protein_per_100g: 0,
+                                    carb_per_100g: 0,
+                                    fat_per_100g: 0,
+                                    fiber_per_100g: 0,
+                                  }
                                   : {}),
                               };
                               return updated;
@@ -1159,7 +1368,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                                       {sug.ingredient_name}
                                     </span>
                                     <span className="text-[10px] text-amber-700 font-medium">
-                                      {sug.calories_per_100g || 0} kcal/100g
+                                      ~{Math.round(Number(sug.calories_per_100g || 0) * 100) / 100} kcal/100g
                                     </span>
                                   </div>
                                   <div className="text-right">
@@ -1185,23 +1394,19 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                           type="number"
                           min="0"
                           step="any"
-                          value={item.quantity === "" ? "" : item.quantity}
+                          value={item.quantity === 0 ? "" : item.quantity}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
-                            const val = e.target.value === "" ? "" : Math.max(0, Number(e.target.value));
+                            let valStr = e.target.value;
+                            if (valStr.length > 1 && valStr.startsWith("0") && !valStr.startsWith("0.")) {
+                              valStr = valStr.replace(/^0+/, "");
+                            }
+                            const val = valStr === "" ? "" : Math.max(0, Number(valStr));
                             setIngredients((prev) => {
                               const updated = [...prev];
                               updated[idx] = { ...updated[idx], quantity: val };
                               return updated;
                             });
-                          }}
-                          onBlur={() => {
-                            if (item.quantity === "") {
-                              setIngredients((prev) => {
-                                const updated = [...prev];
-                                updated[idx] = { ...updated[idx], quantity: 0 };
-                                return updated;
-                              });
-                            }
                           }}
                           placeholder="0"
                           className="w-full px-2 py-1.5 text-xs rounded-xl border border-stone-200 bg-white focus:outline-hidden focus:border-emerald-600 font-bold text-stone-800 text-center"
@@ -1221,10 +1426,10 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                             title={`Chi phí ước tính: ~${rowCost.toLocaleString("vi-VN")} đ`}
                           >
                             <Flame className="w-2.5 h-2.5 text-amber-600" />
-                            {rowKcal} kcal
+                            ~{rowKcal} kcal
                           </span>
                         ) : (
-                          <span className="text-[10px] text-stone-400 font-mono">0 kcal</span>
+                          <span className="text-[10px] text-stone-400 font-mono">~0 kcal</span>
                         )}
                       </div>
 
@@ -1287,7 +1492,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                     </span>
                   </div>
                   <span className="text-[11px] font-black text-amber-800 bg-amber-100/90 px-2.5 py-0.5 rounded-full">
-                    {nutrition.totalCalories} kcal tổng món
+                    ~{nutrition.totalCalories} kcal tổng món
                   </span>
                 </div>
 
@@ -1295,7 +1500,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                   <div className="p-2.5 rounded-xl bg-white border border-amber-100 shadow-2xs">
                     <span className="text-[10px] text-stone-500 font-medium block">Năng lượng / phần</span>
                     <span className="text-sm font-black text-amber-600">
-                      {nutrition.caloriesPerServing} <span className="text-[10px] font-normal text-stone-500">kcal</span>
+                      ~{nutrition.caloriesPerServing} <span className="text-[10px] font-normal text-stone-500">kcal</span>
                     </span>
                   </div>
 
@@ -1400,6 +1605,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                       src={imageUrl}
                       alt={title || "Công thức món"}
                       fill
+                      unoptimized={imageUrl.startsWith("blob:")}
                       className="object-cover"
                     />
                   ) : (
@@ -1438,7 +1644,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
 
                     <div className="flex items-center gap-1 font-bold text-amber-700">
                       <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                      <span>{nutrition.caloriesPerServing || 0} kcal</span>
+                      <span>~{nutrition.caloriesPerServing || 0} kcal</span>
                     </div>
 
                     <div className="font-bold text-emerald-800">
@@ -1465,7 +1671,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                 <div className="flex items-center justify-between text-stone-700">
                   <span>Tổng năng lượng món ăn:</span>
                   <span className="font-bold text-amber-800">
-                    {nutrition.totalCalories} kcal ({nutrition.caloriesPerServing} kcal/phần)
+                    ~{nutrition.totalCalories} kcal (~{nutrition.caloriesPerServing} kcal/phần)
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-stone-700">

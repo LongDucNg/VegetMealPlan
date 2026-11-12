@@ -1,4 +1,7 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException, ConflictException, ForbiddenException, Injectable,
+  Optional, NotFoundException
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Blog, ContentStatus } from './entities/blog.entity';
@@ -18,6 +21,8 @@ import { ModeratePostDto } from './dto/moderate-post.dto';
 import { AdminContentQueryDto } from './dto/admin-content-query.dto';
 import { UpdateContentStatusDto } from './dto/update-content-status.dto';
 import { NonVegetarianDetectorService } from '../../common/services/non-vegetarian-detector.service';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationType } from '../notification/entities/notification.entity';
 
 /** Danh mục diễn đàn là các dòng trong bảng categories có category_type = 'forum'. */
 export const FORUM_CATEGORY_TYPE = 'forum';
@@ -39,6 +44,9 @@ const POST_COLUMNS = [
   'blog.tags',
   'blog.views',
   'blog.status',
+  'blog.is_flagged',
+  'blog.flag_reason',
+  'blog.reject_reason',
   'blog.created_at',
   'user.user_id',
   'user.full_name',
@@ -64,7 +72,9 @@ export class ForumService {
     @InjectRepository(Vote) private readonly voteRepo: Repository<Vote>,
     @InjectRepository(Comment) private readonly commentRepo: Repository<Comment>,
     private readonly nonVegDetector: NonVegetarianDetectorService,
-  ) {}
+    @Optional()
+    private readonly notificationService?: NotificationService,
+  ) { }
 
   // ---------- Danh mục ----------
 
@@ -126,11 +136,25 @@ export class ForumService {
       });
     }
 
-    await this.blogRepo.increment({ blog_id: id }, 'views', 1);
-    post.views += 1;
+
 
     const { ratingMap, commentMap } = await this.loadStats([id]);
     return this.toPostView(post, ratingMap, commentMap, true);
+  }
+
+  async incrementPostView(id: number): Promise<{ success: boolean; views: number }> {
+    const post = await this.blogRepo.findOne({
+      where: { blog_id: id, status: ContentStatus.APPROVED },
+    });
+    if (!post) {
+      throw new NotFoundException({
+        code: ErrorCode.FORUM_POST_NOT_FOUND,
+        message: `Không tìm thấy bài viết #${id}`,
+      });
+    }
+
+    await this.blogRepo.increment({ blog_id: id }, 'views', 1);
+    return { success: true, views: post.views + 1 };
   }
 
   // ---------- Đăng bài ----------
@@ -175,6 +199,8 @@ export class ForumService {
       flag_reason: flagReason,
     });
     const saved = await this.blogRepo.save(blog);
+
+
 
     return {
       blog_id: saved.blog_id,
@@ -234,6 +260,20 @@ export class ForumService {
         moderation_status: 'approved',
       }),
     );
+
+    const blog = await this.blogRepo.findOne({ where: { blog_id: postId } });
+    if (blog && blog.user_id && blog.user_id !== user.user_id && this.notificationService) {
+      this.notificationService
+        .create({
+          user_id: blog.user_id,
+          type: NotificationType.CONTENT_COMMENT,
+          title: 'Bình luận mới trên bài viết 💬',
+          message: `Thành viên vừa bình luận vào bài viết "${blog.title}" của bạn.`,
+          ref_type: 'forum_post',
+          ref_id: postId,
+        })
+        .catch(() => { });
+    }
 
     const created = await this.commentQuery()
       .andWhere('c.comment_id = :id', { id: saved.comment_id })
@@ -723,6 +763,32 @@ export class ForumService {
 
     const saved = await this.blogRepo.save(post);
 
+    if (saved.user_id && this.notificationService) {
+      if (dto.action === 'approve') {
+        this.notificationService
+          .create({
+            user_id: saved.user_id,
+            type: NotificationType.FORUM_POST_APPROVED,
+            title: 'Bài viết đã được duyệt! 🎉',
+            message: `Bài viết "${saved.title}" của bạn đã được duyệt và hiển thị công khai trên diễn đàn.`,
+            ref_type: 'forum_post',
+            ref_id: saved.blog_id,
+          })
+          .catch(() => { });
+      } else {
+        this.notificationService
+          .create({
+            user_id: saved.user_id,
+            type: NotificationType.FORUM_POST_REJECTED,
+            title: 'Bài viết chưa được duyệt ⚠️',
+            message: `Bài viết "${saved.title}" chưa được duyệt. Lý do: ${saved.reject_reason}.`,
+            ref_type: 'forum_post',
+            ref_id: saved.blog_id,
+          })
+          .catch(() => { });
+      }
+    }
+
     return {
       success: true,
       message: dto.action === 'approve' ? 'Đã duyệt bài viết thành công' : 'Đã từ chối bài viết',
@@ -999,6 +1065,9 @@ export class ForumService {
       tags: post.tags,
       views: post.views,
       status: post.status,
+      reject_reason: post.reject_reason || null,
+      flag_reason: post.flag_reason || null,
+      is_flagged: post.is_flagged || false,
       rating: ratingMap.get(post.blog_id) ?? 0,
       comment_count: commentMap.get(post.blog_id) ?? 0,
       author: post.user ? { user_id: post.user.user_id, full_name: post.user.full_name } : null,
@@ -1061,7 +1130,7 @@ export class ForumService {
     return { count };
   }
 
-  async adminUpdateStatus(adminId: number, blogId: number, status: ContentStatus) {
+  async adminUpdateStatus(adminId: number, blogId: number, status: ContentStatus, reason?: string) {
     const blog = await this.blogRepo
       .createQueryBuilder('blog')
       .leftJoinAndSelect('blog.user', 'user')
@@ -1079,8 +1148,34 @@ export class ForumService {
     blog.status = status;
     blog.approved_by = adminId;
     blog.approved_at = new Date();
+    if (reason !== undefined) {
+      blog.reject_reason = reason;
+    } else if (status === ContentStatus.APPROVED) {
+      blog.reject_reason = null;
+    }
 
     const saved = await this.blogRepo.save(blog);
+    if (saved.user_id && this.notificationService) {
+      if (status === ContentStatus.APPROVED) {
+        this.notificationService.create({
+          user_id: saved.user_id,
+          type: NotificationType.FORUM_POST_APPROVED,
+          title: "Bài viết đã được duyệt! 🎉",
+          message: `Bài viết "${saved.title}" của bạn đã được quản trị viên duyệt và hiển thị trên diễn đàn.`,
+          ref_type: "forum_post",
+          ref_id: saved.blog_id,
+        }).catch(() => { });
+      } else if (status === ContentStatus.REJECTED || status === ContentStatus.REMOVED) {
+        this.notificationService.create({
+          user_id: saved.user_id,
+          type: NotificationType.FORUM_POST_REJECTED,
+          title: status === ContentStatus.REMOVED ? "Bài viết đã bị gỡ ⚠️" : "Bài viết chưa được duyệt ⚠️",
+          message: `Bài viết "${saved.title}" của bạn ${status === ContentStatus.REMOVED ? "đã bị gỡ" : "chưa được duyệt"}. Lý do: ${reason || "Vi phạm tiêu chuẩn cộng đồng"}.`,
+          ref_type: "forum_post",
+          ref_id: saved.blog_id,
+        }).catch(() => { });
+      }
+    }
     const { ratingMap, commentMap } = await this.loadStats([blogId]);
     return this.toPostView(saved, ratingMap, commentMap, true);
   }

@@ -1,34 +1,51 @@
 "use client";
 
-import React, { useState } from "react";
-import { X, Heart, Check, CalendarDays } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, Heart, Check, CalendarDays, AlertTriangle } from "lucide-react";
+import { DayMealPlan, MealPlanType } from "../types";
 
 interface SaveMealPlanModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (name: string) => void;
-  planType: "weekly" | "monthly";
-  targetCalories: number;
-  totalCost: number;
+  onSave: (name: string) => void | Promise<void>;
+  planType?: MealPlanType;
+  activeDay: DayMealPlan | null;
+  targetCalories?: number;
+  totalCost?: number;
 }
 
 export function SaveMealPlanModal({
   isOpen,
   onClose,
   onSave,
-  planType,
+  planType = "daily",
+  activeDay,
   targetCalories,
   totalCost,
 }: SaveMealPlanModalProps) {
-  const [name, setName] = useState(
-    `${planType === "weekly" ? "Kế hoạch tuần" : "Kế hoạch tháng"} (${new Date().toLocaleDateString("vi-VN")})`
-  );
+  const dayName = activeDay?.dayName || "ngày";
+  const dateStr = activeDay?.dateText || new Date().toLocaleDateString("vi-VN");
+  const defaultTitle = `Thực đơn ${dayName} (${dateStr})`;
+
+  const [name, setName] = useState(defaultTitle);
+
+  useEffect(() => {
+    if (isOpen) {
+      setName(
+        `Thực đơn ${activeDay?.dayName || "ngày"} (${activeDay?.dateText || new Date().toLocaleDateString("vi-VN")})`
+      );
+    }
+  }, [isOpen, activeDay]);
 
   if (!isOpen) return null;
 
+  const hasPlanData = Boolean(activeDay && activeDay.totalCalories > 0);
+  const dayKcal = Math.round(Number(activeDay?.totalCalories ?? targetCalories ?? 0) * 100) / 100;
+  const dayCost = Math.round(Number(activeDay?.estimatedCost ?? totalCost ?? 0));
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || !hasPlanData) return;
     onSave(name.trim());
     onClose();
   };
@@ -47,7 +64,7 @@ export function SaveMealPlanModal({
                 Lưu vào Thực đơn yêu thích
               </h3>
               <p className="text-xs text-stone-500">
-                Lưu lại thành mẫu thực đơn yêu thích để tái sử dụng
+                Lưu lại thực đơn 1 ngày đang chọn để tái sử dụng
               </p>
             </div>
           </div>
@@ -69,31 +86,38 @@ export function SaveMealPlanModal({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ví dụ: Thực đơn giàu đạm tuần 1"
+              placeholder="Ví dụ: Thực đơn Thứ 4 nhiều đạm"
               className="w-full h-11 px-4 rounded-xl border border-stone-200 bg-stone-50 text-sm font-semibold text-stone-900 focus:bg-white focus:border-emerald-600 outline-none"
               autoFocus
               required
             />
           </div>
 
-          <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 text-xs text-stone-600 space-y-1">
-            <div className="flex justify-between">
+          <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 text-xs text-stone-600 space-y-1.5">
+            <div className="flex justify-between items-center">
               <span>Loại thực đơn:</span>
-              <span className="font-bold text-stone-900">
-                {planType === "weekly" ? "Thực đơn tuần (7 ngày)" : "Thực đơn tháng (30 ngày)"}
+              <span className="font-bold text-emerald-900 bg-emerald-100/90 px-2.5 py-0.5 rounded-full text-[11px]">
+                Thực đơn 1 ngày {activeDay?.dayName ? `(${activeDay.dayName})` : ""}
               </span>
             </div>
             <div className="flex justify-between">
-              <span>Mục tiêu calo / ngày:</span>
-              <span className="font-bold text-amber-700">{targetCalories} kcal</span>
+              <span>Năng lượng trong ngày:</span>
+              <span className="font-bold text-amber-700">~{dayKcal} kcal</span>
             </div>
             <div className="flex justify-between">
               <span>Chi phí ước tính:</span>
               <span className="font-bold text-emerald-800">
-                ~{totalCost.toLocaleString("vi-VN")} VNĐ
+                ~{dayCost.toLocaleString("vi-VN")} VNĐ
               </span>
             </div>
           </div>
+
+          {!hasPlanData && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Ngày hiện tại chưa có thực đơn. Vui lòng chọn hoặc tạo thực đơn cho ngày này trước khi lưu.</span>
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-2 pt-2">
             <button
@@ -105,10 +129,11 @@ export function SaveMealPlanModal({
             </button>
             <button
               type="submit"
-              className="h-10 px-5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+              disabled={!hasPlanData || !name.trim()}
+              className="h-10 px-5 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
             >
               <Check className="w-4 h-4" />
-              Lưu thực đơn
+              Lưu thực đơn 1 ngày
             </button>
           </div>
         </form>

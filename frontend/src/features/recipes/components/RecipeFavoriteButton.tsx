@@ -2,48 +2,42 @@
 
 import React, { useState, useEffect } from "react";
 import { Heart } from "lucide-react";
-import { favoriteService } from "../services/favoriteService";
-import { useProfile } from "@/features/profile/hooks/useProfile";
+import { favoriteService, getEffectiveUserId } from "../services/favoriteService";
 import { storage, STORAGE_KEYS } from "@/utils/storage/storage";
-
-import { tokenStorage } from "@/lib/tokenStorage";
 
 export interface RecipeFavoriteButtonProps {
   recipeId: string;
   size?: "sm" | "md";
   className?: string;
+  userId?: string;
 }
 
 export function RecipeFavoriteButton({
   recipeId,
   size = "md",
   className = "",
+  userId: propUserId,
 }: RecipeFavoriteButtonProps) {
-  const { profile } = useProfile();
-  const authUser = tokenStorage.getUser();
-  const userId = String(authUser?.user_id || profile.id || "1");
+  const effectiveUserId = getEffectiveUserId(propUserId);
   const [isFav, setIsFav] = useState(() => {
-    return favoriteService.isRecipeFavorite(userId, recipeId);
+    return favoriteService.isRecipeFavorite(effectiveUserId, recipeId);
   });
 
   useEffect(() => {
-    favoriteService.fetchServerFavorites(userId).then(() => {
-      setIsFav(favoriteService.isRecipeFavorite(userId, recipeId));
-    });
+    setIsFav(favoriteService.isRecipeFavorite(effectiveUserId, recipeId));
 
     const unsubscribe = storage.subscribe((event) => {
       if (event.key === STORAGE_KEYS.FAVORITES) {
-        setIsFav(favoriteService.isRecipeFavorite(userId, recipeId));
+        setIsFav(favoriteService.isRecipeFavorite(effectiveUserId, recipeId));
       }
     });
     return unsubscribe;
-  }, [userId, recipeId]);
-
+  }, [effectiveUserId, recipeId]);
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    const updated = favoriteService.toggleFavoriteRecipe(userId, recipeId);
+    const updated = favoriteService.toggleFavoriteRecipe(effectiveUserId, recipeId);
     setIsFav(updated);
   };
 
@@ -53,11 +47,11 @@ export function RecipeFavoriteButton({
   return (
     <button
       onClick={handleToggle}
-      title={isFav ? "♥ Remove from Favorites" : "♡ Add to Favorites"}
-      aria-label={isFav ? "Remove from Favorites" : "Add to Favorites"}
+      title={isFav ? "♥ Bỏ khỏi Món yêu thích" : "♡ Thêm vào Món yêu thích"}
+      aria-label={isFav ? "Bỏ khỏi Món yêu thích" : "Thêm vào Món yêu thích"}
       className={`${btnSize} rounded-full flex items-center justify-center transition-all cursor-pointer backdrop-blur-xs ${
         isFav
-          ? "bg-rose-50 text-rose-600 border border-rose-200 shadow-2xs hover:bg-rose-100"
+          ? "bg-rose-50 text-rose-600 border border-rose-300 shadow-2xs hover:bg-rose-100 ring-2 ring-rose-200"
           : "bg-white/90 text-stone-400 hover:text-rose-500 hover:bg-white border border-stone-200/80 shadow-2xs"
       } ${className}`}
     >

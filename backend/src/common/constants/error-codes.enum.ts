@@ -83,8 +83,10 @@ export enum ErrorCode {
   SUBSCRIPTION_NOT_FOUND = 'SUBSCRIPTION_NOT_FOUND',
   /** 400: chế độ cũ đã được gia hạn đang active. */
   SUBSCRIPTION_NOT_ACTIVE = 'SUBSCRIPTION_NOT_ACTIVE',
-  /** 503: server chưa cấu hình VNPAY_TMN_CODE / VNPAY_HASH_SECRET. */
+  /** 503: server chưa cấu hình PAYOS_CLIENT_ID / PAYOS_API_KEY / PAYOS_CHECKSUM_KEY. */
   SUBSCRIPTION_PAYMENT_NOT_CONFIGURED = 'SUBSCRIPTION_PAYMENT_NOT_CONFIGURED',
+  /** 403: kích hoạt Premium không qua thanh toán đang tắt (bật bằng ALLOW_DIRECT_PREMIUM=true khi demo). */
+  SUBSCRIPTION_DIRECT_DISABLED = 'SUBSCRIPTION_DIRECT_DISABLED',
 
   // ---- Danh mục ----
   /** 404 */
@@ -93,6 +95,8 @@ export enum ErrorCode {
   CATEGORY_ID_NOT_FOUND = 'CATEGORY_ID_NOT_FOUND',
   /** 400: category_id không thuộc loại hợp lệ để gắn vào công thức. */
   CATEGORY_TYPE_INVALID = 'CATEGORY_TYPE_INVALID',
+  /** 400: danh mục đã bị admin tắt (inactive), không gắn thêm công thức mới được. */
+  CATEGORY_INACTIVE = 'CATEGORY_INACTIVE',
   /** 409: trùng tên danh mục trong cùng một category_type. */
   CATEGORY_NAME_DUPLICATE = 'CATEGORY_NAME_DUPLICATE',
   /** 409: danh mục đang được công thức/nội dung khác sử dụng nên không xoá/đổi loại được. */
@@ -138,10 +142,22 @@ export enum ErrorCode {
   INGREDIENT_NAME_CONFLICT = 'INGREDIENT_NAME_CONFLICT',
   /** 400: tên nguyên liệu không được để trống. */
   INGREDIENT_NAME_EMPTY = 'INGREDIENT_NAME_EMPTY',
+  /** 400: tên nguyên liệu có từ khoá mặn (thịt, cá, gà...) mà không có chữ "chay". Hệ thống chỉ nhận nguyên liệu chay. */
+  INGREDIENT_NON_VEGETARIAN = 'INGREDIENT_NON_VEGETARIAN',
+  /** 400: tên món có từ khoá mặn mà không có chữ "chay". */
+  RECIPE_TITLE_NON_VEGETARIAN = 'RECIPE_TITLE_NON_VEGETARIAN',
   /** 400: công thức có nguyên liệu không tương thích với diet_type của công thức. */
   RECIPE_DIET_INCOMPATIBLE = 'RECIPE_DIET_INCOMPATIBLE',
   /** 404 */
   MEAL_PLAN_NOT_FOUND = 'MEAL_PLAN_NOT_FOUND',
+
+  // ---- Upload ảnh (Cloudinary) ----
+  /** 503: server chưa cấu hình CLOUDINARY_CLOUD_NAME / API_KEY / API_SECRET. */
+  UPLOAD_NOT_CONFIGURED = 'UPLOAD_NOT_CONFIGURED',
+  /** 400: thiếu file, sai định dạng (chỉ JPG/PNG/WEBP) hoặc quá 5 MB. */
+  UPLOAD_INVALID_FILE = 'UPLOAD_INVALID_FILE',
+  /** 502: Cloudinary từ chối hoặc không phản hồi. */
+  UPLOAD_FAILED = 'UPLOAD_FAILED',
 
   // ---- Chatbot AI ----
   /** 429: hết hạn mức câu hỏi chatbot trong ngày. */
@@ -154,4 +170,23 @@ export enum ErrorCode {
   CHATBOT_AI_NOT_CONFIGURED = 'CHATBOT_AI_NOT_CONFIGURED',
   /** 503: dịch vụ AI tạm thời không khả dụng, quá thời gian hoặc lỗi mạng. */
   CHATBOT_SERVICE_UNAVAILABLE = 'CHATBOT_SERVICE_UNAVAILABLE',
+
+  // ---- Scan ảnh nguyên liệu AI ----
+  /** 403: tính năng quét ảnh chỉ dành cho người dùng gói Premium. */
+  PHOTO_SCAN_PREMIUM_REQUIRED = 'PHOTO_SCAN_PREMIUM_REQUIRED',
+  /** 429: hết hạn mức lượt quét ảnh nguyên liệu trong ngày. */
+  PHOTO_SCAN_QUOTA_EXCEEDED = 'PHOTO_SCAN_QUOTA_EXCEEDED',
+  /** 429: gửi yêu cầu quét ảnh quá nhanh (vượt quá 5 req/phút). */
+  PHOTO_SCAN_RATE_LIMITED = 'PHOTO_SCAN_RATE_LIMITED',
+  /** 400: file không phải ảnh hợp lệ hoặc file bị hỏng. */
+  PHOTO_SCAN_IMAGE_INVALID = 'PHOTO_SCAN_IMAGE_INVALID',
+  /** 413: file ảnh vượt quá dung lượng tối đa (mặc định 5 MB). */
+  PHOTO_SCAN_IMAGE_TOO_LARGE = 'PHOTO_SCAN_IMAGE_TOO_LARGE',
+  /** 422: ảnh bị từ chối xử lý hoặc vi phạm bộ lọc an toàn. */
+  PHOTO_SCAN_IMAGE_UNPROCESSABLE = 'PHOTO_SCAN_IMAGE_UNPROCESSABLE',
+  /** 503: server chưa cấu hình GEMINI_API_KEY hoặc GEMINI_MODEL. */
+  PHOTO_SCAN_AI_NOT_CONFIGURED = 'PHOTO_SCAN_AI_NOT_CONFIGURED',
+  /** 503: dịch vụ AI Gemini tạm thời không khả dụng, quá thời gian hoặc lỗi mạng. */
+  PHOTO_SCAN_SERVICE_UNAVAILABLE = 'PHOTO_SCAN_SERVICE_UNAVAILABLE',
 }
+

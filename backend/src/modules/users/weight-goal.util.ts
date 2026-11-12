@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { BmiCategory } from './entities/user.entity';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
 import { BODY_LIMITS } from './body-limits';
 import { SAFE_GAIN_PER_WEEK, SAFE_LOSS_PER_WEEK } from './nutrition-advice';
@@ -212,7 +213,7 @@ function inferTargetWeight(current: number, direction: WeightGoalDirection): num
   return Math.max(1, Number(inferred.toFixed(1)));
 }
 
-export type WeightGoalDirection = 'lose_weight' | 'gain_muscle' | 'maintain';
+export type WeightGoalDirection = 'lose_weight' | 'gain_muscle' | 'maintain' | 'healthy_eating';
 
 /**
  * Hướng mục tiêu + nguồn quyết định, dùng để trả về client rõ ràng
@@ -258,7 +259,8 @@ export function resolveGoalDirectionDetailed(params: {
   const profileDirection =
     params.healthGoalName === 'lose_weight' ||
     params.healthGoalName === 'gain_muscle' ||
-    params.healthGoalName === 'maintain'
+    params.healthGoalName === 'maintain' ||
+    params.healthGoalName === 'healthy_eating'
       ? params.healthGoalName
       : null;
 
@@ -317,8 +319,11 @@ export const ACTIVITY_LABEL: Record<string, string> = {
   active: 'vận động nhiều',
 };
 
-/** Tỉ lệ calo theo bữa (tổng = 1). */
-export const MEAL_SPLIT = { breakfast: 0.25, lunch: 0.35, dinner: 0.3, snack: 0.1 };
+/**
+ * Tỉ lệ calo theo bữa (tổng = 1). Dùng chung cho trang hồ sơ, đánh giá mục tiêu và lập thực đơn
+ * (meal-plan.service lấy lại đúng tỉ lệ này), trước đây hồ sơ chia 25/35/30/10 còn thực đơn chia 22/31/31/16.
+ */
+export const MEAL_SPLIT = { breakfast: 0.22, lunch: 0.31, dinner: 0.31, snack: 0.16 };
 
 export interface WeightGoalInput {
   current_weight_kg?: number | null;
@@ -371,14 +376,19 @@ export interface GoalAssessment {
    * Mục tiêu vẫn được tính và vẫn sinh thực đơn.
    */
   warnings: GoalWarning[];
+  /** true: người dùng chưa đặt cân nặng mục tiêu hợp lệ, hệ thống tạm lấy ±5% cân nặng hiện tại. */
+  target_inferred?: boolean;
+  /** true: người dùng chưa đặt ngày đạt mục tiêu, hệ thống tạm lấy DEFAULT_GOAL_DURATION_DAYS ngày. */
+  duration_defaulted?: boolean;
 }
 
-const BMI_CATEGORY = (bmi: number) => {
-  if (bmi < 18.5) return 'underweight';
-  if (bmi < 25) return 'normal';
-  if (bmi < 30) return 'overweight';
-  return 'obese';
-};
+/** Phân loại BMI theo WHO (dùng chung cho hồ sơ và đánh giá mục tiêu). */
+export function classifyBmi(bmi: number): BmiCategory {
+  if (bmi < 18.5) return BmiCategory.UNDERWEIGHT;
+  if (bmi < 25) return BmiCategory.NORMAL;
+  if (bmi < 30) return BmiCategory.OVERWEIGHT;
+  return BmiCategory.OBESE;
+}
 
 const isFiniteNumber = (v: unknown): v is number =>
   typeof v === 'number' && Number.isFinite(v);
@@ -413,10 +423,15 @@ export function assertValidGoalInput(input: WeightGoalInput): void {
       'Cần nhập thời gian đạt mục tiêu (số ngày, tối thiểu 1 ngày).',
     );
   }
-  if (input.direction !== 'lose_weight' && input.direction !== 'gain_muscle' && input.direction !== 'maintain') {
+  if (
+    input.direction !== 'lose_weight' &&
+    input.direction !== 'gain_muscle' &&
+    input.direction !== 'maintain' &&
+    input.direction !== 'healthy_eating'
+  ) {
     throw badRequest(
       ErrorCode.WEIGHT_GOAL_INVALID,
-      'Mục tiêu phải là giảm cân (lose_weight), tăng cân (gain_muscle) hoặc duy trì (maintain).',
+      'Mục tiêu phải là giảm cân (lose_weight), tăng cân (gain_muscle), duy trì (maintain) hoặc ăn uống lành mạnh (healthy_eating).',
     );
   }
 
@@ -490,29 +505,26 @@ export function assessWeightGoal(
 
   const m = profile.height_cm / 100;
   const bmi = Number((current / (m * m)).toFixed(2));
-  const bmi_category = BMI_CATEGORY(bmi);
+  const bmi_category = classifyBmi(bmi);
 
   const change_kg = Number((target - current).toFixed(2));
   const weeks = durationDays / 7;
   const weekly_change_kg = Number((change_kg / weeks).toFixed(2));
 
   // ---- Tính BMR / TDEE / kcal mục tiêu (luôn trả về để giải thích được) ----
-  const sexOffset = profile.gender === 'male' ? 5 : profile.gender === 'female' ? -161 : -78;
-  const bmr = 10 * profile.weight_kg + 6.25 * profile.height_cm - 5 * profile.age + sexOffset;
-  const activityFactor = ACTIVITY_FACTOR[profile.activity_level] ?? ACTIVITY_FACTOR.sedentary;
-  const tdee = bmr * activityFactor;
+  const { bmr, tdee } = computeEnergy(profile);
 
   // Chênh lệch kcal theo tốc độ mong muốn, nhưng bị chặn bởi ngưỡng an toàn.
   // 'maintain' -> không thâm hụt, không thặng dư: kcal mục tiêu = TDEE.
   const desiredDelta = (Math.abs(change_kg) * KCAL_PER_KG) / durationDays;
   const maxDelta =
-    direction === 'maintain'
+    direction === 'maintain' || direction === 'healthy_eating'
       ? 0
       : tdee * (direction === 'lose_weight' ? MAX_DEFICIT_RATIO : MAX_SURPLUS_RATIO);
   const appliedDelta = Math.min(desiredDelta, maxDelta);
 
   const rawTarget =
-    direction === 'maintain'
+    direction === 'maintain' || direction === 'healthy_eating'
       ? tdee
       : direction === 'lose_weight'
         ? tdee - appliedDelta
@@ -565,16 +577,18 @@ export function assessWeightGoal(
     };
   }
 
-  // ---- Duy trì cân nặng: không thâm hụt, không thặng dư ----
+  // ---- Duy trì cân nặng / Ăn uống lành mạnh: không thâm hụt, không thặng dư ----
   // kcal mục tiêu = TDEE. Chênh lệch cân nặng nhỏ (dưới 2 kg) vẫn chấp nhận
   // được vì đây là dao động bình thường; lệch lớn thì báo lỗi để người dùng
   // chọn đúng mục tiêu.
-  if (direction === 'maintain') {
+  if (direction === 'maintain' || direction === 'healthy_eating') {
     if (Math.abs(change_kg) > MAINTAIN_TOLERANCE_KG) {
       return {
         ...base,
         message:
-          `Mục tiêu là duy trì cân nặng nhưng cân nặng mục tiêu lệch ${Math.abs(change_kg)} kg so với hiện tại.`,
+          direction === 'healthy_eating'
+            ? `Mục tiêu là ăn uống lành mạnh nhưng cân nặng mục tiêu lệch ${Math.abs(change_kg)} kg so với hiện tại.`
+            : `Mục tiêu là duy trì cân nặng nhưng cân nặng mục tiêu lệch ${Math.abs(change_kg)} kg so với hiện tại.`,
         suggestion:
           change_kg < 0
             ? 'Hãy chọn mục tiêu giảm cân (lose_weight) nếu bạn muốn giảm cân.'
@@ -664,5 +678,188 @@ export function assessWeightGoal(
       'Kcal là ước tính theo công thức Mifflin-St Jeor và tốc độ thay đổi cân nặng mong muốn, ' +
       'chỉ mang tính tham khảo — không phải cam kết giảm/tăng cân chính xác, không thay thế tư vấn y tế.',
     warnings,
+  };
+}
+
+// =====================================================================
+// MỘT CÔNG THỨC CALO DÙNG CHUNG
+// Trước đây BMR/TDEE/kcal mục tiêu được viết lại ở 3 chỗ (hồ sơ - users.service,
+// lập thực đơn - meal-plan.service, đánh giá mục tiêu - assessWeightGoal) nên dễ lệch nhau.
+// Giờ cả 3 cùng gọi các hàm dưới đây.
+// =====================================================================
+
+/** Hệ số calo theo mục tiêu sức khoẻ, dùng khi hồ sơ CHƯA có cân nặng mục tiêu + ngày đạt. */
+export const HEALTH_GOAL_CALORIE_FACTOR: Record<WeightGoalDirection, number> = {
+  lose_weight: 0.85,
+  gain_muscle: 1.1,
+  maintain: 1,
+  healthy_eating: 1,
+};
+
+export interface EnergyBreakdown {
+  /** +5 nam, −161 nữ, −78 giới tính khác (trung bình hai giới). */
+  sexOffset: number;
+  bmr: number;
+  activityFactor: number;
+  tdee: number;
+}
+
+/** BMR theo Mifflin-St Jeor và TDEE = BMR × hệ số vận động. */
+export function computeEnergy(profile: ProfileMetrics): EnergyBreakdown {
+  const sexOffset = profile.gender === 'male' ? 5 : profile.gender === 'female' ? -161 : -78;
+  const bmr = 10 * profile.weight_kg + 6.25 * profile.height_cm - 5 * profile.age + sexOffset;
+  const activityFactor = ACTIVITY_FACTOR[profile.activity_level] ?? ACTIVITY_FACTOR.sedentary;
+  return { sexOffset, bmr, activityFactor, tdee: bmr * activityFactor };
+}
+
+export interface HealthGoalCalorieTarget {
+  goal: WeightGoalDirection;
+  factor: number;
+  raw_target_calories: number;
+  target_calories: number;
+  floor_applied: boolean;
+}
+
+/** kcal mục tiêu = TDEE × hệ số theo mục tiêu sức khoẻ, không thấp hơn sàn an toàn. */
+export function healthGoalCalorieTarget(tdee: number, goalName?: string | null): HealthGoalCalorieTarget {
+  const goal: WeightGoalDirection =
+    goalName === 'lose_weight' || goalName === 'gain_muscle' || goalName === 'healthy_eating' ? goalName : 'maintain';
+  const factor = HEALTH_GOAL_CALORIE_FACTOR[goal];
+  const raw = Math.round(tdee * factor);
+  return {
+    goal,
+    factor,
+    raw_target_calories: raw,
+    target_calories: Math.max(raw, CALORIE_FLOOR),
+    floor_applied: raw < CALORIE_FLOOR,
+  };
+}
+
+/** Những trường hồ sơ cần để chốt kcal mục tiêu. */
+export interface CalorieProfileSnapshot extends ProfileMetrics {
+  target_weight_kg?: number | null;
+  target_date?: string | null;
+  current_goal_name?: string | null;
+}
+
+/** Mục tiêu cân nặng client gửi kèm khi lập thực đơn (tuỳ chọn). */
+export interface ClientWeightGoal {
+  current_weight_kg?: number;
+  target_weight_kg?: number;
+  duration_days?: number;
+  direction?: WeightGoalDirection;
+}
+
+/**
+ * Đánh giá mục tiêu cân nặng từ client + hồ sơ (giống hệt POST /users/me/weight-goal/assess).
+ * Trả null khi không đủ dữ liệu mục tiêu cân nặng (khi đó dùng healthGoalCalorieTarget).
+ * Ném 400 WEIGHT_GOAL_INVALID / WEIGHT_GOAL_UNSAFE khi dữ liệu mục tiêu sai hoặc không an toàn.
+ */
+export function resolveWeightGoalAssessment(
+  profile: CalorieProfileSnapshot,
+  goalDto?: ClientWeightGoal,
+): GoalAssessment | null {
+  const clientExplicitDirection = goalDto?.direction ?? null;
+  const clientHasWeights =
+    goalDto?.current_weight_kg !== undefined && goalDto?.target_weight_kg !== undefined;
+
+  // `direction` client gửi thắng tuyệt đối; cân nặng mục tiêu CŨ trong hồ sơ không ghi đè lựa chọn mới.
+  const plan = resolveGoalPlan({
+    clientCurrentWeight: goalDto?.current_weight_kg ?? null,
+    clientTargetWeight: goalDto?.target_weight_kg ?? null,
+    clientDurationDays: goalDto?.duration_days ?? null,
+    clientDirection: clientExplicitDirection,
+    profileCurrentWeight: profile.weight_kg ?? null,
+    profileTargetWeight: profile.target_weight_kg ?? null,
+    profileTargetDate: profile.target_date ?? null,
+    profileHealthGoalName: profile.current_goal_name ?? null,
+  });
+
+  const { direction, current_weight_kg: current, target_weight_kg: target, duration_days: durationDays } = plan;
+
+  // Chế độ duy trì lấy từ hồ sơ (client không yêu cầu rõ) -> bỏ qua cân nặng mục tiêu còn sót lại
+  // từ lần chọn trước, nếu không hệ thống tự áp thâm hụt dù người dùng đang duy trì.
+  const maintainFromProfile = direction === 'maintain' && !clientExplicitDirection && !clientHasWeights;
+  const effectiveTarget = maintainFromProfile ? current : target;
+
+  // Client gửi dữ liệu mục tiêu nhưng thiếu -> báo lỗi, không âm thầm lùi về công thức theo mục tiêu sức khoẻ.
+  if (plan.clientDataIncomplete) {
+    throw new BadRequestException({
+      code: ErrorCode.WEIGHT_GOAL_INVALID,
+      message:
+        'Thiếu dữ liệu mục tiêu cân nặng: cần cân nặng hiện tại, cân nặng mục tiêu và thời gian đạt mục tiêu (số ngày).',
+    });
+  }
+
+  if (current == null || effectiveTarget == null || durationDays == null) {
+    return null;
+  }
+
+  assertValidGoalInput({
+    current_weight_kg: current,
+    target_weight_kg: effectiveTarget,
+    duration_days: durationDays,
+    direction,
+  });
+
+  const assessment = assessWeightGoal(
+    { current_weight_kg: current, target_weight_kg: effectiveTarget, duration_days: durationDays, direction },
+    profile,
+  );
+
+  if (!assessment.valid) {
+    throw new BadRequestException({
+      code: ErrorCode.WEIGHT_GOAL_UNSAFE,
+      message: assessment.message,
+      suggestion: assessment.suggestion,
+    });
+  }
+
+  if (plan.warnings.length > 0) {
+    assessment.warnings = [...plan.warnings, ...assessment.warnings];
+  }
+  // Ghi rõ phần nào là số hệ thống tự giả định, để trang hồ sơ giải thích cho người dùng.
+  if (direction !== 'maintain' && !clientHasWeights) {
+    const profileTargetUsed = profile.target_weight_kg != null && profile.target_weight_kg === target;
+    assessment.target_inferred = !profileTargetUsed;
+  }
+  const profileDateInFuture =
+    !!profile.target_date && new Date(`${profile.target_date}T00:00:00`).getTime() > Date.now();
+  assessment.duration_defaulted =
+    direction !== 'maintain' && goalDto?.duration_days == null && !profileDateInFuture;
+  return assessment;
+}
+
+export interface DailyCalorieTarget {
+  target_calories: number;
+  /** weight_goal: theo cân nặng mục tiêu + thời gian; health_goal: theo hệ số mục tiêu sức khoẻ. */
+  source: 'weight_goal' | 'health_goal';
+  energy: EnergyBreakdown;
+  assessment: GoalAssessment | null;
+  health_goal: HealthGoalCalorieTarget | null;
+}
+
+/**
+ * kcal mục tiêu mỗi ngày: HÀM DUY NHẤT mà trang hồ sơ (GET /users/me/nutrition-summary) và
+ * lập thực đơn (POST /meal-plans/generate/*) cùng gọi, nên hai nơi luôn ra cùng một con số.
+ *   - Có mục tiêu cân nặng (client gửi, hoặc hồ sơ có cân nặng mục tiêu + ngày đạt) -> theo mục tiêu cân nặng.
+ *   - Không có -> TDEE × hệ số mục tiêu sức khoẻ (giảm 0,85 / tăng 1,1 / duy trì 1).
+ */
+export function resolveDailyCalorieTarget(
+  profile: CalorieProfileSnapshot,
+  goalDto?: ClientWeightGoal,
+): DailyCalorieTarget {
+  const energy = computeEnergy(profile);
+  const assessment = resolveWeightGoalAssessment(profile, goalDto);
+  if (assessment) {
+    return { target_calories: assessment.target_calories, source: 'weight_goal', energy, assessment, health_goal: null };
+  }
+  const healthGoal = healthGoalCalorieTarget(energy.tdee, profile.current_goal_name);
+  return {
+    target_calories: healthGoal.target_calories,
+    source: 'health_goal',
+    energy,
+    assessment: null,
+    health_goal: healthGoal,
   };
 }

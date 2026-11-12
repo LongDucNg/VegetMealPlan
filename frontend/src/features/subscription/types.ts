@@ -32,6 +32,8 @@ export interface BackendSubscriptionPlan {
 
 export interface CheckoutResponse {
   payment_url: string;
+  qr_code?: string;
+  order_code?: number;
   gateway_txn_ref: string;
   amount: number;
   expires_in_minutes: number;
@@ -42,8 +44,11 @@ export interface PremiumStatusResponse {
   premium_until: string | null;
 }
 
-export interface VnpayReturnResponse {
-  status: "success" | "failed" | "invalid";
+export interface PaymentReturnResponse {
+  status: "success" | "failed" | "invalid" | "pending";
   txn_ref: string | null;
   premium_until: string | null;
+  message?: string;
 }
+
+export type VnpayReturnResponse = PaymentReturnResponse;

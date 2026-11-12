@@ -14,6 +14,7 @@ export interface RecipeQueryParams {
   diet_type?: string;
   meal_type?: string;
   created_by?: number;
+  exactDiet?: boolean;
 }
 
 export interface RecommendationQueryParams {
@@ -36,6 +37,7 @@ export interface RecipePayload {
   description?: string;
   instructions?: string;
   image_url?: string;
+  video_url?: string;
   prep_time?: number;
   cook_time?: number;
   servings?: number;
@@ -92,6 +94,15 @@ export const recipeApiService = {
   },
 
   // API #6: POST /recipes - Member tạo -> pending_review, admin tạo -> approved
+  uploadMedia(file: File) {
+    return apiClient.upload<{ url: string; file_type: 'image' | 'video'; filename: string; size: number }>(
+      '/recipes/upload',
+      file,
+      'file'
+    );
+  },
+
+  // API #6: POST /recipes - Member t?o -> pending_review, admin t?o -> approved
   createRecipe(data: RecipePayload) {
     return apiClient.post<any>("/recipes", data);
   },
@@ -101,14 +112,20 @@ export const recipeApiService = {
     return apiClient.put<any>(`/recipes/${id}`, data);
   },
 
+  // POST /recipes/:id/image - Tải ảnh món lên Cloudinary (chủ món hoặc admin; JPG/PNG/WEBP, tối đa 5 MB).
+  // Gọi SAU khi tạo/sửa món thành công; backend ghi luôn image_url mới vào món.
+  uploadRecipeImage(id: number | string, file: File) {
+    return apiClient.upload<{ recipe_id: number; image_url: string }>(`/recipes/${id}/image`, file, "image");
+  },
+
   // API #8: DELETE /recipes/:id - Đổi status thành removed (soft delete)
   deleteRecipe(id: number | string) {
     return apiClient.delete<any>(`/recipes/${id}`);
   },
 
   // API GET /categories - Danh mục công thức
-  getCategories() {
-    return apiClient.get<any>("/categories");
+  getCategories(type: string = "recipe") {
+    return apiClient.get<any>(`/categories?type=${type}`);
   },
 
   // API GET /categories/:id - Chi tiết một danh mục
@@ -122,8 +139,21 @@ export const recipeApiService = {
     return apiClient.get<any[]>(`/admin/recipes${query}`);
   },
 
+  // API Admin: GET /admin/recipes/:id - Lấy chi tiết công thức kèm nguyên liệu cho admin
+  getAdminRecipeById(id: number | string) {
+    return apiClient.get<any>(`/admin/recipes/${id}`);
+  },
+
   // API Admin: PUT /admin/recipes/:id/status - Duyệt hoặc từ chối công thức
   reviewRecipe(id: number | string, status: "approved" | "rejected", reason?: string) {
     return apiClient.put<any>(`/admin/recipes/${id}/status`, { status, reason });
   },
+
+  // API Export: GET /recipes/export - Xuất dữ liệu công thức ra file CSV
+  exportRecipes(params?: import("@/features/admin/services/adminRecipeApiService").RecipeExportParams) {
+    return import("@/features/admin/services/adminRecipeApiService").then((m) =>
+      m.adminRecipeApiService.exportRecipes(params)
+    );
+  },
 };
+

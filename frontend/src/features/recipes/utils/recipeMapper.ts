@@ -1,5 +1,9 @@
 import { Recipe, MealType, RecipeStatus, IngredientItem } from "../types";
 import { VegetarianType } from "@/features/profile/types";
+import {
+  getIngredientCaloriesPer100g,
+  calculateIngredientCalories,
+} from "./ingredientNutrition";
 
 export function mapDietTypeToFrontend(dietType?: string): VegetarianType {
   const dt = (dietType || "").toLowerCase();
@@ -30,22 +34,24 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
     nut.calories !== undefined && nut.calories !== null
       ? Number(nut.calories)
       : r.calories !== undefined && r.calories !== null
-      ? Number(r.calories)
-      : null;
+        ? Number(r.calories)
+        : null;
 
   if (rawCalories === null || isNaN(rawCalories) || rawCalories <= 0) {
     const macroCalories = Math.round(protein * 4 + carbs * 4 + fat * 9);
     rawCalories = macroCalories > 0 ? macroCalories : 350;
   }
-  const calories = Math.round(rawCalories);
+  const calories = Math.round(rawCalories * 100) / 100;
 
   // Ingredients
   let ingredients: IngredientItem[] = [];
   const rawIngredients = Array.isArray(r.recipeIngredients)
     ? r.recipeIngredients
-    : Array.isArray(r.ingredients)
-    ? r.ingredients
-    : [];
+    : Array.isArray(r.recipe_ingredients)
+      ? r.recipe_ingredients
+      : Array.isArray(r.ingredients)
+        ? r.ingredients
+        : [];
 
   if (rawIngredients.length > 0) {
     ingredients = rawIngredients.map((item: any) => {
@@ -73,6 +79,19 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
         0
       );
       const cost = Number(item.cost || (unitPrice > 0 ? Math.round(unitPrice * quantity) : 0));
+      const rawCalPer100 =
+        ingredientObj.calories_per_100g !== undefined && ingredientObj.calories_per_100g !== null
+          ? Number(ingredientObj.calories_per_100g)
+          : item.calories_per_100g !== undefined && item.calories_per_100g !== null
+            ? Number(item.calories_per_100g)
+            : item.caloriesPer100g !== undefined && item.caloriesPer100g !== null
+              ? Number(item.caloriesPer100g)
+              : getIngredientCaloriesPer100g(name);
+      const caloriesPer100g = Math.round(rawCalPer100 * 100) / 100;
+      const calories =
+        item.calories !== undefined && item.calories !== null
+          ? Math.round(Number(item.calories) * 100) / 100
+          : calculateIngredientCalories(quantity, unit, caloriesPer100g);
 
       return {
         id,
@@ -81,6 +100,8 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
         unit,
         unitPrice,
         cost,
+        caloriesPer100g,
+        calories,
       };
     });
   }
@@ -96,20 +117,66 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
     instructions = ["Chuẩn bị nguyên liệu", "Sơ chế và chế biến theo công thức", "Trình bày ra đĩa và thưởng thức"];
   }
 
-  // Category
+  // Category: Thu thập đầy đủ các danh mục có trong cơ sở dữ liệu liên quan đến công thức
+  const categoriesList: string[] = [];
+  const seenCat = new Set<string>();
+  const addCat = (name: any) => {
+    if (!name || typeof name !== "string") return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (trimmed.includes(",")) {
+      trimmed.split(",").forEach(addCat);
+      return;
+    }
+    const lower = trimmed.toLowerCase();
+    if (!seenCat.has(lower)) {
+      seenCat.add(lower);
+      categoriesList.push(trimmed);
+    }
+  };
+
+  if (Array.isArray(r.categories)) {
+    for (const c of r.categories) {
+      if (typeof c === "string") addCat(c);
+      else if (c && typeof c === "object") addCat(c.category_name || c.name);
+    }
+  } else if (typeof r.categories === "string") {
+    addCat(r.categories);
+  }
+
+  if (Array.isArray(r.recipeCategories)) {
+    for (const rc of r.recipeCategories) {
+      addCat(rc.category?.category_name || rc.category?.name || rc.category_name);
+    }
+  }
+
+  const rawCat = typeof r.category === "string" ? r.category : r.category?.category_name;
+  if (rawCat) {
+    addCat(rawCat);
+  }
+
   const category =
-    r.recipeCategories?.[0]?.category?.name ||
-    r.category ||
-    "Món chính";
+    categoriesList.length > 0
+      ? categoriesList[0]
+      : "Khác";
 
   // Status
   const status: RecipeStatus = (
     r.status === "pending_review" ? "PENDING_REVIEW" :
-    r.status === "approved" ? "APPROVED" :
-    r.status === "rejected" ? "REJECTED" :
-    r.status === "draft" ? "DRAFT" :
-    (r.status || "APPROVED")
+      r.status === "approved" ? "APPROVED" :
+        r.status === "rejected" ? "REJECTED" :
+          r.status === "draft" ? "DRAFT" :
+            (r.status || "APPROVED")
   ).toUpperCase() as RecipeStatus;
+
+  const reviewReason = r.review_reason || r.reviewReason || null;
+  const diffRaw = String(r.difficulty || "").toLowerCase();
+  const difficulty: "Easy" | "Medium" | "Advanced" =
+    diffRaw === "easy" || diffRaw === "dễ" || diffRaw === "de"
+      ? "Easy"
+      : diffRaw === "hard" || diffRaw === "khó" || diffRaw === "kho" || diffRaw === "advanced"
+        ? "Advanced"
+        : "Medium";
 
   return {
     id,
@@ -121,6 +188,7 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
       r.image ||
       "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop&q=80",
     category,
+    categories: categoriesList.length > 0 ? categoriesList : [category],
     mealType,
     vegetarianType,
     prepTime,
@@ -134,9 +202,14 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
     ingredients,
     allergens: r.allergens || [],
     instructions,
+    video_url: r.video_url || r.videoUrl || undefined,
+    videoUrl: r.video_url || r.videoUrl || undefined,
     estimatedCost: Number(r.estimated_cost ?? r.estimatedCost ?? 0),
     status,
+    review_reason: reviewReason,
+    reviewReason: reviewReason,
     source: r.source || { type: "admin", name: "VeggieHub Kitchen" },
+    difficulty,
     duration: `${prepTime + cookTime} min`,
     author: r.author || (r.user ? r.user.full_name || r.user.email : "VeggieHub Kitchen"),
     verified: true,

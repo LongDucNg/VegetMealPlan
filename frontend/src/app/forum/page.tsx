@@ -10,6 +10,7 @@ import {
   Loader2,
   CheckCircle,
   AlertCircle,
+  AlertTriangle,
   Clock,
   Sparkles,
   UserCheck,
@@ -28,6 +29,7 @@ import {
   ForumPost,
   ForumRightRail,
 } from "@/features/community";
+import { checkNonVegText } from "@/features/community/utils/nonVegDetector";
 
 function ForumContent() {
   const router = useRouter();
@@ -61,6 +63,7 @@ function ForumContent() {
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccessMsg, setSubmitSuccessMsg] = useState<string | null>(null);
   const [submitErrorMsg, setSubmitErrorMsg] = useState<string | null>(null);
+  const [nonVegWarning, setNonVegWarning] = useState<string[] | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -89,7 +92,7 @@ function ForumContent() {
     try {
       if (showMyPosts) {
         const myRes = await forumService.listMyPosts();
-        const activePosts = myRes.data.filter((p) => p.status !== "removed" && p.status !== "rejected");
+        const activePosts = myRes.data.filter((p) => p.status !== "removed");
         setPosts(activePosts);
         setMyPostCount(activePosts.length);
       } else {
@@ -99,16 +102,14 @@ function ForumContent() {
           sort,
           page: 1,
           limit: 30,
-          currentUserId: user?.user_id,
         });
-        const activePosts = res.data.filter((p) => p.status !== "removed" && p.status !== "rejected");
-        setPosts(activePosts);
+        setPosts(res.data);
 
         if (user?.user_id) {
           forumService
             .listMyPosts()
             .then((myRes) => {
-              const count = myRes.data.filter((p) => p.status !== "removed" && p.status !== "rejected").length;
+              const count = myRes.data.filter((p) => p.status !== "removed").length;
               setMyPostCount(count);
             })
             .catch(() => { });
@@ -132,13 +133,26 @@ function ForumContent() {
     setNewContent("");
     setSubmitSuccessMsg(null);
     setSubmitErrorMsg(null);
+    setNonVegWarning(null);
     setNewPostModalOpen(false);
   };
 
-  const handleCreatePost = async (e: React.FormEvent) => {
+  const handleCreatePost = async (e: React.FormEvent, forceSubmit = false) => {
     e.preventDefault();
     if (!newTitle.trim() || !newContent.trim() || isGuest) return;
 
+    // Quét từ khóa nguyên liệu mặn trong tiêu đề, nội dung và tags
+    const fullText = `${newTitle} ${newContent} ${newTags}`;
+    const check = checkNonVegText(fullText);
+
+    // NẾU CÓ TỪ MẶN VÀ NGƯỜI DÙNG CHƯA XÁC NHẬN -> DỪNG LẠI CHO NGƯỜI DÙNG SỬA
+    if (!check.isClean && !forceSubmit) {
+      setNonVegWarning(check.violations);
+      setSubmitErrorMsg(null);
+      return;
+    }
+
+    setNonVegWarning(null);
     setSubmitting(true);
     setSubmitErrorMsg(null);
     setSubmitSuccessMsg(null);
@@ -159,7 +173,12 @@ function ForumContent() {
         user || { full_name: "Tôi", role: role }
       );
 
-      if (res.status === "approved" || role === "Admin") {
+      if (res.is_flagged || !check.isClean) {
+        const violations = res.flag_reason || (check.violations.length > 0 ? `nhắc tới nguyên liệu mặn: ${check.violations.join(", ")}` : "nội dung cần rà soát");
+        setSubmitSuccessMsg(
+          `Bài viết đã được gửi và đang chờ ban quản trị kiểm duyệt (${violations}).`
+        );
+      } else if (res.status === "approved" || role === "Admin") {
         setSubmitSuccessMsg("Đăng bài viết thành công!");
       } else {
         setSubmitSuccessMsg(
@@ -171,7 +190,7 @@ function ForumContent() {
 
       setTimeout(() => {
         resetForm();
-      }, 1800);
+      }, 2500);
     } catch (err: any) {
       setSubmitErrorMsg(
         err?.message || "Không thể đăng bài viết lúc này. Vui lòng thử lại sau."
@@ -216,77 +235,69 @@ function ForumContent() {
           }
         />
 
-        {/* Filter Controls: Search, Categories & Sort */}
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div className="max-w-md w-full">
-              <Input
-                variant="search"
-                placeholder="Tìm bài viết theo từ khóa hoặc hashtag (#monchay, #dinhduong)…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+        {/* Filter Controls: Search, Category Dropdown & Sort */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-stone-200 shadow-2xs">
+          <div className="max-w-md w-full">
+            <Input
+              variant="search"
+              placeholder="Tìm bài viết theo từ khóa hoặc hashtag (#monchay, #dinhduong)…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 self-end sm:self-auto shrink-0">
+            {/* Category Filter Dropdown */}
+            <div className="flex items-center gap-1.5">
+              <label htmlFor="forum-category-filter" className="text-xs font-semibold text-stone-500 whitespace-nowrap">
+                Danh mục:
+              </label>
+              <select
+                id="forum-category-filter"
+                value={showMyPosts ? "my_posts" : (selectedCategoryId !== undefined ? String(selectedCategoryId) : "all")}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "my_posts") {
+                    setShowMyPosts(true);
+                    setSelectedCategoryId(undefined);
+                  } else if (val === "all") {
+                    setShowMyPosts(false);
+                    setSelectedCategoryId(undefined);
+                  } else {
+                    setShowMyPosts(false);
+                    setSelectedCategoryId(Number(val));
+                  }
+                }}
+                className="h-9 px-3 rounded-xl border border-stone-200 bg-stone-50/60 hover:bg-white text-xs font-semibold text-stone-700 outline-none hover:border-stone-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 cursor-pointer shadow-2xs transition-colors"
+              >
+                <option value="all">Tất cả danh mục</option>
+                {!isGuest && (
+                  <option value="my_posts">Bài viết của tôi {myPostCount > 0 ? `(${myPostCount})` : ""}</option>
+                )}
+                {categories.map((cat) => (
+                  <option key={cat.category_id} value={String(cat.category_id)}>
+                    {cat.category_name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Sort Selector */}
-            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-              <span className="text-xs font-semibold text-stone-500 whitespace-nowrap">
+            <div className="flex items-center gap-1.5">
+              <label htmlFor="forum-sort-filter" className="text-xs font-semibold text-stone-500 whitespace-nowrap">
                 Sắp xếp:
-              </span>
+              </label>
               <select
+                id="forum-sort-filter"
                 value={sort}
                 onChange={(e) => setSort(e.target.value as any)}
-                className="h-9 px-3 rounded-xl border border-stone-200 bg-white text-xs font-semibold text-stone-700 outline-none focus:border-emerald-600 cursor-pointer shadow-2xs"
+                className="h-9 px-3 rounded-xl border border-stone-200 bg-stone-50/60 hover:bg-white text-xs font-semibold text-stone-700 outline-none hover:border-stone-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 cursor-pointer shadow-2xs transition-colors"
               >
                 <option value="newest">Mới nhất</option>
                 <option value="most_viewed">Xem nhiều nhất</option>
                 <option value="oldest">Cũ nhất</option>
               </select>
             </div>
-          </div>
-
-          {/* Category Filter Chips */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            <Chip
-              variant="filter"
-              active={selectedCategoryId === undefined && !showMyPosts}
-              onClick={() => {
-                setShowMyPosts(false);
-                setSelectedCategoryId(undefined);
-              }}
-            >
-              Tất cả thảo luận
-            </Chip>
-
-            {!isGuest && (
-              <Chip
-                variant="filter"
-                active={showMyPosts}
-                onClick={() => {
-                  setShowMyPosts(true);
-                  setSelectedCategoryId(undefined);
-                }}
-              >
-                <span className="inline-flex items-center gap-1.5">
-                  <UserCheck className="w-3.5 h-3.5" />
-                  <span>Bài viết của tôi</span>
-                </span>
-              </Chip>
-            )}
-
-            {categories.map((cat) => (
-              <Chip
-                key={cat.category_id}
-                variant="filter"
-                active={!showMyPosts && selectedCategoryId === cat.category_id}
-                onClick={() => {
-                  setShowMyPosts(false);
-                  setSelectedCategoryId(cat.category_id);
-                }}
-              >
-                {cat.category_name}
-              </Chip>
-            ))}
           </div>
         </div>
 
@@ -314,13 +325,17 @@ function ForumContent() {
                           {post.category}
                         </span>
 
-                        {/* Status Badge: Pending vs Removed vs Approved */}
+                        {/* Status Badge: Pending vs Rejected vs Removed vs Approved */}
                         {post.status === "pending_review" ? (
                           <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
                             <span>⏳</span> Đang chờ duyệt
                           </span>
-                        ) : post.status === "removed" || post.status === "rejected" ? (
-                          <span className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
+                        ) : post.status === "rejected" ? (
+                          <span className="text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
+                            <span>✕</span> Bị từ chối
+                          </span>
+                        ) : post.status === "removed" ? (
+                          <span className="text-xs font-semibold text-stone-600 bg-stone-100 border border-stone-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
                             <span>✕</span> Đã bị gỡ
                           </span>
                         ) : (
@@ -343,6 +358,12 @@ function ForumContent() {
                       <p className="mt-2 text-base text-stone-600 line-clamp-2 leading-relaxed">
                         {post.excerpt}
                       </p>
+
+                      {post.rejectReason && (
+                        <div className="mt-2.5 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
+                          <span className="font-semibold">Lý do từ chối:</span> {post.rejectReason}
+                        </div>
+                      )}
 
                       {/* Tags & Footer */}
                       <div className="mt-4 pt-3 border-t border-stone-100 flex flex-wrap items-center justify-between gap-3">
@@ -373,12 +394,12 @@ function ForumContent() {
                             <span>{post.author}</span>
                           </div>
 
-                          <div className="flex items-center gap-1 text-stone-500">
+                          <div className="flex items-center gap-1 text-stone-500" title="Lượt xem">
                             <Eye className="w-3.5 h-3.5 text-stone-400" />
                             <span>{post.views ?? 0}</span>
                           </div>
 
-                          <div className="flex items-center gap-1 text-stone-500">
+                          <div className="flex items-center gap-1 text-stone-500" title="Bình luận">
                             <MessageSquare className="w-3.5 h-3.5 text-stone-400" />
                             <span>{post.commentsCount}</span>
                           </div>
@@ -431,7 +452,7 @@ function ForumContent() {
         onClose={resetForm}
         title="Bắt đầu chủ đề thảo luận mới"
       >
-        <form onSubmit={handleCreatePost} className="flex flex-col space-y-4">
+        <form onSubmit={(e) => handleCreatePost(e, false)} className="flex flex-col space-y-4">
           {submitSuccessMsg && (
             <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-start gap-2.5">
               <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
@@ -446,6 +467,44 @@ function ForumContent() {
             </div>
           )}
 
+          {nonVegWarning && nonVegWarning.length > 0 && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-sm space-y-3 animate-in fade-in">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold text-amber-900">
+                    Phát hiện từ khóa nguyên liệu không thuần chay:{" "}
+                    <span className="text-rose-600 underline font-extrabold">
+                      {nonVegWarning.join(", ")}
+                    </span>
+                  </p>
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    Diễn đàn VeggieHub là cộng đồng ăn chay. Bạn vui lòng chỉnh sửa lại nội dung để bài viết được duyệt nhanh hơn, hoặc xác nhận tiếp tục gửi để chờ ban quản trị xét duyệt thủ công.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-amber-200">
+                <button
+                  type="button"
+                  onClick={() => setNonVegWarning(null)}
+                  className="px-4 py-2 rounded-xl bg-white border border-amber-300 text-amber-900 text-xs font-bold hover:bg-amber-100 transition-colors cursor-pointer shadow-xs"
+                >
+                  ✏️ Để tôi sửa lại bài viết
+                </button>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={(e) => handleCreatePost(e, true)}
+                  className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                >
+                  {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Tôi vẫn muốn gửi (Chờ duyệt)</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-semibold text-stone-700 mb-1.5">
               Tiêu đề bài viết <span className="text-rose-500">*</span>
@@ -456,7 +515,10 @@ function ForumContent() {
               minLength={3}
               maxLength={200}
               value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
+              onChange={(e) => {
+                setNewTitle(e.target.value);
+                if (nonVegWarning) setNonVegWarning(null);
+              }}
               placeholder="Ví dụ: Cách làm đậu phụ sốt cà chua thơm ngon tại nhà"
               className="w-full h-11 px-4 rounded-xl border border-stone-200 text-base text-stone-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
             />
@@ -489,7 +551,10 @@ function ForumContent() {
             <input
               type="text"
               value={newTags}
-              onChange={(e) => setNewTags(e.target.value)}
+              onChange={(e) => {
+                setNewTags(e.target.value);
+                if (nonVegWarning) setNonVegWarning(null);
+              }}
               placeholder="monchay, dinhduong, nguoimoi"
               className="w-full h-11 px-4 rounded-xl border border-stone-200 text-base text-stone-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
             />
@@ -504,7 +569,10 @@ function ForumContent() {
               required
               minLength={10}
               value={newContent}
-              onChange={(e) => setNewContent(e.target.value)}
+              onChange={(e) => {
+                setNewContent(e.target.value);
+                if (nonVegWarning) setNonVegWarning(null);
+              }}
               placeholder="Chia sẻ kinh nghiệm, công thức nấu ăn hoặc đặt câu hỏi cùng cộng đồng…"
               className="w-full p-4 rounded-xl border border-stone-200 text-base text-stone-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
             />

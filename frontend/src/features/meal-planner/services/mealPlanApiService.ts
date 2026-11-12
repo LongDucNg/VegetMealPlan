@@ -14,7 +14,7 @@ export interface GenerateForSomeonePayload {
 
 export interface SaveMealPlanPayload {
   goal_id?: number;
-  plan_type?: "weekly" | "monthly";
+  plan_type?: "daily" | "weekly" | "monthly";
   start_date: string;
   end_date: string;
   has_budget?: boolean;
@@ -47,6 +47,10 @@ export interface ValidateMealPlanPayload {
 }
 
 export const mealPlanApiService = {
+  // POST /meal-plans/generate/daily - Sinh thực đơn ngày (1 ngày) 3 buổi sáng trưa chiều có 2-3 món khớp calo, AI xét duyệt
+  generateDaily(payload?: GenerateMealPlanPayload) {
+    return apiClient.post<any>("/meal-plans/generate/daily", payload || {});
+  },
   // API #25: POST /meal-plans/generate/weekly - Sinh thực đơn 7 ngày theo hồ sơ, dị ứng, chế độ chay, ngân sách
   generateWeekly(payload?: GenerateMealPlanPayload) {
     return apiClient.post<any>("/meal-plans/generate/weekly", payload || {});
@@ -90,6 +94,21 @@ export const mealPlanApiService = {
   // API #33: DELETE /users/me/meal-plans/:id - Xoá thực đơn
   deleteMyMealPlan(id: number | string) {
     return apiClient.delete<any>(`/users/me/meal-plans/${id}`);
+  },
+
+  // GET /users/me/meal-plan-profiles/:profileId/allergies - Danh sách dị ứng của hồ sơ thực đơn
+  getProfileAllergies(profileId: number | string) {
+    return apiClient.get<Array<{ ingredient_id: number; ingredient_name: string }>>(
+      `/users/me/meal-plan-profiles/${profileId}/allergies`
+    );
+  },
+
+  // PUT /users/me/meal-plan-profiles/:profileId/allergies - Cập nhật danh sách dị ứng của hồ sơ thực đơn
+  setProfileAllergies(profileId: number | string, ingredient_ids: number[]) {
+    return apiClient.put<Array<{ ingredient_id: number; ingredient_name: string }>>(
+      `/users/me/meal-plan-profiles/${profileId}/allergies`,
+      { ingredient_ids }
+    );
   },
 
   // API #34: PATCH /users/me/meal-plans/:id/days/:dayId/slots/:slotId - Đổi món trong một bữa
