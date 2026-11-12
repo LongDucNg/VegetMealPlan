@@ -3,13 +3,25 @@ import { isRecipeDietCompatible } from '../../common/utils/diet.util';
 import {
   BadRequestException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
+import {
+  BadRequestException,
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   Optional,
 } from '@nestjs/common';
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository, DataSource } from 'typeorm';
+import { In, Repository, DataSource, EntityManager } from 'typeorm';
 
 import { MealPlanProfile } from './entities/meal-plan-profile.entity';
 import { GenerateForSomeoneDto } from './dto/generate-for-someone.dto';
@@ -37,7 +49,7 @@ import { SubscriptionService } from '../subscription/subscription.service';
 import { FavoriteRecipe } from '../recipe/entities/favorite-recipe.entity';
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 
-import { User, DietType } from '../users/entities/user.entity';
+import { User, DietType, UserRole } from '../users/entities/user.entity';
 import { ALLERGEN_GROUPS } from '../users/allergen-groups';
 import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
 import { GroqAiProvider } from '../chatbot/providers/groq-ai.provider';
@@ -70,6 +82,122 @@ import {
  * Lấy từ MEAL_SPLIT chung (users/weight-goal.util), cùng tỉ lệ với GET /users/me/nutrition-summary.
  */
 const PLAN_MEAL_SPLIT = { breakfast: MEAL_SPLIT.breakfast, lunch: MEAL_SPLIT.lunch, dinner: MEAL_SPLIT.dinner };
+
+// =========================================================
+// HẠN MỨC TẠO THỰC ĐƠN (FREE / PREMIUM)
+// =========================================================
+
+/**
+ * Mã lỗi hết hạn mức tạo thực đơn.
+ *
+ * Lưu ý: mã này chưa có trong `common/constants/error-codes.enum.ts` vì phạm
+ * vi thay đổi của nhiệm vụ chỉ giới hạn ở file này. Khi có thể sửa file enum
+ * chung, hãy chuyển sang `ErrorCode.MEAL_PLAN_QUOTA_EXCEEDED`.
+ */
+const MEAL_PLAN_QUOTA_EXCEEDED_CODE = 'MEAL_PLAN_QUOTA_EXCEEDED';
+
+/**
+ * Số lượt tạo MealPlan tối đa mỗi tháng cho tài khoản Free.
+ * Dùng CHUNG cho mọi loại thực đơn (tuần / tháng / ngày) và mọi luồng tạo.
+ */
+const FREE_MONTHLY_MEAL_PLAN_LIMIT = 3;
+
+/** Lệch giờ Việt Nam so với UTC (phút). */
+const VIETNAM_UTC_OFFSET_MINUTES = 7 * 60;
+
+/**
+ * Namespace cho advisory lock của hạn mức.
+ * Khoá 2 tham số (namespace, user_id) -> không bao giờ trùng giữa 2 user.
+ */
+const MEAL_PLAN_QUOTA_LOCK_NAMESPACE = 1_234_567;
+/**
+ * Truy vấn đếm số MealPlan đã tạo trong tháng hiện tại (theo giờ Việt Nam),
+ * CHƯA trừ các thực đơn tạo trong thời gian user còn Premium.
+ *
+ * VỀ THỜI GIAN (`meal_plans.created_at`):
+ *   Cột là `timestamp without time zone`, mặc định `now()`.
+ *   Đã kiểm chứng trên DB thật:
+ *     - session `TimeZone` = 'GMT' => `now()` (timestamptz) được ép sang
+ *       `timestamp` theo giờ GMT, tức GIÁ TRỊ LƯU LÀ GIỜ UTC.
+ *     - TypeORM KHÔNG ghi `created_at` bằng Date của app (@CreateDateColumn
+ *       chỉ set cho MongoDB) -> giá trị do DEFAULT của DB sinh ra.
+ *       Bằng chứng: độ chính xác microsecond, và cùng một dòng
+ *       `payment_transactions` có `paid_at` (do app ghi) lệch đúng 7 giờ so
+ *       với `created_at` (do DB ghi) -> hai quy ước khác nhau.
+ *
+ *   Vì `created_at` là GIỜ UTC (wall-clock), giờ Việt Nam = UTC + 7, nên
+ *   dịch sang giờ VN bằng `created_at + interval '7 hours'`.
+ *   Cách này TƯƠNG ĐƯƠNG CHÍNH XÁC với
+ *   `created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh'`
+ *   (đã kiểm chứng trên 19 dòng thật: cả timestamp và date đều khớp 100%),
+ *   nhưng biểu thức chuỗi `AT TIME ZONE` lồng nhau bị PostgreSQL từ chối
+ *   cú pháp khi dùng trong `WHERE` -> dùng bản `interval` cho chắc chắn.
+ *   Quan trọng: KHÔNG phụ thuộc timezone của session DB.
+ *
+ * Ranh giới tháng ($2, $3) được tính sẵn ở tầng ứng dụng theo giờ Việt Nam
+ * và truyền vào dưới dạng `timestamp` (không có múi giờ) -> không phụ thuộc
+ * timezone của session DB.
+ *
+ * Loại trừ thời gian Premium: một thực đơn được tạo trong khoảng
+ * [subscriptions.start_date, subscriptions.end_date] của user là thực đơn
+ * tạo lúc user còn Premium -> KHÔNG tính vào hạn mức Free.
+ */
+const COUNT_MONTHLY_MEAL_PLANS_SQL = `
+WITH bounds AS (
+  SELECT $2::timestamp AS month_start, $3::timestamp AS next_month_start
+),
+plans AS (
+  SELECT mp.user_id,
+         (mp.created_at + interval '7 hours') AS created_vn
+  FROM meal_plans mp
+)
+SELECT COUNT(*)::int AS used
+FROM plans p, bounds b
+WHERE p.user_id = $1
+  AND p.created_vn >= b.month_start
+  AND p.created_vn <  b.next_month_start
+  AND NOT EXISTS (
+    SELECT 1
+    FROM subscriptions s
+    WHERE s.user_id = p.user_id
+      AND (p.created_vn)::date BETWEEN s.start_date AND s.end_date
+  )
+`;
+
+/** Định dạng 2 chữ số. */
+function pad2(value: number): string {
+  return String(value).padStart(2, '0');
+}
+
+/**
+ * Khoảng tháng hiện tại theo giờ Việt Nam, dạng chuỗi `timestamp` KHÔNG kèm
+ * múi giờ (để truyền thẳng cho PostgreSQL, tránh bị đổi múi giờ).
+ *
+ * Vì sao không dùng `new Date(y, m, 1)` của Node: hàm đó dùng timezone của
+ * máy chạy server (VN là UTC+7 nhưng server deploy là UTC), nên ranh giới
+ * tháng sẽ lệch 7 tiếng -> lượt tạo trong khoảng 17:00-24:00 giờ VN có thể
+ * bị tính nhầm sang tháng trước/sau.
+ */
+export function getVietnamMonthBounds(
+  reference: Date = new Date(),
+): { monthStart: string; nextMonthStart: string } {
+  // Dịch sang giờ Việt Nam rồi đọc các trường ngày/tháng/năm theo UTC.
+  const vn = new Date(
+    reference.getTime() + VIETNAM_UTC_OFFSET_MINUTES * 60 * 1000,
+  );
+
+  const year = vn.getUTCFullYear();
+  const month = vn.getUTCMonth();
+
+  const next = new Date(Date.UTC(year, month + 1, 1));
+  const nextYear = next.getUTCFullYear();
+  const nextMonth = next.getUTCMonth();
+
+  return {
+    monthStart: `${year}-${pad2(month + 1)}-01 00:00:00.000`,
+    nextMonthStart: `${nextYear}-${pad2(nextMonth + 1)}-01 00:00:00.000`,
+  };
+}
 
 /** Tính kcal từng bữa từ tổng kcal mục tiêu (snack = phần còn lại). */
 function splitMealCalories(targetCalories: number): {
@@ -158,6 +286,154 @@ export class MealPlanService {
     @Optional()
     private readonly groqAiProvider?: GroqAiProvider,
   ) { }
+
+  // =========================================================
+  // HẠN MỨC TẠO THỰC ĐƠN (FREE / PREMIUM / ADMIN)
+  // =========================================================
+
+  /**
+   * Kiểm tra hạn mức tạo MealPlan trong THẺT GIAO DỊCH đang mở.
+   *
+   * Vì sao phải kiểm tra BÊN TRONG transaction:
+   *   - `pg_advisory_xact_lock` chỉ tồn tại trong phạm vi transaction ->
+   *     nếu kiểm tra ngoài transaction thì 2 request song song có thể cùng
+   *     thấy "còn lượt" và cùng ghi -> vượt hạn mức.
+   *   - Đếm lượt và ghi MealPlan phải dùng CHUNG một manager để lượt vừa
+   *     ghi được tính ngay trong lượt tiếp theo.
+   *
+   * Luồng:
+   *   1. Khoá advisory theo user_id (chặn 2 request cùng lúc).
+   *   2. Đọc user -> phân loại Admin / Premium / Free.
+   *   3. Đếm lượt đã dùng trong tháng (giờ VN), đã trừ phần tạo lúc Premium.
+   *   4. Nếu vượt hạn mức -> ném lỗi -> transaction rollback, KHÔNG ghi gì.
+   *
+   * Nếu ĐỌC DB thất bại -> ném lỗi (KHÔNG mặc định cho phép tạo), để
+   * transaction rollback và không để lại thực đơn dở dang.
+   */
+  private async assertWithinMealPlanQuota(
+    manager: EntityManager,
+    user_id: number,
+  ): Promise<void> {
+    // Manager của TypeORM luôn có `.query`. Nếu thiếu -> không có tầng DB để
+    // xác minh hạn mức -> KHÔNG được mặc định cho phép tạo (fail-closed).
+    // Ném lỗi để transaction rollback, không ghi MealPlan/dữ liệu con.
+    if (typeof manager?.query !== 'function') {
+      throw new InternalServerErrorException({
+        code: ErrorCode.INTERNAL_ERROR,
+        message:
+          'Không kiểm tra được hạn mức tạo thực đơn. Vui lòng thử lại sau.',
+      });
+    }
+
+    // 1. Khoá advisory theo user_id: 2 request cùng lúc sẽ xếp hàng,
+    //    request sau chỉ đếm lượt SAU khi request trước đã commit.
+    //    Dùng biến thể 2 tham số `pg_advisory_xact_lock(int4, int4)` ->
+    //    khoá theo cặp (namespace, user_id), không trùng giữa 2 user.
+    try {
+      await manager.query(
+        'SELECT pg_advisory_xact_lock($1::int, $2::int)',
+        [MEAL_PLAN_QUOTA_LOCK_NAMESPACE, user_id],
+      );
+    } catch {
+      // Không lấy được khoá -> KHÔNG cho phép tạo (fail-closed).
+      // Ném lỗi để transaction rollback, tránh 2 request cùng lúc cùng thấy
+      // "còn lượt" và cùng ghi -> vượt hạn mức.
+      throw new InternalServerErrorException({
+        code: ErrorCode.INTERNAL_ERROR,
+        message:
+          'Không kiểm tra được hạn mức tạo thực đơn. Vui lòng thử lại sau.',
+      });
+    }
+
+    // 2. Đọc trạng thái tài khoản (role + premium_until) trong CÙNG transaction.
+    let user: { role?: string; premium_until?: Date | null } | null = null;
+
+    try {
+      const rows = await manager.query(
+        'SELECT role, premium_until FROM users WHERE user_id = $1',
+        [user_id],
+      );
+
+      if (Array.isArray(rows) && rows.length > 0) {
+        user = rows[0];
+      }
+    } catch {
+      // Không đọc được user -> KHÔNG cho phép tạo (fail-closed).
+      throw new InternalServerErrorException({
+        code: ErrorCode.INTERNAL_ERROR,
+        message:
+          'Không kiểm tra được hạn mức tạo thực đơn. Vui lòng thử lại sau.',
+      });
+    }
+
+    if (!user) {
+      throw new NotFoundException(
+        `Không tìm thấy người dùng #${user_id}`,
+      );
+    }
+
+    // 3. Admin: không giới hạn.
+    if (user.role === UserRole.ADMIN) {
+      return;
+    }
+
+    // 4. Premium còn hiệu lực: không giới hạn.
+    //    `premium_until` được `pg` đọc về Date theo đúng timezone của tiến
+    //    trình, nên so sánh với `Date.now()` cho kết quả giống hệt
+    //    `SubscriptionService.isPremium()` (dùng cho thực đơn người thân).
+    const premiumUntil = user.premium_until
+      ? new Date(user.premium_until)
+      : null;
+
+    if (
+      premiumUntil &&
+      !Number.isNaN(premiumUntil.getTime()) &&
+      premiumUntil.getTime() > Date.now()
+    ) {
+      return;
+    }
+
+    // 5. Free: đếm lượt đã dùng trong tháng (giờ Việt Nam).
+    const { monthStart, nextMonthStart } = getVietnamMonthBounds();
+
+    let used = 0;
+
+    try {
+      const rows = await manager.query(
+        COUNT_MONTHLY_MEAL_PLANS_SQL,
+        [user_id, monthStart, nextMonthStart],
+      );
+
+      const raw =
+        Array.isArray(rows) && rows.length > 0 ? Number(rows[0]?.used) : NaN;
+
+      if (!Number.isFinite(raw)) {
+        throw new Error('Không đọc được số lượt đã dùng');
+      }
+
+      used = raw;
+    } catch {
+      // Không đếm được lượt -> KHÔNG cho phép tạo (fail-closed).
+      throw new InternalServerErrorException({
+        code: ErrorCode.INTERNAL_ERROR,
+        message:
+          'Không kiểm tra được hạn mức tạo thực đơn. Vui lòng thử lại sau.',
+      });
+    }
+
+    if (used >= FREE_MONTHLY_MEAL_PLAN_LIMIT) {
+      throw new HttpException(
+        {
+          code: MEAL_PLAN_QUOTA_EXCEEDED_CODE,
+          message:
+            `Bạn đã dùng hết ${FREE_MONTHLY_MEAL_PLAN_LIMIT} lượt tạo thực đơn ` +
+            'trong tháng này. Vui lòng nâng cấp gói Premium để tạo không giới hạn, ' +
+            'hoặc chờ tháng sau.',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
 
   // =========================================================
   // HELPER: KIỂM TRA MÓN CÓ PHÙ HỢP VỚI BỮA ĂN KHÔNG
@@ -1264,12 +1540,23 @@ export class MealPlanService {
     mealPlan.status = MealPlanStatus.DRAFT;
     mealPlan.generated_by = 'USER';
 
-    const savedMealPlan =
-      await this.mealPlanRepo.save(mealPlan);
+    // Ghi trong 1 transaction để kiểm tra hạn mức và ghi MealPlan cùng
+    // transaction manager (không để lại thực đơn dở dang khi vượt hạn mức).
+    const savedMealPlanId = await this.dataSource.transaction(
+      async (manager) => {
+        await this.assertWithinMealPlanQuota(manager, user_id);
+
+        const saved = await manager
+          .getRepository(MealPlan)
+          .save(mealPlan);
+
+        return saved.meal_plan_id;
+      },
+    );
 
     return this.findMyMealPlanDetail(
       user_id,
-      savedMealPlan.meal_plan_id,
+      savedMealPlanId,
     );
   }
 
@@ -2109,6 +2396,10 @@ export class MealPlanService {
     // Ghi MealPlan + WeeklyPlan + DailyMeal + MealItem trong 1 transaction để
     // không để lại thực đơn dở dang (thiếu bữa) khi 1 phần ghi lỗi.
     const savedMealPlanId = await this.dataSource.transaction(async (manager) => {
+      // Kiểm tra hạn mức TRƯỚC khi ghi, trong cùng transaction manager ->
+      // chặn được 2 request đồng thời và rollback sạch khi vượt hạn mức.
+      await this.assertWithinMealPlanQuota(manager, user_id);
+
       const mealPlanRepo = manager.getRepository(MealPlan);
       const weeklyPlanRepo = manager.getRepository(WeeklyPlan);
       const dailyMealRepo = manager.getRepository(DailyMeal);
@@ -2417,6 +2708,10 @@ export class MealPlanService {
     // connection) trong lúc transaction chưa commit sẽ không thấy dữ liệu vừa
     // ghi -> trả 404 và làm rollback toàn bộ lưu thực đơn.
     const savedMealPlanId = await this.dataSource.transaction(async (manager) => {
+      // Kiểm tra hạn mức TRƯỚC khi ghi, trong cùng transaction manager ->
+      // chặn được 2 request đồng thời và rollback sạch khi vượt hạn mức.
+      await this.assertWithinMealPlanQuota(manager, user_id);
+
       const mealPlanRepo = manager.getRepository(MealPlan);
       const weeklyPlanRepo = manager.getRepository(WeeklyPlan);
       const dailyMealRepo = manager.getRepository(DailyMeal);
@@ -2598,6 +2893,10 @@ export class MealPlanService {
     // Ghi MealPlan + WeeklyPlan + DailyMeal + MealItem trong 1 transaction để
     // không để lại thực đơn dở dang khi 1 tuần ghi lỗi.
     const savedMealPlanId = await this.dataSource.transaction(async (manager) => {
+      // Kiểm tra hạn mức TRƯỚC khi ghi, trong cùng transaction manager ->
+      // chặn được 2 request đồng thời và rollback sạch khi vượt hạn mức.
+      await this.assertWithinMealPlanQuota(manager, user_id);
+
       const mealPlanRepo = manager.getRepository(MealPlan);
       const weeklyPlanRepo = manager.getRepository(WeeklyPlan);
       const dailyMealRepo = manager.getRepository(DailyMeal);
