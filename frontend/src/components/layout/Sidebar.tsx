@@ -168,6 +168,7 @@ export function Sidebar() {
       icon: Users,
       active: pathname.startsWith("/admin/members"),
     },
+    { label: "Lịch sử giao dịch", href: "/admin/transactions", icon: FileText, active: pathname.startsWith("/admin/transactions") },
   ];
 
   const renderNavGroup = (items: NavItem[]) => (
