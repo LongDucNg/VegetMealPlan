@@ -102,6 +102,17 @@ function buildService(opts: {
     transaction: async (cb: any) => {
       transactionCalls++;
       return cb({
+        // Mô phỏng bề mặt `query` của EntityManager thật: hàm kiểm tra hạn mức
+        // (assertWithinMealPlanQuota) gọi 3 truy vấn này trong cùng transaction.
+        // Phân nhánh theo nội dung SQL để không phụ thuộc thứ tự gọi.
+        query: async (sql: string) => {
+          if (sql.includes('pg_advisory_xact_lock')) return [];
+          if (sql.includes('FROM users')) {
+            return [{ role: 'authorized', premium_until: null }];
+          }
+          if (sql.includes('FROM meal_plans')) return [{ used: 0 }];
+          return [];
+        },
         getRepository: (entity: any) => {
           const name = entity?.name ?? '';
           if (name === 'DailyMeal') {

@@ -235,7 +235,7 @@ function ForumContent() {
           }
         />
 
-                {/* Filter Controls: Search, Category Dropdown & Sort */}
+        {/* Filter Controls: Search, Category Dropdown & Sort */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-stone-200 shadow-2xs">
           <div className="max-w-md w-full">
             <Input
