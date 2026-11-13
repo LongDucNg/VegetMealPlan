@@ -38,6 +38,11 @@ import {
   Loader2,
   AlertTriangle,
   ShieldAlert,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Minimize2,
+  RotateCcw,
 } from "lucide-react";
 
 /**
@@ -1119,9 +1124,29 @@ function ScanContent() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [uploadedPreview, setUploadedPreview] = useState<string | null>(null);
+  const [previewContain, setPreviewContain] = useState(true);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const [detectedItems, setDetectedItems] = useState<DetectedIngredientItem[]>([]);
   const [isSavingToPantry, setIsSavingToPantry] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isLightboxOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsLightboxOpen(false);
+      } else if (e.key === "+" || e.key === "=") {
+        setZoomLevel((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100));
+      } else if (e.key === "-") {
+        setZoomLevel((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100));
+      } else if (e.key === "0") {
+        setZoomLevel(1);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isLightboxOpen]);
 
   // Danh sách toàn bộ công thức đã duyệt từ DB
   const [dbRecipes, setDbRecipes] = useState<any[]>([]);
@@ -1155,6 +1180,7 @@ function ScanContent() {
     setIsScanning(true);
     setScanError(null);
     setSaveSuccessMsg(null);
+    setZoomLevel(1);
     setUploadedPreview(URL.createObjectURL(file));
 
     try {
@@ -1314,15 +1340,69 @@ function ScanContent() {
               </div>
 
               {uploadedPreview && (
-                <div className="relative w-full h-44 rounded-2xl overflow-hidden border border-stone-200 bg-stone-100">
-                  <img
-                    src={uploadedPreview}
-                    alt="Ảnh chụp tủ lạnh"
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute bottom-2 left-2 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-xs text-white text-[11px] font-medium">
+                <div className="group relative w-full rounded-2xl overflow-hidden border border-stone-200 bg-stone-900/95 shadow-xs">
+                  <div
+                    onClick={() => {
+                      setZoomLevel(1);
+                      setIsLightboxOpen(true);
+                    }}
+                    className={`w-full flex items-center justify-center cursor-zoom-in transition-all ${
+                      previewContain ? "max-h-72 min-h-44 p-2" : "h-52"
+                    }`}
+                    title="Nhấn để phóng to và xem toàn bộ ảnh"
+                  >
+                    <img
+                      src={uploadedPreview}
+                      alt="Ảnh chụp tủ lạnh"
+                      className={`transition-transform duration-300 ${
+                        previewContain
+                          ? "max-h-68 w-auto max-w-full object-contain rounded-lg"
+                          : "w-full h-full object-cover"
+                      }`}
+                    />
+                  </div>
+
+                  <span className="absolute bottom-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/65 backdrop-blur-xs text-white text-[11px] font-medium pointer-events-none">
                     Ảnh đang phân tích
                   </span>
+
+                  <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPreviewContain((prev) => !prev);
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-black/65 hover:bg-black/85 backdrop-blur-xs text-white text-[11px] font-medium transition-colors cursor-pointer"
+                      title={previewContain ? "Chuyển sang lấp đầy khung" : "Chuyển sang hiển thị trọn vẹn ảnh"}
+                    >
+                      {previewContain ? (
+                        <>
+                          <Maximize2 className="w-3.5 h-3.5" />
+                          <span>Vừa khung</span>
+                        </>
+                      ) : (
+                        <>
+                          <Minimize2 className="w-3.5 h-3.5" />
+                          <span>Đầy đủ ảnh</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setZoomLevel(1);
+                        setIsLightboxOpen(true);
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600/90 hover:bg-emerald-600 backdrop-blur-xs text-white text-[11px] font-semibold shadow-xs transition-colors cursor-pointer"
+                      title="Xem toàn màn hình & Thu phóng"
+                    >
+                      <ZoomIn className="w-3.5 h-3.5" />
+                      <span>Xem full / Zoom</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -1452,6 +1532,108 @@ function ScanContent() {
               emptyMessage="Chưa tìm thấy công thức nào khớp với các nguyên liệu đã quét. Hãy thử chọn thêm nguyên liệu."
               userAllergies={userAllergies}
             />
+          )}
+
+          {/* Modal Lightbox xem full ảnh & thu phóng */}
+          {isLightboxOpen && uploadedPreview && (
+            <div
+              className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex flex-col animate-in fade-in"
+              onClick={() => setIsLightboxOpen(false)}
+            >
+              {/* Thanh công cụ phía trên */}
+              <div
+                className="flex items-center justify-between px-4 sm:px-6 py-3.5 bg-black/50 border-b border-white/10 text-white shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-2">
+                  <Camera className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs sm:text-sm font-semibold">
+                    Xem chi tiết ảnh nguyên liệu ({Math.round(zoomLevel * 100)}%)
+                  </span>
+                  <span className="hidden sm:inline-block text-[11px] text-stone-400 ml-2">
+                    (Lăn chuột hoặc đúp chuột vào ảnh để thu phóng, nhấn Esc để đóng)
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setZoomLevel((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))
+                    }
+                    disabled={zoomLevel <= 0.5}
+                    className="p-2 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white transition-colors cursor-pointer"
+                    title="Thu nhỏ (-)"
+                  >
+                    <ZoomOut className="w-4 h-4" />
+                  </button>
+
+                  <span className="min-w-14 text-center text-xs font-bold text-emerald-300">
+                    {Math.round(zoomLevel * 100)}%
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setZoomLevel((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))
+                    }
+                    disabled={zoomLevel >= 3}
+                    className="p-2 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white transition-colors cursor-pointer"
+                    title="Phóng to (+)"
+                  >
+                    <ZoomIn className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel(1)}
+                    className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors cursor-pointer"
+                    title="Đặt lại 100%"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">100%</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsLightboxOpen(false)}
+                    className="ml-2 p-2 rounded-xl bg-rose-500/80 hover:bg-rose-600 text-white transition-colors cursor-pointer"
+                    title="Đóng (Esc)"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Vùng hiển thị ảnh full & cuộn khi zoom lớn */}
+              <div
+                className="flex-1 overflow-auto flex items-center justify-center p-4 sm:p-8"
+                onWheel={(e) => {
+                  e.stopPropagation();
+                  const delta = e.deltaY < 0 ? 0.2 : -0.2;
+                  setZoomLevel((z) =>
+                    Math.min(3, Math.max(0.5, Math.round((z + delta) * 100) / 100))
+                  );
+                }}
+              >
+                <img
+                  src={uploadedPreview}
+                  alt="Ảnh chụp tủ lạnh chi tiết"
+                  onClick={(e) => e.stopPropagation()}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    setZoomLevel((z) => (z > 1 ? 1 : 2));
+                  }}
+                  style={{
+                    transform: `scale(${zoomLevel})`,
+                    transformOrigin: "center center",
+                  }}
+                  className={`max-h-[82vh] max-w-[92vw] object-contain rounded-xl shadow-2xl transition-transform duration-150 select-none ${
+                    zoomLevel > 1 ? "cursor-zoom-out" : "cursor-zoom-in"
+                  }`}
+                />
+              </div>
+            </div>
           )}
         </div>
       )}
