@@ -1,9 +1,11 @@
-import { Body, Controller, Delete, Get, HttpCode, Logger, Param, ParseIntPipe, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Logger, Param, ParseIntPipe, Post, Query, Req, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { SubscriptionService } from './subscription.service';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 
 @ApiTags('subscriptions')
 @Controller('subscriptions')
@@ -11,6 +13,31 @@ export class SubscriptionController {
   private readonly logger = new Logger(SubscriptionController.name);
 
   constructor(private readonly subscriptionService: SubscriptionService) {}
+
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @Get('admin/transactions')
+  @ApiOperation({
+    summary: 'Admin: lịch sử giao dịch kèm chứng thực PayOS (người chuyển, người nhận, mã tham chiếu)',
+    description: 'Lọc: `search` (tên, email, mã giao dịch), `status` (success|pending|failed), `gateway` (PAYOS|VNPAY). Tối đa 500 dòng.',
+  })
+  adminTransactions(
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('gateway') gateway?: string,
+  ) {
+    return this.subscriptionService.adminListTransactions({ search, status, gateway });
+  }
+
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @Get('admin/transactions/:orderCode/proof')
+  @ApiOperation({ summary: 'Admin: đối soát trực tiếp một giao dịch với API PayOS (chỉ đọc)' })
+  @ApiResponse({ status: 404, description: 'RESOURCE_NOT_FOUND: không có giao dịch này trong hệ thống' })
+  @ApiResponse({ status: 503, description: 'SUBSCRIPTION_PAYMENT_NOT_CONFIGURED: chưa cấu hình khoá PayOS' })
+  adminTransactionProof(@Param('orderCode') orderCode: string) {
+    return this.subscriptionService.adminPayosProof(orderCode);
+  }
 
   @Public()
   @Get('plans')

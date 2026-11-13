@@ -185,7 +185,9 @@ export class RecipeController {
         ];
         const allowedExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.mp4', '.webm', '.mov'];
         const ext = path.extname(file.originalname).toLowerCase();
-        if (allowedMimes.includes(file.mimetype) || allowedExts.includes(ext)) {
+        // Cần đúng CẢ mimetype lẫn đuôi file: trước đây chỉ cần một trong hai nên file .html khai mimetype
+        // image/png vẫn lọt vào uploads/ và được phục vụ tĩnh từ origin của backend (XSS).
+        if (allowedMimes.includes(file.mimetype) && allowedExts.includes(ext)) {
           cb(null, true);
         } else {
           cb(

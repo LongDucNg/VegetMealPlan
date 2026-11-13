@@ -937,8 +937,8 @@ export function useMealPlanner() {
         slot.recipes && slot.recipes.length > 0
           ? [...slot.recipes]
           : slot.recipe
-          ? [slot.recipe]
-          : [];
+            ? [slot.recipe]
+            : [];
       const updatedDishes = [...existingDishes, newRecipe];
 
       const maxTime = Math.max(
