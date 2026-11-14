@@ -29,6 +29,7 @@ import { mapBackendToFrontendRecipe } from "@/features/recipes/utils/recipeMappe
 import { mealPlannerService } from "../services/mealPlannerService";
 import { mealPlanApiService } from "../services/mealPlanApiService";
 import { priceService } from "@/features/recipes/services/priceService";
+import { calculateDailyCalorieTarget } from "@/features/nutrition/utils/calorieCalculator";
 import { DayMealPlan } from "../types";
 
 interface FavoritesModalProps {
@@ -528,6 +529,38 @@ export function FavoritesModal({
                       </select>
                     </div>
                   </div>
+
+                  {/* Calorie projection for selected favorites: Dòng cảnh báo nền vàng khi dư thừa calo */}
+                  {(() => {
+                    const selKcal =
+                      (selectedBreakfast?.calories || 0) +
+                      (selectedLunch?.calories || 0) +
+                      (selectedDinner?.calories || 0) +
+                      (selectedSnack?.calories || 0);
+                    const targetKcal = calculateDailyCalorieTarget(profile).dailyCalorieTarget;
+                    const isOver = selKcal > targetKcal;
+                    const hasAny = Boolean(selectedBreakfast || selectedLunch || selectedDinner || selectedSnack);
+                    if (!hasAny) return null;
+                    return (
+                      <div className="pt-1">
+                        {isOver ? (
+                          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-100/90 border border-amber-300 text-amber-950 text-xs font-semibold shadow-2xs">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                            <span>
+                              Cảnh báo dư thừa calo: Các món bạn chọn có tổng ~{Math.round(selKcal)} kcal, vượt mục tiêu chuẩn ~{Math.round(selKcal - targetKcal)} kcal (Mục tiêu ngày: ~{targetKcal} kcal).
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-xs text-emerald-800 font-medium px-1">
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>
+                              Tổng calo các món đã chọn: ~{Math.round(selKcal)} / ~{targetKcal} kcal mục tiêu ngày.
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-emerald-100">
                     <div className="flex items-center gap-2">

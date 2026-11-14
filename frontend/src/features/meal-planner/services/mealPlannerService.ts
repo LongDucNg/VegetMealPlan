@@ -1,6 +1,6 @@
 import { UserProfile } from "@/features/profile/types";
 import { profileService } from "@/features/profile/services/profileService";
-import { calculateDailyCalorieTarget } from "@/features/nutrition/utils/calorieCalculator";
+import { calculateDailyCalorieTarget, withCalorieTarget } from "@/features/nutrition/utils/calorieCalculator";
 import { recipeService } from "@/features/recipes/services/recipeService";
 import { Recipe } from "@/features/recipes/types";
 import {
@@ -103,8 +103,9 @@ export const mealPlannerService = {
     seed: number = 0,
     options?: GenerationPlanOptions
   ): DayMealPlan {
-    const nutrition = calculateDailyCalorieTarget(profile);
-    const targetCalories = nutrition.dailyCalorieTarget;
+    const baseNutrition = calculateDailyCalorieTarget(profile);
+    const targetCalories = options?.targetCalories ?? baseNutrition.dailyCalorieTarget;
+    const nutrition = withCalorieTarget(baseNutrition, targetCalories);
     const { mealTargets } = nutrition;
     const userId = String(profile.id || "");
 
@@ -724,8 +725,9 @@ export const mealPlannerService = {
     profile: UserProfile,
     dayInfo: { day: string; short: string; date: string }
   ): DayMealPlan {
-    const nutrition = calculateDailyCalorieTarget(profile);
-    const targetCalories = nutrition.dailyCalorieTarget;
+    const baseNutrition = calculateDailyCalorieTarget(profile);
+    const targetCalories = baseNutrition.dailyCalorieTarget;
+    const nutrition = withCalorieTarget(baseNutrition, targetCalories);
     const { mealTargets } = nutrition;
     const userId = String(profile.id || "");
 
