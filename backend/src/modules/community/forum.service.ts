@@ -677,7 +677,7 @@ export class ForumService {
       .createQueryBuilder('blog')
       .leftJoin('blog.user', 'user')
       .leftJoin('blog.category', 'category')
-      .select(POST_COLUMNS)
+      .select([...POST_COLUMNS])
       .where('blog.status = :status', { status: ContentStatus.PENDING_REVIEW });
 
     if (query.is_flagged === true) {
@@ -924,7 +924,7 @@ export class ForumService {
   }
 
   private assertAdmin(user: AuthUser) {
-    if (user.role?.toLowerCase() !== 'admin') {
+    if (!user || user.role?.toLowerCase() !== 'admin') {
       throw new ForbiddenException({
         code: ErrorCode.AUTH_FORBIDDEN,
         message: 'Chỉ quản trị viên mới có quyền thực hiện thao tác này',
@@ -1058,7 +1058,8 @@ export class ForumService {
     if (full) {
       return { ...base, content: post.content, updated_at: post.updated_at };
     }
-    const excerpt = post.content.length > 200 ? `${post.content.slice(0, 200)}…` : post.content;
+    const content = post.content || '';
+    const excerpt = content.length > 200 ? `${content.slice(0, 200)}…` : content;
     return { ...base, excerpt };
   }
 
