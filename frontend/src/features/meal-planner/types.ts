@@ -81,6 +81,7 @@ export interface GenerationPlanOptions {
   isSomeoneElse?: boolean;
   targetProfile?: UserProfile;
   budgetLimit?: number; // e.g. 500,000 VND
+  targetCalories?: number; // Calo mục tiêu mỗi ngày (nếu đã chốt từ hồ sơ)
   selectedMonth?: number; // 0-11
   selectedYear?: number;
   favoriteRecipeIds?: string[];

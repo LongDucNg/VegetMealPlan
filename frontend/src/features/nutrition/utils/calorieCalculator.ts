@@ -180,7 +180,9 @@ export function getNutritionGoal(bmiStatus: BMIStatus): NutritionGoalInfo {
 }
 
 /**
- * Calculates daily calorie target and macro targets based on Profile and BMI Status (Requirement 3 & 13)
+ * Calculates daily calorie target and macro targets based on Profile and Health Goals.
+ * Lượng kcal chính ở trong hồ sơ khi nhập đầy đủ thông tin là TDEE (năng lượng tiêu hao chuẩn).
+ * CHỈ KHI người dùng chọn Tăng cân hoặc Giảm cân mới thay đổi lượng kcal mục tiêu.
  */
 export function calculateDailyCalorieTarget(
   profile: Partial<UserProfile>
@@ -191,55 +193,78 @@ export function calculateDailyCalorieTarget(
   const tdee = calculateTDEE(profile);
 
   const bmiStatus: BMIStatus = bmiInfo ? bmiInfo.status : "Balanced";
-  const goalInfo = getNutritionGoal(bmiStatus);
+  const defaultBmiGoal = getNutritionGoal(bmiStatus);
 
-  // If user explicitly chose a healthGoal in their profile and BMI is balanced, allow subtle refinement
-  let calorieAdjustment = goalInfo.calorieAdjustment;
-  let goalTitle = goalInfo.goalTitle;
-  let recommendedApproach = goalInfo.recommendedApproach;
-  let suggestions = goalInfo.suggestions;
+  // Phân tích mục tiêu người dùng chọn (lose_weight, gain_weight, maintain_weight)
+  const healthGoal = (profile.healthGoal || "").toLowerCase();
+  const isLoseWeight = healthGoal === "lose_weight";
+  const isGainWeight = healthGoal === "gain_weight" || healthGoal === "gain_muscle";
+  const isMaintain = healthGoal === "maintain" || healthGoal === "maintain_weight" || healthGoal === "healthy_eating";
 
-  if (bmiStatus === "Balanced" && profile.healthGoal) {
-    if (profile.healthGoal === "lose_weight") {
-      calorieAdjustment = -350;
-      goalTitle = "Giảm cân khoa học";
-      recommendedApproach =
-        "Thâm hụt calo vừa phải, ưu tiên đạm thực vật, chất xơ và thực phẩm giàu vi chất.";
-      suggestions = [
-        "Tạo calorie deficit vừa phải",
-        "Ưu tiên thực phẩm giàu protein và chất xơ",
-        "Hạn chế thực phẩm nhiều đường / calorie rỗng",
-        "Không giảm calorie quá mức",
-      ];
-    } else if (profile.healthGoal === "gain_weight") {
-      calorieAdjustment = 350;
-      goalTitle = "Tăng cơ / Tăng cân";
-      recommendedApproach =
-        "Tăng dần lượng calo với thực phẩm giàu đạm thực vật và chất béo tốt.";
-      suggestions = [
-        "Tăng lượng calorie hợp lý (calorie surplus)",
-        "Ưu tiên protein thực vật",
-        "Bổ sung healthy fats (bơ, các loại hạt)",
-        "Chia đều calories trong ngày",
-        "Không tạo calorie deficit",
-      ];
-    }
+  let calorieAdjustment = 0;
+  let goalTitle = "Duy trì vóc dáng cân đối";
+  let recommendedApproach = "Duy trì mức năng lượng cân bằng với chế độ dinh dưỡng thuần thực vật.";
+  let suggestions = [
+    "Duy trì mức calo tiêu chuẩn theo chỉ số TDEE",
+    "Cân bằng đạm / tinh bột / chất béo tốt",
+    "Đảm bảo đủ chất xơ và vi chất",
+    "Duy trì chế độ ăn chay phù hợp",
+  ];
+
+  if (isLoseWeight) {
+    // Người dùng chủ động chọn GIẢM CÂN: Thâm hụt calo (~15% TDEE hoặc ~450 kcal)
+    calorieAdjustment = -Math.round(Math.min(500, Math.max(350, tdee * 0.15)));
+    goalTitle = "Giảm cân khoa học";
+    recommendedApproach = "Thâm hụt calo vừa phải, ưu tiên đạm thực vật, chất xơ và thực phẩm giàu vi chất.";
+    suggestions = [
+      "Tạo thâm hụt calo an toàn (~15% TDEE)",
+      "Ưu tiên thực phẩm giàu đạm và chất xơ",
+      "Hạn chế thực phẩm nhiều đường / calo rỗng",
+      "Không giảm calo quá mức dưới sàn an toàn",
+    ];
+  } else if (isGainWeight) {
+    // Người dùng chủ động chọn TĂNG CÂN: Thặng dư calo (~10-15% TDEE hoặc ~350-400 kcal)
+    calorieAdjustment = Math.round(Math.min(500, Math.max(350, tdee * 0.12)));
+    goalTitle = "Tăng cân lành mạnh";
+    recommendedApproach = "Tăng dần lượng calo với thực phẩm giàu đạm thực vật và chất béo tốt.";
+    suggestions = [
+      "Tăng lượng calo hợp lý (dư thừa calo an toàn)",
+      "Ưu tiên đạm thực vật và ngũ cốc nguyên hạt",
+      "Bổ sung chất béo tốt (bơ, các loại hạt)",
+      "Chia đều calo các bữa trong ngày",
+    ];
+  } else if (isMaintain) {
+    // Người dùng chủ động chọn DUY TRÌ: Giữ nguyên TDEE
+    calorieAdjustment = 0;
+    goalTitle = "Duy trì vóc dáng";
+    recommendedApproach = "Cân bằng năng lượng phù hợp chỉ số TDEE cơ thể.";
+    suggestions = [
+      "Cân bằng năng lượng nạp vào và tiêu hao theo TDEE",
+      "Duy trì đạm thực vật và chất béo tốt",
+      "Uống đủ nước và giữ chế độ sinh hoạt điều độ",
+    ];
+  } else {
+    // Chưa chọn mục tiêu cụ thể: Calo chính mặc định là TDEE giữ cân; gợi ý hiển thị theo BMI
+    calorieAdjustment = 0;
+    goalTitle = defaultBmiGoal.goalTitle;
+    recommendedApproach = defaultBmiGoal.recommendedApproach;
+    suggestions = defaultBmiGoal.suggestions;
   }
 
   const rawDailyTarget = tdee + calorieAdjustment;
-  // Safe floor for healthy plant-based nutrition
-  const dailyCalorieTarget = Math.max(1350, Math.round(rawDailyTarget));
+  // Sàn an toàn dinh dưỡng quốc tế 1200 kcal/ngày
+  const dailyCalorieTarget = Math.max(1200, Math.round(rawDailyTarget));
 
-  // Macronutrient breakdown: 25% Protein, 50% Carbs, 25% Fat
+  // Macronutrient breakdown
   let proteinPct = 0.25;
   let carbsPct = 0.50;
   let fatPct = 0.25;
 
-  if (bmiStatus === "Underweight" || profile.healthGoal === "gain_weight") {
+  if (isGainWeight || (!healthGoal && bmiStatus === "Underweight")) {
     proteinPct = 0.28;
     carbsPct = 0.50;
     fatPct = 0.22;
-  } else if (bmiStatus === "Overweight" || profile.healthGoal === "lose_weight") {
+  } else if (isLoseWeight || (!healthGoal && bmiStatus === "Overweight")) {
     proteinPct = 0.30;
     carbsPct = 0.45;
     fatPct = 0.25;

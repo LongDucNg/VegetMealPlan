@@ -986,6 +986,7 @@ function PlannerContent() {
         mealType={addDishMealType}
         activeDay={currentViewDay}
         profile={activeProfile}
+        dailyCalorieTarget={nutritionSummary.dailyCalorieTarget}
         onAddRecipe={(mealKey, recipe) => {
           addDishToMeal(mealKey, recipe);
         }}

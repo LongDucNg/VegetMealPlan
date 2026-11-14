@@ -27,6 +27,7 @@ interface AddDishModalProps {
   mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack" | null;
   activeDay: CalendarDayMealPlan | DayMealPlan | null;
   profile: UserProfile;
+  dailyCalorieTarget?: number;
   onAddRecipe: (
     mealType: "breakfast" | "lunch" | "dinner" | "snack",
     recipe: Recipe
@@ -40,6 +41,7 @@ export function AddDishModal({
   mealType,
   activeDay,
   profile,
+  dailyCalorieTarget,
   onAddRecipe,
   userId,
 }: AddDishModalProps) {
@@ -97,7 +99,8 @@ export function AddDishModal({
   }, [tab, safeRecipes, favoriteRecipes, allApprovedRecipes, searchTerm]);
 
   const currentTotalCalories = activeDay?.totalCalories || 0;
-  const targetCalories = activeDay?.targetCalories || 2000;
+  const targetCalories = dailyCalorieTarget || activeDay?.targetCalories || 2000;
+  const isCurrentlyOver = currentTotalCalories > targetCalories;
 
   if (!isOpen || !mealType) return null;
 
@@ -117,6 +120,12 @@ export function AddDishModal({
               <p className="text-xs text-stone-500">
                 Hiện tại: ~{Math.round(currentTotalCalories)} / {Math.round(targetCalories)} kcal trong ngày
               </p>
+              {isCurrentlyOver && (
+                <div className="mt-1 px-2.5 py-0.5 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 text-[11px] font-semibold inline-flex items-center gap-1 shadow-2xs">
+                  <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                  <span>Ngày này hiện đã dư thừa ~{Math.round(currentTotalCalories - targetCalories)} kcal</span>
+                </div>
+              )}
             </div>
           </div>
           <button
@@ -229,16 +238,16 @@ export function AddDishModal({
                         {recipe.title || recipe.name}
                       </h4>
 
-                      {/* Calorie projection warning */}
+                      {/* Calorie projection warning: Dòng cảnh báo nhỏ nền vàng khi dư thừa calo */}
                       {isOverCal ? (
-                        <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-300">
-                          <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-900 bg-amber-100/90 px-2.5 py-1 rounded-lg border border-amber-300 shadow-2xs">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                           <span>
-                            Vượt mục tiêu ngày ~{Math.round(overDiff)} kcal (sẽ đạt {Math.round(projectedCalories)} / {Math.round(targetCalories)} kcal)
+                            Cảnh báo dư thừa calo: Sau khi thêm sẽ vượt mục tiêu ngày ~{Math.round(overDiff)} kcal ({Math.round(projectedCalories)} / {Math.round(targetCalories)} kcal)
                           </span>
                         </div>
                       ) : (
-                        <div className="text-[10px] text-emerald-700 flex items-center gap-1">
+                        <div className="text-[11px] text-emerald-700 flex items-center gap-1 font-medium">
                           <Check className="w-3 h-3 text-emerald-600 shrink-0" />
                           <span>
                             Sau khi thêm: ~{Math.round(projectedCalories)} / {Math.round(targetCalories)} kcal

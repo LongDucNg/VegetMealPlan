@@ -217,8 +217,11 @@ export function useMealPlanner() {
       const isOutOfSubscription = dateKey > subPeriod.endDateKey || (subPeriod.startDateKey ? dateKey < subPeriod.startDateKey : false);
 
       if (generatedDays[dateKey]) {
+        const d = generatedDays[dateKey];
         calendarDays.push({
-          ...generatedDays[dateKey],
+          ...d,
+          targetCalories: nutritionSummary.dailyCalorieTarget,
+          remainingCalories: Math.round(nutritionSummary.dailyCalorieTarget - d.totalCalories),
           isOutOfSubscription,
         });
       } else {
@@ -294,7 +297,12 @@ export function useMealPlanner() {
       const dateKey = toDateKey(cur);
 
       if (generatedDays[dateKey]) {
-        return generatedDays[dateKey];
+        const d = generatedDays[dateKey];
+        return {
+          ...d,
+          targetCalories: nutritionSummary.dailyCalorieTarget,
+          remainingCalories: Math.round(nutritionSummary.dailyCalorieTarget - d.totalCalories),
+        };
       }
 
       return {
@@ -338,17 +346,23 @@ export function useMealPlanner() {
 
   // Current active day meal plan
   const activeDay: DayMealPlan | null = useMemo(() => {
+    let day: DayMealPlan | null = null;
     if (planType === "daily") {
-      return generatedDays[selectedDateKey] || null;
+      day = generatedDays[selectedDateKey] || null;
+    } else if (planType === "weekly") {
+      day = weeklyPlan.days[activeDayIndex] || null;
+    } else if (planType === "monthly") {
+      day = monthlyPlan.days[activeDayIndex] || null;
     }
-    if (planType === "weekly") {
-      return weeklyPlan.days[activeDayIndex] || null;
+    if (day && day.targetCalories !== nutritionSummary.dailyCalorieTarget) {
+      return {
+        ...day,
+        targetCalories: nutritionSummary.dailyCalorieTarget,
+        remainingCalories: Math.round(nutritionSummary.dailyCalorieTarget - day.totalCalories),
+      };
     }
-    if (planType === "monthly") {
-      return monthlyPlan.days[activeDayIndex] || null;
-    }
-    return null;
-  }, [planType, selectedDateKey, generatedDays, weeklyPlan, monthlyPlan, activeDayIndex]);
+    return day;
+  }, [planType, selectedDateKey, generatedDays, weeklyPlan, monthlyPlan, activeDayIndex, nutritionSummary.dailyCalorieTarget]);
 
   /**
    * Generates Daily Meal Plan for EXACTLY 1 day (selectedDateKey or today)
@@ -393,6 +407,7 @@ export function useMealPlanner() {
             planType: "daily",
             budgetLimit: options?.budgetLimit ?? budgetLimit,
             favoriteRecipeIds: options?.favoriteRecipeIds,
+            targetCalories: nutritionSummary.dailyCalorieTarget,
           }
         );
 
@@ -498,6 +513,7 @@ export function useMealPlanner() {
               budgetLimit: options?.budgetLimit ?? budgetLimit,
               favoriteRecipeIds: options?.favoriteRecipeIds,
               recentRecipeIds: rollingRecentIds,
+              targetCalories: nutritionSummary.dailyCalorieTarget,
             }
           );
 
@@ -642,6 +658,7 @@ export function useMealPlanner() {
               budgetLimit: options?.budgetLimit ?? budgetLimit,
               favoriteRecipeIds: options?.favoriteRecipeIds,
               recentRecipeIds: rolling14Days.flat(),
+              targetCalories: nutritionSummary.dailyCalorieTarget,
             }
           );
 
@@ -797,7 +814,10 @@ export function useMealPlanner() {
         dayInfo,
         activeProfile,
         d,
-        Math.floor(Math.random() * 50) + 1
+        Math.floor(Math.random() * 50) + 1,
+        {
+          targetCalories: nutritionSummary.dailyCalorieTarget,
+        }
       );
 
       const calDay: CalendarDayMealPlan = {
