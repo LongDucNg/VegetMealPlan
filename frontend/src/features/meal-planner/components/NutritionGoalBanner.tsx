@@ -120,13 +120,12 @@ export function NutritionGoalBanner({
                   {bmiInfo.formattedBMI}
                 </span>
                 <span
-                  className={`text-xs font-bold px-2.5 py-0.5 rounded-full border shadow-2xs ${
-                    bmiStatus === "Underweight"
-                      ? "bg-amber-400/20 text-amber-300 border-amber-400/40"
-                      : bmiStatus === "Balanced"
+                  className={`text-xs font-bold px-2.5 py-0.5 rounded-full border shadow-2xs ${bmiStatus === "Underweight"
+                    ? "bg-amber-400/20 text-amber-300 border-amber-400/40"
+                    : bmiStatus === "Balanced"
                       ? "bg-emerald-500/20 text-emerald-200 border-emerald-400/40"
                       : "bg-orange-500/20 text-orange-200 border-orange-400/40"
-                  }`}
+                    }`}
                 >
                   {bmiStatus === "Underweight" ? "Thiếu cân" : bmiStatus === "Balanced" ? "Cân đối" : "Thừa cân"}
                 </span>

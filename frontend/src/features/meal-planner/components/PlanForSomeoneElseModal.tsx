@@ -44,10 +44,10 @@ export function PlanForSomeoneElseModal({
   onResetToMyself,
   isPlanForSomeoneElse,
 }: PlanForSomeoneElseModalProps) {
-  // Luôn bắt đầu bằng form trắng rỗng
+  // Luôn bắt đầu bằng form trắng rỗng, không chọn sẵn bất kỳ mục nào
   const [name, setName] = useState("");
   const [age, setAge] = useState<number | string>("");
-  const [gender, setGender] = useState<Gender>("female");
+  const [gender, setGender] = useState<Gender | "">("");
   const [weight, setWeight] = useState<number | string>("");
   const [height, setHeight] = useState<number | string>("");
 
@@ -57,24 +57,24 @@ export function PlanForSomeoneElseModal({
     return raw.replace(/^0+(?=\d)/, "");
   };
 
-  const [activityLevel, setActivityLevel] = useState<ActivityLevel>("moderate");
-  const [vegetarianType, setVegetarianType] = useState<VegetarianType>("vegan");
-  const [healthGoal, setHealthGoal] = useState<HealthGoal>("maintain_weight");
+  const [activityLevel, setActivityLevel] = useState<ActivityLevel | "">("");
+  const [vegetarianType, setVegetarianType] = useState<VegetarianType | "">("");
+  const [healthGoal, setHealthGoal] = useState<HealthGoal | "">("");
   const [allergies, setAllergies] = useState<string[]>([]);
   const [customAllergyInput, setCustomAllergyInput] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Khi bấm nút mở modal: Luôn reset về form trắng thông tin rỗng
+  // Khi bấm nút mở modal: Luôn reset về form trắng thông tin rỗng hoàn toàn
   useEffect(() => {
     if (isOpen) {
       setName("");
       setAge("");
-      setGender("female");
+      setGender("");
       setWeight("");
       setHeight("");
-      setActivityLevel("moderate");
-      setVegetarianType("vegan");
-      setHealthGoal("maintain_weight");
+      setActivityLevel("");
+      setVegetarianType("");
+      setHealthGoal("");
       setAllergies([]);
       setCustomAllergyInput("");
       setErrorMessage(null);
@@ -95,7 +95,12 @@ export function PlanForSomeoneElseModal({
   };
 
   const hasValidMetrics = Boolean(
-    Number(weight) > 0 && Number(height) > 0 && Number(age) > 0
+    Number(weight) > 0 &&
+    Number(height) > 0 &&
+    Number(age) > 0 &&
+    gender !== "" &&
+    activityLevel !== "" &&
+    healthGoal !== ""
   );
 
   // Build draft profile
@@ -103,12 +108,12 @@ export function PlanForSomeoneElseModal({
     id: "someone_else_target",
     name: name.trim() || "Người thân",
     age: Number(age) || 25,
-    gender,
+    gender: (gender as Gender) || "female",
     weight: Number(weight) || 60,
     height: Number(height) || 165,
-    activityLevel,
-    vegetarianType,
-    healthGoal,
+    activityLevel: (activityLevel as ActivityLevel) || "moderate",
+    vegetarianType: (vegetarianType as VegetarianType) || "vegan",
+    healthGoal: (healthGoal as HealthGoal) || "maintain_weight",
     allergies,
   };
 
@@ -155,7 +160,7 @@ export function PlanForSomeoneElseModal({
     return null;
   };
 
-  const handleSelectDiet = (type: VegetarianType) => {
+  const handleSelectDiet = (type: VegetarianType | "") => {
     setVegetarianType(type);
     if (type === "vegan" || type === "lacto_vegetarian" || type === "ovo_vegetarian") {
       setAllergies((prev) => prev.filter((a) => !isEggAllergyItem(a) && !isDairyAllergyItem(a)));
@@ -198,12 +203,28 @@ export function PlanForSomeoneElseModal({
       setErrorMessage("Vui lòng nhập độ tuổi hợp lệ (10 - 120).");
       return;
     }
-    if (!height || Number(height) < 50 || Number(height) > 250) {
-      setErrorMessage("Vui lòng nhập chiều cao hợp lệ (50 - 250 cm).");
+    if (!gender) {
+      setErrorMessage("Vui lòng chọn giới tính.");
+      return;
+    }
+    if (!vegetarianType) {
+      setErrorMessage("Vui lòng chọn trường phái ăn chay.");
       return;
     }
     if (!weight || Number(weight) < 20 || Number(weight) > 300) {
       setErrorMessage("Vui lòng nhập cân nặng hợp lệ (20 - 300 kg).");
+      return;
+    }
+    if (!height || Number(height) < 50 || Number(height) > 250) {
+      setErrorMessage("Vui lòng nhập chiều cao hợp lệ (50 - 250 cm).");
+      return;
+    }
+    if (!activityLevel) {
+      setErrorMessage("Vui lòng chọn mức độ vận động.");
+      return;
+    }
+    if (!healthGoal) {
+      setErrorMessage("Vui lòng chọn mục tiêu sức khỏe.");
       return;
     }
 
@@ -292,7 +313,9 @@ export function PlanForSomeoneElseModal({
                   value={gender}
                   onChange={(e) => setGender(e.target.value as Gender)}
                   className="w-full text-xs rounded-xl border border-stone-200 p-2.5 focus:border-violet-500 focus:outline-none bg-white cursor-pointer"
+                  required
                 >
+                  <option value="">-- Chọn giới tính --</option>
                   <option value="female">Nữ</option>
                   <option value="male">Nam</option>
                   <option value="other">Khác</option>
@@ -307,7 +330,9 @@ export function PlanForSomeoneElseModal({
                   value={vegetarianType}
                   onChange={(e) => handleSelectDiet(e.target.value as VegetarianType)}
                   className="w-full text-xs rounded-xl border border-stone-200 p-2.5 focus:border-violet-500 focus:outline-none bg-white cursor-pointer"
+                  required
                 >
+                  <option value="">-- Chọn trường phái ăn chay --</option>
                   {VEGETARIAN_TYPE_OPTIONS.map((opt) => (
                     <option key={opt.id} value={opt.id}>
                       {opt.label}
@@ -782,8 +807,18 @@ export function PlanForSomeoneElseModal({
               <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 space-y-1.5">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Cảnh báo cần tránh theo trường phái ({VEGETARIAN_TYPE_OPTIONS.find(v => v.id === vegetarianType)?.label || "ăn chay"}):</span>
+                  <span>
+                    {vegetarianType
+                      ? `Cảnh báo cần tránh theo trường phái (${VEGETARIAN_TYPE_OPTIONS.find(v => v.id === vegetarianType)?.label || "ăn chay"}):`
+                      : "Cảnh báo cần tránh theo trường phái:"}
+                  </span>
                 </div>
+
+                {!vegetarianType && (
+                  <p className="text-xs text-stone-500 italic py-1">
+                    Vui lòng chọn trường phái ăn chay ở Mục 1 để xem cảnh báo thành phần phù hợp.
+                  </p>
+                )}
 
                 {vegetarianType === "vegan" && (
                   <div className="flex flex-wrap gap-2 pt-0.5">
@@ -870,7 +905,7 @@ export function PlanForSomeoneElseModal({
             <div className="mt-2.5 text-center text-[10px] text-stone-500">
               {nutrition
                 ? `Phân bổ dinh dưỡng: ${nutrition.macros.proteinGrams}g Đạm · ${nutrition.macros.carbsGrams}g Tinh bột · ${nutrition.macros.fatGrams}g Chất béo`
-                : "Vui lòng nhập chiều cao, cân nặng và tuổi để tính toán chỉ số dinh dưỡng."}
+                : "Vui lòng hoàn thành các thông tin ở trên (tuổi, giới tính, chiều cao, cân nặng, vận động, mục tiêu) để tính toán chỉ số dinh dưỡng."}
             </div>
           </div>
 

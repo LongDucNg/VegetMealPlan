@@ -883,22 +883,17 @@ export const mealPlannerService = {
       for (const rawItem of items) {
         const rawRecipe = rawItem?.recipe;
         if (!rawRecipe) continue;
-        const portion = Number(rawItem?.portion_multiplier) || 1;
         let frontendRecipe = mapBackendToFrontendRecipe(rawRecipe);
-        if (frontendRecipe.calories === 350) {
-          const fromCache = allApproved.find((r) => String(r.id) === String(rawRecipe.recipe_id));
-          if (fromCache && fromCache.calories !== 350) {
-            frontendRecipe = { ...frontendRecipe, calories: fromCache.calories, protein: fromCache.protein, carbs: fromCache.carbs, fat: fromCache.fat, fiber: fromCache.fiber };
-          }
-        }
-        if (portion && portion !== 1) {
+        const fromCache = allApproved.find((r) => String(r.id) === String(rawRecipe.recipe_id));
+        if (fromCache) {
           frontendRecipe = {
             ...frontendRecipe,
-            calories: Math.round(frontendRecipe.calories * portion),
-            serving: Math.round((Number(frontendRecipe.serving) || 1) * portion * 10) / 10,
-            protein: Math.round(frontendRecipe.protein * portion * 10) / 10,
-            carbs: Math.round(frontendRecipe.carbs * portion * 10) / 10,
-            fat: Math.round(frontendRecipe.fat * portion * 10) / 10,
+            calories: fromCache.calories,
+            protein: fromCache.protein,
+            carbs: fromCache.carbs,
+            fat: fromCache.fat,
+            fiber: fromCache.fiber,
+            ingredients: fromCache.ingredients && fromCache.ingredients.length > 0 ? fromCache.ingredients : frontendRecipe.ingredients,
           };
         }
         recipesInMeal.push(frontendRecipe);
@@ -1011,22 +1006,17 @@ export const mealPlannerService = {
       for (const rawItem of items) {
         const rawRecipe = rawItem?.recipe;
         if (!rawRecipe) continue;
-        const portion = Number(rawItem?.portion_multiplier) || 1;
         let frontendRecipe = mapBackendToFrontendRecipe(rawRecipe);
-        if (frontendRecipe.calories === 350) {
-          const fromCache = allApproved.find((r) => String(r.id) === String(rawRecipe.recipe_id));
-          if (fromCache && fromCache.calories !== 350) {
-            frontendRecipe = { ...frontendRecipe, calories: fromCache.calories, protein: fromCache.protein, carbs: fromCache.carbs, fat: fromCache.fat, fiber: fromCache.fiber };
-          }
-        }
-        if (portion && portion !== 1) {
+        const fromCache = allApproved.find((r) => String(r.id) === String(rawRecipe.recipe_id));
+        if (fromCache) {
           frontendRecipe = {
             ...frontendRecipe,
-            calories: Math.round(frontendRecipe.calories * portion),
-            serving: Math.round((Number(frontendRecipe.serving) || 1) * portion * 10) / 10,
-            protein: Math.round(frontendRecipe.protein * portion * 10) / 10,
-            carbs: Math.round(frontendRecipe.carbs * portion * 10) / 10,
-            fat: Math.round(frontendRecipe.fat * portion * 10) / 10,
+            calories: fromCache.calories,
+            protein: fromCache.protein,
+            carbs: fromCache.carbs,
+            fat: fromCache.fat,
+            fiber: fromCache.fiber,
+            ingredients: fromCache.ingredients && fromCache.ingredients.length > 0 ? fromCache.ingredients : frontendRecipe.ingredients,
           };
         }
         recipesInMeal.push(frontendRecipe);

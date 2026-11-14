@@ -78,23 +78,22 @@ export function AdminRecipeDetailModal({
                 {formatVegetarianType(recipe.vegetarianType)}
               </span>
               <span
-                className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border shadow-2xs ${
-                  recipe.status === "APPROVED"
-                    ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                    : recipe.status === "PENDING_REVIEW"
+                className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border shadow-2xs ${recipe.status === "APPROVED"
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                  : recipe.status === "PENDING_REVIEW"
                     ? "bg-amber-50 text-amber-900 border-amber-300"
                     : recipe.status === "REJECTED"
-                    ? "bg-rose-50 text-rose-900 border-rose-300"
-                    : "bg-stone-100 text-stone-700 border-stone-200"
-                }`}
+                      ? "bg-rose-50 text-rose-900 border-rose-300"
+                      : "bg-stone-100 text-stone-700 border-stone-200"
+                  }`}
               >
                 {recipe.status === "APPROVED"
                   ? "Đã duyệt"
                   : recipe.status === "PENDING_REVIEW"
-                  ? "Chờ duyệt"
-                  : recipe.status === "REJECTED"
-                  ? "Đã từ chối"
-                  : "Bản nháp"}
+                    ? "Chờ duyệt"
+                    : recipe.status === "REJECTED"
+                      ? "Đã từ chối"
+                      : "Bản nháp"}
               </span>
               <span className="text-[11px] font-medium text-stone-500">
                 · Danh mục:{" "}
@@ -156,11 +155,10 @@ export function AdminRecipeDetailModal({
                   <button
                     type="button"
                     onClick={() => setActiveMedia("image")}
-                    className={`px-2 py-0.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer ${
-                      activeMedia === "image"
-                        ? "bg-emerald-600 text-white shadow-2xs"
-                        : "text-white/80 hover:text-white"
-                    }`}
+                    className={`px-2 py-0.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer ${activeMedia === "image"
+                      ? "bg-emerald-600 text-white shadow-2xs"
+                      : "text-white/80 hover:text-white"
+                      }`}
                   >
                     <ImageIcon className="w-3 h-3" />
                     <span>Ảnh</span>
@@ -168,11 +166,10 @@ export function AdminRecipeDetailModal({
                   <button
                     type="button"
                     onClick={() => setActiveMedia("video")}
-                    className={`px-2 py-0.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer ${
-                      activeMedia === "video"
-                        ? "bg-emerald-600 text-white shadow-2xs"
-                        : "text-white/80 hover:text-white"
-                    }`}
+                    className={`px-2 py-0.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer ${activeMedia === "video"
+                      ? "bg-emerald-600 text-white shadow-2xs"
+                      : "text-white/80 hover:text-white"
+                      }`}
                   >
                     <Video className="w-3 h-3" />
                     <span>Video</span>
@@ -209,8 +206,8 @@ export function AdminRecipeDetailModal({
                   {recipe.difficulty === "Easy"
                     ? "Dễ"
                     : recipe.difficulty === "Advanced"
-                    ? "Khó"
-                    : "Vừa"}
+                      ? "Khó"
+                      : "Vừa"}
                 </p>
               </div>
             </div>
@@ -307,7 +304,7 @@ export function AdminRecipeDetailModal({
                     ).cost;
                   const calPer100 =
                     ing.caloriesPer100g !== undefined &&
-                    ing.caloriesPer100g !== null
+                      ing.caloriesPer100g !== null
                       ? Number(ing.caloriesPer100g)
                       : getIngredientCaloriesPer100g(ing.name);
                   const calculatedKcal = calculateIngredientCalories(
