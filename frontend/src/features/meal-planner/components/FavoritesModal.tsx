@@ -29,6 +29,7 @@ import { mapBackendToFrontendRecipe } from "@/features/recipes/utils/recipeMappe
 import { mealPlannerService } from "../services/mealPlannerService";
 import { mealPlanApiService } from "../services/mealPlanApiService";
 import { priceService } from "@/features/recipes/services/priceService";
+import { calculateDailyCalorieTarget } from "@/features/nutrition/utils/calorieCalculator";
 import { DayMealPlan } from "../types";
 
 interface FavoritesModalProps {
@@ -345,22 +346,20 @@ export function FavoritesModal({
         <div className="flex items-center gap-2 px-6 pt-3 border-b border-stone-100 bg-white">
           <button
             onClick={() => setActiveTab("recipes")}
-            className={`pb-3 text-xs font-bold transition-colors border-b-2 cursor-pointer flex items-center gap-1.5 ${
-              activeTab === "recipes"
+            className={`pb-3 text-xs font-bold transition-colors border-b-2 cursor-pointer flex items-center gap-1.5 ${activeTab === "recipes"
                 ? "border-emerald-700 text-emerald-800"
                 : "border-transparent text-stone-500 hover:text-stone-800"
-            }`}
+              }`}
           >
             <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
             <span>Món ăn yêu thích ({favRecipes.length})</span>
           </button>
           <button
             onClick={() => setActiveTab("plans")}
-            className={`pb-3 text-xs font-bold transition-colors border-b-2 cursor-pointer flex items-center gap-1.5 ${
-              activeTab === "plans"
+            className={`pb-3 text-xs font-bold transition-colors border-b-2 cursor-pointer flex items-center gap-1.5 ${activeTab === "plans"
                 ? "border-emerald-700 text-emerald-800"
                 : "border-transparent text-stone-500 hover:text-stone-800"
-            }`}
+              }`}
           >
             <CalendarDays className="w-3.5 h-3.5 text-emerald-700" />
             <span>Thực đơn đã lưu ({savedPlans.length})</span>
@@ -530,6 +529,38 @@ export function FavoritesModal({
                       </select>
                     </div>
                   </div>
+
+                  {/* Calorie projection for selected favorites: Dòng cảnh báo nền vàng khi dư thừa calo */}
+                  {(() => {
+                    const selKcal =
+                      (selectedBreakfast?.calories || 0) +
+                      (selectedLunch?.calories || 0) +
+                      (selectedDinner?.calories || 0) +
+                      (selectedSnack?.calories || 0);
+                    const targetKcal = calculateDailyCalorieTarget(profile).dailyCalorieTarget;
+                    const isOver = selKcal > targetKcal;
+                    const hasAny = Boolean(selectedBreakfast || selectedLunch || selectedDinner || selectedSnack);
+                    if (!hasAny) return null;
+                    return (
+                      <div className="pt-1">
+                        {isOver ? (
+                          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-100/90 border border-amber-300 text-amber-950 text-xs font-semibold shadow-2xs">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                            <span>
+                              Cảnh báo dư thừa calo: Các món bạn chọn có tổng ~{Math.round(selKcal)} kcal, vượt mục tiêu chuẩn ~{Math.round(selKcal - targetKcal)} kcal (Mục tiêu ngày: ~{targetKcal} kcal).
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-xs text-emerald-800 font-medium px-1">
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>
+                              Tổng calo các món đã chọn: ~{Math.round(selKcal)} / ~{targetKcal} kcal mục tiêu ngày.
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-emerald-100">
                     <div className="flex items-center gap-2">
@@ -714,11 +745,10 @@ export function FavoritesModal({
                   return (
                     <div
                       key={plan.id}
-                      className={`rounded-2xl border transition-all shadow-2xs overflow-hidden ${
-                        isExpanded
+                      className={`rounded-2xl border transition-all shadow-2xs overflow-hidden ${isExpanded
                           ? "border-emerald-500 bg-white ring-2 ring-emerald-100"
                           : "border-stone-200 bg-white hover:border-emerald-300"
-                      }`}
+                        }`}
                     >
                       {/* Plan Header Row - Clickable to preview card */}
                       <div
@@ -731,8 +761,8 @@ export function FavoritesModal({
                               {plan.planType === "monthly" && (plan.days?.length || 0) > 1
                                 ? "Thực đơn tháng"
                                 : plan.planType === "weekly" && (plan.days?.length || 0) > 1
-                                ? "Thực đơn tuần"
-                                : "Thực đơn 1 ngày"}
+                                  ? "Thực đơn tuần"
+                                  : "Thực đơn 1 ngày"}
                             </span>
                             <h4 className="font-bold text-stone-900 text-sm truncate">
                               {plan.name}
@@ -854,17 +884,15 @@ export function FavoritesModal({
                                               [plan.id]: dIdx,
                                             }))
                                           }
-                                          className={`px-3 py-1.5 rounded-xl text-xs shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
-                                            isDayActive
+                                          className={`px-3 py-1.5 rounded-xl text-xs shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${isDayActive
                                               ? "bg-emerald-700 text-white font-bold shadow-xs scale-[1.02]"
                                               : "bg-white text-stone-700 hover:bg-stone-100 border border-stone-200"
-                                          }`}
+                                            }`}
                                         >
                                           <span>{d.shortDay || d.dayName || `Ngày ${dIdx + 1}`}</span>
                                           <span
-                                            className={`text-[10px] ${
-                                              isDayActive ? "text-emerald-200" : "text-stone-400"
-                                            }`}
+                                            className={`text-[10px] ${isDayActive ? "text-emerald-200" : "text-stone-400"
+                                              }`}
                                           >
                                             (~{Math.round(d.totalCalories)} kcal)
                                           </span>

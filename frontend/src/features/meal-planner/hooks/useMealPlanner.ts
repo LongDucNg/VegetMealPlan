@@ -22,6 +22,12 @@ import { SavedMealPlan, favoriteService } from "@/features/recipes/services/favo
 import { recipeService } from "@/features/recipes/services/recipeService";
 import { mealPlanApiService } from "../services/mealPlanApiService";
 import { profileService } from "@/features/profile/services/profileService";
+import { subscriptionService } from "@/features/subscription/services/subscriptionService";
+
+export function formatVnDateKey(dateKey: string): string {
+  const [y, m, d] = dateKey.split("-");
+  return `${d}/${m}/${y}`;
+}
 
 export function toDateKey(date: Date): string {
   const y = date.getFullYear();
@@ -153,14 +159,24 @@ export function useMealPlanner() {
     return serverCalorieTarget ? withCalorieTarget(local, serverCalorieTarget) : local;
   }, [activeProfile, syncVersion, serverCalorieTarget]);
 
-  // Month navigation boundary: current month (diff === 0) and next month (diff === 1)
+  // Subscription Period for 30-day package constraint
+  const subPeriod = useMemo(() => {
+    return subscriptionService.getSubscriptionPeriod();
+  }, [syncVersion]);
+
+  // Month navigation boundary: current month and next month within subscription period
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
   const monthDiff = (selectedYear - currentYear) * 12 + (selectedMonth - currentMonth);
 
   const canPrevMonth = monthDiff > 0;
-  const canNextMonth = monthDiff < 1; // "cho tạo 1 tháng tới luôn nhưng 2 tháng tới thì không được"
+
+  // RÀNG BUỘC NAVIGATION: Chỉ cho phép sang tháng sau nếu ngày đầu tháng sau vẫn thuộc chu kỳ 30 ngày của gói (<= subPeriod.endDateKey)
+  const nextMonthNum = selectedMonth === 11 ? 0 : selectedMonth + 1;
+  const nextYearNum = selectedMonth === 11 ? selectedYear + 1 : selectedYear;
+  const firstDayOfNextMonthKey = `${nextYearNum}-${String(nextMonthNum + 1).padStart(2, "0")}-01`;
+  const canNextMonth = monthDiff < 1 && firstDayOfNextMonthKey <= subPeriod.endDateKey;
 
   const handlePrevMonth = useCallback(() => {
     if (!canPrevMonth) return;
@@ -198,9 +214,16 @@ export function useMealPlanner() {
       const curDate = new Date(selectedYear, selectedMonth, dayNum);
       const dayOfWeekIdx = curDate.getDay();
       const dateKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+      const isOutOfSubscription = dateKey > subPeriod.endDateKey || (subPeriod.startDateKey ? dateKey < subPeriod.startDateKey : false);
 
       if (generatedDays[dateKey]) {
-        calendarDays.push(generatedDays[dateKey]);
+        const d = generatedDays[dateKey];
+        calendarDays.push({
+          ...d,
+          targetCalories: nutritionSummary.dailyCalorieTarget,
+          remainingCalories: Math.round(nutritionSummary.dailyCalorieTarget - d.totalCalories),
+          isOutOfSubscription,
+        });
       } else {
         calendarDays.push({
           dayOfMonth: dayNum,
@@ -208,6 +231,7 @@ export function useMealPlanner() {
           year: selectedYear,
           isCurrentMonth: true,
           dateKey,
+          isOutOfSubscription,
           dayName: dayNames[dayOfWeekIdx],
           shortDay: shortDays[dayOfWeekIdx],
           dateText: `${monthNames[selectedMonth].substring(0, 3)} ${dayNum}`,
@@ -240,8 +264,13 @@ export function useMealPlanner() {
       averageDailyCost: createdDays.length > 0 ? Math.round(totalCost / createdDays.length) : 0,
       targetCalories: nutritionSummary.dailyCalorieTarget,
       budgetLimit,
+      subscriptionPeriod: {
+        startDateKey: subPeriod.startDateKey,
+        endDateKey: subPeriod.endDateKey,
+        totalDays: subPeriod.totalDays,
+      },
     };
-  }, [selectedYear, selectedMonth, generatedDays, nutritionSummary, budgetLimit]);
+  }, [selectedYear, selectedMonth, generatedDays, nutritionSummary, budgetLimit, subPeriod]);
 
   // Build Dynamic Weekly Plan for current week based on selectedDateKey (or today)
   const weeklyPlan: WeeklyMealPlan = useMemo(() => {
@@ -268,7 +297,12 @@ export function useMealPlanner() {
       const dateKey = toDateKey(cur);
 
       if (generatedDays[dateKey]) {
-        return generatedDays[dateKey];
+        const d = generatedDays[dateKey];
+        return {
+          ...d,
+          targetCalories: nutritionSummary.dailyCalorieTarget,
+          remainingCalories: Math.round(nutritionSummary.dailyCalorieTarget - d.totalCalories),
+        };
       }
 
       return {
@@ -312,17 +346,23 @@ export function useMealPlanner() {
 
   // Current active day meal plan
   const activeDay: DayMealPlan | null = useMemo(() => {
+    let day: DayMealPlan | null = null;
     if (planType === "daily") {
-      return generatedDays[selectedDateKey] || null;
+      day = generatedDays[selectedDateKey] || null;
+    } else if (planType === "weekly") {
+      day = weeklyPlan.days[activeDayIndex] || null;
+    } else if (planType === "monthly") {
+      day = monthlyPlan.days[activeDayIndex] || null;
     }
-    if (planType === "weekly") {
-      return weeklyPlan.days[activeDayIndex] || null;
+    if (day && day.targetCalories !== nutritionSummary.dailyCalorieTarget) {
+      return {
+        ...day,
+        targetCalories: nutritionSummary.dailyCalorieTarget,
+        remainingCalories: Math.round(nutritionSummary.dailyCalorieTarget - day.totalCalories),
+      };
     }
-    if (planType === "monthly") {
-      return monthlyPlan.days[activeDayIndex] || null;
-    }
-    return null;
-  }, [planType, selectedDateKey, generatedDays, weeklyPlan, monthlyPlan, activeDayIndex]);
+    return day;
+  }, [planType, selectedDateKey, generatedDays, weeklyPlan, monthlyPlan, activeDayIndex, nutritionSummary.dailyCalorieTarget]);
 
   /**
    * Generates Daily Meal Plan for EXACTLY 1 day (selectedDateKey or today)
@@ -367,6 +407,7 @@ export function useMealPlanner() {
             planType: "daily",
             budgetLimit: options?.budgetLimit ?? budgetLimit,
             favoriteRecipeIds: options?.favoriteRecipeIds,
+            targetCalories: nutritionSummary.dailyCalorieTarget,
           }
         );
 
@@ -472,6 +513,7 @@ export function useMealPlanner() {
               budgetLimit: options?.budgetLimit ?? budgetLimit,
               favoriteRecipeIds: options?.favoriteRecipeIds,
               recentRecipeIds: rollingRecentIds,
+              targetCalories: nutritionSummary.dailyCalorieTarget,
             }
           );
 
@@ -512,8 +554,10 @@ export function useMealPlanner() {
   );
 
   /**
-   * Generates Monthly Meal Plan: ONLY for today and future days
-   * Maximum allowed: up to 1 month ahead. 2 months ahead is blocked!
+   * Generates Monthly Meal Plan:
+   * RÀNG BUỘC THEO GÓI ĐĂNG KÝ 30 NGÀY:
+   * - Chỉ cho phép tạo thực đơn tính từ ngày đăng ký (hoặc hôm nay) tới ngày hết hạn của gói (chu kỳ đúng 30 ngày).
+   * - Tuyệt đối không sinh thêm thực đơn ngoài chu kỳ 30 ngày này hoặc cho các tháng sau khi gói đã hết hạn.
    */
   const generateMonthly = useCallback(
     async (
@@ -522,25 +566,31 @@ export function useMealPlanner() {
       options?: Partial<GenerationPlanOptions>,
       onComplete?: () => void
     ) => {
-      const diff = (year - currentYear) * 12 + (month - currentMonth);
-      if (diff < 0) {
-        setGenerationFeedback("Không thể tạo thực đơn cho tháng trong quá khứ.");
-        setTimeout(() => setGenerationFeedback(null), 3000);
+      const today = new Date();
+      const todayKey = toDateKey(today);
+      const period = subscriptionService.getSubscriptionPeriod();
+
+      // Kiểm tra nếu gói đã hết hạn trước hôm nay
+      if (todayKey > period.endDateKey) {
+        setGenerationFeedback(`Gói Premium của bạn đã hết hạn vào ngày ${formatVnDateKey(period.endDateKey)}. Vui lòng gia hạn gói để tiếp tục!`);
+        setTimeout(() => setGenerationFeedback(null), 4000);
         return;
       }
-      if (diff > 1) {
-        setGenerationFeedback("Chỉ được phép tạo tối đa 1 tháng tới. Không thể tạo cho 2 tháng tới.");
+
+      // Kiểm tra nếu tháng đang xem hoàn toàn nằm ngoài chu kỳ gói
+      const firstDayKey = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+      if (firstDayKey > period.endDateKey) {
+        setGenerationFeedback(`Không thể tạo thực đơn cho tháng ${month + 1}/${year} vì đã vượt quá ngày hết hạn gói (${formatVnDateKey(period.endDateKey)}). Vui lòng gia hạn gói!`);
         setTimeout(() => setGenerationFeedback(null), 4000);
         return;
       }
 
       setIsGenerating(true);
-      setGenerationFeedback(`AI đang chuẩn bị thực đơn tháng ${month + 1}/${year}...`);
+      setGenerationFeedback(`AI đang tạo thực đơn cho chu kỳ 30 ngày của gói (đến ngày ${formatVnDateKey(period.endDateKey)})...`);
 
       try {
         await recipeService.syncRecipesFromApi();
 
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
         const monthNames = [
           "January", "February", "March", "April", "May", "June",
           "July", "August", "September", "October", "November", "December",
@@ -566,31 +616,49 @@ export function useMealPlanner() {
           rolling14Days.push(existingIds.slice(-28));
         }
 
-        for (let d = 1; d <= daysInMonth; d++) {
-          const curDate = new Date(year, month, d);
-          const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        // Tạo danh sách các ngày trong chu kỳ gói 30 ngày:
+        // Bắt đầu từ hôm nay (không tạo thực đơn cho quá khứ)
+        const startCursor = new Date(today);
+        startCursor.setHours(0, 0, 0, 0);
 
-          // Skip past days!
-          if (isPastDate(dateKey)) {
+        const endCursor = new Date(period.endDate);
+        endCursor.setHours(23, 59, 59, 999);
+
+        const datesToPlan: Date[] = [];
+        const iter = new Date(startCursor);
+        while (iter <= endCursor && datesToPlan.length < 30) {
+          datesToPlan.push(new Date(iter));
+          iter.setDate(iter.getDate() + 1);
+        }
+
+        for (const curDate of datesToPlan) {
+          const cYear = curDate.getFullYear();
+          const cMonth = curDate.getMonth();
+          const cDay = curDate.getDate();
+          const dateKey = toDateKey(curDate);
+
+          // RÀNG BUỘC TUYỆT ĐỐI: Bỏ qua nếu quá khứ hoặc vượt quá hạn gói
+          if (isPastDate(dateKey) || dateKey > period.endDateKey) {
             continue;
           }
 
           const dayInfo = {
             day: dayNames[curDate.getDay()],
             short: shortDays[curDate.getDay()],
-            date: `${monthNames[month].substring(0, 3)} ${d}`,
+            date: `${monthNames[cMonth].substring(0, 3)} ${cDay}`,
           };
 
           const dayPlan = mealPlannerService.generateDayPlan(
             dayInfo,
             activeProfile,
-            d,
-            Math.floor(Math.random() * 50) + d,
+            cDay,
+            Math.floor(Math.random() * 50) + cDay,
             {
               planType: "monthly",
               budgetLimit: options?.budgetLimit ?? budgetLimit,
               favoriteRecipeIds: options?.favoriteRecipeIds,
               recentRecipeIds: rolling14Days.flat(),
+              targetCalories: nutritionSummary.dailyCalorieTarget,
             }
           );
 
@@ -607,23 +675,23 @@ export function useMealPlanner() {
 
           newMap[dateKey] = {
             ...dayPlan,
-            dayOfMonth: d,
-            month,
-            year,
+            dayOfMonth: cDay,
+            month: cMonth,
+            year: cYear,
             dateKey,
-            isCurrentMonth: true,
+            isCurrentMonth: cMonth === selectedMonth,
+            isOutOfSubscription: false,
           };
           generatedCount++;
         }
 
         saveGeneratedDays(newMap);
-        setSelectedMonth(month);
-        setSelectedYear(year);
         setPlanType("monthly");
-        setActiveDayIndex(diff === 0 ? now.getDate() - 1 : 0);
         setIsGenerating(false);
-        setGenerationFeedback(`✓ Đã tạo thực đơn cho tháng ${month + 1}/${year} (${generatedCount} ngày)!`);
-        setTimeout(() => setGenerationFeedback(null), 3000);
+        const startDisplay = datesToPlan.length > 0 ? formatVnDateKey(toDateKey(datesToPlan[0])) : "";
+        const endDisplay = datesToPlan.length > 0 ? formatVnDateKey(toDateKey(datesToPlan[datesToPlan.length - 1])) : "";
+        setGenerationFeedback(`✓ Đã tạo thành công thực đơn chu kỳ 30 ngày của gói (${generatedCount} ngày từ ${startDisplay} đến ${endDisplay})!`);
+        setTimeout(() => setGenerationFeedback(null), 4000);
         onComplete?.();
       } catch (err) {
         console.error("Lỗi khi sinh thực đơn tháng:", err);
@@ -632,7 +700,7 @@ export function useMealPlanner() {
         setTimeout(() => setGenerationFeedback(null), 3000);
       }
     },
-    [selectedMonth, selectedYear, currentYear, currentMonth, activeProfile, budgetLimit, generatedDays, saveGeneratedDays]
+    [selectedMonth, selectedYear, activeProfile, budgetLimit, generatedDays, saveGeneratedDays]
   );
 
   /**
@@ -651,6 +719,12 @@ export function useMealPlanner() {
         targetDateKey = (weeklyPlan.days[dayIdx] as CalendarDayMealPlan).dateKey || selectedDateKey;
       } else if (planType === "monthly" && monthlyPlan.days[dayIdx]) {
         targetDateKey = (monthlyPlan.days[dayIdx] as CalendarDayMealPlan).dateKey || selectedDateKey;
+      }
+
+      if (targetDateKey > subPeriod.endDateKey) {
+        setGenerationFeedback(`Không thể đổi món vì ngày này đã ngoài chu kỳ gói đăng ký (hết hạn ngày ${formatVnDateKey(subPeriod.endDateKey)}).`);
+        setTimeout(() => setGenerationFeedback(null), 3500);
+        return;
       }
 
       const existingDay = generatedDays[targetDateKey];
@@ -717,6 +791,12 @@ export function useMealPlanner() {
         return;
       }
 
+      if (targetDateKey > subPeriod.endDateKey) {
+        setGenerationFeedback(`Không thể tạo lại vì ngày này đã ngoài chu kỳ gói đăng ký (hết hạn ngày ${formatVnDateKey(subPeriod.endDateKey)}).`);
+        setTimeout(() => setGenerationFeedback(null), 3500);
+        return;
+      }
+
       const existing = generatedDays[targetDateKey];
       const [y, m, d] = targetDateKey.split("-").map(Number);
       const curDate = new Date(y, m - 1, d);
@@ -734,7 +814,10 @@ export function useMealPlanner() {
         dayInfo,
         activeProfile,
         d,
-        Math.floor(Math.random() * 50) + 1
+        Math.floor(Math.random() * 50) + 1,
+        {
+          targetCalories: nutritionSummary.dailyCalorieTarget,
+        }
       );
 
       const calDay: CalendarDayMealPlan = {
@@ -874,8 +957,8 @@ export function useMealPlanner() {
         slot.recipes && slot.recipes.length > 0
           ? [...slot.recipes]
           : slot.recipe
-          ? [slot.recipe]
-          : [];
+            ? [slot.recipe]
+            : [];
       const updatedDishes = [...existingDishes, newRecipe];
 
       const maxTime = Math.max(

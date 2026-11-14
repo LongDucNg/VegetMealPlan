@@ -36,7 +36,16 @@ export class MailService {
       else this.logger.warn(`[MAIL chưa cấu hình] Tới: ${to} | ${subject}\n${text}`);
       return;
     }
-    await this.transporter.sendMail({ from: this.from, to, subject, html, text });
+    try {
+      await this.transporter.sendMail({ from: this.from, to, subject, html, text });
+    } catch (err: any) {
+      this.logger.error(`Lỗi gửi mail qua SMTP (${this.from} -> ${to}): ${err?.message ?? err}`);
+      if (!this.isProduction) {
+        this.logger.warn(`[DEV FALLBACK - SMTP LỖI] Đã sinh mã gửi tới: ${to} | ${subject}\n${text}`);
+      } else {
+        throw err;
+      }
+    }
   }
 
   sendResetPasswordOtp(to: string, code: string, ttlMinutes: number) {

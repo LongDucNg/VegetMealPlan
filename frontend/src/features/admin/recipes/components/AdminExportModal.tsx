@@ -38,6 +38,19 @@ export function recipeHasCategory(r: Recipe, cat: string): boolean {
   if (!cat || cat === "all") return true;
   const normCat = cat.trim().toLowerCase();
 
+  if (normCat === "khác") {
+    const isOther = !ADMIN_RECIPE_CATEGORIES.some((c) => {
+      if (c === "Khác") return false;
+      const cNorm = c.toLowerCase();
+      if (r.category && r.category.trim().toLowerCase() === cNorm) return true;
+      if (Array.isArray(r.categories) && r.categories.some((item) => item && item.trim().toLowerCase() === cNorm)) {
+        return true;
+      }
+      return false;
+    });
+    return isOther || r.category?.trim().toLowerCase() === "khác";
+  }
+
   // 1. Khớp qua r.categories mảng
   if (Array.isArray(r.categories) && r.categories.length > 0) {
     if (r.categories.some((c) => c && c.trim().toLowerCase() === normCat)) {
@@ -48,71 +61,6 @@ export function recipeHasCategory(r: Recipe, cat: string): boolean {
   // 2. Khớp qua r.category đơn
   if (r.category && r.category.trim().toLowerCase() === normCat) {
     return true;
-  }
-
-  // 3. Khớp thông minh theo từ khóa tên món (phòng khi công thức chưa gán hoặc đang mang nhãn mặc định)
-  const title = (r.name || r.title || "").toLowerCase();
-  if (normCat.includes("mì") || normCat.includes("bún") || normCat.includes("phở")) {
-    return (
-      title.includes("mì") ||
-      title.includes("bún") ||
-      title.includes("phở") ||
-      title.includes("hủ tiếu") ||
-      title.includes("miến") ||
-      title.includes("nui")
-    );
-  }
-  if (normCat.includes("cơm") || normCat.includes("xôi") || normCat.includes("cháo")) {
-    return title.includes("cơm") || title.includes("xôi") || title.includes("cháo");
-  }
-  if (normCat.includes("canh") || normCat.includes("súp")) {
-    return title.includes("canh") || title.includes("súp") || title.includes("lẩu");
-  }
-  if (normCat.includes("xào") || normCat.includes("chiên")) {
-    return title.includes("xào") || title.includes("chiên") || title.includes("rán");
-  }
-  if (normCat.includes("kho") || normCat.includes("rim")) {
-    return title.includes("kho") || title.includes("rim");
-  }
-  if (normCat.includes("luộc") || normCat.includes("hấp")) {
-    return title.includes("luộc") || title.includes("hấp");
-  }
-  if (normCat.includes("cuốn") || normCat.includes("gỏi") || normCat.includes("sa lát")) {
-    return (
-      title.includes("cuốn") ||
-      title.includes("gỏi") ||
-      title.includes("salad") ||
-      title.includes("sa lát") ||
-      title.includes("nộm")
-    );
-  }
-  if (normCat.includes("bánh") || normCat.includes("ăn vặt")) {
-    return (
-      title.includes("bánh") ||
-      title.includes("chả giò") ||
-      title.includes("nem") ||
-      title.includes("ăn vặt")
-    );
-  }
-  if (normCat.includes("tráng miệng") || normCat.includes("đồ uống")) {
-    return (
-      title.includes("chè") ||
-      title.includes("trà") ||
-      title.includes("nước") ||
-      title.includes("sinh tố") ||
-      title.includes("sữa") ||
-      title.includes("thạch")
-    );
-  }
-  if (normCat.includes("món đủ bữa")) {
-    return (
-      r.mealType === "lunch" ||
-      r.mealType === "dinner" ||
-      title.includes("cơm") ||
-      title.includes("bún") ||
-      title.includes("phở") ||
-      title.includes("lẩu")
-    );
   }
 
   return false;
@@ -364,7 +312,8 @@ export function AdminExportModal({
         mode === "by_recipes"
           ? `Cong_Thuc_${targetRecipes.length}_Mon`
           : `Cong_Thuc_Theo_Bo_Loc_${targetRecipes.length}_Mon`;
-      const filename = adminRecipeApiService.exportRecipesToExcel(targetRecipes, prefix);
+      const selectedCat = mode === "by_filter" && filterCategory !== "all" ? filterCategory : undefined;
+      const filename = adminRecipeApiService.exportRecipesToExcel(targetRecipes, prefix, selectedCat);
       setSuccessFilename(filename);
     } catch (err: any) {
       setErrorMessage(err?.message || "Đã xảy ra lỗi khi xuất file Excel.");
@@ -419,8 +368,8 @@ export function AdminExportModal({
               type="button"
               onClick={() => setMode("by_recipes")}
               className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${mode === "by_recipes"
-                  ? "bg-white text-emerald-800 shadow-xs font-bold"
-                  : "text-stone-600 hover:text-stone-900"
+                ? "bg-white text-emerald-800 shadow-xs font-bold"
+                : "text-stone-600 hover:text-stone-900"
                 }`}
             >
               <Layers className="w-4 h-4" />
@@ -436,8 +385,8 @@ export function AdminExportModal({
               type="button"
               onClick={() => setMode("by_filter")}
               className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${mode === "by_filter"
-                  ? "bg-white text-emerald-800 shadow-xs font-bold"
-                  : "text-stone-600 hover:text-stone-900"
+                ? "bg-white text-emerald-800 shadow-xs font-bold"
+                : "text-stone-600 hover:text-stone-900"
                 }`}
             >
               <Filter className="w-4 h-4" />
@@ -571,15 +520,15 @@ export function AdminExportModal({
                       type="button"
                       onClick={() => setQuickCategoryFilter("all")}
                       className={`px-3 py-1.5 rounded-full text-xs shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${quickCategoryFilter === "all"
-                          ? "bg-emerald-800 text-white font-bold shadow-2xs"
-                          : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
+                        ? "bg-emerald-800 text-white font-bold shadow-2xs"
+                        : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
                         }`}
                     >
                       <span>Tất cả</span>
                       <span
                         className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${quickCategoryFilter === "all"
-                            ? "bg-emerald-900 text-emerald-100"
-                            : "bg-stone-100 text-stone-500"
+                          ? "bg-emerald-900 text-emerald-100"
+                          : "bg-stone-100 text-stone-500"
                           }`}
                       >
                         ({approvedRecipes.length})
@@ -594,15 +543,15 @@ export function AdminExportModal({
                           type="button"
                           onClick={() => setQuickCategoryFilter(c)}
                           className={`px-3 py-1.5 rounded-full text-xs shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${quickCategoryFilter === c
-                              ? "bg-emerald-800 text-white font-bold shadow-2xs"
-                              : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
+                            ? "bg-emerald-800 text-white font-bold shadow-2xs"
+                            : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
                             }`}
                         >
                           <span>{c}</span>
                           <span
                             className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${quickCategoryFilter === c
-                                ? "bg-emerald-900 text-emerald-100"
-                                : "bg-stone-100 text-stone-500"
+                              ? "bg-emerald-900 text-emerald-100"
+                              : "bg-stone-100 text-stone-500"
                               }`}
                           >
                             ({count})
@@ -644,16 +593,16 @@ export function AdminExportModal({
                           type="button"
                           onClick={() => toggleRecipe(numId)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${isSelected
-                              ? "bg-emerald-700 text-white font-semibold shadow-2xs scale-[1.02]"
-                              : "bg-stone-50 text-stone-700 hover:bg-stone-100 border border-stone-200"
+                            ? "bg-emerald-700 text-white font-semibold shadow-2xs scale-[1.02]"
+                            : "bg-stone-50 text-stone-700 hover:bg-stone-100 border border-stone-200"
                             }`}
                         >
                           {isSelected && <Check className="w-3.5 h-3.5 text-emerald-200 shrink-0" />}
                           <span className="truncate max-w-[180px]">{r.name || r.title}</span>
                           <span
                             className={`text-[9px] px-1.5 py-0.2 rounded-md ${isSelected
-                                ? "bg-emerald-800 text-emerald-100"
-                                : "bg-stone-200 text-stone-600"
+                              ? "bg-emerald-800 text-emerald-100"
+                              : "bg-stone-200 text-stone-600"
                               }`}
                           >
                             {getRecipeDisplayCategory(r)}

@@ -6,6 +6,7 @@ import { checkRecipeAllergy } from "@/features/allergy/utils/checkRecipeAllergy"
 import { priceService } from "./priceService";
 import { recipeApiService } from "./recipeApiService";
 import { mapBackendToFrontendRecipe } from "../utils/recipeMapper";
+import { getIngredientCaloriesPer100g, calculateIngredientCalories } from "../utils/ingredientNutrition";
 
 function enrichRecipeDefaults(r: Recipe): Recipe {
   const status: RecipeStatus = r.status || "APPROVED";
@@ -17,6 +18,18 @@ function enrichRecipeDefaults(r: Recipe): Recipe {
     name: "VeggieHub Kitchen",
   };
 
+  let calories = r.calories;
+  if (r.ingredients && r.ingredients.length > 0) {
+    const totalIngKcal = r.ingredients.reduce((sum, ing) => {
+      const calPer100 = ing.caloriesPer100g ?? getIngredientCaloriesPer100g(ing.name);
+      const ingKcal = ing.calories ?? calculateIngredientCalories(ing.quantity, ing.unit, calPer100);
+      return sum + (Number(ingKcal) || 0);
+    }, 0);
+    if (totalIngKcal > 0) {
+      calories = Math.round(totalIngKcal * 100) / 100;
+    }
+  }
+
   return {
     ...r,
     name: r.name || r.title,
@@ -24,6 +37,7 @@ function enrichRecipeDefaults(r: Recipe): Recipe {
     estimatedCost,
     source,
     allergens: r.allergens || [],
+    calories,
   };
 }
 

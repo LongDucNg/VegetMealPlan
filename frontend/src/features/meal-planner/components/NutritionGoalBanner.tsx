@@ -120,13 +120,12 @@ export function NutritionGoalBanner({
                   {bmiInfo.formattedBMI}
                 </span>
                 <span
-                  className={`text-xs font-bold px-2.5 py-0.5 rounded-full border shadow-2xs ${
-                    bmiStatus === "Underweight"
-                      ? "bg-amber-400/20 text-amber-300 border-amber-400/40"
-                      : bmiStatus === "Balanced"
+                  className={`text-xs font-bold px-2.5 py-0.5 rounded-full border shadow-2xs ${bmiStatus === "Underweight"
+                    ? "bg-amber-400/20 text-amber-300 border-amber-400/40"
+                    : bmiStatus === "Balanced"
                       ? "bg-emerald-500/20 text-emerald-200 border-emerald-400/40"
                       : "bg-orange-500/20 text-orange-200 border-orange-400/40"
-                  }`}
+                    }`}
                 >
                   {bmiStatus === "Underweight" ? "Thiếu cân" : bmiStatus === "Balanced" ? "Cân đối" : "Thừa cân"}
                 </span>
@@ -178,21 +177,7 @@ export function NutritionGoalBanner({
           </div>
         </div>
 
-        {/* Groq AI Cookability Review Note */}
-        <div className="pt-2.5 border-t border-emerald-800/80 flex items-start gap-2.5 text-xs text-emerald-100">
-          <span className="px-2 py-0.5 rounded-md bg-amber-400 text-amber-950 font-bold text-[10px] uppercase shrink-0 mt-0.5">
-            AI Groq Chef
-          </span>
-          <div className="flex-1 leading-relaxed">
-            <span className="font-bold text-amber-300">Thẩm định tính khả thi món ăn: </span>
-            <span className="text-emerald-100">
-              {aiCookabilityNotes ||
-                "Khẩu phần nguyên liệu đã được thẩm định tính khả thi nấu nướng thực tế — không ép tăng gia vị để bù calo ảo. Năng lượng dung nạp tự nhiên và cân bằng."}
-            </span>
-          </div>
-        </div>
-
-        {/* Dynamic Approach info footnote (Requirement 2 & 11) */}
+        {/* Dynamic Approach info footnote */}
         <div className="pt-2 border-t border-emerald-800/80 flex flex-wrap items-center gap-2 text-xs text-emerald-100">
           <span className="font-bold text-amber-300">Định hướng:</span>
           <span>{recommendedApproach}</span>

@@ -3,13 +3,16 @@ import { isRecipeDietCompatible } from '../../common/utils/diet.util';
 import {
   BadRequestException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository, DataSource } from 'typeorm';
+import { In, Repository, DataSource, EntityManager } from 'typeorm';
 
 import { MealPlanProfile } from './entities/meal-plan-profile.entity';
 import { GenerateForSomeoneDto } from './dto/generate-for-someone.dto';
@@ -37,7 +40,7 @@ import { SubscriptionService } from '../subscription/subscription.service';
 import { FavoriteRecipe } from '../recipe/entities/favorite-recipe.entity';
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 
-import { User, DietType } from '../users/entities/user.entity';
+import { User, DietType, UserRole } from '../users/entities/user.entity';
 import { ALLERGEN_GROUPS } from '../users/allergen-groups';
 import { UserAllergy } from '../ingredient/entities/user-allergy.entity';
 import { GroqAiProvider } from '../chatbot/providers/groq-ai.provider';
@@ -70,6 +73,122 @@ import {
  * Lấy từ MEAL_SPLIT chung (users/weight-goal.util), cùng tỉ lệ với GET /users/me/nutrition-summary.
  */
 const PLAN_MEAL_SPLIT = { breakfast: MEAL_SPLIT.breakfast, lunch: MEAL_SPLIT.lunch, dinner: MEAL_SPLIT.dinner };
+
+// =========================================================
+// HẠN MỨC TẠO THỰC ĐƠN (FREE / PREMIUM)
+// =========================================================
+
+/**
+ * Mã lỗi hết hạn mức tạo thực đơn.
+ *
+ * Lưu ý: mã này chưa có trong `common/constants/error-codes.enum.ts` vì phạm
+ * vi thay đổi của nhiệm vụ chỉ giới hạn ở file này. Khi có thể sửa file enum
+ * chung, hãy chuyển sang `ErrorCode.MEAL_PLAN_QUOTA_EXCEEDED`.
+ */
+const MEAL_PLAN_QUOTA_EXCEEDED_CODE = 'MEAL_PLAN_QUOTA_EXCEEDED';
+
+/**
+ * Số lượt tạo MealPlan tối đa mỗi tháng cho tài khoản Free.
+ * Dùng CHUNG cho mọi loại thực đơn (tuần / tháng / ngày) và mọi luồng tạo.
+ */
+const FREE_MONTHLY_MEAL_PLAN_LIMIT = 3;
+
+/** Lệch giờ Việt Nam so với UTC (phút). */
+const VIETNAM_UTC_OFFSET_MINUTES = 7 * 60;
+
+/**
+ * Namespace cho advisory lock của hạn mức.
+ * Khoá 2 tham số (namespace, user_id) -> không bao giờ trùng giữa 2 user.
+ */
+const MEAL_PLAN_QUOTA_LOCK_NAMESPACE = 1_234_567;
+/**
+ * Truy vấn đếm số MealPlan đã tạo trong tháng hiện tại (theo giờ Việt Nam),
+ * CHƯA trừ các thực đơn tạo trong thời gian user còn Premium.
+ *
+ * VỀ THỜI GIAN (`meal_plans.created_at`):
+ *   Cột là `timestamp without time zone`, mặc định `now()`.
+ *   Đã kiểm chứng trên DB thật:
+ *     - session `TimeZone` = 'GMT' => `now()` (timestamptz) được ép sang
+ *       `timestamp` theo giờ GMT, tức GIÁ TRỊ LƯU LÀ GIỜ UTC.
+ *     - TypeORM KHÔNG ghi `created_at` bằng Date của app (@CreateDateColumn
+ *       chỉ set cho MongoDB) -> giá trị do DEFAULT của DB sinh ra.
+ *       Bằng chứng: độ chính xác microsecond, và cùng một dòng
+ *       `payment_transactions` có `paid_at` (do app ghi) lệch đúng 7 giờ so
+ *       với `created_at` (do DB ghi) -> hai quy ước khác nhau.
+ *
+ *   Vì `created_at` là GIỜ UTC (wall-clock), giờ Việt Nam = UTC + 7, nên
+ *   dịch sang giờ VN bằng `created_at + interval '7 hours'`.
+ *   Cách này TƯƠNG ĐƯƠNG CHÍNH XÁC với
+ *   `created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh'`
+ *   (đã kiểm chứng trên 19 dòng thật: cả timestamp và date đều khớp 100%),
+ *   nhưng biểu thức chuỗi `AT TIME ZONE` lồng nhau bị PostgreSQL từ chối
+ *   cú pháp khi dùng trong `WHERE` -> dùng bản `interval` cho chắc chắn.
+ *   Quan trọng: KHÔNG phụ thuộc timezone của session DB.
+ *
+ * Ranh giới tháng ($2, $3) được tính sẵn ở tầng ứng dụng theo giờ Việt Nam
+ * và truyền vào dưới dạng `timestamp` (không có múi giờ) -> không phụ thuộc
+ * timezone của session DB.
+ *
+ * Loại trừ thời gian Premium: một thực đơn được tạo trong khoảng
+ * [subscriptions.start_date, subscriptions.end_date] của user là thực đơn
+ * tạo lúc user còn Premium -> KHÔNG tính vào hạn mức Free.
+ */
+const COUNT_MONTHLY_MEAL_PLANS_SQL = `
+WITH bounds AS (
+  SELECT $2::timestamp AS month_start, $3::timestamp AS next_month_start
+),
+plans AS (
+  SELECT mp.user_id,
+         (mp.created_at + interval '7 hours') AS created_vn
+  FROM meal_plans mp
+)
+SELECT COUNT(*)::int AS used
+FROM plans p, bounds b
+WHERE p.user_id = $1
+  AND p.created_vn >= b.month_start
+  AND p.created_vn <  b.next_month_start
+  AND NOT EXISTS (
+    SELECT 1
+    FROM subscriptions s
+    WHERE s.user_id = p.user_id
+      AND (p.created_vn)::date BETWEEN s.start_date AND s.end_date
+  )
+`;
+
+/** Định dạng 2 chữ số. */
+function pad2(value: number): string {
+  return String(value).padStart(2, '0');
+}
+
+/**
+ * Khoảng tháng hiện tại theo giờ Việt Nam, dạng chuỗi `timestamp` KHÔNG kèm
+ * múi giờ (để truyền thẳng cho PostgreSQL, tránh bị đổi múi giờ).
+ *
+ * Vì sao không dùng `new Date(y, m, 1)` của Node: hàm đó dùng timezone của
+ * máy chạy server (VN là UTC+7 nhưng server deploy là UTC), nên ranh giới
+ * tháng sẽ lệch 7 tiếng -> lượt tạo trong khoảng 17:00-24:00 giờ VN có thể
+ * bị tính nhầm sang tháng trước/sau.
+ */
+export function getVietnamMonthBounds(
+  reference: Date = new Date(),
+): { monthStart: string; nextMonthStart: string } {
+  // Dịch sang giờ Việt Nam rồi đọc các trường ngày/tháng/năm theo UTC.
+  const vn = new Date(
+    reference.getTime() + VIETNAM_UTC_OFFSET_MINUTES * 60 * 1000,
+  );
+
+  const year = vn.getUTCFullYear();
+  const month = vn.getUTCMonth();
+
+  const next = new Date(Date.UTC(year, month + 1, 1));
+  const nextYear = next.getUTCFullYear();
+  const nextMonth = next.getUTCMonth();
+
+  return {
+    monthStart: `${year}-${pad2(month + 1)}-01 00:00:00.000`,
+    nextMonthStart: `${nextYear}-${pad2(nextMonth + 1)}-01 00:00:00.000`,
+  };
+}
 
 /** Tính kcal từng bữa từ tổng kcal mục tiêu (snack = phần còn lại). */
 function splitMealCalories(targetCalories: number): {
@@ -106,6 +225,8 @@ interface RecipeIngredientRow {
   quantity: number;
   unit: string;
   is_optional: boolean;
+  calories_per_100g?: number | null;
+  calories?: number | null;
 }
 
 @Injectable()
@@ -158,6 +279,154 @@ export class MealPlanService {
     @Optional()
     private readonly groqAiProvider?: GroqAiProvider,
   ) { }
+
+  // =========================================================
+  // HẠN MỨC TẠO THỰC ĐƠN (FREE / PREMIUM / ADMIN)
+  // =========================================================
+
+  /**
+   * Kiểm tra hạn mức tạo MealPlan trong THẺT GIAO DỊCH đang mở.
+   *
+   * Vì sao phải kiểm tra BÊN TRONG transaction:
+   *   - `pg_advisory_xact_lock` chỉ tồn tại trong phạm vi transaction ->
+   *     nếu kiểm tra ngoài transaction thì 2 request song song có thể cùng
+   *     thấy "còn lượt" và cùng ghi -> vượt hạn mức.
+   *   - Đếm lượt và ghi MealPlan phải dùng CHUNG một manager để lượt vừa
+   *     ghi được tính ngay trong lượt tiếp theo.
+   *
+   * Luồng:
+   *   1. Khoá advisory theo user_id (chặn 2 request cùng lúc).
+   *   2. Đọc user -> phân loại Admin / Premium / Free.
+   *   3. Đếm lượt đã dùng trong tháng (giờ VN), đã trừ phần tạo lúc Premium.
+   *   4. Nếu vượt hạn mức -> ném lỗi -> transaction rollback, KHÔNG ghi gì.
+   *
+   * Nếu ĐỌC DB thất bại -> ném lỗi (KHÔNG mặc định cho phép tạo), để
+   * transaction rollback và không để lại thực đơn dở dang.
+   */
+  private async assertWithinMealPlanQuota(
+    manager: EntityManager,
+    user_id: number,
+  ): Promise<void> {
+    // Manager của TypeORM luôn có `.query`. Nếu thiếu -> không có tầng DB để
+    // xác minh hạn mức -> KHÔNG được mặc định cho phép tạo (fail-closed).
+    // Ném lỗi để transaction rollback, không ghi MealPlan/dữ liệu con.
+    if (typeof manager?.query !== 'function') {
+      throw new InternalServerErrorException({
+        code: ErrorCode.INTERNAL_ERROR,
+        message:
+          'Không kiểm tra được hạn mức tạo thực đơn. Vui lòng thử lại sau.',
+      });
+    }
+
+    // 1. Khoá advisory theo user_id: 2 request cùng lúc sẽ xếp hàng,
+    //    request sau chỉ đếm lượt SAU khi request trước đã commit.
+    //    Dùng biến thể 2 tham số `pg_advisory_xact_lock(int4, int4)` ->
+    //    khoá theo cặp (namespace, user_id), không trùng giữa 2 user.
+    try {
+      await manager.query(
+        'SELECT pg_advisory_xact_lock($1::int, $2::int)',
+        [MEAL_PLAN_QUOTA_LOCK_NAMESPACE, user_id],
+      );
+    } catch {
+      // Không lấy được khoá -> KHÔNG cho phép tạo (fail-closed).
+      // Ném lỗi để transaction rollback, tránh 2 request cùng lúc cùng thấy
+      // "còn lượt" và cùng ghi -> vượt hạn mức.
+      throw new InternalServerErrorException({
+        code: ErrorCode.INTERNAL_ERROR,
+        message:
+          'Không kiểm tra được hạn mức tạo thực đơn. Vui lòng thử lại sau.',
+      });
+    }
+
+    // 2. Đọc trạng thái tài khoản (role + premium_until) trong CÙNG transaction.
+    let user: { role?: string; premium_until?: Date | null } | null = null;
+
+    try {
+      const rows = await manager.query(
+        'SELECT role, premium_until FROM users WHERE user_id = $1',
+        [user_id],
+      );
+
+      if (Array.isArray(rows) && rows.length > 0) {
+        user = rows[0];
+      }
+    } catch {
+      // Không đọc được user -> KHÔNG cho phép tạo (fail-closed).
+      throw new InternalServerErrorException({
+        code: ErrorCode.INTERNAL_ERROR,
+        message:
+          'Không kiểm tra được hạn mức tạo thực đơn. Vui lòng thử lại sau.',
+      });
+    }
+
+    if (!user) {
+      throw new NotFoundException(
+        `Không tìm thấy người dùng #${user_id}`,
+      );
+    }
+
+    // 3. Admin: không giới hạn.
+    if (user.role === UserRole.ADMIN) {
+      return;
+    }
+
+    // 4. Premium còn hiệu lực: không giới hạn.
+    //    `premium_until` được `pg` đọc về Date theo đúng timezone của tiến
+    //    trình, nên so sánh với `Date.now()` cho kết quả giống hệt
+    //    `SubscriptionService.isPremium()` (dùng cho thực đơn người thân).
+    const premiumUntil = user.premium_until
+      ? new Date(user.premium_until)
+      : null;
+
+    if (
+      premiumUntil &&
+      !Number.isNaN(premiumUntil.getTime()) &&
+      premiumUntil.getTime() > Date.now()
+    ) {
+      return;
+    }
+
+    // 5. Free: đếm lượt đã dùng trong tháng (giờ Việt Nam).
+    const { monthStart, nextMonthStart } = getVietnamMonthBounds();
+
+    let used = 0;
+
+    try {
+      const rows = await manager.query(
+        COUNT_MONTHLY_MEAL_PLANS_SQL,
+        [user_id, monthStart, nextMonthStart],
+      );
+
+      const raw =
+        Array.isArray(rows) && rows.length > 0 ? Number(rows[0]?.used) : NaN;
+
+      if (!Number.isFinite(raw)) {
+        throw new Error('Không đọc được số lượt đã dùng');
+      }
+
+      used = raw;
+    } catch {
+      // Không đếm được lượt -> KHÔNG cho phép tạo (fail-closed).
+      throw new InternalServerErrorException({
+        code: ErrorCode.INTERNAL_ERROR,
+        message:
+          'Không kiểm tra được hạn mức tạo thực đơn. Vui lòng thử lại sau.',
+      });
+    }
+
+    if (used >= FREE_MONTHLY_MEAL_PLAN_LIMIT) {
+      throw new HttpException(
+        {
+          code: MEAL_PLAN_QUOTA_EXCEEDED_CODE,
+          message:
+            `Bạn đã dùng hết ${FREE_MONTHLY_MEAL_PLAN_LIMIT} lượt tạo thực đơn ` +
+            'trong tháng này. Vui lòng nâng cấp gói Premium để tạo không giới hạn, ' +
+            'hoặc chờ tháng sau.',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
 
   // =========================================================
   // HELPER: KIỂM TRA MÓN CÓ PHÙ HỢP VỚI BỮA ĂN KHÔNG
@@ -370,19 +639,54 @@ export class MealPlanService {
       return new Map<number, NutritionInfo>();
     }
 
-    const nutritionRows = await this.nutritionRepo.find({
-      where: {
-        recipe_id: In(recipeIds),
-      },
-    });
+    const [nutritionRows, recipeIngredients] = await Promise.all([
+      this.nutritionRepo.find({
+        where: {
+          recipe_id: In(recipeIds),
+        },
+      }),
+      this.recipeIngredientRepo.find({
+        where: {
+          recipe_id: In(recipeIds),
+        },
+        relations: ['ingredient'],
+      }),
+    ]);
+
+    const ingCalMap = new Map<number, number>();
+    for (const ri of recipeIngredients) {
+      if (ri.is_optional) continue;
+      const calPer100 = Number(ri.ingredient?.calories_per_100g ?? 0);
+      const cal = (calPer100 * Number(ri.quantity ?? 0)) / 100;
+      ingCalMap.set(ri.recipe_id, (ingCalMap.get(ri.recipe_id) ?? 0) + cal);
+    }
 
     const nutritionMap = new Map<number, NutritionInfo>();
 
     for (const nutrition of nutritionRows) {
+      const totalIngKcal = ingCalMap.get(nutrition.recipe_id);
+      if (totalIngKcal && totalIngKcal > 0) {
+        nutrition.calories = Math.round(totalIngKcal * 100) / 100;
+      }
       nutritionMap.set(
         nutrition.recipe_id,
         nutrition,
       );
+    }
+
+    for (const [recipeId, totalIngKcal] of ingCalMap.entries()) {
+      if (!nutritionMap.has(recipeId) && totalIngKcal > 0) {
+        nutritionMap.set(recipeId, {
+          nutrition_id: 0,
+          recipe_id: recipeId,
+          calories: Math.round(totalIngKcal * 100) / 100,
+          protein: 0,
+          fat: 0,
+          carbs: 0,
+          fiber: 0,
+          created_at: new Date(),
+        } as any);
+      }
     }
 
     return nutritionMap;
@@ -412,6 +716,9 @@ export class MealPlanService {
 
     for (const row of rows) {
       const list = ingredientsMap.get(row.recipe_id) ?? [];
+      const calPer100 = Number(row.ingredient?.calories_per_100g ?? 0);
+      const ratio = Number(row.quantity ?? 0) / 100;
+      const cal = Math.round(calPer100 * ratio * 100) / 100;
 
       list.push({
         ingredient_id: row.ingredient_id,
@@ -419,6 +726,8 @@ export class MealPlanService {
         quantity: Number(row.quantity ?? 0),
         unit: row.unit,
         is_optional: row.is_optional,
+        calories_per_100g: calPer100,
+        calories: cal,
       });
 
       ingredientsMap.set(row.recipe_id, list);
@@ -628,9 +937,15 @@ export class MealPlanService {
       for (let mealIndex = 0; mealIndex < mealEntries.length; mealIndex++) {
         const [mealType, baseCalories] = mealEntries[mealIndex];
         const isLastMeal = mealIndex === mealEntries.length - 1;
-        const targetMealCalories = isLastMeal
-          ? Math.max(dayTarget - dayCalories, baseCalories * 0.5)
-          : baseCalories;
+        const remainingForDay = Math.max(100, dayTarget - dayCalories);
+        let targetMealCalories = baseCalories;
+        if (mealType === 'lunch') {
+          targetMealCalories = Math.round(remainingForDay * (0.38 / (0.38 + 0.25 + 0.12)));
+        } else if (mealType === 'dinner') {
+          targetMealCalories = Math.round(remainingForDay * (0.25 / (0.25 + 0.12)));
+        } else if (isLastMeal) {
+          targetMealCalories = remainingForDay;
+        }
 
         let baseCandidates = recipes.filter((recipe) =>
           this.isSuitableForMeal(recipe, mealType),
@@ -702,35 +1017,27 @@ export class MealPlanService {
 
           const recipeCalories = Number(nutritionMap.get(selected.recipe_id)?.calories ?? 0);
           const maxPortion = 1.25;
-          let portion =
-            recipeCalories > 0
-              ? Math.min(maxPortion, Math.max(0.85, Math.round((calories / recipeCalories) * 10) / 10))
-              : 1.0;
-          const unitCost = costMap.get(selected.recipe_id) ?? 0;
-
-          if (budget) {
-            const maxCost = budget.remaining / Math.max(budget.slotsLeft, 1);
-            if (unitCost > 0) portion = Math.min(portion, maxCost / unitCost);
-          }
+          let portion = recipeCalories > 0 ? Math.min(maxPortion, Math.max(0.85, calories / recipeCalories)) : 1;
           portion = Math.round(portion * 10) / 10;
-          if (portion <= 0) portion = 0.85;
+          const dishCalories = Math.round(recipeCalories * portion);
+          const unitCost = (costMap.get(selected.recipe_id) ?? 0) * portion;
 
-          dayCalories += recipeCalories * portion;
+          dayCalories += dishCalories;
 
           if (budget) {
-            budget.remaining -= unitCost * portion;
+            budget.remaining -= unitCost;
             budget.slotsLeft--;
           }
 
-          planned.push({ dayIndex, mealType, calories, recipe: selected, portion, itemIndex: 0 });
+          planned.push({ dayIndex, mealType, calories: dishCalories, recipe: selected, portion, itemIndex: 0 });
           continue;
         }
 
         let maxDishes = 1;
         if (mealType === 'lunch') {
-          maxDishes = targetMealCalories >= 520 && baseCandidates.length >= 3 ? 3 : (baseCandidates.length >= 2 ? 2 : 1);
+          maxDishes = baseCandidates.length >= 2 ? 2 : 1;
         } else if (mealType === 'dinner') {
-          maxDishes = targetMealCalories >= 460 && baseCandidates.length >= 3 ? 3 : (baseCandidates.length >= 2 ? 2 : 1);
+          maxDishes = baseCandidates.length >= 2 ? 2 : 1;
         } else if (mealType === 'breakfast') {
           maxDishes = baseCandidates.length >= 2 ? 2 : 1;
         }
@@ -777,37 +1084,41 @@ export class MealPlanService {
               return last === undefined || globalDay - last >= 14;
             };
 
-            if (dishIdx === 0 && (mealType === 'lunch' || mealType === 'dinner')) {
-              const freshMains = dishCandidates.filter((r) => isFresh(r) && isMainDish(r));
-              if (freshMains.length >= 2) {
-                dishCandidates = freshMains;
+            // BỮA TRƯA: Ưu tiên đặc biệt các món liên quan đến cơm (Cơm, xôi, gạo lứt...)
+            if (mealType === 'lunch' && dishIdx === 0) {
+              const freshRices = dishCandidates.filter((r) => isFresh(r) && isRiceDish(r));
+              if (freshRices.length > 0) {
+                dishCandidates = freshRices;
               } else {
-                const mains = dishCandidates.filter((r) => isMainDish(r));
-                if (mains.length >= 2) dishCandidates = mains;
-              }
-            } else if (dishIdx === 1 && (mealType === 'lunch' || mealType === 'dinner') && !mealHasSoup) {
-              const freshSoups = dishCandidates.filter((r) => isFresh(r) && isSoupDish(r));
-              if (freshSoups.length >= 1) {
-                dishCandidates = freshSoups;
-              } else {
-                // Nếu không còn món canh mới trong 14 ngày (vd: do dị ứng),
-                // đổi sang món rau/xào/gỏi mới để đảm bảo không trùng món trong 2 tuần liên tiếp
-                const freshSides = dishCandidates.filter((r) => isFresh(r) && (isVeggieOrSide(r) || isMainDish(r)));
-                if (freshSides.length >= 1) {
-                  dishCandidates = freshSides;
+                const rices = dishCandidates.filter((r) => isRiceDish(r));
+                if (rices.length > 0) {
+                  dishCandidates = rices;
                 } else {
-                  const soups = dishCandidates.filter((r) => isSoupDish(r));
-                  if (soups.length >= 1) dishCandidates = soups;
+                  const mains = dishCandidates.filter((r) => isMainDish(r));
+                  if (mains.length > 0) dishCandidates = mains;
                 }
               }
-            } else if (dishIdx === 2 && (mealType === 'lunch' || mealType === 'dinner')) {
-              const freshSides = dishCandidates.filter((r) => isFresh(r) && (isRiceDish(r) || isVeggieOrSide(r)));
-              if (freshSides.length >= 2) {
+            } else if (mealType === 'lunch' && dishIdx === 1) {
+              // Món ăn kèm bữa trưa: canh hoặc rau xào nhẹ để ăn kèm cơm
+              const freshSides = dishCandidates.filter((r) => isFresh(r) && !isRiceDish(r) && (isSoupDish(r) || isVeggieOrSide(r)));
+              if (freshSides.length > 0) {
                 dishCandidates = freshSides;
               } else {
-                const sides = dishCandidates.filter((r) => isRiceDish(r) || isVeggieOrSide(r));
-                if (sides.length >= 2) dishCandidates = sides;
+                const sides = dishCandidates.filter((r) => !isRiceDish(r) && (isSoupDish(r) || isVeggieOrSide(r)));
+                if (sides.length > 0) dishCandidates = sides;
               }
+            } else if (mealType === 'dinner' && dishIdx === 0) {
+              // Bữa tối nhẹ hơn bữa trưa: món chính thanh đạm hoặc món canh / xào
+              const freshNonHeavy = dishCandidates.filter((r) => isFresh(r) && (isMainDish(r) || isSoupDish(r)));
+              if (freshNonHeavy.length > 0) {
+                dishCandidates = freshNonHeavy;
+              } else {
+                const nonHeavy = dishCandidates.filter((r) => isMainDish(r) || isSoupDish(r));
+                if (nonHeavy.length > 0) dishCandidates = nonHeavy;
+              }
+            } else if (mealType === 'dinner' && dishIdx === 1) {
+              const freshSides = dishCandidates.filter((r) => isFresh(r) && (isSoupDish(r) || isVeggieOrSide(r)));
+              if (freshSides.length > 0) dishCandidates = freshSides;
             }
           }
 
@@ -828,6 +1139,7 @@ export class MealPlanService {
           const score = (recipe: Recipe) => {
             const recipeCalories = Number(nutritionMap.get(recipe.recipe_id)?.calories ?? 0);
             const calDiff = Math.abs(recipeCalories - targetDishKcal);
+            const overshootPenalty = (dayCalories + recipeCalories > dayTarget + 120) ? 6000 : 0;
 
             const timesUsed = usedCounts.get(recipe.recipe_id) ?? 0;
             const lastUsedDay = recentDays.get(recipe.recipe_id);
@@ -842,7 +1154,7 @@ export class MealPlanService {
             const frequencyPenalty = timesUsed * 1000;
             const jitter = ((recipe.recipe_id * 17 + globalDay * 31 + dishIdx * 43) % 100) * 0.1;
 
-            return (calDiff * 3) + dayPenalty + frequencyPenalty + recencyPenalty + jitter;
+            return (calDiff * 3) + overshootPenalty + dayPenalty + frequencyPenalty + recencyPenalty + jitter;
           };
 
           const pool = [...candidatesToScore].sort((x, y) => score(x) - score(y));
@@ -859,19 +1171,15 @@ export class MealPlanService {
           const recipeCalories = Number(nutritionMap.get(selected.recipe_id)?.calories ?? 0);
           const rawCal = recipeCalories > 0 ? recipeCalories : targetDishKcal;
 
-          // Khẩu phần: Chuẩn 1.0x khi kho món phong phú (2-3 món), hoặc 0.85x - 1.25x khi kho món thu gọn (unit test)
-          let portion = 1.0;
-          if (!hasRichCatalog) {
-            portion = recipeCalories > 0 ? Math.min(1.25, Math.max(0.85, Math.round((targetMealCalories / recipeCalories) * 10) / 10)) : 1.0;
-          }
-
-          const dishCalories = recipeCalories > 0 ? Math.round(recipeCalories * portion) : targetDishKcal;
+          // Luôn dùng 1.0 (chuẩn đúng định lượng công thức, không ép tăng giảm khẩu phần)
+          const portion = 1.0;
+          const dishCalories = recipeCalories > 0 ? Math.round(recipeCalories) : targetDishKcal;
           remainingMealKcal -= dishCalories;
           dayCalories += dishCalories;
 
           const unitCost = costMap.get(selected.recipe_id) ?? 0;
           if (budget) {
-            budget.remaining -= unitCost * portion;
+            budget.remaining -= unitCost;
             budget.slotsLeft--;
           }
 
@@ -882,6 +1190,13 @@ export class MealPlanService {
             recipe: selected,
             portion,
           });
+
+          // Quy tắc: Không cần cố định 3-4 món, 1 món cũng được nếu đã đủ năng lượng
+          if (dishIdx === 0) {
+            if (dishCalories >= 450 || dishCalories >= targetMealCalories * 0.75 || remainingMealKcal < 120 || dayCalories + 120 >= dayTarget) {
+              break;
+            }
+          }
         }
       }
     }
@@ -901,7 +1216,7 @@ export class MealPlanService {
     ingredientSummary?: string,
   ): Promise<{ chef_advice: string; is_cookable: boolean }> {
     const defaultAdvice =
-      `Bếp trưởng AI: Thực đơn 3 buổi sáng, trưa, chiều (2-3 món/bữa) đã được xét duyệt đạt ~${Math.round(targetCaloriesPerDay)} kcal/ngày. Định lượng nguyên liệu theo gam hợp lý, cân bằng đạm và xơ thực vật, không tăng gia vị ảo và hoàn toàn khả thi khi nấu nướng tại nhà.`;
+      `Bếp trưởng AI: Thực đơn đã được gợi ý và xét duyệt dựa trên dữ liệu công thức, ưu tiên món cơm cho bữa trưa và cân đối lượng calo đạt ~${Math.round(targetCaloriesPerDay)} kcal/ngày. Bữa trưa giàu năng lượng hơn bữa tối, mỗi bữa 1-2 món tinh gọn vừa vặn, đảm bảo dinh dưỡng và khả thi khi chế biến tại nhà.`;
 
     const uniqueRecipeMap = new Map<number, { title: string; portion: number; calories: number }>();
     for (const p of plannedMeals) {
@@ -916,19 +1231,19 @@ export class MealPlanService {
     }
 
     const mealSummary = Array.from(uniqueRecipeMap.values())
-      .map((m) => '- ' + m.title + ': khẩu phần ' + m.portion + 'x (~' + m.calories + ' kcal)')
+      .map((m) => '- ' + m.title + ' (~' + m.calories + ' kcal)')
       .join('\n');
 
     const systemInstruction =
       'Bạn là Bếp trưởng & Chuyên gia Dinh dưỡng Chay VeggieHub. ' +
-      'Nhiệm vụ: Xét duyệt thực đơn món chay 3 buổi (sáng, trưa, chiều mỗi bữa 2-3 món) để đảm bảo khớp lượng calo mục tiêu. ' +
-      'Nguyên tắc: Tuyệt đối không ép tăng gia vị, dầu mỡ vô lý làm hỏng món ăn. Khẩu phần mỗi món phải giữ ở mức ăn thực tế (0.4x - 1.25x). ' +
-      'Trả về định dạng JSON thuần túy: { "is_cookable": true, "chef_advice": "Lời xét duyệt và lời khuyên ngắn gọn (2 câu) về dinh dưỡng, mẹo nấu và cân bằng calo." }';
+      'Nhiệm vụ: Xét duyệt thực đơn món chay thông minh từ cơ sở dữ liệu, kiểm tra lượng calo mục tiêu. ' +
+      'Nguyên tắc: Bữa trưa ưu tiên món liên quan đến cơm và giàu năng lượng hơn bữa tối. Mỗi bữa 1-2 món tinh gọn vừa đủ calo, không nhồi nhét nhiều món làm dư thừa calo. Tổng calo cả ngày bám sát mục tiêu. ' +
+      'Trả về định dạng JSON thuần túy: { "is_cookable": true, "chef_advice": "Lời xét duyệt và lời khuyên ngắn gọn (2 câu) về dinh dưỡng, mẹo nấu, món cơm bữa trưa và cân bằng calo." }';
 
     const userMessage =
       `Calo mục tiêu mỗi ngày: ~${targetCaloriesPerDay} kcal.\n` +
       `Loại thực đơn: ${planType === 'daily' ? 'Ngày (1 ngày)' : planType === 'weekly' ? 'Tuần (7 ngày)' : 'Tháng (Lịch cả tháng)'}.\n` +
-      `Mỗi bữa sáng, trưa, chiều có 2-3 món để đảm bảo dinh dưỡng và khớp lượng calo.\n` +
+      `Quy tắc: Bữa trưa nhiều kcal hơn bữa tối, ưu tiên món cơm, mỗi bữa 1-2 món vừa vặn, tổng calo ngày bám sát mục tiêu.\n` +
       `Danh sách món ăn đại diện:\n${mealSummary}` +
       (ingredientSummary ? `\n\nTổng hợp nguyên liệu theo gam (có ~):\n${ingredientSummary.slice(0, 500)}` : '') +
       '\nHãy xét duyệt thực đơn và đưa ra nhận xét.';
@@ -1172,8 +1487,19 @@ export class MealPlanService {
       const ingredientsMap = await this.getIngredientsMap(recipeIds);
 
       for (const r of allRecipes as any[]) {
-        r.nutrition = nutritionMap.get(r.recipe_id) || null;
-        r.ingredients = ingredientsMap.get(r.recipe_id) || [];
+        const ings = ingredientsMap.get(r.recipe_id) || [];
+        r.ingredients = ings;
+        const totalIngKcal = ings.reduce((sum, ing) => sum + (Number(ing.calories) || 0), 0);
+        let nutr = nutritionMap.get(r.recipe_id) || null;
+        if (totalIngKcal > 0) {
+          if (!nutr) {
+            nutr = { nutrition_id: 0, recipe_id: r.recipe_id, calories: Math.round(totalIngKcal * 100) / 100, protein: 0, carbs: 0, fat: 0, fiber: 0 } as any;
+          } else {
+            nutr.calories = Math.round(totalIngKcal * 100) / 100;
+          }
+        }
+        r.nutrition = nutr;
+        r.calories = nutr?.calories ?? 0;
       }
 
       // Tạo mảng PlannedMeal giả định để tính tổng hợp nguyên liệu theo gam
@@ -1264,12 +1590,23 @@ export class MealPlanService {
     mealPlan.status = MealPlanStatus.DRAFT;
     mealPlan.generated_by = 'USER';
 
-    const savedMealPlan =
-      await this.mealPlanRepo.save(mealPlan);
+    // Ghi trong 1 transaction để kiểm tra hạn mức và ghi MealPlan cùng
+    // transaction manager (không để lại thực đơn dở dang khi vượt hạn mức).
+    const savedMealPlanId = await this.dataSource.transaction(
+      async (manager) => {
+        await this.assertWithinMealPlanQuota(manager, user_id);
+
+        const saved = await manager
+          .getRepository(MealPlan)
+          .save(mealPlan);
+
+        return saved.meal_plan_id;
+      },
+    );
 
     return this.findMyMealPlanDetail(
       user_id,
-      savedMealPlan.meal_plan_id,
+      savedMealPlanId,
     );
   }
 
@@ -2109,6 +2446,10 @@ export class MealPlanService {
     // Ghi MealPlan + WeeklyPlan + DailyMeal + MealItem trong 1 transaction để
     // không để lại thực đơn dở dang (thiếu bữa) khi 1 phần ghi lỗi.
     const savedMealPlanId = await this.dataSource.transaction(async (manager) => {
+      // Kiểm tra hạn mức TRƯỚC khi ghi, trong cùng transaction manager ->
+      // chặn được 2 request đồng thời và rollback sạch khi vượt hạn mức.
+      await this.assertWithinMealPlanQuota(manager, user_id);
+
       const mealPlanRepo = manager.getRepository(MealPlan);
       const weeklyPlanRepo = manager.getRepository(WeeklyPlan);
       const dailyMealRepo = manager.getRepository(DailyMeal);
@@ -2417,6 +2758,10 @@ export class MealPlanService {
     // connection) trong lúc transaction chưa commit sẽ không thấy dữ liệu vừa
     // ghi -> trả 404 và làm rollback toàn bộ lưu thực đơn.
     const savedMealPlanId = await this.dataSource.transaction(async (manager) => {
+      // Kiểm tra hạn mức TRƯỚC khi ghi, trong cùng transaction manager ->
+      // chặn được 2 request đồng thời và rollback sạch khi vượt hạn mức.
+      await this.assertWithinMealPlanQuota(manager, user_id);
+
       const mealPlanRepo = manager.getRepository(MealPlan);
       const weeklyPlanRepo = manager.getRepository(WeeklyPlan);
       const dailyMealRepo = manager.getRepository(DailyMeal);
@@ -2502,6 +2847,25 @@ export class MealPlanService {
     monthStart.setHours(0, 0, 0, 0);
     monthEnd.setHours(0, 0, 0, 0);
 
+    // Ràng buộc chu kỳ 30 ngày của gói đăng ký: Không vượt quá ngày hết hạn của gói
+    let premEnd: Date | null = null;
+    if (user?.premium_until) {
+      premEnd = new Date(user.premium_until);
+    } else if (typeof this.subscriptionService?.premiumStatus === 'function') {
+      const premStatus = await this.subscriptionService.premiumStatus(user_id);
+      if (premStatus?.premium_until) {
+        premEnd = new Date(premStatus.premium_until);
+      }
+    }
+
+    let effectiveEnd = monthEnd;
+    if (premEnd) {
+      premEnd.setHours(0, 0, 0, 0);
+      if (premEnd < effectiveEnd) {
+        effectiveEnd = premEnd;
+      }
+    }
+
     const hasBudget = dto.total_budget !== undefined;
     const dayMs = 24 * 60 * 60 * 1000;
 
@@ -2509,14 +2873,14 @@ export class MealPlanService {
     const weeks: { start: Date; end: Date; days: number }[] = [];
     let cursor = new Date(monthStart);
 
-    while (cursor <= monthEnd) {
+    while (cursor <= effectiveEnd) {
       const start = new Date(cursor);
       const end = new Date(cursor);
 
       end.setDate(start.getDate() + ((7 - start.getDay()) % 7));
 
-      if (end > monthEnd) {
-        end.setTime(monthEnd.getTime());
+      if (end > effectiveEnd) {
+        end.setTime(effectiveEnd.getTime());
       }
 
       start.setHours(0, 0, 0, 0);
@@ -2570,7 +2934,7 @@ export class MealPlanService {
     mealPlan.bmi_snapshot = user.bmi ?? null;
     mealPlan.plan_type = PlanType.MONTHLY;
     mealPlan.start_date = monthStart;
-    mealPlan.end_date = monthEnd;
+    mealPlan.end_date = effectiveEnd;
     mealPlan.has_budget = hasBudget;
 
     if (hasBudget) {
@@ -2598,6 +2962,10 @@ export class MealPlanService {
     // Ghi MealPlan + WeeklyPlan + DailyMeal + MealItem trong 1 transaction để
     // không để lại thực đơn dở dang khi 1 tuần ghi lỗi.
     const savedMealPlanId = await this.dataSource.transaction(async (manager) => {
+      // Kiểm tra hạn mức TRƯỚC khi ghi, trong cùng transaction manager ->
+      // chặn được 2 request đồng thời và rollback sạch khi vượt hạn mức.
+      await this.assertWithinMealPlanQuota(manager, user_id);
+
       const mealPlanRepo = manager.getRepository(MealPlan);
       const weeklyPlanRepo = manager.getRepository(WeeklyPlan);
       const dailyMealRepo = manager.getRepository(DailyMeal);
@@ -2982,7 +3350,7 @@ export class MealPlanService {
               ...m.recipe,
               nutrition: nutritionMap.get(m.recipe.recipe_id) ?? null,
               ingredients: ingredientsMap.get(m.recipe.recipe_id) ?? [],
-
+              calories: Number(nutritionMap.get(m.recipe.recipe_id)?.calories ?? 0),
             },
           })),
         });

@@ -10,6 +10,7 @@ import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/entities/notification.entity';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
 import { PayosService } from './payos.service';
+import { maskPayosRaw, parsePayosProof, PayosReceiver, statusMatches } from './payos-proof.util';
 
 const PLAN_TYPE = 'monthly';
 const PLAN_DURATION_DAYS = 30;
@@ -26,6 +27,8 @@ export class SubscriptionService {
   private readonly logger = new Logger(SubscriptionService.name);
   private readonly price: number;
   private readonly allowDirectPremium: boolean;
+  /** Tài khoản nhận tiền hiển thị trên trang admin (khai trong .env, không ghi cứng trong code). */
+  private readonly receiver: PayosReceiver;
 
   constructor(
     @InjectRepository(Subscription)
@@ -41,6 +44,100 @@ export class SubscriptionService {
     this.price = Number(config.get<string>('MONTHLY_PLAN_PRICE')) || 99000;
     // Mặc định TẮT: bật lên thì ai đăng nhập cũng tự có Premium không cần trả tiền (chỉ dùng khi demo/test).
     this.allowDirectPremium = config.get<string>('ALLOW_DIRECT_PREMIUM') === 'true';
+    this.receiver = {
+      name: config.get<string>('PAYOS_RECEIVER_NAME')?.trim() || null,
+      account: config.get<string>('PAYOS_RECEIVER_ACCOUNT')?.trim() || null,
+      bank: config.get<string>('PAYOS_RECEIVER_BANK')?.trim() || null,
+    };
+  }
+
+  /**
+   * GET /subscriptions/admin/transactions: lịch sử giao dịch kèm chứng thực người chuyển/người nhận,
+   * tách từ dữ liệu webhook PayOS đã lưu (không gọi PayOS từng dòng nên tải nhanh).
+   */
+  async adminListTransactions(query: { search?: string; status?: string; gateway?: string } = {}) {
+    // Chỉ lấy vài cột của user: join cả entity sẽ trả luôn password_hash, google_id ra API.
+    const qb = this.transactionRepo
+      .createQueryBuilder('tx')
+      .leftJoin('tx.user', 'user')
+      .addSelect(['user.user_id', 'user.full_name', 'user.email'])
+      .orderBy('tx.created_at', 'DESC');
+    // Giá trị lạ cho cột enum làm Postgres báo lỗi 500: chỉ lọc khi đúng giá trị enum.
+    const statuses = Object.values(PaymentTransactionStatus) as string[];
+    const gateways = Object.values(PaymentGateway) as string[];
+    if (query.status && statuses.includes(query.status)) qb.andWhere('tx.status = :status', { status: query.status });
+    if (query.gateway && gateways.includes(query.gateway)) qb.andWhere('tx.gateway = :gateway', { gateway: query.gateway });
+    if (query.search?.trim()) {
+      qb.andWhere(
+        '(user.email ILIKE :search OR user.full_name ILIKE :search OR tx.gateway_txn_ref ILIKE :search OR tx.gateway_transaction_no ILIKE :search)',
+        { search: `%${query.search.trim()}%` },
+      );
+    }
+    const rows = await qb.take(500).getMany();
+    // Không trả raw_response: trong đó có số tài khoản người chuyển chưa che.
+    return rows.map((tx) => ({
+      transaction_id: tx.transaction_id,
+      user_id: tx.user_id,
+      user: tx.user ? { user_id: tx.user.user_id, full_name: tx.user.full_name, email: tx.user.email } : null,
+      amount: tx.amount,
+      gateway: tx.gateway,
+      gateway_txn_ref: tx.gateway_txn_ref,
+      gateway_transaction_no: tx.gateway_transaction_no,
+      status: tx.status,
+      created_at: tx.created_at,
+      paid_at: tx.paid_at,
+      proof: parsePayosProof(tx.raw_response, this.receiver),
+    }));
+  }
+
+  /**
+   * GET /subscriptions/admin/transactions/:orderCode/proof: tra trực tiếp API PayOS (bên thứ ba) để đối soát
+   * một giao dịch với dữ liệu trong DB. Chỉ đọc, không đổi trạng thái giao dịch hay Premium.
+   */
+  async adminPayosProof(orderCode: string) {
+    if (!/^\d{1,15}$/.test(orderCode)) {
+      throw new BadRequestException({ code: ErrorCode.VALIDATION_FAILED, message: 'Mã đơn PayOS phải là số' });
+    }
+    const tx = await this.transactionRepo
+      .createQueryBuilder('tx')
+      .leftJoin('tx.user', 'user')
+      .addSelect(['user.user_id', 'user.full_name', 'user.email'])
+      .where('tx.gateway_txn_ref = :ref', { ref: orderCode })
+      .getOne();
+    if (!tx) {
+      throw new NotFoundException({
+        code: ErrorCode.RESOURCE_NOT_FOUND,
+        message: `Không có giao dịch #${orderCode} trong hệ thống`,
+      });
+    }
+
+    this.payos.assertConfigured();
+    const info = await this.payos.getPaymentInformation(Number(orderCode));
+    const proof = info ? parsePayosProof(info, this.receiver) : null;
+
+    return {
+      order_code: orderCode,
+      checked_at: new Date(),
+      found_on_payos: !!info,
+      message: info ? 'Đã đối soát trực tiếp với PayOS' : 'PayOS không trả thông tin cho mã đơn này',
+      db: {
+        transaction_id: tx.transaction_id,
+        status: tx.status,
+        amount: tx.amount,
+        created_at: tx.created_at,
+        paid_at: tx.paid_at,
+        user: tx.user ? { user_id: tx.user.user_id, full_name: tx.user.full_name, email: tx.user.email } : null,
+      },
+      proof,
+      consistency: proof
+        ? {
+            status_matches: statusMatches(tx.status, proof.payosStatus),
+            amount_matches: tx.status === PaymentTransactionStatus.SUCCESS ? proof.amountPaid === tx.amount : null,
+          }
+        : null,
+      // JSON gốc PayOS trả về (đã che số tài khoản người chuyển) để chứng minh dữ liệu đến từ bên thứ ba.
+      payos_raw: info ? maskPayosRaw(info) : null,
+    };
   }
 
   /** GET /subscriptions/plans: hiện chỉ có một gói tháng. */
@@ -67,7 +164,26 @@ export class SubscriptionService {
     const user = await this.userRepo.findOne({ where: { user_id }, select: { user_id: true, role: true, premium_until: true } });
     const premium_until = user?.premium_until ?? null;
     const isPremium = user?.role === 'admin' || (!!premium_until && premium_until.getTime() > Date.now());
-    return { isPremium, premium_until };
+
+    let start_date: string | null = null;
+    let end_date: string | null = null;
+
+    if (isPremium) {
+      const sub = await this.subscriptionRepo.findOne({
+        where: { user_id, status: SubscriptionStatus.ACTIVE },
+        order: { subscription_id: 'DESC' },
+      });
+      if (sub) {
+        start_date = typeof sub.start_date === 'string' ? sub.start_date : (sub.start_date ? new Date(sub.start_date).toISOString() : null);
+        end_date = typeof sub.end_date === 'string' ? sub.end_date : (sub.end_date ? new Date(sub.end_date).toISOString() : null);
+      } else if (premium_until) {
+        end_date = premium_until.toISOString();
+        const derivedStart = new Date(premium_until.getTime() - PLAN_DURATION_DAYS * 86_400_000);
+        start_date = derivedStart.toISOString();
+      }
+    }
+
+    return { isPremium, premium_until, start_date, end_date };
   }
 
   /**

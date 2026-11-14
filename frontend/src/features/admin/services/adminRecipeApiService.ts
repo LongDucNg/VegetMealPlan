@@ -141,7 +141,7 @@ export const adminRecipeApiService = {
   /**
    * Xuất danh sách công thức ra định dạng Excel (.xlsx) chuẩn 100%
    */
-  exportRecipesToExcel(recipes: any[], filenamePrefix = "Cong_Thuc_Mon_Chay"): string {
+  exportRecipesToExcel(recipes: any[], filenamePrefix = "Cong_Thuc_Mon_Chay", selectedCategory?: string): string {
     if (typeof window === "undefined" || !recipes || recipes.length === 0) {
       throw new Error("Không có công thức nào để xuất ra file Excel.");
     }
@@ -173,60 +173,60 @@ export const adminRecipeApiService = {
       const ingList = r.ingredients || [];
       const ingText = Array.isArray(ingList)
         ? ingList
-            .map((ing: any) => {
-              if (typeof ing === "string") return ing;
-              const name = ing.name || ing.ingredient_name || ing.ingredient?.ingredient_name || "Nguyên liệu";
-              const qty = ing.quantity ?? 1;
-              const unit = ing.unit ?? "g";
-              const opt = ing.is_optional ? " (tuỳ chọn)" : "";
-              return `${name} (${qty}${unit}${opt})`;
-            })
-            .join(", ")
+          .map((ing: any) => {
+            if (typeof ing === "string") return ing;
+            const name = ing.name || ing.ingredient_name || ing.ingredient?.ingredient_name || "Nguyên liệu";
+            const qty = ing.quantity ?? 1;
+            const unit = ing.unit ?? "g";
+            const opt = ing.is_optional ? " (tuỳ chọn)" : "";
+            return `${name} (${qty}${unit}${opt})`;
+          })
+          .join(", ")
         : String(ingList);
 
       const instructions =
         r.instructions ||
         (Array.isArray(r.steps) ? r.steps.join("\n") : "");
 
-      // Lấy tất cả các danh mục có trong cơ sở dữ liệu liên quan đến công thức
-      const categoryNames: string[] = [];
-      const seenCats = new Set<string>();
-      const addCategoryName = (name: any) => {
-        if (!name || typeof name !== "string") return;
-        const trimmed = name.trim();
-        if (!trimmed) return;
-        if (trimmed.includes(",")) {
-          trimmed.split(",").forEach(addCategoryName);
-          return;
-        }
-        const lower = trimmed.toLowerCase();
-        if (!seenCats.has(lower)) {
-          seenCats.add(lower);
-          categoryNames.push(trimmed);
-        }
-      };
+      // Xác định danh mục chuẩn (1 trong 10 danh mục như dropdown)
+      const STANDARD_CATEGORIES = [
+        "Mì, Bún & Phở",
+        "Cơm, Xôi & Cháo",
+        "Bánh, Bánh bột & Ăn vặt",
+        "Tráng miệng & Đồ uống",
+        "Món kho & Rim",
+        "Xào & Chiên",
+        "Luộc & Hấp",
+        "Cuốn, Gỏi & Sa lát",
+        "Canh & Súp",
+      ];
 
-      if (Array.isArray(r.categories)) {
-        for (const c of r.categories) {
-          if (typeof c === "string") addCategoryName(c);
-          else if (c && typeof c === "object") addCategoryName(c.category_name || c.name || c.title);
+      let categoryCell = "Khác";
+      if (selectedCategory && selectedCategory !== "all") {
+        categoryCell = selectedCategory;
+      } else {
+        const rawCats: string[] = [];
+        if (r.category) rawCats.push(typeof r.category === "string" ? r.category : r.category?.category_name);
+        if (Array.isArray(r.categories)) {
+          for (const c of r.categories) {
+            rawCats.push(typeof c === "string" ? c : c?.category_name || c?.name);
+          }
         }
-      } else if (typeof r.categories === "string") {
-        addCategoryName(r.categories);
+        if (Array.isArray(r.recipeCategories)) {
+          for (const rc of r.recipeCategories) {
+            rawCats.push(rc.category?.category_name || rc.category_name);
+          }
+        }
+
+        const matched = STANDARD_CATEGORIES.find((sc) =>
+          rawCats.some((rc) => {
+            if (!rc) return false;
+            const rNorm = rc.trim().toLowerCase();
+            return rNorm === sc.toLowerCase() || rNorm.includes(sc.toLowerCase());
+          })
+        );
+        categoryCell = matched || "Khác";
       }
-
-      if (Array.isArray(r.recipeCategories)) {
-        for (const rc of r.recipeCategories) {
-          addCategoryName(rc.category?.category_name || rc.category?.name || rc.category_name);
-        }
-      }
-
-      if (categoryNames.length === 0) {
-        const raw = typeof r.category === "string" ? r.category : r.category?.category_name;
-        if (raw) addCategoryName(raw);
-      }
-
-      const categoryCell = categoryNames.length > 0 ? categoryNames.join(", ") : "Khác";
 
       return [
         !isNaN(numId) ? numId : r.id,

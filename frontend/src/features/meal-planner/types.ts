@@ -53,6 +53,7 @@ export interface CalendarDayMealPlan extends DayMealPlan {
   year: number;
   dateKey: string; // "2026-09-01"
   isCurrentMonth: boolean;
+  isOutOfSubscription?: boolean;
 }
 
 export interface MonthlyMealPlan {
@@ -67,6 +68,12 @@ export interface MonthlyMealPlan {
   budgetLimit?: number;
   ai_cookability_notes?: string;
   ingredient_summary?: MealIngredientSummaryItem[];
+  subscriptionPeriod?: {
+    startDateKey: string;
+    endDateKey: string;
+    totalDays: number;
+    daysRemaining?: number;
+  };
 }
 
 export interface GenerationPlanOptions {
@@ -74,6 +81,7 @@ export interface GenerationPlanOptions {
   isSomeoneElse?: boolean;
   targetProfile?: UserProfile;
   budgetLimit?: number; // e.g. 500,000 VND
+  targetCalories?: number; // Calo mục tiêu mỗi ngày (nếu đã chốt từ hồ sơ)
   selectedMonth?: number; // 0-11
   selectedYear?: number;
   favoriteRecipeIds?: string[];

@@ -106,6 +106,12 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
     });
   }
 
+  // Luôn chuẩn hóa: Calo món ăn = Tổng calo từ tất cả các nguyên liệu trong công thức
+  const totalIngredientsKcal = ingredients.reduce((sum, ing) => sum + (Number(ing.calories) || 0), 0);
+  const finalCalories = totalIngredientsKcal > 0
+    ? Math.round(totalIngredientsKcal * 100) / 100
+    : (rawCalories && rawCalories > 0 ? Math.round(rawCalories * 100) / 100 : 350);
+
   // Instructions
   let instructions: string[] = [];
   if (Array.isArray(r.instructions)) {
@@ -117,48 +123,61 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
     instructions = ["Chuẩn bị nguyên liệu", "Sơ chế và chế biến theo công thức", "Trình bày ra đĩa và thưởng thức"];
   }
 
-  // Category: Thu thập đầy đủ các danh mục có trong cơ sở dữ liệu liên quan đến công thức
-  const categoriesList: string[] = [];
-  const seenCat = new Set<string>();
-  const addCat = (name: any) => {
-    if (!name || typeof name !== "string") return;
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    if (trimmed.includes(",")) {
-      trimmed.split(",").forEach(addCat);
-      return;
-    }
-    const lower = trimmed.toLowerCase();
-    if (!seenCat.has(lower)) {
-      seenCat.add(lower);
-      categoriesList.push(trimmed);
+  // 10 danh mục chuẩn quản trị từ cơ sở dữ liệu (phù hợp 100% với trang Quản trị danh mục)
+  const STANDARD_CATEGORIES = [
+    "Mì, Bún & Phở",
+    "Cơm, Xôi & Cháo",
+    "Bánh, Bánh bột & Ăn vặt",
+    "Tráng miệng & Đồ uống",
+    "Món kho & Rim",
+    "Xào & Chiên",
+    "Luộc & Hấp",
+    "Cuốn, Gỏi & Sa lát",
+    "Canh & Súp",
+    "Khác",
+  ];
+
+  // Thu thập chuỗi danh mục từ mọi nguồn (r.recipeCategories, r.categories, r.category)
+  const rawCategoryStrings: string[] = [];
+  const collectRaw = (val: any) => {
+    if (!val) return;
+    if (typeof val === "string") {
+      const trimmed = val.trim();
+      if (trimmed) rawCategoryStrings.push(trimmed);
+    } else if (Array.isArray(val)) {
+      val.forEach(collectRaw);
+    } else if (typeof val === "object") {
+      collectRaw(val.category?.category_name || val.category_name || val.name || val.title || val.category);
     }
   };
 
-  if (Array.isArray(r.categories)) {
-    for (const c of r.categories) {
-      if (typeof c === "string") addCat(c);
-      else if (c && typeof c === "object") addCat(c.category_name || c.name);
+  collectRaw(r.recipeCategories);
+  collectRaw(r.categories);
+  collectRaw(r.category);
+
+  // Khớp chính xác với các danh mục chuẩn
+  const matchedCategories = new Set<string>();
+  for (const raw of rawCategoryStrings) {
+    // 1. Khớp chính xác với 1 trong các danh mục chuẩn (không bao giờ split dấu phẩy làm hỏng tên "Mì, Bún & Phở", "Cơm, Xôi & Cháo"...)
+    const exact = STANDARD_CATEGORIES.find((sc) => sc.toLowerCase() === raw.toLowerCase());
+    if (exact) {
+      matchedCategories.add(exact);
+      continue;
     }
-  } else if (typeof r.categories === "string") {
-    addCat(r.categories);
-  }
-
-  if (Array.isArray(r.recipeCategories)) {
-    for (const rc of r.recipeCategories) {
-      addCat(rc.category?.category_name || rc.category?.name || rc.category_name);
+    // 2. Nếu chuỗi dạng ghép (ví dụ: "Món đủ bữa, Mì, Bún & Phở"), kiểm tra có chứa danh mục chuẩn không
+    const lower = raw.toLowerCase();
+    for (const sc of STANDARD_CATEGORIES) {
+      if (sc === "Khác") continue;
+      if (lower.includes(sc.toLowerCase())) {
+        matchedCategories.add(sc);
+      }
     }
   }
 
-  const rawCat = typeof r.category === "string" ? r.category : r.category?.category_name;
-  if (rawCat) {
-    addCat(rawCat);
-  }
-
-  const category =
-    categoriesList.length > 0
-      ? categoriesList[0]
-      : "Khác";
+  // "Khác" chỉ dùng khi không khớp bất kỳ danh mục cụ thể nào trong 9 danh mục trên
+  const nonOtherMatches = Array.from(matchedCategories).filter((c) => c !== "Khác");
+  const finalCategories = nonOtherMatches.length > 0 ? nonOtherMatches : ["Khác"];
+  const category = finalCategories[0];
 
   // Status
   const status: RecipeStatus = (
@@ -175,8 +194,8 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
     diffRaw === "easy" || diffRaw === "dễ" || diffRaw === "de"
       ? "Easy"
       : diffRaw === "hard" || diffRaw === "khó" || diffRaw === "kho" || diffRaw === "advanced"
-      ? "Advanced"
-      : "Medium";
+        ? "Advanced"
+        : "Medium";
 
   return {
     id,
@@ -188,13 +207,13 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
       r.image ||
       "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop&q=80",
     category,
-    categories: categoriesList.length > 0 ? categoriesList : [category],
+    categories: finalCategories,
     mealType,
     vegetarianType,
     prepTime,
     cookTime,
     serving,
-    calories,
+    calories: finalCalories,
     protein,
     carbs,
     fat,

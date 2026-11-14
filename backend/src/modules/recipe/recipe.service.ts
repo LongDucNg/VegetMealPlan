@@ -478,19 +478,39 @@ export class RecipeService {
       const riMap = new Map<number, any[]>();
       for (const ri of recipeIngredients) {
         const list = riMap.get(ri.recipe_id) || [];
+        const calPer100 = Number(ri.ingredient?.calories_per_100g ?? 0);
+        const ratio = Number(ri.quantity ?? 0) / 100;
+        const cal = Math.round(calPer100 * ratio * 100) / 100;
         list.push({
           ingredient_id: ri.ingredient_id,
           ingredient_name: ri.ingredient?.ingredient_name ?? '',
           quantity: ri.quantity,
           unit: ri.unit,
           is_optional: ri.is_optional,
+          calories_per_100g: ri.ingredient?.calories_per_100g ?? null,
+          calories: cal,
         });
         riMap.set(ri.recipe_id, list);
       }
 
       for (const recipe of recipes as any[]) {
-        recipe.nutrition = nutritionMap.get(recipe.recipe_id) || null;
-        recipe.recipe_ingredients = riMap.get(recipe.recipe_id) || [];
+        const list = riMap.get(recipe.recipe_id) || [];
+        const nut = nutritionMap.get(recipe.recipe_id) || null;
+        const totalIngKcal = list.reduce((sum: number, item: any) => {
+          if (item.is_optional) return sum;
+          const calPer100 = Number(item.calories_per_100g ?? 0);
+          return sum + (calPer100 * Number(item.quantity ?? 0)) / 100;
+        }, 0);
+
+        if (totalIngKcal > 0) {
+          const finalCal = Math.round(totalIngKcal * 100) / 100;
+          recipe.calories = finalCal;
+          if (nut) {
+            nut.calories = finalCal;
+          }
+        }
+        recipe.nutrition = nut;
+        recipe.recipe_ingredients = list;
         recipe.ingredient_count = recipe.recipe_ingredients.length;
       }
     }
@@ -670,6 +690,7 @@ export class RecipeService {
 
     const categoriesByRecipe = new Map<number, string[]>();
     for (const row of categoryRows) {
+      if (row.category?.category_type === 'food_type') continue;
       const name = row.category?.category_name;
       if (!name) continue;
       const list = categoriesByRecipe.get(row.recipe_id) ?? [];
@@ -803,6 +824,20 @@ export class RecipeService {
     const nutrition = await this.nutritionRepo.findOne({
       where: { recipe_id },
     });
+
+    const totalIngKcal = (ingredients || []).reduce((sum, item) => {
+      if (item.is_optional) return sum;
+      const calPer100 = Number(item.ingredient?.calories_per_100g ?? 0);
+      return sum + (calPer100 * Number(item.quantity ?? 0)) / 100;
+    }, 0);
+
+    if (totalIngKcal > 0) {
+      const finalCal = Math.round(totalIngKcal * 100) / 100;
+      (recipe as any).calories = finalCal;
+      if (nutrition) {
+        nutrition.calories = finalCal;
+      }
+    }
 
     return {
       ...recipe,
@@ -2371,11 +2406,19 @@ export class RecipeService {
         const catName = rc.category?.category_name;
         if (!catName) continue;
         const list = categoriesByRecipe.get(rc.recipe_id) ?? [];
-        list.push(catName);
+        if (rc.category?.category_type === 'recipe_type') {
+          list.unshift(catName);
+        } else {
+          list.push(catName);
+        }
         categoriesByRecipe.set(rc.recipe_id, list);
 
         const rcs = rcByRecipe.get(rc.recipe_id) ?? [];
-        rcs.push(rc);
+        if (rc.category?.category_type === 'recipe_type') {
+          rcs.unshift(rc);
+        } else {
+          rcs.push(rc);
+        }
         rcByRecipe.set(rc.recipe_id, rcs);
       }
 
@@ -2387,13 +2430,29 @@ export class RecipeService {
       }
 
       for (const recipe of recipes as any[]) {
-        recipe.nutrition = nutritionMap.get(recipe.recipe_id) || null;
+        const nut = nutritionMap.get(recipe.recipe_id) || null;
         const cats = categoriesByRecipe.get(recipe.recipe_id) || [];
         recipe.category = cats.length > 0 ? cats[0] : null;
         recipe.categories = cats;
         recipe.recipeCategories = rcByRecipe.get(recipe.recipe_id) || [];
-        recipe.recipeIngredients = riByRecipe.get(recipe.recipe_id) || [];
-        recipe.ingredients = riByRecipe.get(recipe.recipe_id) || [];
+        const ings = riByRecipe.get(recipe.recipe_id) || [];
+        recipe.recipeIngredients = ings;
+        recipe.ingredients = ings;
+
+        const totalIngKcal = ings.reduce((sum: number, item: any) => {
+          if (item.is_optional) return sum;
+          const calPer100 = Number(item.ingredient?.calories_per_100g ?? 0);
+          return sum + (calPer100 * Number(item.quantity ?? 0)) / 100;
+        }, 0);
+
+        if (totalIngKcal > 0) {
+          const finalCal = Math.round(totalIngKcal * 100) / 100;
+          recipe.calories = finalCal;
+          if (nut) {
+            nut.calories = finalCal;
+          }
+        }
+        recipe.nutrition = nut;
       }
     }
 
@@ -2442,6 +2501,20 @@ export class RecipeService {
     const categories = rcRecords
       .map((rc) => rc.category?.category_name)
       .filter(Boolean);
+
+    const totalIngKcal = (ingredients || []).reduce((sum, item) => {
+      if (item.is_optional) return sum;
+      const calPer100 = Number(item.ingredient?.calories_per_100g ?? 0);
+      return sum + (calPer100 * Number(item.quantity ?? 0)) / 100;
+    }, 0);
+
+    if (totalIngKcal > 0) {
+      const finalCal = Math.round(totalIngKcal * 100) / 100;
+      (recipe as any).calories = finalCal;
+      if (nutrition) {
+        nutrition.calories = finalCal;
+      }
+    }
 
     return {
       ...recipe,
