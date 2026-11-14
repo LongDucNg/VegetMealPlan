@@ -36,16 +36,16 @@ interface AdminRecipeModalProps {
 }
 
 const CATEGORY_PRESETS = [
-  "Bữa sáng & Cháo",
-  "Sinh tố & Cơm tô",
-  "Món xào & Giòn rụm",
-  "Bún, Mì & Phở",
-  "Canh, Súp & Lẩu",
-  "Gỏi cuốn & Salad",
-  "Cà ri & Món kho",
-  "Mâm cơm chay thập cẩm",
-  "Ăn vặt & Bánh ngọt",
-  "Tráng miệng & Thức uống",
+  "Mì, Bún & Phở",
+  "Cơm, Xôi & Cháo",
+  "Bánh, Bánh bột & Ăn vặt",
+  "Tráng miệng & Đồ uống",
+  "Món kho & Rim",
+  "Xào & Chiên",
+  "Luộc & Hấp",
+  "Cuốn, Gỏi & Sa lát",
+  "Canh & Súp",
+  "Khác",
 ];
 
 const SAMPLE_IMAGES = [
@@ -795,25 +795,6 @@ function AdminRecipeForm({
                     v = v.replace(/^0+/, "");
                   }
                   setCookTime(v === "" ? 0 : Number(v));
-                }}
-                className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50/50 px-3 text-sm focus:bg-white outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-stone-600 mb-1">Khẩu phần (người)</label>
-              <input
-                type="number"
-                min="0"
-                value={serving === 0 ? "" : serving}
-                placeholder="0"
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => {
-                  let v = e.target.value;
-                  if (v.length > 1 && v.startsWith("0") && !v.startsWith("0.")) {
-                    v = v.replace(/^0+/, "");
-                  }
-                  setServing(v === "" ? 0 : Number(v));
                 }}
                 className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50/50 px-3 text-sm focus:bg-white outline-none"
               />
