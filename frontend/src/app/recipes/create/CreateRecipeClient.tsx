@@ -193,7 +193,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
   const [difficulty, setDifficulty] = useState<string>("easy");
   const [prepTime, setPrepTime] = useState<number | "">("");
   const [cookTime, setCookTime] = useState<number | "">("");
-  const [servings, setServings] = useState<number | "">("");
+  const [servings, setServings] = useState<number>(1);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
 
   // Category Dropdown State (thay vì show ra 1 đống)
@@ -379,20 +379,19 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
       fiber += ratio * (Number(item.fiber_per_100g) || 0);
     }
 
-    const numServings = Number(servings) > 0 ? Number(servings) : 1;
     return {
       totalCalories: Math.round(calories * 100) / 100,
-      caloriesPerServing: Math.round((calories / numServings) * 100) / 100,
+      caloriesPerServing: Math.round(calories * 100) / 100,
       totalProtein: Math.round(protein * 10) / 10,
-      proteinPerServing: Math.round((protein / numServings) * 10) / 10,
+      proteinPerServing: Math.round(protein * 10) / 10,
       totalCarbs: Math.round(carbs * 10) / 10,
-      carbsPerServing: Math.round((carbs / numServings) * 10) / 10,
+      carbsPerServing: Math.round(carbs * 10) / 10,
       totalFat: Math.round(fat * 10) / 10,
-      fatPerServing: Math.round((fat / numServings) * 10) / 10,
+      fatPerServing: Math.round(fat * 10) / 10,
       totalFiber: Math.round(fiber * 10) / 10,
-      fiberPerServing: Math.round((fiber / numServings) * 10) / 10,
+      fiberPerServing: Math.round(fiber * 10) / 10,
     };
-  }, [ingredients, servings]);
+  }, [ingredients]);
 
   // Handle Ingredient Selection from DB suggestions
   const handleSelectIngredient = (index: number, selected: any) => {
@@ -502,7 +501,7 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
     setVideoUrl("");
     setPrepTime("");
     setCookTime("");
-    setServings("");
+    setServings(1);
     setSelectedCategoryIds([]);
     setIngredients([
       {
@@ -1040,8 +1039,8 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                 </div>
               </div>
 
-              {/* Time, Servings & Difficulty - Unfilled numeric values default to 0 */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+              {/* Time & Difficulty */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-stone-500 uppercase">
                     Chuẩn bị (phút)
@@ -1078,27 +1077,6 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                         v = v.replace(/^0+/, "");
                       }
                       setCookTime(v === "" ? "" : Math.max(0, Number(v)));
-                    }}
-                    placeholder="0"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:border-emerald-600 font-bold text-stone-800 text-center"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-stone-500 uppercase">
-                    Khẩu phần (người)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={servings === 0 ? "" : servings}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => {
-                      let v = e.target.value;
-                      if (v.length > 1 && v.startsWith("0") && !v.startsWith("0.")) {
-                        v = v.replace(/^0+/, "");
-                      }
-                      setServings(v === "" ? "" : Math.max(0, Number(v)));
                     }}
                     placeholder="0"
                     className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:border-emerald-600 font-bold text-stone-800 text-center"
@@ -1637,14 +1615,9 @@ export function CreateRecipeClient({ isAdminMode: propAdminMode }: CreateRecipeC
                       <span>{(Number(prepTime) || 0) + (Number(cookTime) || 0)} phút</span>
                     </div>
 
-                    <div className="flex items-center gap-1 text-stone-500">
-                      <Users className="w-3.5 h-3.5 text-violet-600" />
-                      <span>{Number(servings) || 0} người</span>
-                    </div>
-
                     <div className="flex items-center gap-1 font-bold text-amber-700">
                       <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                      <span>~{nutrition.caloriesPerServing || 0} kcal</span>
+                      <span>~{nutrition.totalCalories || 0} kcal</span>
                     </div>
 
                     <div className="font-bold text-emerald-800">

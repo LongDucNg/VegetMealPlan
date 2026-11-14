@@ -230,6 +230,13 @@ export const subscriptionService = {
    * Trả về { payment_url, qr_code, order_code, gateway_txn_ref, amount, expires_in_minutes }
    */
   async createCheckout(): Promise<CheckoutResponse> {
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem("prePaymentUrl", window.location.href);
+      } catch (e) {
+        // ignore storage errors
+      }
+    }
     return apiClient.post<CheckoutResponse>("/subscriptions/checkout");
   },
 

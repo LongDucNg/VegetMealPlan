@@ -995,8 +995,6 @@ function ProfileContent() {
                               <span className="text-amber-700 font-bold">~{Math.round(Number(recipe.calories) * 100) / 100} kcal</span>
                               <span>·</span>
                               <span>{recipe.protein}g đạm</span>
-                              <span>·</span>
-                              <span>{recipe.serving} khẩu phần</span>
                             </div>
                           </div>
 

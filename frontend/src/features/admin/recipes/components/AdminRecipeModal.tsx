@@ -801,25 +801,6 @@ function AdminRecipeForm({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-stone-600 mb-1">Khẩu phần (người)</label>
-              <input
-                type="number"
-                min="0"
-                value={serving === 0 ? "" : serving}
-                placeholder="0"
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => {
-                  let v = e.target.value;
-                  if (v.length > 1 && v.startsWith("0") && !v.startsWith("0.")) {
-                    v = v.replace(/^0+/, "");
-                  }
-                  setServing(v === "" ? 0 : Number(v));
-                }}
-                className="w-full h-10 rounded-xl border border-stone-200 bg-stone-50/50 px-3 text-sm focus:bg-white outline-none"
-              />
-            </div>
-
-            <div>
               <label className="block text-xs font-bold text-amber-800 mb-1 flex items-center gap-1">
                 <Flame className="w-3 h-3 text-amber-600" />
                 Calo (kcal)
