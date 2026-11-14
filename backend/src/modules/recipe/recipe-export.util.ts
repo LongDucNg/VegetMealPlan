@@ -94,7 +94,7 @@ export function buildCsv<T>(rows: T[], columns: CsvColumn<T>[]): string {
 export function deriveCategoryFromTitle(title?: string, mealType?: string): string {
   const t = (title ?? '').toLowerCase();
   if (
-    t.includes('mì') ||
+    (t.includes('mì') && !t.includes('mì căn') && !t.includes('bánh mì') && !t.includes('khoai mì')) ||
     t.includes('bún') ||
     t.includes('phở') ||
     t.includes('hủ tiếu') ||
@@ -150,7 +150,7 @@ export function deriveCategoryFromTitle(title?: string, mealType?: string): stri
   ) {
     return 'Tráng miệng & Đồ uống';
   }
-  return 'Món đủ bữa';
+  return 'Khác';
 }
 
 /**
