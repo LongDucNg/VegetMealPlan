@@ -4,9 +4,12 @@ import { ForumService } from './forum.service';
 import { AdminModerationQueryDto } from './dto/admin-moderation-query.dto';
 import { ModeratePostDto } from './dto/moderate-post.dto';
 import { AuthUser, CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 
 @ApiTags('admin-moderation')
 @ApiBearerAuth()
+@Roles(UserRole.ADMIN)
 @Controller('admin/moderation')
 export class AdminModerationController {
   constructor(private readonly service: ForumService) {}

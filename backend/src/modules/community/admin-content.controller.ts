@@ -4,9 +4,12 @@ import { ForumService } from './forum.service';
 import { AdminContentQueryDto } from './dto/admin-content-query.dto';
 import { UpdateContentStatusDto } from './dto/update-content-status.dto';
 import { AuthUser, CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 
 @ApiTags('admin-content')
 @ApiBearerAuth()
+@Roles(UserRole.ADMIN)
 @Controller('admin/content')
 export class AdminContentController {
   constructor(private readonly service: ForumService) {}
