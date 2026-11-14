@@ -116,6 +116,138 @@ export const UNACCENTED_NON_VEG_WORDS = [
   'bach tuoc', 'muc ong', 'suon non'
 ];
 
+export const STOP_WORDS = new Set([
+  'và', 'va', 'hoặc', 'hoac', 'hay', 'nhưng', 'nhung', 'còn', 'con',
+  'với', 'voi', 'cùng', 'cung', 'chứ', 'chu', 'kèm', 'kem',
+  'ăn', 'an', 'ngày', 'ngay', 'tháng', 'thang', 'người', 'nguoi',
+  'thay', 'thay vì', 'thay cho',
+]);
+
+export const CANONICAL_VIOLATION_MAP: Record<string, string> = {
+  thit: 'thịt',
+  'thit heo': 'thịt heo',
+  'thit bo': 'thịt bò',
+  'thit ga': 'thịt gà',
+  'thit vit': 'thịt vịt',
+  'thit cuu': 'thịt cừu',
+  'thit de': 'thịt dê',
+  'thit lon': 'thịt lợn',
+  'heo quay': 'heo quay',
+  'thit quay': 'thịt quay',
+  'thit kho': 'thịt kho',
+  'thit nuong': 'thịt nướng',
+  'ca kho': 'cá kho',
+  'ca chien': 'cá chiên',
+  'ca hap': 'cá hấp',
+  'ca hoi': 'cá hồi',
+  'ga ran': 'gà rán',
+  'ga luoc': 'gà luộc',
+  'vit quay': 'vịt quay',
+  'xuc xich': 'xúc xích',
+  'lap xuong': 'lạp xưởng',
+  'dam bong': 'dăm bông',
+  'ba chi': 'ba chỉ',
+  'ba roi': 'ba rọi',
+  'bach tuoc': 'bạch tuộc',
+  'muc ong': 'mực ống',
+  'suon non': 'sườn non',
+  heo: 'heo',
+  lon: 'lợn',
+  bo: 'bò',
+  ga: 'gà',
+  vit: 'vịt',
+  ca: 'cá',
+  tom: 'tôm',
+  cua: 'cua',
+  ghe: 'ghẹ',
+  muc: 'mực',
+  bachtuoc: 'bạch tuộc',
+  oc: 'ốc',
+  so: 'sò',
+  hau: 'hàu',
+  ngheu: 'nghêu',
+  ngao: 'ngao',
+  hen: 'hến',
+  suon: 'sườn',
+  xuong: 'xương',
+  mam: 'mắm',
+  chalua: 'chả lụa',
+  giothu: 'giò thủ',
+  gioheo: 'giò heo',
+  changio: 'chân giò',
+  lapxuong: 'lạp xưởng',
+  dambong: 'dăm bông',
+  xucxich: 'xúc xích',
+  bacon: 'bacon',
+  salami: 'salami',
+  luon: 'lươn',
+  ech: 'ếch',
+  bachi: 'ba chỉ',
+  baroi: 'ba rọi',
+};
+
+/**
+ * Kiểm tra một vị trí xuất hiện của từ khóa mặn có nằm trong ngữ cảnh món chay/giả mặn hay không.
+ */
+export function isMatchInVegContext(text: string, matchIndex: number, matchLen: number): boolean {
+  // 1. Kiểm tra hậu tố "chay" hoặc "thực vật"
+  const afterText = text.slice(matchIndex + matchLen);
+  const postMatch = afterText.match(/^([^,;.:!?\n\r()[\]{}–—]*?)\s+(?:chay|thực\s+vật)(?![^\s,;.:!?\n\r()[\]{}–—])/iu);
+  if (postMatch) {
+    const middle = postMatch[1].trim();
+    if (!middle) return true; // Trực tiếp: "thịt chay", "đạm thực vật"
+    const words = middle.split(/\s+/).filter(Boolean);
+    if (words.length <= 4) {
+      const hasStopWord = words.some((w) => STOP_WORDS.has(w.toLowerCase()));
+      if (!hasStopWord) return true; // Cụm món ăn: "thịt kho tàu chay"
+    }
+  }
+
+  // 2. Kiểm tra tiền tố món chay hoặc ngữ cảnh thay thế / phủ định / so sánh chay
+  const beforeText = text.slice(0, matchIndex);
+  const preMatch = beforeText.match(
+    /(?:món\s+chay|đồ\s+chay|thực\s+phẩm\s+chay|giả\s+mặn|giả|thay\s+thế\s+(?:cho\s+)?|thay\s+cho|thay\s+vì\s+(?:dùng\s+)?|thay\s+bằng|thay|không\s+(?:dùng|sử\s+dụng|cần|chứa|có|ăn)|tránh|kiêng|giống\s+(?:như\s+)?|tương\s+tự\s+(?:như\s+)?|dai\s+như|ngọt\s+như|vị\s+như|kết\s+cấu\s+như|mon\s+chay|do\s+chay|thuc\s+pham\s+chay|gia\s+man|gia|thay\s+the(?:\s+cho)?|thay\s+vi|thay\s+bang|khong\s+(?:dung|su\s+dung|can|chua|co|an)|tranh|kieng|giong(?:\s+nhu)?|tuong\s+tu(?:\s+nhu)?|dai\s+nhu|ngot\s+nhu)([^,;.:!?\n\r()[\]{}–—]*)$/iu,
+  );
+  if (preMatch) {
+    const middle = preMatch[1].trim();
+    if (!middle) return true;
+    const words = middle.split(/\s+/).filter(Boolean);
+    if (words.length <= 3) {
+      const hasStopWord = words.some((w) => STOP_WORDS.has(w.toLowerCase()));
+      if (!hasStopWord) return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Khử trùng lặp, chuẩn hóa từ không dấu về có dấu, và loại bỏ từ con/từ thừa
+ */
+export function cleanViolations(violations: Iterable<string>): string[] {
+  const canonical = new Set<string>();
+  for (const v of violations) {
+    const raw = v.toLowerCase().trim().replace(/^#/, '');
+    const mapped = CANONICAL_VIOLATION_MAP[raw] || v;
+    canonical.add(mapped);
+  }
+
+  const sorted = Array.from(canonical).sort((a, b) => a.length - b.length);
+  const result: string[] = [];
+
+  for (const item of sorted) {
+    const isRedundant = result.some((existing) => {
+      const regex = new RegExp(`(?<![\\p{L}\\p{N}])${existing.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\p{N}])`, 'u');
+      return regex.test(item);
+    });
+    if (!isRedundant) {
+      result.push(item);
+    }
+  }
+
+  return result;
+}
+
 export interface NonVegCheckResult {
   isClean: boolean;
   violations: string[];
@@ -266,55 +398,48 @@ export class NonVegetarianDetectorService {
 
   /**
    * Kiểm tra một chuỗi văn bản có chứa từ khóa nguyên liệu mặn hay không.
-   * Quy tắc:
+   * Hỗ trợ:
    * 1. Chuẩn hóa về Unicode NFC và chữ thường.
-   * 2. Bỏ qua các ngoại lệ (ví dụ "cá nhân").
+   * 2. Bỏ qua các ngoại lệ (ví dụ "cá nhân", "đậu gà", "bánh bò"...).
    * 3. Khớp theo nguyên từ: (?<![\p{L}\p{N}])keyword(?![\p{L}\p{N}]).
-   * 4. Từ khóa mặn mà ngay sau nó là chữ "chay" thì được qua (ví dụ "thịt chay", "cá chay", "mắm chay").
-   *    Nếu chuỗi có cả hai ("thịt chay và thịt heo") thì vẫn bị phát hiện vi phạm.
-   * 5. Trả về { isClean, violations }.
+   * 4. Từ khóa mặn mà nằm trong ngữ cảnh "chay" / "giả mặn" thì được qua:
+   *    - Hậu tố: "thịt chay", "thịt kho tàu chay", "sườn xào chua ngọt chay", "cá kho tiêu chay".
+   *    - Tiền tố: "món chay thịt kho tàu", "đồ chay sườn rim", "giả thịt heo".
+   * 5. Quét hashtag (#monchay, #thitkhotau...).
+   * 6. Quét tiếng Việt không dấu.
+   * 7. Khử trùng lặp và chuẩn hóa danh sách từ vi phạm trước khi trả về.
    */
   checkText(text: string | null | undefined): NonVegCheckResult {
     if (!text || !text.trim()) {
       return { isClean: true, violations: [] };
     }
 
+    const rawViolations = new Set<string>();
+
     // 1. Chuẩn hóa văn bản về Unicode NFC và chữ thường
     let normalized = text.normalize('NFC').toLowerCase();
 
     // 2. Tạm thời ẩn các cụm từ ngoại lệ bằng token an toàn để tránh bắt nhầm
-    const placeholderMap = new Map<string, string>();
     this.exceptions.forEach((exc, idx) => {
       const excNorm = exc.normalize('NFC').toLowerCase();
       const placeholder = `__EXCP_${idx}__`;
       if (normalized.includes(excNorm)) {
-        placeholderMap.set(placeholder, excNorm);
         normalized = normalized.split(excNorm).join(placeholder);
       }
     });
 
-    const violationsSet = new Set<string>();
-
-    // 3 & 4. Kiểm tra từng từ khóa mặn
+    // 3 & 4. Kiểm tra từng từ khóa mặn có dấu
     for (const kw of this.keywords) {
       const kwNorm = kw.normalize('NFC').toLowerCase();
       const escapedKw = kwNorm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-      // Regex tìm từ khóa khớp nguyên từ, đồng thời kiểm tra từ "chay" ngay sau nó:
-      // Group 1: từ khóa
-      // Group 2: khoảng trắng + "chay" nếu có ngay sau
-      const pattern = new RegExp(
-        `(?<![\\p{L}\\p{N}])(${escapedKw})(?![\\p{L}\\p{N}])(?:(\\s+chay)(?![\\p{L}\\p{N}]))?`,
-        'gui',
-      );
+      const pattern = new RegExp(`(?<![\\p{L}\\p{N}])(${escapedKw})(?![\\p{L}\\p{N}])`, 'gui');
 
       let match: RegExpExecArray | null;
       while ((match = pattern.exec(normalized)) !== null) {
-        const hasChayAfter = Boolean(match[2]);
-        if (!hasChayAfter) {
-          // Xuất hiện từ khóa mặn mà không đi kèm chữ "chay" ngay sau nó -> Vi phạm!
-          violationsSet.add(kw);
-          break; // Chỉ cần ghi nhận 1 lần vi phạm cho từ khóa này
+        const isVeg = isMatchInVegContext(normalized, match.index, match[0].length);
+        if (!isVeg) {
+          rawViolations.add(kw);
+          break;
         }
       }
     }
@@ -337,7 +462,7 @@ export class NonVegetarianDetectorService {
 
       for (const root of HASHTAG_NON_VEG_ROOTS) {
         if (rawTag.includes(root)) {
-          violationsSet.add(tag);
+          rawViolations.add(tag);
           break;
         }
       }
@@ -351,20 +476,20 @@ export class NonVegetarianDetectorService {
     }
 
     for (const kw of UNACCENTED_NON_VEG_WORDS) {
-      const pattern = new RegExp(
-        `(?<![\\p{L}\\p{N}])(${kw})(?![\\p{L}\\p{N}])(?:(\\s+chay)(?![\\p{L}\\p{N}]))?`,
-        'gui',
-      );
+      const escapedKw = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = new RegExp(`(?<![\\p{L}\\p{N}])(${escapedKw})(?![\\p{L}\\p{N}])`, 'gui');
+
       let match: RegExpExecArray | null;
       while ((match = pattern.exec(unaccentedText)) !== null) {
-        if (!match[2]) {
-          violationsSet.add(kw);
+        const isVeg = isMatchInVegContext(unaccentedText, match.index, match[0].length);
+        if (!isVeg) {
+          rawViolations.add(kw);
           break;
         }
       }
     }
 
-    const violations = Array.from(violationsSet);
+    const violations = cleanViolations(rawViolations);
     return {
       isClean: violations.length === 0,
       violations,
