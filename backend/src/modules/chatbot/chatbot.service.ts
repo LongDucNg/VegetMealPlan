@@ -194,6 +194,7 @@ ${recipesPrompt}`;
     const safetyCheck = this.safetyService.checkAnswer(
       answer,
       allergyIngredientNames,
+      message,
     );
 
     if (!safetyCheck.isSafe) {
@@ -214,8 +215,8 @@ ${recipesPrompt}`;
       }
 
       const safeFallback =
-        'Cau tra loi tu tro ly chua dap ung tieu chuan an toan thuc pham chay hoac danh muc di ung cua ban. ' +
-        'Vui long thu hoi lai voi cau hoi cu the hon.';
+        'Câu trả lời từ trợ lý chưa đáp ứng tiêu chuẩn an toàn thực phẩm chay hoặc danh mục dị ứng trong hồ sơ của bạn. ' +
+        'Bạn vui lòng thử đặt lại câu hỏi cụ thể hơn để tôi hỗ trợ nhé.';
 
       return mapChatResponse({
         conversation_id: 0,
