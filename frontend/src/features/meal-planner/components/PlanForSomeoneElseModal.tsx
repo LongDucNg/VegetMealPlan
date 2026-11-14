@@ -44,11 +44,12 @@ export function PlanForSomeoneElseModal({
   onResetToMyself,
   isPlanForSomeoneElse,
 }: PlanForSomeoneElseModalProps) {
-  const [name, setName] = useState(currentOtherProfile?.name || "Người thân");
-  const [age, setAge] = useState<number | string>(currentOtherProfile?.age || 28);
-  const [gender, setGender] = useState<Gender>(currentOtherProfile?.gender || "female");
-  const [weight, setWeight] = useState<number | string>(currentOtherProfile?.weight || 58);
-  const [height, setHeight] = useState<number | string>(currentOtherProfile?.height || 162);
+  // Luôn bắt đầu bằng form trắng rỗng
+  const [name, setName] = useState("");
+  const [age, setAge] = useState<number | string>("");
+  const [gender, setGender] = useState<Gender>("female");
+  const [weight, setWeight] = useState<number | string>("");
+  const [height, setHeight] = useState<number | string>("");
 
   const cleanNumberInput = (raw: string) => {
     if (!raw) return "";
@@ -56,38 +57,29 @@ export function PlanForSomeoneElseModal({
     return raw.replace(/^0+(?=\d)/, "");
   };
 
-  const [activityLevel, setActivityLevel] = useState<ActivityLevel>(
-    currentOtherProfile?.activityLevel || "moderate"
-  );
-  const [vegetarianType, setVegetarianType] = useState<VegetarianType>(
-    currentOtherProfile?.vegetarianType || "vegan"
-  );
-  const [healthGoal, setHealthGoal] = useState<HealthGoal>(
-    currentOtherProfile?.healthGoal || "maintain_weight"
-  );
-  const [allergies, setAllergies] = useState<string[]>(
-    currentOtherProfile?.allergies || []
-  );
+  const [activityLevel, setActivityLevel] = useState<ActivityLevel>("moderate");
+  const [vegetarianType, setVegetarianType] = useState<VegetarianType>("vegan");
+  const [healthGoal, setHealthGoal] = useState<HealthGoal>("maintain_weight");
+  const [allergies, setAllergies] = useState<string[]>([]);
   const [customAllergyInput, setCustomAllergyInput] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Sync state when currentOtherProfile changes or modal opens
+  // Khi bấm nút mở modal: Luôn reset về form trắng thông tin rỗng
   useEffect(() => {
     if (isOpen) {
-      if (currentOtherProfile) {
-        setName(currentOtherProfile.name || "Người thân");
-        setAge(currentOtherProfile.age || 28);
-        setGender(currentOtherProfile.gender || "female");
-        setWeight(currentOtherProfile.weight || 58);
-        setHeight(currentOtherProfile.height || 162);
-        setActivityLevel(currentOtherProfile.activityLevel || "moderate");
-        setVegetarianType(currentOtherProfile.vegetarianType || "vegan");
-        setHealthGoal(currentOtherProfile.healthGoal || "maintain_weight");
-        setAllergies(currentOtherProfile.allergies || []);
-      }
+      setName("");
+      setAge("");
+      setGender("female");
+      setWeight("");
+      setHeight("");
+      setActivityLevel("moderate");
+      setVegetarianType("vegan");
+      setHealthGoal("maintain_weight");
+      setAllergies([]);
+      setCustomAllergyInput("");
       setErrorMessage(null);
     }
-  }, [isOpen, currentOtherProfile]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -101,6 +93,10 @@ export function PlanForSomeoneElseModal({
     const s = item.toLowerCase().trim();
     return s === "dairy" || s === "sữa" || s === "sua" || s === "lactose" || s.includes("sữa") || s.includes("sua") || s.includes("lactose");
   };
+
+  const hasValidMetrics = Boolean(
+    Number(weight) > 0 && Number(height) > 0 && Number(age) > 0
+  );
 
   // Build draft profile
   const draftProfile: UserProfile = {
@@ -116,8 +112,8 @@ export function PlanForSomeoneElseModal({
     allergies,
   };
 
-  const bmiInfo = calculateBMI(draftProfile.weight, draftProfile.height);
-  const nutrition = calculateDailyCalorieTarget(draftProfile);
+  const bmiInfo = hasValidMetrics ? calculateBMI(Number(weight), Number(height)) : null;
+  const nutrition = hasValidMetrics ? calculateDailyCalorieTarget(draftProfile) : null;
 
   const isUnderweight = Boolean(bmiInfo && bmiInfo.category === "Underweight");
   const isSevereUnderweight = Boolean(bmiInfo && bmiInfo.bmi < 16.5);
@@ -282,6 +278,7 @@ export function PlanForSomeoneElseModal({
                   onChange={(e) => setAge(cleanNumberInput(e.target.value))}
                   min={10}
                   max={120}
+                  placeholder="VD: 28"
                   className="w-full text-xs rounded-xl border border-stone-200 p-2.5 focus:border-violet-500 focus:outline-none"
                   required
                 />
@@ -329,6 +326,7 @@ export function PlanForSomeoneElseModal({
                   onChange={(e) => setWeight(cleanNumberInput(e.target.value))}
                   min={20}
                   max={300}
+                  placeholder="VD: 55"
                   className="w-full text-xs rounded-xl border border-stone-200 p-2.5 focus:border-violet-500 focus:outline-none"
                   required
                 />
@@ -344,6 +342,7 @@ export function PlanForSomeoneElseModal({
                   onChange={(e) => setHeight(cleanNumberInput(e.target.value))}
                   min={50}
                   max={250}
+                  placeholder="VD: 165"
                   className="w-full text-xs rounded-xl border border-stone-200 p-2.5 focus:border-violet-500 focus:outline-none"
                   required
                 />
@@ -849,27 +848,29 @@ export function PlanForSomeoneElseModal({
               <div className="bg-white p-2.5 rounded-xl border border-stone-100">
                 <span className="text-[10px] text-stone-400 font-bold block">BMI</span>
                 <span className="text-sm font-bold text-stone-900">{bmiInfo?.formattedBMI || "--"}</span>
-                <span className="text-[9px] text-stone-500 block truncate">{bmiInfo?.category || ""}</span>
+                <span className="text-[9px] text-stone-500 block truncate">{bmiInfo?.category || "Chờ dữ liệu"}</span>
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-stone-100">
                 <span className="text-[10px] text-stone-400 font-bold block">BMR</span>
-                <span className="text-xs font-bold text-stone-900">~{nutrition.bmr}</span>
+                <span className="text-xs font-bold text-stone-900">{nutrition ? `~${nutrition.bmr}` : "--"}</span>
                 <span className="text-[9px] text-stone-500 block">kcal</span>
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-stone-100">
                 <span className="text-[10px] text-stone-400 font-bold block">TDEE</span>
-                <span className="text-xs font-bold text-stone-900">~{nutrition.tdee}</span>
+                <span className="text-xs font-bold text-stone-900">{nutrition ? `~${nutrition.tdee}` : "--"}</span>
                 <span className="text-[9px] text-stone-500 block">kcal</span>
               </div>
               <div className="bg-violet-100/70 p-2.5 rounded-xl border border-violet-200">
                 <span className="text-[10px] text-violet-700 font-bold block">Mục tiêu</span>
-                <span className="text-sm font-bold text-violet-950">~{nutrition.dailyCalorieTarget}</span>
+                <span className="text-sm font-bold text-violet-950">{nutrition ? `~${nutrition.dailyCalorieTarget}` : "--"}</span>
                 <span className="text-[9px] text-violet-700 font-semibold block">kcal/ngày</span>
               </div>
             </div>
 
             <div className="mt-2.5 text-center text-[10px] text-stone-500">
-              Phân bổ dinh dưỡng: {nutrition.macros.proteinGrams}g Đạm · {nutrition.macros.carbsGrams}g Tinh bột · {nutrition.macros.fatGrams}g Chất béo
+              {nutrition
+                ? `Phân bổ dinh dưỡng: ${nutrition.macros.proteinGrams}g Đạm · ${nutrition.macros.carbsGrams}g Tinh bột · ${nutrition.macros.fatGrams}g Chất béo`
+                : "Vui lòng nhập chiều cao, cân nặng và tuổi để tính toán chỉ số dinh dưỡng."}
             </div>
           </div>
 
