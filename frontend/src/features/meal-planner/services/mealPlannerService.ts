@@ -204,27 +204,25 @@ export const mealPlannerService = {
         if (nonBreakfast.length > 0) safePool = nonBreakfast;
       }
 
-      // 3. Số lượng món: Bữa trưa/tối 2-3 món, bữa sáng 1-2 món, bữa phụ 1 món
-      let maxDishes = 1;
-      if (mealSlotType === "lunch" || mealSlotType === "dinner") {
-        maxDishes = targetKcal >= 450 && safePool.length >= 3 ? 3 : (safePool.length >= 2 ? 2 : 1);
-      } else if (mealSlotType === "breakfast") {
-        maxDishes = targetKcal >= 380 && safePool.length >= 2 ? 2 : 1;
-      }
+      // 3. Số lượng món: Không cần cố định 3-4 món, 1 món cũng được nếu đủ năng lượng (tối đa 2 món)
+      const maxDishes = mealSlotType === "snack" ? 1 : 2;
 
       const chosenDishes: Recipe[] = [];
       const mealUsedIds = new Set<string>();
-      let hasRice = false;
-      let hasSoup = false;
       let remainingKcal = targetKcal;
 
       for (let i = 0; i < maxDishes; i++) {
-        // Tuyệt đối không trùng món đã dùng trong bữa này hoặc các bữa khác trong cùng ngày (dayUsedRecipeIds)
+        // Nếu đã có ít nhất 1 món: kiểm tra điều kiện dừng
+        if (i >= 1) {
+          const currentMealCal = chosenDishes.reduce((sum, d) => sum + (d.calories || 0), 0);
+          if (currentMealCal >= targetKcal * 0.75 || remainingKcal < 120) {
+            break;
+          }
+        }
+
         let dishCandidates = safePool.filter((r) => {
           if (mealUsedIds.has(r.id)) return false;
           if (dayUsedRecipeIds.has(r.id)) return false;
-          if (hasRice && isRiceDish(r)) return false;
-          if (hasSoup && isSoupDish(r)) return false;
           return true;
         });
 
@@ -235,44 +233,41 @@ export const mealPlannerService = {
 
         if (dishCandidates.length === 0) break;
 
-        // Ưu tiên món chưa xuất hiện trong tuần gần nhất (7 ngày).
-        // Chỉ lọc theo tuần nếu số món khả dụng còn đủ để hoàn thành bữa ăn
+        // Ưu tiên món chưa xuất hiện trong tuần gần nhất (7 ngày)
         const unusedInWeek = dishCandidates.filter((r) => !recentRecipeIdsSet.has(r.id));
-        if (unusedInWeek.length >= (maxDishes - i)) {
+        if (unusedInWeek.length >= 2) {
           dishCandidates = unusedInWeek;
         }
 
-        // Phân vai ẩm thực chuẩn Việt:
-        // Món chính -> Món canh -> Cơm / Tinh bột (hoặc rau nếu đã có cơm)
-        if (mealSlotType === "lunch" || mealSlotType === "dinner") {
-          if (i === 0) {
+        // BỮA TRƯA: Ưu tiên đặc biệt các món liên quan đến cơm (Cơm, xôi, gạo lứt...)
+        if (mealSlotType === "lunch" && i === 0) {
+          const riceCandidates = dishCandidates.filter((r) => isRiceDish(r));
+          if (riceCandidates.length > 0) {
+            dishCandidates = riceCandidates;
+          } else {
             const mains = dishCandidates.filter((r) => isMainDish(r));
             if (mains.length > 0) dishCandidates = mains;
-          } else if (i === 1 && !hasSoup) {
-            const soups = dishCandidates.filter((r) => isSoupDish(r));
-            if (soups.length > 0) dishCandidates = soups;
-          } else if (i === 2) {
-            if (!hasRice) {
-              const rice = dishCandidates.filter((r) => isRiceDish(r));
-              if (rice.length > 0) {
-                dishCandidates = rice;
-              } else {
-                const sides = dishCandidates.filter((r) => isVeggieOrSide(r));
-                if (sides.length > 0) dishCandidates = sides;
-              }
-            } else {
-              const sides = dishCandidates.filter((r) => isVeggieOrSide(r));
-              if (sides.length > 0) dishCandidates = sides;
-            }
           }
+        } else if (mealSlotType === "lunch" && i === 1) {
+          // Món thứ 2 bữa trưa: chọn món canh hoặc món xào/rau nhẹ để ăn kèm cơm
+          const sides = dishCandidates.filter((r) => !isRiceDish(r) && (isSoupDish(r) || isVeggieOrSide(r) || isMainDish(r)));
+          if (sides.length > 0) dishCandidates = sides;
+        } else if (mealSlotType === "dinner" && i === 0) {
+          // Bữa tối nhẹ nhàng hơn bữa trưa: chọn món chính hoặc món súp/bún/miến vừa calo
+          const mains = dishCandidates.filter((r) => isMainDish(r) || isSoupDish(r));
+          if (mains.length > 0) dishCandidates = mains;
+        } else if (mealSlotType === "dinner" && i === 1) {
+          // Món thứ 2 bữa tối: canh hoặc rau thanh đạm
+          const sides = dishCandidates.filter((r) => isVeggieOrSide(r) || isSoupDish(r));
+          if (sides.length > 0) dishCandidates = sides;
         }
 
-        const targetPerDish = Math.max(80, Math.round(remainingKcal / (maxDishes - i)));
+        const targetPerDish = Math.max(80, remainingKcal);
         const sorted = [...dishCandidates].sort(
           (a, b) => Math.abs(a.calories - targetPerDish) - Math.abs(b.calories - targetPerDish)
         );
 
-        // Chọn trong top 3 món có lượng calories bám sát nhất với targetPerDish để đảm bảo tổng calo bám sát TDEE/BMI
+        // Chọn trong top 3 món có lượng calories bám sát nhất với targetPerDish
         const topPool = sorted.slice(0, Math.min(3, sorted.length));
         const pickIdx = (dayIndex + i * 2 + seed + slotOffset) % topPool.length;
         const selected = topPool[pickIdx] || sorted[0];
@@ -280,9 +275,12 @@ export const mealPlannerService = {
         chosenDishes.push(selected);
         mealUsedIds.add(selected.id);
         dayUsedRecipeIds.add(selected.id);
-        if (isRiceDish(selected)) hasRice = true;
-        if (isSoupDish(selected)) hasSoup = true;
         remainingKcal -= selected.calories;
+
+        // Nếu món đầu tiên đã đủ năng lượng (>= 450 kcal hoặc >= 75% target hoặc calo còn thiếu < 120), DỪNG bữa tại 1 món!
+        if (i === 0 && (selected.calories >= 450 || selected.calories >= targetKcal * 0.75 || remainingKcal < 120)) {
+          break;
+        }
       }
 
       if (chosenDishes.length === 0) {
@@ -306,106 +304,73 @@ export const mealPlannerService = {
       };
     };
 
+    // LẬP LỊCH THEO THỨ TỰ THÍCH ỨNG: Bữa trưa nhiều kcal hơn bữa tối, bám sát kcal mục tiêu
+    // 1. Bữa Sáng: ~25% calo ngày (1 món hoặc 2 món nhẹ)
+    const targetBreakfast = mealTargets.breakfast;
     const breakfastSlot = composeMealSlot(
       breakfastCandidates,
-      mealTargets.breakfast,
+      targetBreakfast,
       "breakfast",
       options?.favoriteRecipeIds,
       0
     );
+    const breakfastKcal = (breakfastSlot.recipes || [breakfastSlot.recipe]).reduce((s, r) => s + (r?.calories || 0), 0);
+    let dayAccumulatedKcal = breakfastKcal;
+
+    // 2. Bữa Trưa: Nhiều calo nhất (~38%), ưu tiên món cơm
+    const remainingForLunch = Math.max(250, targetCalories - dayAccumulatedKcal);
+    const targetLunch = Math.round(remainingForLunch * (0.38 / (0.38 + 0.25 + 0.12)));
     const lunchSlot = composeMealSlot(
       lunchCandidates,
-      mealTargets.lunch,
+      targetLunch,
       "lunch",
       options?.favoriteRecipeIds,
       7
     );
+    const lunchKcal = (lunchSlot.recipes || [lunchSlot.recipe]).reduce((s, r) => s + (r?.calories || 0), 0);
+    dayAccumulatedKcal += lunchKcal;
+
+    // 3. Bữa Tối: Nhẹ nhàng hơn bữa trưa (~25%)
+    const remainingForDinner = Math.max(200, targetCalories - dayAccumulatedKcal);
+    const targetDinner = Math.round(remainingForDinner * (0.25 / (0.25 + 0.12)));
     const dinnerSlot = composeMealSlot(
       dinnerCandidates,
-      mealTargets.dinner,
+      targetDinner,
       "dinner",
       options?.favoriteRecipeIds,
       19
     );
+    const dinnerKcal = (dinnerSlot.recipes || [dinnerSlot.recipe]).reduce((s, r) => s + (r?.calories || 0), 0);
+    dayAccumulatedKcal += dinnerKcal;
+
+    // 4. Bữa Phụ: Nhẹ (~12% hoặc phần calo còn lại)
+    const targetSnack = Math.max(100, targetCalories - dayAccumulatedKcal);
     const snackSlot = composeMealSlot(
       snackCandidates,
-      mealTargets.snack,
+      targetSnack,
       "snack",
       options?.favoriteRecipeIds,
       29
     );
+    const snackKcal = (snackSlot.recipes || [snackSlot.recipe]).reduce((s, r) => s + (r?.calories || 0), 0);
+    dayAccumulatedKcal += snackKcal;
 
-    // ĐẢM BẢO LƯỢNG KCAL GẦN BMI / TDEE MỤC TIÊU (Tránh lệch > 800 kcal)
-    const currentDishes = [
-      ...(breakfastSlot.recipes || (breakfastSlot.recipe ? [breakfastSlot.recipe] : [])),
-      ...(lunchSlot.recipes || (lunchSlot.recipe ? [lunchSlot.recipe] : [])),
-      ...(dinnerSlot.recipes || (dinnerSlot.recipe ? [dinnerSlot.recipe] : [])),
-      ...(snackSlot.recipes || (snackSlot.recipe ? [snackSlot.recipe] : [])),
-    ].filter(Boolean);
-
-    let currentKcal = currentDishes.reduce((sum, d) => sum + (Number(d.calories) || 0), 0);
-    let deficit = targetCalories - currentKcal;
-
-    // Nếu thiếu hụt >= 150 kcal: tự động bổ sung món cơm / tinh bột hoặc món dinh dưỡng phù hợp
-    if (deficit >= 150) {
-      const allSafe = recipeService.getRecipes().filter((r) => recipeService.isRecipeSafeForProfile(r, profile));
-      const riceDishes = allSafe.filter((r) => isRiceDish(r) && !dayUsedRecipeIds.has(r.id));
-      const staplePool = riceDishes.length > 0 ? riceDishes : allSafe.filter((r) => isRiceDish(r));
-
-      // 1. Kiểm tra bữa trưa đã có cơm/tinh bột chưa
-      const lunchHasRice = (lunchSlot.recipes || [lunchSlot.recipe]).some(isRiceDish);
-      if (!lunchHasRice && staplePool.length > 0) {
-        const sortedRice = [...staplePool].sort(
-          (a, b) => Math.abs(a.calories - deficit) - Math.abs(b.calories - deficit)
-        );
-        const addedRice = sortedRice[0];
-        if (lunchSlot.recipes) {
-          lunchSlot.recipes.push(addedRice);
-        } else if (lunchSlot.recipe) {
-          lunchSlot.recipes = [lunchSlot.recipe, addedRice];
-        }
-        dayUsedRecipeIds.add(addedRice.id);
-        currentKcal += addedRice.calories;
-        deficit = targetCalories - currentKcal;
-      }
-
-      // 2. Nếu vẫn còn thiếu >= 150 kcal, kiểm tra bữa tối
-      if (deficit >= 150) {
-        const dinnerHasRice = (dinnerSlot.recipes || [dinnerSlot.recipe]).some(isRiceDish);
-        const availRice = staplePool.filter((r) => !dayUsedRecipeIds.has(r.id));
-        const riceToUse = availRice.length > 0 ? availRice : staplePool;
-        if (!dinnerHasRice && riceToUse.length > 0) {
-          const sortedRice = [...riceToUse].sort(
-            (a, b) => Math.abs(a.calories - deficit) - Math.abs(b.calories - deficit)
-          );
-          const addedRice = sortedRice[0];
-          if (dinnerSlot.recipes) {
-            dinnerSlot.recipes.push(addedRice);
-          } else if (dinnerSlot.recipe) {
-            dinnerSlot.recipes = [dinnerSlot.recipe, addedRice];
-          }
-          dayUsedRecipeIds.add(addedRice.id);
-          currentKcal += addedRice.calories;
-          deficit = targetCalories - currentKcal;
+    // Tinh chỉnh calo nếu tổng ngày bị vượt: Cắt bớt món phụ của bữa tối hoặc trưa
+    if (dayAccumulatedKcal > targetCalories + 150) {
+      if (dinnerSlot.recipes && dinnerSlot.recipes.length > 1) {
+        const withoutSecond = dayAccumulatedKcal - (dinnerSlot.recipes[1]?.calories || 0);
+        if (Math.abs(withoutSecond - targetCalories) < Math.abs(dayAccumulatedKcal - targetCalories)) {
+          dinnerSlot.recipes = [dinnerSlot.recipes[0]];
+          dinnerSlot.recipe = dinnerSlot.recipes[0];
+          dayAccumulatedKcal = withoutSecond;
         }
       }
-
-      // 3. Nếu vẫn còn thiếu >= 150 kcal (profile TDEE rất cao), bổ sung món ăn nhẹ giàu năng lượng vào bữa phụ
-      if (deficit >= 150) {
-        const snackBoosters = allSafe.filter(
-          (r) => !isBreakfastDish(r) && !dayUsedRecipeIds.has(r.id) && r.calories >= 120
-        );
-        if (snackBoosters.length > 0) {
-          const sortedSnacks = [...snackBoosters].sort(
-            (a, b) => Math.abs(a.calories - deficit) - Math.abs(b.calories - deficit)
-          );
-          const addedSnack = sortedSnacks[0];
-          if (snackSlot.recipes) {
-            snackSlot.recipes.push(addedSnack);
-          } else if (snackSlot.recipe) {
-            snackSlot.recipes = [snackSlot.recipe, addedSnack];
-          }
-          dayUsedRecipeIds.add(addedSnack.id);
+      if (dayAccumulatedKcal > targetCalories + 150 && lunchSlot.recipes && lunchSlot.recipes.length > 1) {
+        const withoutSecond = dayAccumulatedKcal - (lunchSlot.recipes[1]?.calories || 0);
+        if (Math.abs(withoutSecond - targetCalories) < Math.abs(dayAccumulatedKcal - targetCalories)) {
+          lunchSlot.recipes = [lunchSlot.recipes[0]];
+          lunchSlot.recipe = lunchSlot.recipes[0];
+          dayAccumulatedKcal = withoutSecond;
         }
       }
     }

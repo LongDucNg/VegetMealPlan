@@ -106,9 +106,9 @@ describe('Calo mục tiêu nhất quán giữa trang hồ sơ và lập thực �
     expect(step.note ?? '').not.toContain('chưa đặt');
   });
 
-  it('chia calo theo bữa giống lúc lập thực đơn (22/31/31/16) và cộng lại bằng tổng', async () => {
+  it('chia calo theo bữa giống lúc lập thực đơn (25/38/25/12) và cộng lại bằng tổng', async () => {
     const summary: any = await profileSummary(baseUser());
-    expect(MEAL_SPLIT).toEqual({ breakfast: 0.22, lunch: 0.31, dinner: 0.31, snack: 0.16 });
+    expect(MEAL_SPLIT).toEqual({ breakfast: 0.25, lunch: 0.38, dinner: 0.25, snack: 0.12 });
     const sum = Object.values(summary.meal_calories as Record<string, number>).reduce((a, b) => a + b, 0);
     expect(Math.abs(sum - summary.target_calories)).toBeLessThanOrEqual(2);
   });

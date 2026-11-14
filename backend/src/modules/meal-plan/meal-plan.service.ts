@@ -937,9 +937,15 @@ export class MealPlanService {
       for (let mealIndex = 0; mealIndex < mealEntries.length; mealIndex++) {
         const [mealType, baseCalories] = mealEntries[mealIndex];
         const isLastMeal = mealIndex === mealEntries.length - 1;
-        const targetMealCalories = isLastMeal
-          ? Math.max(dayTarget - dayCalories, baseCalories * 0.5)
-          : baseCalories;
+        const remainingForDay = Math.max(100, dayTarget - dayCalories);
+        let targetMealCalories = baseCalories;
+        if (mealType === 'lunch') {
+          targetMealCalories = Math.round(remainingForDay * (0.38 / (0.38 + 0.25 + 0.12)));
+        } else if (mealType === 'dinner') {
+          targetMealCalories = Math.round(remainingForDay * (0.25 / (0.25 + 0.12)));
+        } else if (isLastMeal) {
+          targetMealCalories = remainingForDay;
+        }
 
         let baseCandidates = recipes.filter((recipe) =>
           this.isSuitableForMeal(recipe, mealType),
@@ -1029,9 +1035,9 @@ export class MealPlanService {
 
         let maxDishes = 1;
         if (mealType === 'lunch') {
-          maxDishes = targetMealCalories >= 520 && baseCandidates.length >= 3 ? 3 : (baseCandidates.length >= 2 ? 2 : 1);
+          maxDishes = baseCandidates.length >= 2 ? 2 : 1;
         } else if (mealType === 'dinner') {
-          maxDishes = targetMealCalories >= 460 && baseCandidates.length >= 3 ? 3 : (baseCandidates.length >= 2 ? 2 : 1);
+          maxDishes = baseCandidates.length >= 2 ? 2 : 1;
         } else if (mealType === 'breakfast') {
           maxDishes = baseCandidates.length >= 2 ? 2 : 1;
         }
@@ -1078,37 +1084,41 @@ export class MealPlanService {
               return last === undefined || globalDay - last >= 14;
             };
 
-            if (dishIdx === 0 && (mealType === 'lunch' || mealType === 'dinner')) {
-              const freshMains = dishCandidates.filter((r) => isFresh(r) && isMainDish(r));
-              if (freshMains.length >= 2) {
-                dishCandidates = freshMains;
+            // BỮA TRƯA: Ưu tiên đặc biệt các món liên quan đến cơm (Cơm, xôi, gạo lứt...)
+            if (mealType === 'lunch' && dishIdx === 0) {
+              const freshRices = dishCandidates.filter((r) => isFresh(r) && isRiceDish(r));
+              if (freshRices.length > 0) {
+                dishCandidates = freshRices;
               } else {
-                const mains = dishCandidates.filter((r) => isMainDish(r));
-                if (mains.length >= 2) dishCandidates = mains;
-              }
-            } else if (dishIdx === 1 && (mealType === 'lunch' || mealType === 'dinner') && !mealHasSoup) {
-              const freshSoups = dishCandidates.filter((r) => isFresh(r) && isSoupDish(r));
-              if (freshSoups.length >= 1) {
-                dishCandidates = freshSoups;
-              } else {
-                // Nếu không còn món canh mới trong 14 ngày (vd: do dị ứng),
-                // đổi sang món rau/xào/gỏi mới để đảm bảo không trùng món trong 2 tuần liên tiếp
-                const freshSides = dishCandidates.filter((r) => isFresh(r) && (isVeggieOrSide(r) || isMainDish(r)));
-                if (freshSides.length >= 1) {
-                  dishCandidates = freshSides;
+                const rices = dishCandidates.filter((r) => isRiceDish(r));
+                if (rices.length > 0) {
+                  dishCandidates = rices;
                 } else {
-                  const soups = dishCandidates.filter((r) => isSoupDish(r));
-                  if (soups.length >= 1) dishCandidates = soups;
+                  const mains = dishCandidates.filter((r) => isMainDish(r));
+                  if (mains.length > 0) dishCandidates = mains;
                 }
               }
-            } else if (dishIdx === 2 && (mealType === 'lunch' || mealType === 'dinner')) {
-              const freshSides = dishCandidates.filter((r) => isFresh(r) && (isRiceDish(r) || isVeggieOrSide(r)));
-              if (freshSides.length >= 2) {
+            } else if (mealType === 'lunch' && dishIdx === 1) {
+              // Món ăn kèm bữa trưa: canh hoặc rau xào nhẹ để ăn kèm cơm
+              const freshSides = dishCandidates.filter((r) => isFresh(r) && !isRiceDish(r) && (isSoupDish(r) || isVeggieOrSide(r)));
+              if (freshSides.length > 0) {
                 dishCandidates = freshSides;
               } else {
-                const sides = dishCandidates.filter((r) => isRiceDish(r) || isVeggieOrSide(r));
-                if (sides.length >= 2) dishCandidates = sides;
+                const sides = dishCandidates.filter((r) => !isRiceDish(r) && (isSoupDish(r) || isVeggieOrSide(r)));
+                if (sides.length > 0) dishCandidates = sides;
               }
+            } else if (mealType === 'dinner' && dishIdx === 0) {
+              // Bữa tối nhẹ hơn bữa trưa: món chính thanh đạm hoặc món canh / xào
+              const freshNonHeavy = dishCandidates.filter((r) => isFresh(r) && (isMainDish(r) || isSoupDish(r)));
+              if (freshNonHeavy.length > 0) {
+                dishCandidates = freshNonHeavy;
+              } else {
+                const nonHeavy = dishCandidates.filter((r) => isMainDish(r) || isSoupDish(r));
+                if (nonHeavy.length > 0) dishCandidates = nonHeavy;
+              }
+            } else if (mealType === 'dinner' && dishIdx === 1) {
+              const freshSides = dishCandidates.filter((r) => isFresh(r) && (isSoupDish(r) || isVeggieOrSide(r)));
+              if (freshSides.length > 0) dishCandidates = freshSides;
             }
           }
 
@@ -1129,6 +1139,7 @@ export class MealPlanService {
           const score = (recipe: Recipe) => {
             const recipeCalories = Number(nutritionMap.get(recipe.recipe_id)?.calories ?? 0);
             const calDiff = Math.abs(recipeCalories - targetDishKcal);
+            const overshootPenalty = (dayCalories + recipeCalories > dayTarget + 120) ? 6000 : 0;
 
             const timesUsed = usedCounts.get(recipe.recipe_id) ?? 0;
             const lastUsedDay = recentDays.get(recipe.recipe_id);
@@ -1143,7 +1154,7 @@ export class MealPlanService {
             const frequencyPenalty = timesUsed * 1000;
             const jitter = ((recipe.recipe_id * 17 + globalDay * 31 + dishIdx * 43) % 100) * 0.1;
 
-            return (calDiff * 3) + dayPenalty + frequencyPenalty + recencyPenalty + jitter;
+            return (calDiff * 3) + overshootPenalty + dayPenalty + frequencyPenalty + recencyPenalty + jitter;
           };
 
           const pool = [...candidatesToScore].sort((x, y) => score(x) - score(y));
@@ -1179,6 +1190,13 @@ export class MealPlanService {
             recipe: selected,
             portion,
           });
+
+          // Quy tắc: Không cần cố định 3-4 món, 1 món cũng được nếu đã đủ năng lượng
+          if (dishIdx === 0) {
+            if (dishCalories >= 450 || dishCalories >= targetMealCalories * 0.75 || remainingMealKcal < 120 || dayCalories + 120 >= dayTarget) {
+              break;
+            }
+          }
         }
       }
     }
@@ -1198,7 +1216,7 @@ export class MealPlanService {
     ingredientSummary?: string,
   ): Promise<{ chef_advice: string; is_cookable: boolean }> {
     const defaultAdvice =
-      `Bếp trưởng AI: Thực đơn 3 buổi sáng, trưa, chiều (2-3 món/bữa) đã được xét duyệt đạt ~${Math.round(targetCaloriesPerDay)} kcal/ngày. Định lượng nguyên liệu theo gam hợp lý, cân bằng đạm và xơ thực vật, không tăng gia vị ảo và hoàn toàn khả thi khi nấu nướng tại nhà.`;
+      `Bếp trưởng AI: Thực đơn đã được gợi ý và xét duyệt dựa trên dữ liệu công thức, ưu tiên món cơm cho bữa trưa và cân đối lượng calo đạt ~${Math.round(targetCaloriesPerDay)} kcal/ngày. Bữa trưa giàu năng lượng hơn bữa tối, mỗi bữa 1-2 món tinh gọn vừa vặn, đảm bảo dinh dưỡng và khả thi khi chế biến tại nhà.`;
 
     const uniqueRecipeMap = new Map<number, { title: string; portion: number; calories: number }>();
     for (const p of plannedMeals) {
@@ -1213,19 +1231,19 @@ export class MealPlanService {
     }
 
     const mealSummary = Array.from(uniqueRecipeMap.values())
-      .map((m) => '- ' + m.title + ': khẩu phần ' + m.portion + 'x (~' + m.calories + ' kcal)')
+      .map((m) => '- ' + m.title + ' (~' + m.calories + ' kcal)')
       .join('\n');
 
     const systemInstruction =
       'Bạn là Bếp trưởng & Chuyên gia Dinh dưỡng Chay VeggieHub. ' +
-      'Nhiệm vụ: Xét duyệt thực đơn món chay 3 buổi (sáng, trưa, chiều mỗi bữa 2-3 món) để đảm bảo khớp lượng calo mục tiêu. ' +
-      'Nguyên tắc: Tuyệt đối không ép tăng gia vị, dầu mỡ vô lý làm hỏng món ăn. Khẩu phần mỗi món phải giữ ở mức ăn thực tế (0.4x - 1.25x). ' +
-      'Trả về định dạng JSON thuần túy: { "is_cookable": true, "chef_advice": "Lời xét duyệt và lời khuyên ngắn gọn (2 câu) về dinh dưỡng, mẹo nấu và cân bằng calo." }';
+      'Nhiệm vụ: Xét duyệt thực đơn món chay thông minh từ cơ sở dữ liệu, kiểm tra lượng calo mục tiêu. ' +
+      'Nguyên tắc: Bữa trưa ưu tiên món liên quan đến cơm và giàu năng lượng hơn bữa tối. Mỗi bữa 1-2 món tinh gọn vừa đủ calo, không nhồi nhét nhiều món làm dư thừa calo. Tổng calo cả ngày bám sát mục tiêu. ' +
+      'Trả về định dạng JSON thuần túy: { "is_cookable": true, "chef_advice": "Lời xét duyệt và lời khuyên ngắn gọn (2 câu) về dinh dưỡng, mẹo nấu, món cơm bữa trưa và cân bằng calo." }';
 
     const userMessage =
       `Calo mục tiêu mỗi ngày: ~${targetCaloriesPerDay} kcal.\n` +
       `Loại thực đơn: ${planType === 'daily' ? 'Ngày (1 ngày)' : planType === 'weekly' ? 'Tuần (7 ngày)' : 'Tháng (Lịch cả tháng)'}.\n` +
-      `Mỗi bữa sáng, trưa, chiều có 2-3 món để đảm bảo dinh dưỡng và khớp lượng calo.\n` +
+      `Quy tắc: Bữa trưa nhiều kcal hơn bữa tối, ưu tiên món cơm, mỗi bữa 1-2 món vừa vặn, tổng calo ngày bám sát mục tiêu.\n` +
       `Danh sách món ăn đại diện:\n${mealSummary}` +
       (ingredientSummary ? `\n\nTổng hợp nguyên liệu theo gam (có ~):\n${ingredientSummary.slice(0, 500)}` : '') +
       '\nHãy xét duyệt thực đơn và đưa ra nhận xét.';
