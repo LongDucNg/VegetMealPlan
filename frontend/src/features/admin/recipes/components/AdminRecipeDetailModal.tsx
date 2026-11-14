@@ -188,8 +188,8 @@ export function AdminRecipeDetailModal({
               </p>
             )}
 
-            {/* Quick Metrics (Time, Servings, Difficulty) */}
-            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+            {/* Quick Metrics (Time, Difficulty) */}
+            <div className="grid grid-cols-2 gap-2 text-center text-xs">
               <div className="p-2 rounded-xl bg-stone-50 border border-stone-200/70">
                 <div className="flex items-center justify-center gap-1 text-stone-400 text-[10px]">
                   <Clock className="w-3 h-3" />
@@ -197,16 +197,6 @@ export function AdminRecipeDetailModal({
                 </div>
                 <p className="font-bold text-stone-800 mt-0.5">
                   {totalTime > 0 ? `${totalTime} ph` : "20 ph"}
-                </p>
-              </div>
-
-              <div className="p-2 rounded-xl bg-stone-50 border border-stone-200/70">
-                <div className="flex items-center justify-center gap-1 text-stone-400 text-[10px]">
-                  <Users className="w-3 h-3" />
-                  <span>Khẩu phần</span>
-                </div>
-                <p className="font-bold text-stone-800 mt-0.5">
-                  {recipe.serving || 2} người
                 </p>
               </div>
 
@@ -304,9 +294,6 @@ export function AdminRecipeDetailModal({
                     {recipe.ingredients.length}
                   </span>
                 </h3>
-                <span className="text-[10px] text-stone-400">
-                  Khẩu phần {recipe.serving || 2} người
-                </span>
               </div>
 
               <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
