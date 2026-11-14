@@ -626,8 +626,9 @@ export const forumService = {
     try {
       // 1. Gọi trực tiếp API chuyên dụng: GET /api/v1/admin/moderation (Hàng chờ duyệt)
       const res = await this.getAdminModeration({ limit: 50 });
-      if (res && Array.isArray(res.data) && res.data.length > 0) {
-        return res.data.map((p: any) => {
+      const rawList = Array.isArray(res) ? res : (res as any)?.data;
+      if (Array.isArray(rawList)) {
+        return rawList.map((p: any) => {
           let modStatus: ModerationItem["status"] = "Pending";
           if (p.status === "approved") modStatus = "Approved";
           else if (p.status === "removed" || p.status === "rejected") modStatus = "Removed";
@@ -637,12 +638,12 @@ export const forumService = {
             id: `mod-post-${p.id || p.blog_id}`,
             contentId: p.id || p.blog_id,
             contentType: "Post" as const,
-            author: p.author || p.user?.full_name || "Thành viên",
+            author: p.author?.full_name || p.author || p.user?.full_name || "Thành viên",
             title: p.title,
-            category: p.category?.name || p.category || "Diễn đàn",
-            excerpt: p.excerpt || p.content,
+            category: p.category?.category_name || p.category?.name || p.category || "Diễn đàn",
+            excerpt: p.excerpt || p.content || "",
             tags: p.tags || [],
-            snippet: p.title ? `${p.title}${p.excerpt ? ` — ${p.excerpt}` : ""}` : (p.excerpt || p.content?.slice(0, 150)),
+            snippet: p.title ? `${p.title}${p.excerpt ? ` — ${p.excerpt}` : ""}` : (p.excerpt || p.content?.slice(0, 150) || ""),
             flagReasons: p.flag_reason ? [p.flag_reason] : p.is_flagged ? ["Bài viết bị gắn cờ"] : [],
             aiConfidence: p.status === "approved" ? 0.98 : 0.88,
             reportedAt: p.timestamp || (p.created_at ? new Date(p.created_at).toLocaleDateString("vi-VN") : "Gần đây"),

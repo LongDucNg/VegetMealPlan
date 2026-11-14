@@ -96,6 +96,99 @@ function normalizeString(value: string): string {
 }
 
 /**
+ * Từ điển đồng nghĩa vùng miền / tên gọi phổ biến -> tên chuẩn trong CSDL
+ */
+const INGREDIENT_SYNONYMS: Record<string, string> = {
+  'dưa chuột': 'dưa leo',
+  'quả dưa chuột': 'dưa leo',
+  'trái dưa leo': 'dưa leo',
+  'súp lơ xanh': 'bông cải xanh',
+  'bông cải': 'bông cải xanh',
+  'bông cải trắng': 'súp lơ trắng',
+  'súp lơ': 'súp lơ trắng',
+  'mướp đắng': 'khổ qua',
+  'bí xanh': 'bí đao',
+  'bí ngô': 'bí đỏ',
+  'quả bí đỏ': 'bí đỏ',
+  'quả bí ngô': 'bí đỏ',
+  'bí ngòi xanh': 'bí ngòi',
+  'bí ngòi vàng': 'bí ngòi',
+  'đậu phụ': 'đậu hũ trắng',
+  'đậu hũ': 'đậu hũ trắng',
+  'tàu hũ': 'đậu hũ trắng',
+  'váng đậu': 'tàu hũ ky khô',
+  'phù trúc': 'tàu hũ ky khô',
+  'tàu hũ ky': 'tàu hũ ky khô',
+  'lạc': 'đậu phộng',
+  'hạt lạc': 'đậu phộng',
+  'vừng': 'mè trắng',
+  'hạt vừng': 'mè trắng',
+  'vừng trắng': 'mè trắng',
+  'vừng đen': 'mè đen',
+  'ngô': 'bắp tươi',
+  'ngô ngọt': 'bắp tươi',
+  'bắp ngọt': 'bắp tươi',
+  'bắp mỹ': 'bắp tươi',
+  'bắp': 'bắp tươi',
+  'dứa': 'thơm',
+  'khóm': 'thơm',
+  'rau mùi': 'ngò rí',
+  'ngò': 'ngò rí',
+  'rau ngò': 'ngò rí',
+  'tần ô': 'cải cúc',
+  'rau tần ô': 'cải cúc',
+  'cải bó xôi': 'rau bó xôi',
+  'rau chân vịt': 'rau bó xôi',
+  'rau bina': 'rau bó xôi',
+  'cải chíp': 'cải thìa',
+  'bắp cải tím': 'bắp cải',
+  'bắp cải trắng': 'bắp cải',
+  'bắp cải xanh': 'bắp cải',
+  'ớt chuông đỏ': 'ớt chuông',
+  'ớt chuông xanh': 'ớt chuông',
+  'ớt chuông vàng': 'ớt chuông',
+  'ớt ngọt': 'ớt chuông',
+  'ớt': 'ớt tươi',
+  'ớt đỏ': 'ớt tươi',
+  'ớt chỉ thiên': 'ớt tươi',
+  'ớt sừng': 'ớt tươi',
+  'củ hành tây': 'hành tây',
+  'hành tây tím': 'hành tây',
+  'hành tây trắng': 'hành tây',
+  'hành khô': 'hành tím',
+  'củ hành tím': 'hành tím',
+  'củ tỏi': 'tỏi',
+  'tỏi khô': 'tỏi',
+  'củ cà rốt': 'cà rốt',
+  'quả cà chua': 'cà chua',
+  'cà chua bi': 'cà chua',
+  'quả cà tím': 'cà tím',
+  'củ khoai tây': 'khoai tây',
+  'củ khoai lang': 'khoai lang',
+  'củ sắn': 'khoai mì',
+  'củ cải': 'củ cải trắng',
+  'quả chanh': 'chanh',
+  'chanh tươi': 'chanh',
+  'chanh xanh': 'chanh',
+  'chanh vàng': 'chanh',
+  'chanh leo': 'chanh dây',
+  'đậu que': 'đậu cô ve',
+  'nấm mèo': 'mộc nhĩ khô',
+  'mộc nhĩ': 'mộc nhĩ khô',
+  'nấm đông cô': 'nấm đông cô tươi',
+  'nấm hương': 'nấm hương khô',
+  'nấm sò': 'nấm bào ngư',
+  'ngó sen': 'củ sen',
+  'hoa chuối': 'bắp chuối',
+  'trứng': 'trứng gà',
+  'xì dầu': 'nước tương',
+};
+
+function resolveSynonym(normName: string): string {
+  return INGREDIENT_SYNONYMS[normName] || normName;
+}
+
+/**
  * Chuẩn hóa tên nguyên liệu: bỏ phần chú thích trong ngoặc đơn rồi chuẩn hóa.
  * Ví dụ: "Gạo tẻ (sống)" -> "gạo tẻ", "Cơm trắng (đã nấu)" -> "cơm trắng".
  */
@@ -532,12 +625,14 @@ export class PhotoScanService {
     const items: DetectedIngredientItemDto[] = [];
 
     for (const rawItem of filteredRaw) {
-      const normAiName = normalizeString(rawItem.name);
+      const rawNormName = normalizeString(rawItem.name);
+      const normAiName = resolveSynonym(rawNormName);
       const isLowConfidence = rawItem.confidence < 0.7;
 
-      const exactMatches = dbIngredients.filter(
-        (ing) => cleanIngredientName(ing.ingredient_name) === normAiName,
-      );
+      const exactMatches = dbIngredients.filter((ing) => {
+        const cleaned = cleanIngredientName(ing.ingredient_name);
+        return cleaned === normAiName || cleaned === rawNormName;
+      });
 
       let matchedIngredient: MatchedIngredientDto | null = null;
       let candidates: MatchedIngredientDto[] = [];
@@ -551,11 +646,13 @@ export class PhotoScanService {
           unit: matchedEntity.unit,
         };
       } else if (exactMatches.length > 1) {
+        matchedEntity = exactMatches[0];
         candidates = exactMatches.map((m) => ({
           ingredient_id: m.ingredient_id,
           ingredient_name: m.ingredient_name,
           unit: m.unit,
         }));
+        matchedIngredient = candidates[0];
       } else {
         const wordMatches = dbIngredients.filter((ing) => {
           const cleanName = cleanIngredientName(ing.ingredient_name);
@@ -581,11 +678,13 @@ export class PhotoScanService {
             unit: matchedEntity.unit,
           };
         } else if (wordMatches.length > 1) {
+          matchedEntity = wordMatches[0];
           candidates = wordMatches.map((m) => ({
             ingredient_id: m.ingredient_id,
             ingredient_name: m.ingredient_name,
             unit: m.unit,
           }));
+          matchedIngredient = candidates[0];
         }
       }
 

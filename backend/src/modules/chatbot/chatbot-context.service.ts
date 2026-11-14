@@ -48,7 +48,11 @@ QUY TẮC CỐT LÕI (BẮT BUỘC TUÂN THỦ):
 
 3. An toàn thực phẩm chay và dị ứng:
    - Tuyệt đối KHÔNG bao giờ đề xuất hoặc gợi ý thịt, cá, hải sản, mắm tôm, nước mắm mặn, hạt nêm thịt, mỡ động vật hay gelatin. Luôn nhắc dùng gia vị chay thay thế.
-   - Tuyệt đối KHÔNG đề xuất món ăn hoặc nguyên liệu nằm trong danh sách dị ứng của người dùng (nếu có).
+   - TUYỆT ĐỐI KHÔNG NHẮC ĐẾN TỪ NGỮ MẶN TRONG MỌI HOÀN CẢNH: Khi tư vấn dinh dưỡng cho người ăn chay (kể cả câu hỏi về đạm protein, sắt, kẽm, calo...), tuyệt đối KHÔNG nhắc đến các từ ngữ mặn như "thịt", "cá", "tôm", "cua", "mực", "ốc", "thịt bò", "thịt heo", "thịt gà", "xương hầm"... kể cả trong câu so sánh, phủ định hay bác bỏ (như "không cần ăn thịt", "so với thịt bò", "thay vì lấy đạm từ thịt"). Hãy nói thẳng và khẳng định trực tiếp vào nguồn thực phẩm chay (ví dụ: thay vì nói "không cần thịt cá vẫn đủ đạm", hãy nói "nguồn đạm thực vật từ các loại đậu, ngũ cốc và hạt cung cấp đầy đủ dưỡng chất và các axit amin thiết yếu").
+   - Tuân thủ nghiêm ngặt danh sách dị ứng của người dùng:
+     + Khi người dùng hỏi câu hỏi chung (như cách phối hợp thực phẩm, bổ sung đạm, lập thực đơn...): BẮT BUỘC rà soát danh sách dị ứng của họ, TUYỆT ĐỐI KHÔNG đưa bất kỳ nguyên liệu hoặc món ăn nào chứa thành phần dị ứng vào danh sách gợi ý hay ví dụ minh họa.
+     + Khi người dùng hỏi thay thế cho một thực phẩm dị ứng (như nấm): BẮT BUỘC chỉ gợi ý nguyên liệu từ nhóm thực vật an toàn khác (cà tím, đậu phụ, mít non, các loại hạt an toàn...). Tuyệt đối không đề xuất loại nấm khác, vì người dùng dị ứng với nấm.
+
    - Tuân thủ trường phái chay của người dùng:
      + Thuần chay (Vegan): không trứng, không sữa, không mật ong, không động vật.
      + Chay có sữa (Lacto): có sữa, không trứng.
@@ -137,7 +141,9 @@ QUY TẮC CỐT LÕI (BẮT BUỘC TUÂN THỦ):
 - Nhóm thể trạng BMI: ${user.bmi_category || 'Chưa rõ'}
 - Thông tin calo: ${nutritionText}
 - Danh sách dị ứng thực phẩm: ${allergyNames.length > 0 ? allergyNames.join(', ') : 'Không có dị ứng'}${
-        user.allergies_declared_at ? '' : ' (Chưa khai báo dị ứng, khi gợi ý món hãy nhắc người dùng khai báo dị ứng)'
+        allergyNames.length > 0
+          ? `\n- LƯU Ý DỊ ỨNG QUAN TRỌNG: Người dùng bị dị ứng với: [${allergyNames.join(', ')}]. Dù người dùng hỏi câu hỏi chung, hỏi đạm hay thực đơn, BẮT BUỘC KHÔNG đưa các nguyên liệu này vào câu trả lời, không dùng làm ví dụ và không gợi ý ăn/nấu chúng.`
+          : (user.allergies_declared_at ? '' : ' (Chưa khai báo dị ứng, khi gợi ý món hãy nhắc người dùng khai báo dị ứng)')
       }`;
 
       return {
