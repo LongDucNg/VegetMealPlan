@@ -2788,6 +2788,25 @@ export class MealPlanService {
     monthStart.setHours(0, 0, 0, 0);
     monthEnd.setHours(0, 0, 0, 0);
 
+    // Ràng buộc chu kỳ 30 ngày của gói đăng ký: Không vượt quá ngày hết hạn của gói
+    let premEnd: Date | null = null;
+    if (user?.premium_until) {
+      premEnd = new Date(user.premium_until);
+    } else if (typeof this.subscriptionService?.premiumStatus === 'function') {
+      const premStatus = await this.subscriptionService.premiumStatus(user_id);
+      if (premStatus?.premium_until) {
+        premEnd = new Date(premStatus.premium_until);
+      }
+    }
+
+    let effectiveEnd = monthEnd;
+    if (premEnd) {
+      premEnd.setHours(0, 0, 0, 0);
+      if (premEnd < effectiveEnd) {
+        effectiveEnd = premEnd;
+      }
+    }
+
     const hasBudget = dto.total_budget !== undefined;
     const dayMs = 24 * 60 * 60 * 1000;
 
@@ -2795,14 +2814,14 @@ export class MealPlanService {
     const weeks: { start: Date; end: Date; days: number }[] = [];
     let cursor = new Date(monthStart);
 
-    while (cursor <= monthEnd) {
+    while (cursor <= effectiveEnd) {
       const start = new Date(cursor);
       const end = new Date(cursor);
 
       end.setDate(start.getDate() + ((7 - start.getDay()) % 7));
 
-      if (end > monthEnd) {
-        end.setTime(monthEnd.getTime());
+      if (end > effectiveEnd) {
+        end.setTime(effectiveEnd.getTime());
       }
 
       start.setHours(0, 0, 0, 0);
@@ -2856,7 +2875,7 @@ export class MealPlanService {
     mealPlan.bmi_snapshot = user.bmi ?? null;
     mealPlan.plan_type = PlanType.MONTHLY;
     mealPlan.start_date = monthStart;
-    mealPlan.end_date = monthEnd;
+    mealPlan.end_date = effectiveEnd;
     mealPlan.has_budget = hasBudget;
 
     if (hasBudget) {

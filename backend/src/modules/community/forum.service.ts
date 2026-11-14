@@ -48,6 +48,7 @@ const POST_COLUMNS = [
   'blog.flag_reason',
   'blog.reject_reason',
   'blog.created_at',
+  'blog.updated_at',
   'user.user_id',
   'user.full_name',
   'category.category_id',
@@ -290,14 +291,7 @@ export class ForumService {
       .createQueryBuilder('blog')
       .leftJoin('blog.user', 'user')
       .leftJoin('blog.category', 'category')
-      .select([
-        ...POST_COLUMNS,
-        'blog.status',
-        'blog.reject_reason',
-        'blog.is_flagged',
-        'blog.flag_reason',
-        'blog.updated_at',
-      ])
+      .select(POST_COLUMNS)
       .where('blog.user_id = :userId', { userId: user.user_id })
       .andWhere('blog.status != :removedStatus', { removedStatus: ContentStatus.REMOVED });
 
@@ -810,14 +804,7 @@ export class ForumService {
       .createQueryBuilder('blog')
       .leftJoin('blog.user', 'user')
       .leftJoin('blog.category', 'category')
-      .select([
-        ...POST_COLUMNS,
-        'blog.status',
-        'blog.is_flagged',
-        'blog.flag_reason',
-        'blog.reject_reason',
-        'blog.updated_at',
-      ]);
+      .select(POST_COLUMNS);
 
     if (query.status) {
       qb.andWhere('blog.status = :status', { status: query.status });
@@ -953,7 +940,7 @@ export class ForumService {
       .createQueryBuilder('blog')
       .leftJoin('blog.user', 'user')
       .leftJoin('blog.category', 'category')
-      .select([...POST_COLUMNS, ...extraColumns])
+      .select(Array.from(new Set([...POST_COLUMNS, ...extraColumns])))
       .where('blog.status = :status', { status: ContentStatus.APPROVED });
   }
 
@@ -1094,7 +1081,7 @@ export class ForumService {
       .createQueryBuilder('blog')
       .leftJoin('blog.user', 'user')
       .leftJoin('blog.category', 'category')
-      .select([...POST_COLUMNS, 'blog.approved_at']);
+      .select(Array.from(new Set([...POST_COLUMNS, 'blog.approved_at'])));
 
     if (query.status && query.status !== 'all') {
       qb.andWhere('blog.status = :status', { status: query.status });

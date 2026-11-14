@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -65,7 +65,6 @@ export function RecipeDetailClient({
   const [replacements, setReplacements] = useState<any[]>(initialReplacements);
   const [isFavorite, setIsFavorite] = useState(false);
   const [checkedIngredients, setCheckedIngredients] = useState<Record<string, boolean>>({});
-  const [servingsMultiplier, setServingsMultiplier] = useState(1);
 
   useEffect(() => {
     let isMounted = true;
@@ -204,12 +203,29 @@ export function RecipeDetailClient({
     );
   }
 
-  const baseServings = recipe.serving || 1;
-  const currentServings = baseServings * servingsMultiplier;
+  // Tính tổng calo từ tất cả các nguyên liệu trong công thức
+  const totalIngredientsCalories = useMemo(() => {
+    if (!recipe.ingredients || recipe.ingredients.length === 0) return 0;
+    return recipe.ingredients.reduce((sum, ing) => {
+      const calPer100 =
+        ing.caloriesPer100g !== undefined && ing.caloriesPer100g !== null
+          ? Number(ing.caloriesPer100g)
+          : getIngredientCaloriesPer100g(ing.name);
+      const kcal = calculateIngredientCalories(ing.quantity, ing.unit, calPer100);
+      return sum + (kcal || 0);
+    }, 0);
+  }, [recipe.ingredients]);
+
+  // Lượng calo chung hiển thị chuẩn xác: đồng nhất 100% với tổng calo từ các nguyên liệu
+  const displayCalories = useMemo(() => {
+    if (totalIngredientsCalories > 0) {
+      return Math.round(totalIngredientsCalories * 100) / 100;
+    }
+    return Math.round(Number(recipe.calories || 0) * 100) / 100;
+  }, [totalIngredientsCalories, recipe.calories]);
 
   // Cost calculation
   const totalCost = costData?.total_cost || recipe.estimatedCost || 0;
-  const costPerServing = costData?.cost_per_serving || Math.round(totalCost / baseServings);
 
   return (
     <AppShell showRightRail={false}>
@@ -281,7 +297,7 @@ export function RecipeDetailClient({
           </div>
 
           {/* Quick Metrics Bar */}
-          <div className="p-4 sm:p-6 bg-white border-t border-stone-100 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+          <div className="p-4 sm:p-6 bg-white border-t border-stone-100 grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
             <div className="p-3 rounded-2xl bg-stone-50 border border-stone-100">
               <span className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider block mb-1">
                 Chuẩn bị
@@ -299,16 +315,6 @@ export function RecipeDetailClient({
               <div className="flex items-center justify-center gap-1.5 text-stone-800 font-bold text-base">
                 <Flame className="w-4 h-4 text-amber-500" />
                 <span>{recipe.cookTime} phút</span>
-              </div>
-            </div>
-
-            <div className="p-3 rounded-2xl bg-stone-50 border border-stone-100">
-              <span className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider block mb-1">
-                Khẩu phần
-              </span>
-              <div className="flex items-center justify-center gap-1.5 text-stone-800 font-bold text-base">
-                <Users className="w-4 h-4 text-violet-600" />
-                <span>{recipe.serving} người</span>
               </div>
             </div>
 
@@ -331,12 +337,12 @@ export function RecipeDetailClient({
                 Giá trị dinh dưỡng
               </h3>
               <p className="text-xs text-stone-500">
-                Chỉ số dinh dưỡng được tính toán trên 1 khẩu phần ăn tiêu chuẩn
+                Giá trị dinh dưỡng tiêu chuẩn của món ăn
               </p>
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 font-bold text-sm">
               <Flame className="w-4 h-4 text-amber-500 fill-amber-500" />
-              <span>~{Math.round(Number(recipe.calories) * 100) / 100} kcal</span>
+              <span>~{displayCalories} kcal</span>
             </div>
           </div>
 
@@ -396,24 +402,6 @@ export function RecipeDetailClient({
                     {recipe.ingredients?.length || 0} thành phần
                   </span>
                 </div>
-
-                {/* Servings Adjuster */}
-                <div className="flex items-center gap-1.5 bg-stone-100 p-1 rounded-xl text-xs font-bold text-stone-700">
-                  <button
-                    onClick={() => setServingsMultiplier(Math.max(1, servingsMultiplier - 1))}
-                    disabled={servingsMultiplier <= 1}
-                    className="w-6 h-6 rounded-lg bg-white disabled:opacity-40 flex items-center justify-center hover:bg-stone-50 cursor-pointer shadow-2xs"
-                  >
-                    -
-                  </button>
-                  <span className="px-1.5">{currentServings} suất</span>
-                  <button
-                    onClick={() => setServingsMultiplier(servingsMultiplier + 1)}
-                    className="w-6 h-6 rounded-lg bg-white flex items-center justify-center hover:bg-stone-50 cursor-pointer shadow-2xs"
-                  >
-                    +
-                  </button>
-                </div>
               </div>
 
               {/* Ingredient Checkbox List */}
@@ -421,10 +409,7 @@ export function RecipeDetailClient({
                 {(recipe.ingredients || []).map((ing, idx) => {
                   const ingKey = `ing-${idx}`;
                   const isChecked = !!checkedIngredients[ingKey];
-                  const adjustedQuantity =
-                    typeof ing.quantity === "number"
-                      ? ing.quantity * servingsMultiplier
-                      : ing.quantity;
+                  const rawQuantity = ing.quantity;
 
                   const lowerIng = (ing.name || "").toLowerCase();
                   const vegType = (profile?.vegetarianType || "").toLowerCase();
@@ -464,7 +449,7 @@ export function RecipeDetailClient({
                       ? Number(ing.caloriesPer100g)
                       : getIngredientCaloriesPer100g(ing.name);
                   const calculatedKcal = calculateIngredientCalories(
-                    adjustedQuantity,
+                    ing.quantity,
                     ing.unit,
                     calPer100
                   );
@@ -510,7 +495,7 @@ export function RecipeDetailClient({
                       </div>
                       <div className="text-right shrink-0 ml-3">
                         <span className="text-xs font-bold text-emerald-800 block">
-                          {adjustedQuantity} {ing.unit}
+                          {ing.quantity} {ing.unit}
                         </span>
                         <span className="text-[11px] font-bold text-amber-700 bg-amber-50/90 px-1.5 py-0.5 rounded-md border border-amber-200/60 inline-block mt-0.5 shadow-2xs">
                           ~{Math.round(Number(calculatedKcal) * 100) / 100} kcal
@@ -533,7 +518,7 @@ export function RecipeDetailClient({
                         cIng.calories_per_100g != null
                           ? Number(cIng.calories_per_100g)
                           : getIngredientCaloriesPer100g(cIng.ingredient_name);
-                      const ingQty = Number(cIng.quantity || 0) * servingsMultiplier;
+                      const ingQty = Number(cIng.quantity || 0);
                       const ingKcal = calculateIngredientCalories(ingQty, cIng.unit, ingCalPer100);
 
                       return (

@@ -19,6 +19,8 @@ export interface UserSubscription {
   planName: string;
   activatedAt?: string;
   expiresAt?: string;
+  startDate?: string;
+  endDate?: string;
   autoRenew: boolean;
 }
 export interface BackendSubscriptionPlan {
@@ -42,6 +44,8 @@ export interface CheckoutResponse {
 export interface PremiumStatusResponse {
   isPremium: boolean;
   premium_until: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
 }
 
 export interface PaymentReturnResponse {

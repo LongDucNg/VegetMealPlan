@@ -2,7 +2,7 @@
 
 import React from "react";
 import { MonthlyMealPlan } from "../types";
-import { CalendarDays, Flame, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
+import { CalendarDays, Flame, ChevronLeft, ChevronRight, AlertCircle, Lock } from "lucide-react";
 
 interface MonthlyCalendarViewProps {
   monthlyPlan: MonthlyMealPlan;
@@ -14,6 +14,13 @@ interface MonthlyCalendarViewProps {
   onNextMonth?: () => void;
   canPrevMonth?: boolean;
   canNextMonth?: boolean;
+}
+
+function formatVnDateKey(dateKey?: string): string {
+  if (!dateKey) return "";
+  const parts = dateKey.split("-");
+  if (parts.length < 3) return dateKey;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
 export function MonthlyCalendarView({
@@ -80,7 +87,13 @@ export function MonthlyCalendarView({
                   type="button"
                   onClick={onNextMonth}
                   disabled={!canNextMonth}
-                  title={canNextMonth ? "Tháng sau" : "Chỉ được phép tạo tối đa 1 tháng tới (không được tạo 2 tháng tới)"}
+                  title={
+                    canNextMonth
+                      ? "Tháng sau"
+                      : monthlyPlan.subscriptionPeriod?.endDateKey
+                      ? `Gói đăng ký của bạn hết hạn ngày ${formatVnDateKey(monthlyPlan.subscriptionPeriod.endDateKey)} (chu kỳ 30 ngày). Vui lòng gia hạn gói để xem tháng tiếp theo.`
+                      : "Không thể xem tháng sau khi đã hết chu kỳ gói"
+                  }
                   className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-colors ${
                     canNextMonth
                       ? "border-stone-200 text-stone-600 hover:bg-stone-100 cursor-pointer"
@@ -99,7 +112,11 @@ export function MonthlyCalendarView({
 
         <div className="flex items-center gap-3 text-xs">
           <div className="bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200">
-            <span className="text-stone-400 block text-[10px]">Đã tạo {generatedDaysList.length}/{days.length} ngày:</span>
+            <span className="text-stone-400 block text-[10px]">
+              {monthlyPlan.subscriptionPeriod?.endDateKey
+                ? `Gói 30 ngày (đến ${formatVnDateKey(monthlyPlan.subscriptionPeriod.endDateKey)}): Đã tạo ${generatedDaysList.length} ngày`
+                : `Đã tạo ${generatedDaysList.length}/${days.length} ngày:`}
+            </span>
             <span className="font-bold text-emerald-800">
               {totalCost > 0 ? `~${totalCost.toLocaleString("vi-VN")} VNĐ` : "0 VNĐ"}
             </span>
@@ -137,6 +154,7 @@ export function MonthlyCalendarView({
           const isPast = day.dateKey < todayKey;
           const isSelected = activeDayIndex === idx;
           const isGenerated = day.totalCalories > 0;
+          const isOutOfSubscription = Boolean(day.isOutOfSubscription);
 
           if (isPast) {
             return (
@@ -158,6 +176,29 @@ export function MonthlyCalendarView({
                 </div>
                 <div className="sm:hidden text-[9px] text-center text-stone-400">
                   Qua
+                </div>
+              </div>
+            );
+          }
+
+          if (isOutOfSubscription) {
+            return (
+              <div
+                key={day.dateKey}
+                className="aspect-square sm:aspect-auto sm:h-20 p-2 sm:p-2.5 rounded-2xl border border-stone-200/40 bg-stone-50/80 text-stone-400 flex flex-col justify-between cursor-not-allowed select-none opacity-60"
+                title={`Ngày ${day.dayOfMonth}/${monthlyPlan.month + 1} vượt quá chu kỳ 30 ngày của gói đăng ký (hết hạn ngày ${formatVnDateKey(monthlyPlan.subscriptionPeriod?.endDateKey)}). Vui lòng gia hạn gói để tiếp tục!`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-xs font-bold text-stone-400">
+                    {day.dayOfMonth}
+                  </span>
+                  <Lock className="w-3 h-3 text-stone-400 shrink-0" />
+                </div>
+                <div className="hidden sm:block text-[10px] font-medium text-stone-400 italic truncate">
+                  Hết hạn gói
+                </div>
+                <div className="sm:hidden text-[9px] text-center text-stone-400">
+                  Khóa
                 </div>
               </div>
             );
