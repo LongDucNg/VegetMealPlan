@@ -320,10 +320,10 @@ export const ACTIVITY_LABEL: Record<string, string> = {
 };
 
 /**
- * Tỉ lệ calo theo bữa (tổng = 1). Dùng chung cho trang hồ sơ, đánh giá mục tiêu và lập thực đơn
- * (meal-plan.service lấy lại đúng tỉ lệ này), trước đây hồ sơ chia 25/35/30/10 còn thực đơn chia 22/31/31/16.
+ * Tỉ lệ calo theo bữa (tổng = 1). Bữa trưa nhiều calo nhất (38%), bữa tối nhẹ nhàng hơn (25%).
+ * Dùng chung cho trang hồ sơ, đánh giá mục tiêu và lập thực đơn.
  */
-export const MEAL_SPLIT = { breakfast: 0.22, lunch: 0.31, dinner: 0.31, snack: 0.16 };
+export const MEAL_SPLIT = { breakfast: 0.25, lunch: 0.38, dinner: 0.25, snack: 0.12 };
 
 export interface WeightGoalInput {
   current_weight_kg?: number | null;

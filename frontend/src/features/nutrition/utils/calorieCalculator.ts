@@ -249,22 +249,22 @@ export function calculateDailyCalorieTarget(
   const carbsGrams = Math.round((dailyCalorieTarget * carbsPct) / 4);
   const fatGrams = Math.round((dailyCalorieTarget * fatPct) / 9);
 
-  // Meal distribution (Requirement 6):
-  // Breakfast: ~22% (~550 kcal)
-  // Lunch: ~31% (~750 kcal)
-  // Dinner: ~31% (~750 kcal)
-  // Snack: ~16% (~400 kcal)
-  // Sum = 100% (~2450-2500 kcal when target is 2492)
-  const breakfast = Math.round(dailyCalorieTarget * 0.22);
-  const lunch = Math.round(dailyCalorieTarget * 0.31);
-  const dinner = Math.round(dailyCalorieTarget * 0.31);
-  const snack = dailyCalorieTarget - (breakfast + lunch + dinner);
+  // Meal distribution:
+  // Breakfast: ~25%
+  // Lunch: ~38% (món trưa nhiều kcal nhất, ưu tiên món cơm)
+  // Dinner: ~25% (bữa tối nhẹ nhàng hơn bữa trưa)
+  // Snack: ~12%
+  // Sum = 100%
+  const breakfast = Math.round(dailyCalorieTarget * 0.25);
+  const lunch = Math.round(dailyCalorieTarget * 0.38);
+  const dinner = Math.round(dailyCalorieTarget * 0.25);
+  const snack = Math.max(100, dailyCalorieTarget - (breakfast + lunch + dinner));
 
   const mealTargets = {
     breakfast,
     lunch,
     dinner,
-    snack: Math.max(200, snack),
+    snack,
   };
 
   return {
@@ -301,10 +301,10 @@ export function withCalorieTarget(
   dailyCalorieTarget: number
 ): CalorieCalculationResult {
   const { proteinPct, carbsPct, fatPct } = result.macros;
-  const breakfast = Math.round(dailyCalorieTarget * 0.22);
-  const lunch = Math.round(dailyCalorieTarget * 0.31);
-  const dinner = Math.round(dailyCalorieTarget * 0.31);
-  const snack = dailyCalorieTarget - (breakfast + lunch + dinner);
+  const breakfast = Math.round(dailyCalorieTarget * 0.25);
+  const lunch = Math.round(dailyCalorieTarget * 0.38);
+  const dinner = Math.round(dailyCalorieTarget * 0.25);
+  const snack = Math.max(100, dailyCalorieTarget - (breakfast + lunch + dinner));
   return {
     ...result,
     dailyCalorieTarget,
@@ -314,7 +314,7 @@ export function withCalorieTarget(
       carbsGrams: Math.round((dailyCalorieTarget * carbsPct) / 100 / 4),
       fatGrams: Math.round((dailyCalorieTarget * fatPct) / 100 / 9),
     },
-    mealTargets: { breakfast, lunch, dinner, snack: Math.max(200, snack) },
+    mealTargets: { breakfast, lunch, dinner, snack },
   };
 }
 
