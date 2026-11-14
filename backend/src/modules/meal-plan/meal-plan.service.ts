@@ -225,6 +225,8 @@ interface RecipeIngredientRow {
   quantity: number;
   unit: string;
   is_optional: boolean;
+  calories_per_100g?: number | null;
+  calories?: number | null;
 }
 
 @Injectable()
@@ -637,19 +639,54 @@ export class MealPlanService {
       return new Map<number, NutritionInfo>();
     }
 
-    const nutritionRows = await this.nutritionRepo.find({
-      where: {
-        recipe_id: In(recipeIds),
-      },
-    });
+    const [nutritionRows, recipeIngredients] = await Promise.all([
+      this.nutritionRepo.find({
+        where: {
+          recipe_id: In(recipeIds),
+        },
+      }),
+      this.recipeIngredientRepo.find({
+        where: {
+          recipe_id: In(recipeIds),
+        },
+        relations: ['ingredient'],
+      }),
+    ]);
+
+    const ingCalMap = new Map<number, number>();
+    for (const ri of recipeIngredients) {
+      if (ri.is_optional) continue;
+      const calPer100 = Number(ri.ingredient?.calories_per_100g ?? 0);
+      const cal = (calPer100 * Number(ri.quantity ?? 0)) / 100;
+      ingCalMap.set(ri.recipe_id, (ingCalMap.get(ri.recipe_id) ?? 0) + cal);
+    }
 
     const nutritionMap = new Map<number, NutritionInfo>();
 
     for (const nutrition of nutritionRows) {
+      const totalIngKcal = ingCalMap.get(nutrition.recipe_id);
+      if (totalIngKcal && totalIngKcal > 0) {
+        nutrition.calories = Math.round(totalIngKcal * 100) / 100;
+      }
       nutritionMap.set(
         nutrition.recipe_id,
         nutrition,
       );
+    }
+
+    for (const [recipeId, totalIngKcal] of ingCalMap.entries()) {
+      if (!nutritionMap.has(recipeId) && totalIngKcal > 0) {
+        nutritionMap.set(recipeId, {
+          nutrition_id: 0,
+          recipe_id: recipeId,
+          calories: Math.round(totalIngKcal * 100) / 100,
+          protein: 0,
+          fat: 0,
+          carbs: 0,
+          fiber: 0,
+          created_at: new Date(),
+        } as any);
+      }
     }
 
     return nutritionMap;
@@ -679,6 +716,9 @@ export class MealPlanService {
 
     for (const row of rows) {
       const list = ingredientsMap.get(row.recipe_id) ?? [];
+      const calPer100 = Number(row.ingredient?.calories_per_100g ?? 0);
+      const ratio = Number(row.quantity ?? 0) / 100;
+      const cal = Math.round(calPer100 * ratio * 100) / 100;
 
       list.push({
         ingredient_id: row.ingredient_id,
@@ -686,6 +726,8 @@ export class MealPlanService {
         quantity: Number(row.quantity ?? 0),
         unit: row.unit,
         is_optional: row.is_optional,
+        calories_per_100g: calPer100,
+        calories: cal,
       });
 
       ingredientsMap.set(row.recipe_id, list);
@@ -969,27 +1011,19 @@ export class MealPlanService {
 
           const recipeCalories = Number(nutritionMap.get(selected.recipe_id)?.calories ?? 0);
           const maxPortion = 1.25;
-          let portion =
-            recipeCalories > 0
-              ? Math.min(maxPortion, Math.max(0.85, Math.round((calories / recipeCalories) * 10) / 10))
-              : 1.0;
-          const unitCost = costMap.get(selected.recipe_id) ?? 0;
-
-          if (budget) {
-            const maxCost = budget.remaining / Math.max(budget.slotsLeft, 1);
-            if (unitCost > 0) portion = Math.min(portion, maxCost / unitCost);
-          }
+          let portion = recipeCalories > 0 ? Math.min(maxPortion, Math.max(0.85, calories / recipeCalories)) : 1;
           portion = Math.round(portion * 10) / 10;
-          if (portion <= 0) portion = 0.85;
+          const dishCalories = Math.round(recipeCalories * portion);
+          const unitCost = (costMap.get(selected.recipe_id) ?? 0) * portion;
 
-          dayCalories += recipeCalories * portion;
+          dayCalories += dishCalories;
 
           if (budget) {
-            budget.remaining -= unitCost * portion;
+            budget.remaining -= unitCost;
             budget.slotsLeft--;
           }
 
-          planned.push({ dayIndex, mealType, calories, recipe: selected, portion, itemIndex: 0 });
+          planned.push({ dayIndex, mealType, calories: dishCalories, recipe: selected, portion, itemIndex: 0 });
           continue;
         }
 
@@ -1126,19 +1160,15 @@ export class MealPlanService {
           const recipeCalories = Number(nutritionMap.get(selected.recipe_id)?.calories ?? 0);
           const rawCal = recipeCalories > 0 ? recipeCalories : targetDishKcal;
 
-          // Khẩu phần: Chuẩn 1.0x khi kho món phong phú (2-3 món), hoặc 0.85x - 1.25x khi kho món thu gọn (unit test)
-          let portion = 1.0;
-          if (!hasRichCatalog) {
-            portion = recipeCalories > 0 ? Math.min(1.25, Math.max(0.85, Math.round((targetMealCalories / recipeCalories) * 10) / 10)) : 1.0;
-          }
-
-          const dishCalories = recipeCalories > 0 ? Math.round(recipeCalories * portion) : targetDishKcal;
+          // Luôn dùng 1.0 (chuẩn đúng định lượng công thức, không ép tăng giảm khẩu phần)
+          const portion = 1.0;
+          const dishCalories = recipeCalories > 0 ? Math.round(recipeCalories) : targetDishKcal;
           remainingMealKcal -= dishCalories;
           dayCalories += dishCalories;
 
           const unitCost = costMap.get(selected.recipe_id) ?? 0;
           if (budget) {
-            budget.remaining -= unitCost * portion;
+            budget.remaining -= unitCost;
             budget.slotsLeft--;
           }
 
@@ -1439,8 +1469,19 @@ export class MealPlanService {
       const ingredientsMap = await this.getIngredientsMap(recipeIds);
 
       for (const r of allRecipes as any[]) {
-        r.nutrition = nutritionMap.get(r.recipe_id) || null;
-        r.ingredients = ingredientsMap.get(r.recipe_id) || [];
+        const ings = ingredientsMap.get(r.recipe_id) || [];
+        r.ingredients = ings;
+        const totalIngKcal = ings.reduce((sum, ing) => sum + (Number(ing.calories) || 0), 0);
+        let nutr = nutritionMap.get(r.recipe_id) || null;
+        if (totalIngKcal > 0) {
+          if (!nutr) {
+            nutr = { nutrition_id: 0, recipe_id: r.recipe_id, calories: Math.round(totalIngKcal * 100) / 100, protein: 0, carbs: 0, fat: 0, fiber: 0 } as any;
+          } else {
+            nutr.calories = Math.round(totalIngKcal * 100) / 100;
+          }
+        }
+        r.nutrition = nutr;
+        r.calories = nutr?.calories ?? 0;
       }
 
       // Tạo mảng PlannedMeal giả định để tính tổng hợp nguyên liệu theo gam
@@ -3291,7 +3332,7 @@ export class MealPlanService {
               ...m.recipe,
               nutrition: nutritionMap.get(m.recipe.recipe_id) ?? null,
               ingredients: ingredientsMap.get(m.recipe.recipe_id) ?? [],
-
+              calories: Number(nutritionMap.get(m.recipe.recipe_id)?.calories ?? 0),
             },
           })),
         });

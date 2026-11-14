@@ -106,6 +106,12 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
     });
   }
 
+  // Luôn chuẩn hóa: Calo món ăn = Tổng calo từ tất cả các nguyên liệu trong công thức
+  const totalIngredientsKcal = ingredients.reduce((sum, ing) => sum + (Number(ing.calories) || 0), 0);
+  const finalCalories = totalIngredientsKcal > 0
+    ? Math.round(totalIngredientsKcal * 100) / 100
+    : (rawCalories && rawCalories > 0 ? Math.round(rawCalories * 100) / 100 : 350);
+
   // Instructions
   let instructions: string[] = [];
   if (Array.isArray(r.instructions)) {
@@ -207,7 +213,7 @@ export function mapBackendToFrontendRecipe(r: any): Recipe {
     prepTime,
     cookTime,
     serving,
-    calories,
+    calories: finalCalories,
     protein,
     carbs,
     fat,
