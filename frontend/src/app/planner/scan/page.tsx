@@ -503,10 +503,11 @@ function RecipeMatchList({
                   href={`/recipes/${recipe.recipe_id}`}
                   className="group block"
                 >
-                  <Card className={`overflow-hidden transition-all flex flex-col h-full ${hasAllergy
-                    ? "border-2 border-amber-400 bg-amber-50/30 shadow-md ring-2 ring-amber-300/60 hover:border-amber-500"
-                    : "hover:border-emerald-500 hover:shadow-md"
-                    }`}>
+                  <Card className={`overflow-hidden transition-all flex flex-col h-full ${
+                    hasAllergy
+                      ? "border-2 border-amber-400 bg-amber-50/30 shadow-md ring-2 ring-amber-300/60 hover:border-amber-500"
+                      : "hover:border-emerald-500 hover:shadow-md"
+                  }`}>
                     <div className="relative h-44 w-full bg-stone-100 overflow-hidden">
                       {recipe.image_url ? (
                         <img
@@ -522,12 +523,13 @@ function RecipeMatchList({
 
                       <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
                         <span
-                          className={`px-3 py-1 rounded-full text-xs font-extrabold shadow-sm flex items-center gap-1 ${isFullMatch
-                            ? "bg-emerald-600 text-white"
-                            : matchedCount >= 2
+                          className={`px-3 py-1 rounded-full text-xs font-extrabold shadow-sm flex items-center gap-1 ${
+                            isFullMatch
+                              ? "bg-emerald-600 text-white"
+                              : matchedCount >= 2
                               ? "bg-emerald-700 text-white"
                               : "bg-stone-900/80 backdrop-blur-xs text-white"
-                            }`}
+                          }`}
                         >
                           {isFullMatch ? "✓ Đủ " : "Trùng "}
                           {matchedCount}/{totalCount} nguyên liệu
@@ -574,10 +576,11 @@ function RecipeMatchList({
                                 return (
                                   <span
                                     key={i}
-                                    className={`inline-block text-[11px] px-2.5 py-1 rounded-md font-bold border transition-colors ${isAllergenChip
-                                      ? "bg-amber-100 text-amber-950 border-amber-400 ring-1 ring-amber-300 shadow-2xs"
-                                      : "bg-emerald-50 text-emerald-800 border-emerald-200/80 font-medium"
-                                      }`}
+                                    className={`inline-block text-[11px] px-2.5 py-1 rounded-md font-bold border transition-colors ${
+                                      isAllergenChip
+                                        ? "bg-amber-100 text-amber-950 border-amber-400 ring-1 ring-amber-300 shadow-2xs"
+                                        : "bg-emerald-50 text-emerald-800 border-emerald-200/80 font-medium"
+                                    }`}
                                   >
                                     {isAllergenChip ? `⚠ ${name}` : name}
                                   </span>
@@ -607,10 +610,11 @@ function RecipeMatchList({
                                 return (
                                   <span
                                     key={i}
-                                    className={`inline-block text-[11px] px-2 py-0.5 rounded-md ${isAllergenMissing
-                                      ? "bg-amber-100 text-amber-950 border border-amber-400 font-bold"
-                                      : "bg-stone-100 text-stone-600"
-                                      }`}
+                                    className={`inline-block text-[11px] px-2 py-0.5 rounded-md ${
+                                      isAllergenMissing
+                                        ? "bg-amber-100 text-amber-950 border border-amber-400 font-bold"
+                                        : "bg-stone-100 text-stone-600"
+                                    }`}
                                   >
                                     {isAllergenMissing ? `⚠ ${name}` : name}
                                   </span>
@@ -674,10 +678,11 @@ function RecipeMatchList({
                         key={pageNum}
                         type="button"
                         onClick={() => handlePageChange(pageNum)}
-                        className={`min-w-8 h-8 px-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center ${isActive
-                          ? "bg-emerald-700 text-white shadow-xs"
-                          : "border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 hover:text-emerald-700"
-                          }`}
+                        className={`min-w-8 h-8 px-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center ${
+                          isActive
+                            ? "bg-emerald-700 text-white shadow-xs"
+                            : "border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 hover:text-emerald-700"
+                        }`}
                       >
                         {pageNum}
                       </button>
@@ -907,7 +912,7 @@ function PantryManager({
                       return (
                         <div className="mt-2 py-1 px-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-bold flex items-center gap-1">
                           <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                          <span>Cảnh báo nguyên liệu: {allergenHit}</span>
+                          <span>Trùng dị ứng hồ sơ: {allergenHit}</span>
                         </div>
                       );
                     })()}
@@ -1021,14 +1026,15 @@ function PantryManager({
                           }
                           setSelectedIngredientId(ing.ingredient_id);
                         }}
-                        className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between transition-colors cursor-pointer ${allergenMatch
-                          ? isSelected
-                            ? "bg-rose-100 border border-rose-300 font-bold text-rose-950"
-                            : "bg-rose-50/70 hover:bg-rose-100/80 text-rose-900 border-b border-rose-100"
-                          : isSelected
-                            ? "bg-emerald-100/80 font-bold text-emerald-950"
-                            : "hover:bg-emerald-50 text-stone-700"
-                          }`}
+                        className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                          allergenMatch
+                            ? isSelected
+                              ? "bg-rose-100 border border-rose-300 font-bold text-rose-950"
+                              : "bg-rose-50/70 hover:bg-rose-100/80 text-rose-900 border-b border-rose-100"
+                            : isSelected
+                              ? "bg-emerald-100/80 font-bold text-emerald-950"
+                              : "hover:bg-emerald-50 text-stone-700"
+                        }`}
                       >
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-sm">{ing.ingredient_name}</span>
@@ -1151,16 +1157,23 @@ function ScanContent() {
   // Danh sách toàn bộ công thức đã duyệt từ DB
   const [dbRecipes, setDbRecipes] = useState<any[]>([]);
   const [loadingRecipes, setLoadingRecipes] = useState(false);
+  const [sysIngredients, setSysIngredients] = useState<SystemIngredient[]>([]);
 
   useEffect(() => {
     let isMounted = true;
-    async function loadRecipes() {
+    async function loadRecipesAndIngredients() {
       setLoadingRecipes(true);
       try {
-        const res = await recipeApiService.getRecipes({ limit: 1000 });
+        const [res, sysList] = await Promise.all([
+          recipeApiService.getRecipes({ limit: 1000 }),
+          userIngredientService.getSystemIngredients(),
+        ]);
         const list = Array.isArray(res) ? res : res?.data || res?.items || [];
         if (isMounted) {
           setDbRecipes(list);
+          if (Array.isArray(sysList)) {
+            setSysIngredients(sysList);
+          }
         }
       } catch (err) {
         console.error("Lỗi khi tải công thức từ database:", err);
@@ -1168,11 +1181,101 @@ function ScanContent() {
         if (isMounted) setLoadingRecipes(false);
       }
     }
-    loadRecipes();
+    loadRecipesAndIngredients();
     return () => {
       isMounted = false;
     };
   }, []);
+
+  // Ánh xạ tên nguyên liệu vùng miền / đồng nghĩa sang nguyên liệu hệ thống
+  const resolveDetectedIngredient = useCallback(
+    (item: DetectedIngredientItem, catalog: SystemIngredient[]) => {
+      if (item.ingredient?.ingredient_id) return item.ingredient;
+      if (item.candidates && item.candidates.length > 0 && item.candidates[0]?.ingredient_id) {
+        return item.candidates[0];
+      }
+
+      const rawName = (item.detected_name || "").normalize("NFC").toLowerCase().trim();
+      if (!rawName || catalog.length === 0) return null;
+
+      const SYNONYM_MAP: Record<string, string> = {
+        "dưa chuột": "dưa leo",
+        "quả dưa chuột": "dưa leo",
+        "trái dưa leo": "dưa leo",
+        "súp lơ xanh": "bông cải xanh",
+        "bông cải": "bông cải xanh",
+        "bông cải trắng": "súp lơ trắng",
+        "súp lơ": "súp lơ trắng",
+        "mướp đắng": "khổ qua",
+        "bí xanh": "bí đao",
+        "bí ngô": "bí đỏ",
+        "đậu phụ": "đậu hũ trắng",
+        "đậu hũ": "đậu hũ trắng",
+        "tàu hũ": "đậu hũ trắng",
+        "váng đậu": "tàu hũ ky khô",
+        "phù trúc": "tàu hũ ky khô",
+        "lạc": "đậu phộng",
+        "hạt lạc": "đậu phộng",
+        "vừng": "mè trắng",
+        "ngô": "bắp tươi",
+        "bắp": "bắp tươi",
+        "dứa": "thơm",
+        "khóm": "thơm",
+        "rau mùi": "ngò rí",
+        "ngò": "ngò rí",
+        "tần ô": "cải cúc",
+        "cải bó xôi": "rau bó xôi",
+        "rau chân vịt": "rau bó xôi",
+        "cải chíp": "cải thìa",
+        "bắp cải tím": "bắp cải",
+        "bắp cải trắng": "bắp cải",
+        "ớt chuông đỏ": "ớt chuông",
+        "ớt chuông xanh": "ớt chuông",
+        "ớt chuông vàng": "ớt chuông",
+        "ớt ngọt": "ớt chuông",
+        "ớt": "ớt tươi",
+        "hành khô": "hành tím",
+        "củ tỏi": "tỏi",
+        "củ hành tây": "hành tây",
+        "củ cà rốt": "cà rốt",
+        "quả cà chua": "cà chua",
+        "quả cà tím": "cà tím",
+        "củ khoai tây": "khoai tây",
+        "củ khoai lang": "khoai lang",
+        "củ sắn": "khoai mì",
+        "quả chanh": "chanh",
+        "chanh tươi": "chanh",
+        "chanh leo": "chanh dây",
+        "đậu que": "đậu cô ve",
+        "nấm mèo": "mộc nhĩ khô",
+        "mộc nhĩ": "mộc nhĩ khô",
+        "nấm đông cô": "nấm đông cô tươi",
+        "nấm sò": "nấm bào ngư",
+        "trứng": "trứng gà",
+        "xì dầu": "nước tương",
+      };
+
+      const targetName = SYNONYM_MAP[rawName] || rawName;
+      const cleanName = (s: string) =>
+        s.replace(/\s*\([^)]*\)/g, "").normalize("NFC").toLowerCase().trim();
+
+      const exact = catalog.find((ing) => {
+        const cleaned = cleanName(ing.ingredient_name);
+        const fullNorm = ing.ingredient_name.normalize("NFC").toLowerCase().trim();
+        return cleaned === targetName || cleaned === rawName || fullNorm.includes(targetName);
+      });
+
+      if (exact) {
+        return {
+          ingredient_id: exact.ingredient_id,
+          ingredient_name: exact.ingredient_name,
+          unit: exact.unit || "g",
+        };
+      }
+      return null;
+    },
+    []
+  );
 
   // Gọi API AI Scan ảnh thực tế (POST /api/v1/meal-plans/scan/detect)
   const handleFileAccepted = async (file: File) => {
@@ -1184,20 +1287,30 @@ function ScanContent() {
     setUploadedPreview(URL.createObjectURL(file));
 
     try {
+      let catalog = sysIngredients;
+      if (catalog.length === 0) {
+        catalog = await userIngredientService.getSystemIngredients();
+        if (catalog.length > 0) setSysIngredients(catalog);
+      }
+
       const res = await photoScanService.detect(file);
       if (res && res.items && res.items.length > 0) {
         setDetectedItems(
-          res.items.map((it) => ({
-            ...it,
-            selected: true,
-            quantity: 200,
-          }))
+          res.items.map((it) => {
+            const resolved = resolveDetectedIngredient(it, catalog);
+            return {
+              ...it,
+              ingredient: resolved || it.ingredient,
+              selected: true,
+              quantity: 200,
+            };
+          })
         );
         setScanned(true);
       } else {
         setScanError(
           res?.message ||
-          "Không nhận diện được nguyên liệu thực phẩm nào trong ảnh. Hãy chụp gần hơn và đủ sáng!"
+            "Không nhận diện được nguyên liệu thực phẩm nào trong ảnh. Hãy chụp gần hơn và đủ sáng!"
         );
       }
     } catch (err: any) {
@@ -1205,7 +1318,7 @@ function ScanContent() {
       const msg = err?.message || err?.details?.[0];
       setScanError(
         msg ||
-        "Lỗi khi gửi ảnh lên AI nhận diện. Vui lòng kiểm tra file ảnh và thử lại!"
+          "Lỗi khi gửi ảnh lên AI nhận diện. Vui lòng kiểm tra file ảnh và thử lại!"
       );
     } finally {
       setIsScanning(false);
@@ -1222,17 +1335,32 @@ function ScanContent() {
 
     setIsSavingToPantry(true);
     try {
+      let catalog = sysIngredients;
+      if (catalog.length === 0) {
+        catalog = await userIngredientService.getSystemIngredients();
+        if (catalog.length > 0) setSysIngredients(catalog);
+      }
+
+      let savedCount = 0;
       for (const item of toSave) {
-        const ingId = item.ingredient?.ingredient_id || 1;
+        const resolved = resolveDetectedIngredient(item, catalog);
+        const ingId = resolved?.ingredient_id;
+        if (!ingId) {
+          console.warn(
+            `[Scan] Bỏ qua nguyên liệu chưa có trong danh mục hệ thống: "${item.detected_name}"`
+          );
+          continue;
+        }
         await userIngredientService.addIngredient({
           ingredient_id: ingId,
           quantity: item.quantity || 200,
-          unit: item.ingredient?.unit || "g",
+          unit: resolved?.unit || item.ingredient?.unit || "g",
           freshness_status: item.freshness_status || "fresh",
         });
+        savedCount++;
       }
 
-      setSaveSuccessMsg(`Đã lưu thành công ${toSave.length} nguyên liệu vào Tủ lạnh của bạn!`);
+      setSaveSuccessMsg(`Đã lưu thành công ${savedCount} nguyên liệu vào Tủ lạnh của bạn!`);
       setTimeout(() => {
         setSaveSuccessMsg(null);
         setActiveTab("pantry");
@@ -1265,20 +1393,22 @@ function ScanContent() {
       <div className="flex items-center gap-2 border-b border-stone-200 pb-3">
         <button
           onClick={() => setActiveTab("pantry")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${activeTab === "pantry"
-            ? "bg-emerald-700 text-white shadow-xs"
-            : "text-stone-600 hover:bg-stone-100"
-            }`}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+            activeTab === "pantry"
+              ? "bg-emerald-700 text-white shadow-xs"
+              : "text-stone-600 hover:bg-stone-100"
+          }`}
         >
           <Refrigerator className="w-4 h-4" />
           <span>Tủ lạnh của tôi</span>
         </button>
         <button
           onClick={() => setActiveTab("scan")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${activeTab === "scan"
-            ? "bg-emerald-700 text-white shadow-xs"
-            : "text-stone-600 hover:bg-stone-100"
-            }`}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+            activeTab === "scan"
+              ? "bg-emerald-700 text-white shadow-xs"
+              : "text-stone-600 hover:bg-stone-100"
+          }`}
         >
           <Camera className="w-4 h-4" />
           <span>Quét ảnh AI & Nhận diện</span>
@@ -1347,7 +1477,7 @@ function ScanContent() {
                       setIsLightboxOpen(true);
                     }}
                     className={`w-full flex items-center justify-center cursor-zoom-in transition-all ${
-                      previewContain ? "max-h-72 min-h-44 p-2" : "h-52"
+                      previewContain ? "min-h-44 p-2" : "h-56"
                     }`}
                     title="Nhấn để phóng to và xem toàn bộ ảnh"
                   >
@@ -1356,7 +1486,7 @@ function ScanContent() {
                       alt="Ảnh chụp tủ lạnh"
                       className={`transition-transform duration-300 ${
                         previewContain
-                          ? "max-h-68 w-auto max-w-full object-contain rounded-lg"
+                          ? "w-full h-auto max-h-[420px] object-contain rounded-lg"
                           : "w-full h-full object-cover"
                       }`}
                     />
@@ -1441,12 +1571,13 @@ function ScanContent() {
                     return (
                       <div
                         key={idx}
-                        className={`flex items-center justify-between gap-3 border rounded-2xl p-3 transition-colors ${isAllergen
-                          ? "bg-amber-50/90 border-amber-400 ring-1 ring-amber-300 shadow-xs"
-                          : item.selected
+                        className={`flex items-center justify-between gap-3 border rounded-2xl p-3 transition-colors ${
+                          isAllergen
+                            ? "bg-amber-50/90 border-amber-400 ring-1 ring-amber-300 shadow-xs"
+                            : item.selected
                             ? "bg-emerald-50/40 border-emerald-200"
                             : "bg-stone-50/60 border-stone-200 opacity-60"
-                          }`}
+                        }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <input
