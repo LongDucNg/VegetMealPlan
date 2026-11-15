@@ -9,9 +9,15 @@ import { FavoriteRecipe } from './entities/favorite-recipe.entity';
 import { UserRecipePrice } from './entities/user-recipe-price.entity';
 
 import { RecipeService } from './recipe.service';
+import { RecipeAdminService } from './recipe-admin.service';
+import { RecipeExportService } from './recipe-export.service';
+import { RecipeFavoriteService } from './recipe-favorite.service';
+import { RecipePriceService } from './recipe-price.service';
+import { RecipeRecommendationService } from './recipe-recommendation.service';
 import { RecipeController } from './recipe.controller';
 import { RecipeValidatorService } from './recipe-validator.service';
 import { RecipeImageService } from './recipe-image.service';
+import { RecipeMediaService } from './recipe-media.service';
 import { MediaModule } from '../media/media.module';
 import { UserFavoriteRecipeController } from './user-favorite-recipe.controller';
 import { UserRecipePriceController } from './user-recipe-price.controller';
@@ -47,7 +53,17 @@ import { NotificationModule } from '../notification/notification.module';
     UserRecipePriceController,
     AdminRecipeController,
   ],
-  providers: [RecipeService, RecipeValidatorService, RecipeImageService],
-  exports: [RecipeService, RecipeValidatorService, TypeOrmModule],
+  providers: [
+    RecipeService,
+    RecipeAdminService,
+    RecipeExportService,
+    RecipeFavoriteService,
+    RecipePriceService,
+    RecipeRecommendationService,
+    RecipeValidatorService,
+    RecipeImageService,
+    RecipeMediaService,
+  ],
+  exports: [RecipeService, RecipeRecommendationService, RecipeValidatorService, TypeOrmModule],
 })
 export class RecipeModule { }

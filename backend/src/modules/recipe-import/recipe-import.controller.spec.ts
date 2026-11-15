@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import * as ExcelJS from 'exceljs';
 
 import { RecipeImportController } from './recipe-import.controller';
+import { RecipeExcelParser } from './recipe-excel.parser';
 
 const HEADERS = [
   'title',
@@ -57,13 +58,13 @@ function buildController() {
       return { success: true, data: { count: rows.length }, message: 'ok' };
     },
   };
-  return { controller: new RecipeImportController(svc), captured };
+  return { controller: new RecipeImportController(svc, new RecipeExcelParser()), captured };
 }
 
 async function callImport(buffer: Buffer, name = 'test.xlsx') {
   const { controller, captured } = buildController();
   const res = await controller.import(
-    { user: { user_id: 1 } },
+    1,
     { originalname: name, buffer, size: buffer.length },
   );
   return { res, rows: captured[0] };
@@ -194,7 +195,7 @@ describe('RecipeImportController - đọc file Excel', () => {
 
     await expect(
       controller.import(
-        { user: { user_id: 1 } },
+        1,
         {
           originalname: 'bad.xlsx',
           buffer: Buffer.from('không phải file zip'),

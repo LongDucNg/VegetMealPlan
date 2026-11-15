@@ -1,12 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { UsersService } from './users.service';
-import { MealPlanService } from '../meal-plan/meal-plan.service';
+import {
+  calculateTargetCalories,
+  resolveGoalAssessment,
+} from '../meal-plan/meal-plan-target.util';
 import { MEAL_SPLIT, resolveDailyCalorieTarget } from './weight-goal.util';
 
 /**
  * Mục 5 của cô: "Làm rõ mục tiêu giảm/tăng bao nhiêu kg và tính lượng calo/ngày để gợi ý menu NHẤT QUÁN".
  * Kiểm: con số trang hồ sơ hiện (GET /users/me/nutrition-summary) và con số backend dùng để lập
- * thực đơn (MealPlanService) luôn bằng nhau, trong mọi kiểu hồ sơ.
+ * thực đơn (MealPlanService, qua meal-plan-target.util) luôn bằng nhau, trong mọi kiểu hồ sơ.
  */
 
 const daysFromNow = (days: number) => {
@@ -41,11 +44,10 @@ function profileSummary(user: any) {
 
 /** kcal mục tiêu mà MealPlanService dùng khi lập thực đơn (cùng nhánh với prepareUserGeneration). */
 async function mealPlanTarget(user: any): Promise<number> {
-  const svc: any = Object.create(MealPlanService.prototype);
-  const assessment = await svc.resolveGoalAssessment(user);
+  const assessment = await resolveGoalAssessment(user);
   return assessment
     ? assessment.target_calories
-    : svc.calculateTargetCalories(
+    : calculateTargetCalories(
         user.age,
         user.gender,
         user.height_cm,

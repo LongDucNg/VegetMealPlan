@@ -825,7 +825,7 @@ export class RecipeImportService {
 
       for (const item of resolved) {
         // Nguyên liệu OPTIONAL vẫn được tính vào chi phí (giống
-        // RecipeService.getRecipeCost và script fix-recipe-cost-nutrition),
+        // RecipePriceService.getRecipeCost và script fix-recipe-cost-nutrition),
         // nhưng KHÔNG tính vào dinh dưỡng (món không bắt buộc phải dùng).
         const isOptional = item.row.is_optional ?? false;
 
@@ -864,7 +864,7 @@ export class RecipeImportService {
 
       // nutrition_infos lưu dinh dưỡng THEO 1 KHẨU PHẦN (khớp với
       // seed-vegetarian-data.ts, fix-recipe-cost-nutrition.ts và
-      // RecipeService.getRecipeCost). Tổng món chia cho số khẩu phần.
+      // RecipePriceService.getRecipeCost). Tổng món chia cho số khẩu phần.
       const servings = row.servings && row.servings > 0 ? row.servings : 1;
       const nutrition = calculateNutritionPerServing(nutritionRows, servings);
       const estimatedCost = calculateRecipeEstimatedCost(costRows);

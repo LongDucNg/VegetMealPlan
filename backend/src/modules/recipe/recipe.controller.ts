@@ -1,11 +1,4 @@
-import * as fs from 'fs';
-import * as path from 'path';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const multer = require('multer');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const cloudinary = require('cloudinary').v2;
 import {
-  BadRequestException,
   Controller,
   Get,
   Post,
@@ -14,8 +7,6 @@ import {
   Param,
   Delete,
   Query,
-  UseGuards,
-  Req,
   Res,
   UploadedFile,
   UseInterceptors,
@@ -23,14 +14,15 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { RecipeService } from './recipe.service';
+import { RecipeExportService } from './recipe-export.service';
+import { RecipePriceService } from './recipe-price.service';
+import { RecipeRecommendationService } from './recipe-recommendation.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeDto } from './dto/update-recipe.dto';
 import {
   QueryRecipeDto,
   RecommendationQueryDto,
 } from './dto/query-recipe.dto';
-import { AuthGuard } from '@nestjs/passport';
-import { ErrorCode } from '../../common/constants/error-codes.enum';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiProduces, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -38,6 +30,7 @@ import { UserRole } from '../users/entities/user.entity';
 import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
 import { CurrentUser, AuthUser } from '../../common/decorators/current-user.decorator';
 import { RecipeImageService, RECIPE_IMAGE_MAX_BYTES, UploadedImageFile } from './recipe-image.service';
+import { RecipeMediaService, RECIPE_MEDIA_UPLOAD_OPTIONS } from './recipe-media.service';
 
 @ApiTags('recipes')
 @Controller('recipes')
@@ -45,6 +38,10 @@ export class RecipeController {
   constructor(
     private readonly recipeService: RecipeService,
     private readonly recipeImageService: RecipeImageService,
+    private readonly recipeMediaService: RecipeMediaService,
+    private readonly recipeExportService: RecipeExportService,
+    private readonly recipePriceService: RecipePriceService,
+    private readonly recipeRecommendationService: RecipeRecommendationService,
   ) {}
 
   // =========================
@@ -58,21 +55,17 @@ export class RecipeController {
   }
 
   @Get('recommendations')
-  @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   getRecommendations(
     @Query() query: RecommendationQueryDto,
-    @Req() req: any,
+    @CurrentUser('user_id') userId: number,
   ) {
-    const userId = req.user.user_id;
-    return this.recipeService.getRecommendations(query, userId);
+    return this.recipeRecommendationService.getRecommendations(query, userId);
   }
 
   @Get('my-recipes')
-  @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
-  findMyRecipes(@Req() req: any) {
-    const userId = req.user.user_id;
+  findMyRecipes(@CurrentUser('user_id') userId: number) {
     return this.recipeService.findMyRecipes(userId);
   }
 
@@ -101,7 +94,7 @@ export class RecipeController {
   @ApiOperation({ summary: 'Export công thức ra file CSV (Admin)' })
   @ApiProduces('text/csv')
   async exportRecipes(@Query() query: QueryRecipeDto, @Res() res: Response) {
-    const { filename, content } = await this.recipeService.exportRecipesCsv(
+    const { filename, content } = await this.recipeExportService.exportRecipesCsv(
       query.ids,
       query,
       { approvedOnly: true },
@@ -126,19 +119,19 @@ export class RecipeController {
   @Get(':id/cost')
   @Public()
   getRecipeCost(@Param('id', PositiveIntPipe) id: number) {
-    return this.recipeService.getRecipeCost(id);
+    return this.recipePriceService.getRecipeCost(id);
   }
 
   @Get(':id/replacements')
   @Public()
   getRecipeReplacements(@Param('id', PositiveIntPipe) id: number) {
-    return this.recipeService.getRecipeReplacements(id);
+    return this.recipeRecommendationService.getRecipeReplacements(id);
   }
 
   @Get(':id/prices')
   @Public()
   getRecipeCommunityPrices(@Param('id', PositiveIntPipe) id: number) {
-    return this.recipeService.getRecipeCommunityPrices(id);
+    return this.recipePriceService.getRecipeCommunityPrices(id);
   }
 
   @Get(':id')
@@ -156,125 +149,24 @@ export class RecipeController {
   // =========================
 
   @Post('upload')
-  @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Tải lên hình ảnh hoặc video cho công thức món ăn' })
   @UseInterceptors(
-    FileInterceptor('file', {
-      storage: multer.diskStorage({
-        destination: (_req: any, _file: any, cb: any) => {
-          const uploadPath = path.join(process.cwd(), 'uploads', 'recipes');
-          fs.mkdirSync(uploadPath, { recursive: true });
-          cb(null, uploadPath);
-        },
-        filename: (_req: any, file: any, cb: any) => {
-          const ext = path.extname(file.originalname).toLowerCase();
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, 'recipe-' + uniqueSuffix + ext);
-        },
-      }),
-      fileFilter: (_req: any, file: any, cb: any) => {
-        const allowedMimes = [
-          'image/jpeg',
-          'image/png',
-          'image/webp',
-          'image/gif',
-          'video/mp4',
-          'video/webm',
-          'video/quicktime',
-        ];
-        const allowedExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.mp4', '.webm', '.mov'];
-        const ext = path.extname(file.originalname).toLowerCase();
-        // Cần đúng CẢ mimetype lẫn đuôi file: trước đây chỉ cần một trong hai nên file .html khai mimetype
-        // image/png vẫn lọt vào uploads/ và được phục vụ tĩnh từ origin của backend (XSS).
-        if (allowedMimes.includes(file.mimetype) && allowedExts.includes(ext)) {
-          cb(null, true);
-        } else {
-          cb(
-            new BadRequestException({
-              code: ErrorCode.VALIDATION_FAILED,
-              message: 'Chỉ chấp nhận file ảnh (jpg, png, webp, gif) hoặc video (mp4, webm, mov)',
-            }),
-            false,
-          );
-        }
-      },
-      limits: {
-        fileSize: 100 * 1024 * 1024,
-      },
-    }),
+    FileInterceptor('file', RECIPE_MEDIA_UPLOAD_OPTIONS),
   )
-  async uploadMedia(@UploadedFile() file: any) {
-    if (!file) {
-      throw new BadRequestException({
-        code: ErrorCode.VALIDATION_FAILED,
-        message: 'Vui lòng chọn file để tải lên',
-      });
-    }
-
-    const isVideo =
-      file.mimetype?.startsWith('video/') ||
-      ['.mp4', '.webm', '.mov'].includes(path.extname(file.originalname).toLowerCase());
-
-    // Nếu cấu hình Cloudinary trong .env, ưu tiên tải thẳng lên Cloudinary
-    if (
-      process.env.CLOUDINARY_CLOUD_NAME &&
-      process.env.CLOUDINARY_API_KEY &&
-      process.env.CLOUDINARY_API_SECRET
-    ) {
-      cloudinary.config({
-        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-        api_key: process.env.CLOUDINARY_API_KEY,
-        api_secret: process.env.CLOUDINARY_API_SECRET,
-      });
-
-      try {
-        const uploadResult = await cloudinary.uploader.upload(file.path, {
-          resource_type: isVideo ? 'video' : 'image',
-          folder: 'vegetmealplan/recipes',
-        });
-
-        // Xoá file tạm local sau khi đẩy lên Cloudinary
-        try {
-          fs.unlinkSync(file.path);
-        } catch {
-          // Bỏ qua lỗi xoá file tạm
-        }
-
-        return {
-          url: uploadResult.secure_url,
-          file_type: isVideo ? 'video' : 'image',
-          public_id: uploadResult.public_id,
-          size: file.size,
-        };
-      } catch (err: any) {
-        console.error('Lỗi khi tải file lên Cloudinary:', err);
-        throw new BadRequestException({
-          code: ErrorCode.VALIDATION_FAILED,
-          message: 'Lỗi khi tải file lên Cloudinary: ' + (err.message || 'Không xác định'),
-        });
-      }
-    }
-
-    const relativeUrl = '/uploads/recipes/' + file.filename;
-
-    return {
-      url: relativeUrl,
-      file_type: isVideo ? 'video' : 'image',
-      filename: file.filename,
-      size: file.size,
-    };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  uploadMedia(@UploadedFile() file: any) {
+    return this.recipeMediaService.upload(file);
   }
 
   @Post()
-  @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   create(
-    @Req() req: any,
+    @CurrentUser() user: AuthUser,
     @Body() createRecipeDto: CreateRecipeDto,
   ) {
-    const userId = req.user.user_id;
-    const userRole = req.user.role;
+    const userId = user.user_id;
+    const userRole = user.role;
 
     return this.recipeService.createRecipe(
       userId,
@@ -284,15 +176,14 @@ export class RecipeController {
   }
 
   @Put(':id')
-  @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   update(
     @Param('id', PositiveIntPipe) id: number,
-    @Req() req: any,
+    @CurrentUser() user: AuthUser,
     @Body() updateRecipeDto: UpdateRecipeDto,
   ) {
-    const userId = req.user.user_id;
-    const userRole = req.user.role;
+    const userId = user.user_id;
+    const userRole = user.role;
 
     return this.recipeService.updateRecipe(
       id,
@@ -303,14 +194,13 @@ export class RecipeController {
   }
 
   @Delete(':id')
-  @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   async remove(
     @Param('id', PositiveIntPipe) id: number,
-    @Req() req: any,
+    @CurrentUser() user: AuthUser,
   ) {
-    const userId = req.user.user_id;
-    const userRole = req.user.role;
+    const userId = user.user_id;
+    const userRole = user.role;
 
     const result = await this.recipeService.removeRecipe(id, userId, userRole);
     // Món đã xoá hẳn thì dọn luôn ảnh trên Cloudinary; món chỉ bị ẩn (REMOVED, còn trong thực đơn) giữ ảnh.

@@ -35,16 +35,10 @@ describe('RecipeService.findAll - lọc diet_type', () => {
 
     const svc = new RecipeService(
       recipeRepo as any,
-      { find: async () => [], findOne: async () => null } as any,
-      { find: async () => [], findOne: async () => null } as any,
-      { find: async () => [], findOne: async () => null } as any,
-      { find: async () => [], findOne: async () => null } as any,
-      { find: async () => [], findOne: async () => null } as any,
-      { findByIds: async () => [], findOne: async () => null } as any,
-      { find: async () => [], findOne: async () => null } as any,
-      { find: async () => [], findOne: async () => null } as any,
-      { find: async () => [], findOne: async () => null } as any,
-      { find: async () => [], findOne: async () => null } as any,
+      { find: async () => [], findOne: async () => null } as any, // recipeIngredientRepo
+      { find: async () => [], findOne: async () => null } as any, // nutritionRepo
+      { find: async () => [], findOne: async () => null } as any, // categoryRepo
+      { findByIds: async () => [], findOne: async () => null } as any, // ingredientService
       {} as any, // recipeValidator (không dùng khi lọc danh sách)
       { transaction: async (cb: any) => cb({}) } as any,
     );

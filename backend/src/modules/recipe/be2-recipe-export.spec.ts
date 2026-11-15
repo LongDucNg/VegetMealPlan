@@ -7,6 +7,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
 import { RecipeController } from './recipe.controller';
 import { RecipeService } from './recipe.service';
+import { RecipeExportService } from './recipe-export.service';
 import { buildRecipeCsv, escapeCsvValue, UTF8_BOM } from './recipe-export.util';
 
 const qbOf = (rows: any[]) => {
@@ -50,12 +51,18 @@ const repoOf = (rows: any[] = []) => ({
   createQueryBuilder: jest.fn(() => qbOf(rows)),
 });
 
-const svcOf = (r: any[] = [], i: any[] = [], n: any[] = [], c: any[] = []) =>
-  new RecipeService(
-    repoOf(r) as any, repoOf(i) as any, repoOf() as any, repoOf() as any,
-    repoOf() as any, repoOf() as any, {} as any, repoOf() as any,
-    repoOf(n) as any, repoOf(c) as any, repoOf() as any, {} as any, {} as any,
+const svcOf = (r: any[] = [], i: any[] = [], n: any[] = [], c: any[] = []) => {
+  const recipeRepo = repoOf(r) as any;
+  const recipeIngredientRepo = repoOf(i) as any;
+  const nutritionRepo = repoOf(n) as any;
+  const recipeService = new RecipeService(
+    recipeRepo, recipeIngredientRepo, nutritionRepo, repoOf() as any,
+    {} as any, {} as any, {} as any,
   );
+  return new RecipeExportService(
+    recipeRepo, recipeIngredientRepo, nutritionRepo, repoOf(c) as any, recipeService,
+  );
+};
 
 const RECIPE: any = {
   recipe_id: 15, title: 'Ga nam chay', description: 'd',
@@ -149,9 +156,10 @@ describe('BE2 - Export cong thuc (CSV)', () => {
 
   it('getRecipesForExport: khong co ids -> dung bo loc hien co (findAll)', async () => {
     const svc = svcOf([RECIPE]);
-    const spy = jest.spyOn(svc, 'findAll');
+    const spy = jest.spyOn(RecipeService.prototype, 'findAll');
     const res = await svc.getRecipesForExport(undefined, { status: 'approved' } as any);
     expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
     expect(res).toHaveLength(1);
     expect(res[0].recipe_id).toBe(15);
   });
@@ -226,7 +234,9 @@ describe('BE2 - Export cong thuc (CSV)', () => {
         content: 'x',
       })),
     };
-    const ctrl = new RecipeController(svc as any, {} as any);
+    const ctrl = new RecipeController(
+      {} as any, {} as any, {} as any, svc as any, {} as any, {} as any,
+    );
     const headers: Record<string, string> = {};
     const res: any = {
       setHeader: jest.fn((k: string, v: string) => { headers[k] = v; }),
@@ -248,4 +258,4 @@ describe('BE2 - Export cong thuc (CSV)', () => {
     expect(r.content).toContain('Ga nam chay');
     expect(r.content).toContain('Tofu nuong');
   });
-});
+});

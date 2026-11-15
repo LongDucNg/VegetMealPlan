@@ -5,6 +5,7 @@ import { RecipeImportItem } from './entities/recipe-import-item.entity';
 import { Recipe } from '../recipe/entities/recipe.entity';
 import { RecipeIngredient } from '../recipe/entities/recipe-ingredient.entity';
 import { RecipeImportService } from './recipe-import.service';
+import { RecipeExcelParser } from './recipe-excel.parser';
 import { RecipeImportController } from './recipe-import.controller';
 import { IngredientModule } from '../ingredient/ingredient.module';
 import { RecipeModule } from '../recipe/recipe.module';
@@ -18,7 +19,7 @@ import { RecipeModule } from '../recipe/recipe.module';
     RecipeModule,
   ],
   controllers: [RecipeImportController],
-  providers: [RecipeImportService],
+  providers: [RecipeImportService, RecipeExcelParser],
   exports: [RecipeImportService],
 })
 export class RecipeImportModule {}

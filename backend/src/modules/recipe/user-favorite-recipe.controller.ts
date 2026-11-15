@@ -1,43 +1,42 @@
-import { Controller, Delete, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { RecipeService } from './recipe.service';
+import { RecipeFavoriteService } from './recipe-favorite.service';
 import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('user-favorite-recipes')
 @ApiBearerAuth()
 @Controller('users/me/favorites/recipes')
-@UseGuards(AuthGuard('jwt'))
 export class UserFavoriteRecipeController {
   constructor(
-    private readonly recipeService: RecipeService,
+    private readonly recipeFavoriteService: RecipeFavoriteService,
   ) {}
 
   @Get()
-  getMyFavorites(@Req() req: any) {
-    return this.recipeService.listFavorites(
-      req.user.user_id,
+  getMyFavorites(@CurrentUser('user_id') userId: number) {
+    return this.recipeFavoriteService.listFavorites(
+      userId,
     );
   }
 
   @Post(':recipeId')
   addFavorite(
-    @Req() req: any,
+    @CurrentUser('user_id') userId: number,
     @Param('recipeId', PositiveIntPipe) recipeId: number,
   ) {
-    return this.recipeService.addFavorite(
-      req.user.user_id,
+    return this.recipeFavoriteService.addFavorite(
+      userId,
       recipeId,
     );
   }
 
   @Delete(':recipeId')
   removeFavorite(
-    @Req() req: any,
+    @CurrentUser('user_id') userId: number,
     @Param('recipeId', PositiveIntPipe) recipeId: number,
   ) {
-    return this.recipeService.removeFavorite(
-      req.user.user_id,
+    return this.recipeFavoriteService.removeFavorite(
+      userId,
       recipeId,
     );
   }

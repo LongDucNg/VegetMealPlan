@@ -4,15 +4,13 @@ import {
   Get,
   Param,
   Put,
-  Req,
-  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 import { IngredientService } from './ingredient.service';
 import { SetPriceDto, ValidatePricePipe } from './dto/set-price.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('ingredients')
 @Controller('ingredients')
@@ -44,10 +42,9 @@ export class IngredientController {
   // =========================
 
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'))
   @Put(':id/my-price')
   setMyPrice(
-    @Req() req: any,
+    @CurrentUser('user_id') userId: number,
     @Param('id', PositiveIntPipe) id: number,
     // ValidatePricePipe phải gắn ở @Body(), KHÔNG dùng @UsePipes() cấp route:
     // @UsePipes() áp cho MỌI param của route (kể cả :id) nên pipe sẽ đọc
@@ -55,7 +52,7 @@ export class IngredientController {
     @Body(new ValidatePricePipe()) dto: SetPriceDto,
   ) {
     return this.ingredientService.setUserPrice(
-      req.user.user_id,
+      userId,
       id,
       dto.price_per_unit,
     );
