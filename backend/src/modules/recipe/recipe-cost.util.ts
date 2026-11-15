@@ -115,7 +115,7 @@ export interface RecipeEstimatedCostResult {
  * cho ra cùng một con số.
  *
  * Quy ước: nguyên liệu optional VẪN được tính vào chi phí (món không bắt
- * buộc phải dùng nhưng vẫn tốn tiền), khớp với RecipeService.getRecipeCost
+ * buộc phải dùng nhưng vẫn tốn tiền), khớp với RecipePriceService.getRecipeCost
  * và MealPlanService.getRecipeCostMap.
  */
 export function calculateRecipeEstimatedCost(

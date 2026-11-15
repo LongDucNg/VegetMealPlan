@@ -22,6 +22,7 @@ import { ChatbotModule } from '../chatbot/chatbot.module';
 
 import { MealPlanController } from './meal-plan.controller';
 import { MealPlanService } from './meal-plan.service';
+import { MealPlanProfileService } from './meal-plan-profile.service';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { MealPlanService } from './meal-plan.service';
   ],
   providers: [
     MealPlanService,
+    MealPlanProfileService,
   ],
   exports: [
     MealPlanService,

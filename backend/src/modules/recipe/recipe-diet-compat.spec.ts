@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BadRequestException } from '@nestjs/common';
 import { RecipeService } from './recipe.service';
+import { RecipeAdminService } from './recipe-admin.service';
 import { RecipeValidatorService } from './recipe-validator.service';
 import { Recipe, RecipeStatus } from './entities/recipe.entity';
 import { RecipeIngredient } from './entities/recipe-ingredient.entity';
@@ -97,7 +98,7 @@ function newCtx(recipes: any[] = [], recipeIngredients: any[] = []): Ctx {
  * Dựng RecipeService với các repository giả lập - KHÔNG ghi vào database thật.
  * Chỉ mô phỏng đúng những phần mà luồng kiểm tra chế độ ăn chay dùng tới.
  */
-function buildService(ctx: Ctx): RecipeService {
+function buildServices(ctx: Ctx) {
   const recipeRepo: any = {
     findOne: async ({ where }: any) =>
       ctx.recipes.find((r) => r.recipe_id === where.recipe_id) ?? null,
@@ -184,20 +185,30 @@ function buildService(ctx: Ctx): RecipeService {
   const svc = new RecipeService(
     recipeRepo as any,
     recipeIngredientRepo as any,
-    { find: async () => [], findOne: async () => null } as any,
-    { find: async () => [] } as any,
-    { findOne: async () => null } as any,
-    { find: async () => [] } as any,
-    ingredientService,
-    { find: async () => [], findOne: async () => null } as any,
     nutritionRepo as any,
-    recipeCategoryRepo as any,
     categoryRepo as any,
+    ingredientService,
     new RecipeValidatorService(ingredientService),
     dataSource,
   );
 
-  return svc;
+  const admin = new RecipeAdminService(
+    recipeRepo as any,
+    recipeIngredientRepo as any,
+    nutritionRepo as any,
+    recipeCategoryRepo as any,
+    svc,
+  );
+
+  return { svc, admin };
+}
+
+function buildService(ctx: Ctx): RecipeService {
+  return buildServices(ctx).svc;
+}
+
+function buildAdminService(ctx: Ctx): RecipeAdminService {
+  return buildServices(ctx).admin;
 }
 
 const ingRow = (ingredient_id: number) => ({
@@ -546,7 +557,7 @@ describe('RecipeService - kiem tra tuong thiep chu do an chay', () => {
         ],
         [{ recipe_id: 20, ingredient_id: 9001, quantity: 100, unit: 'g' }],
       );
-      const svc = buildService(ctx);
+      const svc = buildAdminService(ctx);
 
       await expect(
         svc.updateRecipeStatus(20, 1, { status: 'approved' } as any),
@@ -568,7 +579,7 @@ describe('RecipeService - kiem tra tuong thiep chu do an chay', () => {
         ],
         [{ recipe_id: 21, ingredient_id: 25, quantity: 100, unit: 'g' }],
       );
-      const svc = buildService(ctx);
+      const svc = buildAdminService(ctx);
 
       const res: any = await svc.updateRecipeStatus(21, 1, {
         status: 'approved',
@@ -593,7 +604,7 @@ describe('RecipeService - kiem tra tuong thiep chu do an chay', () => {
         ],
         [{ recipe_id: 22, ingredient_id: 9001, quantity: 100, unit: 'g' }],
       );
-      const svc = buildService(ctx);
+      const svc = buildAdminService(ctx);
 
       const res: any = await svc.updateRecipeStatus(22, 1, {
         status: 'rejected',
@@ -621,7 +632,7 @@ describe('RecipeService - kiem tra tuong thiep chu do an chay', () => {
         ],
         [{ recipe_id: 23, ingredient_id: 179, quantity: 100, unit: 'g' }],
       );
-      const svc = buildService(ctx);
+      const svc = buildAdminService(ctx);
 
       const res: any = await svc.updateRecipeStatus(23, 1, {
         status: 'approved',

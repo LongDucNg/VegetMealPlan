@@ -4,42 +4,39 @@ import {
   Get,
   Param,
   Put,
-  Req,
   Body,
-  UseGuards,
 } from '@nestjs/common';
 
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 
-import { RecipeService } from './recipe.service';
+import { RecipePriceService } from './recipe-price.service';
 import { SetRecipePriceDto } from './dto/set-recipe-price.dto';
 import { PositiveIntPipe } from '../../common/pipes/positive-int.pipe';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('recipe-prices')
 @ApiBearerAuth()
 @Controller('users/me/recipe-prices')
-@UseGuards(AuthGuard('jwt'))
 export class UserRecipePriceController {
   constructor(
-    private readonly recipeService: RecipeService,
+    private readonly recipePriceService: RecipePriceService,
   ) {}
 
   @Get()
-  getMyRecipePrices(@Req() req: any) {
-    return this.recipeService.getMyRecipePrices(
-      req.user.user_id,
+  getMyRecipePrices(@CurrentUser('user_id') userId: number) {
+    return this.recipePriceService.getMyRecipePrices(
+      userId,
     );
   }
 
   @Put(':recipeId')
   setMyRecipePrice(
-    @Req() req: any,
+    @CurrentUser('user_id') userId: number,
     @Param('recipeId', PositiveIntPipe) recipeId: number,
     @Body() dto: SetRecipePriceDto,
   ) {
-    return this.recipeService.setMyRecipePrice(
-      req.user.user_id,
+    return this.recipePriceService.setMyRecipePrice(
+      userId,
       recipeId,
       dto.actual_price,
     );
@@ -47,11 +44,11 @@ export class UserRecipePriceController {
 
   @Delete(':recipeId')
   removeMyRecipePrice(
-    @Req() req: any,
+    @CurrentUser('user_id') userId: number,
     @Param('recipeId', PositiveIntPipe) recipeId: number,
   ) {
-    return this.recipeService.removeMyRecipePrice(
-      req.user.user_id,
+    return this.recipePriceService.removeMyRecipePrice(
+      userId,
       recipeId,
     );
   }

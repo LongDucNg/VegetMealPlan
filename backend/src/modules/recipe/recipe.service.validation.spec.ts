@@ -161,15 +161,9 @@ function buildService(ctx: Ctx): RecipeService {
   return new RecipeService(
     recipeRepo,
     recipeIngredientRepo,
-    nullRepo, // favoriteRepo
-    nullRepo, // replacementRepo
-    nullRepo, // userRepo
-    nullRepo, // userAllergyRepo
-    ingredientService,
-    nullRepo, // userRecipePriceRepo
     nullRepo, // nutritionRepo
-    nullRepo, // recipeCategoryRepo
     nullRepo, // categoryRepo
+    ingredientService,
     recipeValidator,
     dataSource,
   );

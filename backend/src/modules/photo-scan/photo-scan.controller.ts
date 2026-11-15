@@ -5,7 +5,6 @@ import {
   Post,
   UploadedFile,
   UploadedFiles,
-  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import {
@@ -16,7 +15,6 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 import {
   FileInterceptor,
   FilesInterceptor,
@@ -34,7 +32,6 @@ import { ScanStatsResponseData } from './dto/scan-stats-response.dto';
 
 @ApiTags('meal-plans-scan')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'))
 @Controller('meal-plans/scan')
 export class PhotoScanController {
   constructor(private readonly photoScanService: PhotoScanService) {}

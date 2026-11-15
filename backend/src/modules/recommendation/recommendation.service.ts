@@ -5,7 +5,7 @@ import { AiRecommendation } from './entities/ai-recommendation.entity';
 import { AiRecommendationMissingIngredient } from './entities/ai-recommendation-missing-ingredient.entity';
 import { UserIngredientService } from '../user-ingredient/user-ingredient.service';
 import { IngredientService } from '../ingredient/ingredient.service';
-import { RecipeService } from '../recipe/recipe.service';
+import { RecipeRecommendationService } from '../recipe/recipe-recommendation.service';
 import { UsersService } from '../users/users.service';
 import { WeightGoalDto } from '../users/dto/weight-goal.dto';
 
@@ -33,7 +33,7 @@ export class RecommendationService {
     private readonly missingRepo: Repository<AiRecommendationMissingIngredient>,
     private readonly userIngredientService: UserIngredientService,
     private readonly ingredientService: IngredientService,
-    private readonly recipeService: RecipeService,
+    private readonly recipeRecommendationService: RecipeRecommendationService,
     private readonly usersService: UsersService,
   ) {}
 
@@ -92,7 +92,7 @@ export class RecommendationService {
     // - lacto     → recipe 'vegan' + 'lacto'
     // - ovo       → recipe 'vegan' + 'ovo'
     // - ovo_lacto → recipe 'vegan' + 'lacto' + 'ovo' + 'ovo_lacto'
-    const matches = await this.recipeService.matchRecipesByIngredients(
+    const matches = await this.recipeRecommendationService.matchRecipesByIngredients(
       availableIngredientIds,
       allergyIngredientIds,
       user.diet_type,

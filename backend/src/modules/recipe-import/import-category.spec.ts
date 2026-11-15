@@ -2,6 +2,7 @@
 import * as ExcelJS from 'exceljs';
 
 import { RecipeImportController } from './recipe-import.controller';
+import { RecipeExcelParser } from './recipe-excel.parser';
 import {
   isCategoryIdList,
   resolveCategoryText,
@@ -90,8 +91,8 @@ describe('Import: nhận đúng tên cột trong file Excel (mục 4)', () => {
         captured.push(...rows);
         return { success: true };
       },
-    } as any);
-    await controller.import({ user: { user_id: 1 } }, { originalname: 'a.xlsx', buffer, size: buffer.length });
+    } as any, new RecipeExcelParser());
+    await controller.import(1, { originalname: 'a.xlsx', buffer, size: buffer.length });
     return captured[0];
   }
 
