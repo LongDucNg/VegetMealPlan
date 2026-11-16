@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "Backend API cho Ứng dụng hỗ trợ người ăn chay (NestJS + PostgreSQL + TypeORM)",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\"",

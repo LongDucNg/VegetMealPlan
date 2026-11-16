@@ -10,6 +10,7 @@ import { Category, CategoryStatus } from '../category/entities/category.entity';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
 import { AuthUser } from '../../common/decorators/current-user.decorator';
 import { NonVegetarianDetectorService } from '../../common/services/non-vegetarian-detector.service';
+import { CloudinaryService } from '../media/cloudinary.service';
 
 describe('VideoService', () => {
   let service: VideoService;
@@ -56,6 +57,14 @@ describe('VideoService', () => {
         { provide: getRepositoryToken(Vote), useValue: voteRepo },
         { provide: getRepositoryToken(Comment), useValue: commentRepo },
         { provide: NonVegetarianDetectorService, useValue: detector },
+        {
+          provide: CloudinaryService,
+          useValue: {
+            uploadLocalFile: jest.fn().mockImplementation((filePath: string) =>
+              Promise.resolve({ secure_url: `https://res.cloudinary.com/demo/${filePath}`, public_id: filePath }),
+            ),
+          },
+        },
       ],
     }).compile();
 
