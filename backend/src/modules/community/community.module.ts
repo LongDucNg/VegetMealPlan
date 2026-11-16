@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { MediaModule } from '../media/media.module';
 import { Blog } from './entities/blog.entity';
 import { Video } from './entities/video.entity';
 import { Comment } from './entities/comment.entity';
@@ -15,7 +16,7 @@ import { AdminContentController } from './admin-content.controller';
 import { NonVegetarianDetectorService } from '../../common/services/non-vegetarian-detector.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Blog, Video, Comment, Vote, Category])],
+  imports: [TypeOrmModule.forFeature([Blog, Video, Comment, Vote, Category]), MediaModule],
   controllers: [
     ForumController,
     AdminForumController,

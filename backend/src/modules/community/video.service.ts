@@ -22,6 +22,7 @@ import { CreateVideoDto } from './dto/create-video.dto';
 import { UpdateVideoDto } from './dto/update-video.dto';
 import { VoteCommentDto } from './dto/vote-comment.dto';
 import { NonVegetarianDetectorService } from '../../common/services/non-vegetarian-detector.service';
+import { CloudinaryService } from '../media/cloudinary.service';
 
 export const VIDEO_CATEGORY_TYPE = 'video';
 
@@ -99,6 +100,7 @@ export class VideoService {
     @InjectRepository(Vote) private readonly voteRepo: Repository<Vote>,
     @InjectRepository(Comment) private readonly commentRepo: Repository<Comment>,
     private readonly nonVegDetector: NonVegetarianDetectorService,
+    private readonly cloudinary: CloudinaryService,
   ) {}
 
   // ==========================================
@@ -422,6 +424,19 @@ export class VideoService {
       flag_reason: isFlagged ? flagReasons.join('; ') : null,
     };
 
+    // 6. Đẩy video + thumbnail lên Cloudinary (server deploy không giữ file trên ổ đĩa), rồi xoá file tạm.
+    try {
+      const [uploadedVideo, uploadedThumb] = await Promise.all([
+        this.cloudinary.uploadLocalFile(videoFile.path, 'video', 'vegetmealplan/videos'),
+        this.cloudinary.uploadLocalFile(thumbnailFile.path, 'image', 'vegetmealplan/thumbnails'),
+      ]);
+      videoData.video_url = uploadedVideo.secure_url;
+      videoData.thumbnail_url = uploadedThumb.secure_url;
+    } finally {
+      cleanupFile(videoFile.path);
+      cleanupFile(thumbnailFile.path);
+    }
+
     const video = this.videoRepo.create(videoData as any);
     const saved = (await this.videoRepo.save(video)) as unknown as Video;
     const loaded = await this.baseVideoQuery()
@@ -535,8 +550,17 @@ export class VideoService {
       video.duration = dto.duration?.trim() || null;
     }
     if (thumbnailFile) {
-      cleanupFile(video.thumbnail_url || undefined);
-      video.thumbnail_url = thumbnailFile.path.replace(/\\/g, '/');
+      try {
+        const uploadedThumb = await this.cloudinary.uploadLocalFile(
+          thumbnailFile.path,
+          'image',
+          'vegetmealplan/thumbnails',
+        );
+        cleanupFile(video.thumbnail_url || undefined);
+        video.thumbnail_url = uploadedThumb.secure_url;
+      } finally {
+        cleanupFile(thumbnailFile.path);
+      }
       hasSignificantChanges = true;
     } else if (dto.thumbnail_url) {
       video.thumbnail_url = dto.thumbnail_url;

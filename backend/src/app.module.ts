@@ -66,11 +66,14 @@ import { PhotoScanModule } from './modules/photo-scan/photo-scan.module';
           type: 'postgres',
           ...options,
           autoLoadEntities: true,
-          // LUÔN false — schema đi qua migration để cả team dùng chung 1 nguồn sự thật.
-          synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
+          // Chỉ bật với DB local (buildPostgresOptions đã chặn DB_SYNCHRONIZE=true trên DB không phải localhost).
+          // DB dùng chung/production: schema chỉ đổi qua migration.
+          synchronize: options.synchronize,
           // Ghép chuỗi bằng '/' (không dùng path.resolve): glob của TypeORM không hiểu dấu \ trên Windows.
           migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
-          migrationsRun: env('DB_MIGRATIONS_RUN') === 'true' || true,
+          // Chỉ tự chạy migration khi đặt DB_MIGRATIONS_RUN=true (bật trên server deploy).
+          // Máy dev để trống: chạy tay bằng `npm run migration:run` khi cần.
+          migrationsRun: env('DB_MIGRATIONS_RUN') === 'true',
         };
       },
     }),

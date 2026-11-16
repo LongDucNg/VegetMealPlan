@@ -8,6 +8,9 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Render/Vercel đặt backend sau 1 lớp proxy: tin header X-Forwarded-For của đúng 1 lớp đó để req.ip
+  // là IP thật của người dùng (giới hạn gửi OTP theo IP), không phải IP của proxy.
+  app.set('trust proxy', 1);
 
   const uploadsDir = join(process.cwd(), 'uploads');
   if (!fs.existsSync(uploadsDir)) {

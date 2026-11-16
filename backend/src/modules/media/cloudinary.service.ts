@@ -2,6 +2,8 @@ import { BadGatewayException, Injectable, Logger, ServiceUnavailableException } 
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const cloudinarySdk = require('cloudinary').v2;
 
 export interface CloudinaryUploadResult {
   public_id: string;
@@ -80,6 +82,41 @@ export class CloudinaryService {
       timestamp: Math.floor(Date.now() / 1000),
     };
     return this.post<CloudinaryUploadResult>('image/upload', params, { file });
+  }
+
+  /**
+   * Upload file đang nằm tạm trên đĩa (multer diskStorage) vào một thư mục trên Cloudinary.
+   * Dùng SDK thay cho REST + base64 vì video có thể tới 100MB: video gửi theo từng phần (upload_large).
+   * Không tự xoá file tạm: nơi gọi xoá sau khi upload xong hoặc lỗi.
+   */
+  async uploadLocalFile(
+    filePath: string,
+    resourceType: 'image' | 'video',
+    folder: string,
+  ): Promise<CloudinaryUploadResult> {
+    this.assertConfigured();
+    cloudinarySdk.config({
+      cloud_name: this.cloudName,
+      api_key: this.apiKey,
+      api_secret: this.apiSecret,
+      secure: true,
+    });
+    try {
+      if (resourceType === 'video') {
+        return await new Promise<CloudinaryUploadResult>((resolve, reject) => {
+          cloudinarySdk.uploader.upload_large(
+            filePath,
+            { resource_type: 'video', folder, chunk_size: 20_000_000 },
+            (err: unknown, result: CloudinaryUploadResult) => (err ? reject(err) : resolve(result)),
+          );
+        });
+      }
+      return await cloudinarySdk.uploader.upload(filePath, { resource_type: 'image', folder });
+    } catch (err) {
+      const message = (err as { message?: string })?.message ?? String(err);
+      this.logger.error(`Upload ${resourceType} lên Cloudinary thất bại: ${message}`);
+      throw new BadGatewayException({ code: ErrorCode.UPLOAD_FAILED, message: 'Không tải được file lên máy chủ lưu trữ, vui lòng thử lại.' });
+    }
   }
 
   /** Xoá ảnh theo publicId. Không có ảnh thì Cloudinary trả "not found", coi như đã xoá. */

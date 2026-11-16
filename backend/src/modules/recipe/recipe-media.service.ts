@@ -1,15 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
+import { CloudinaryService } from '../media/cloudinary.service';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const multer = require('multer');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const cloudinary = require('cloudinary').v2;
 
 /**
- * Cấu hình multer cho POST /recipes/upload: lưu tạm xuống uploads/recipes, chỉ nhận ảnh/video,
+ * Cấu hình multer cho POST /recipes/upload: lưu TẠM xuống uploads/recipes (xoá ngay sau khi đẩy lên Cloudinary), chỉ nhận ảnh/video,
  * tối đa 100MB. Tách khỏi controller để controller chỉ còn khai báo route.
  */
 export const RECIPE_MEDIA_UPLOAD_OPTIONS: MulterOptions = {
@@ -59,11 +58,12 @@ export const RECIPE_MEDIA_UPLOAD_OPTIONS: MulterOptions = {
 /**
  * Tải ảnh/video cho form tạo/sửa món khi món CHƯA có id (khác RecipeImageService:
  * POST /recipes/:id/image gắn ảnh cho món đã tồn tại).
- * Có cấu hình Cloudinary thì đẩy lên Cloudinary rồi xoá file tạm; không có thì trả đường dẫn local.
+ * Bắt buộc dùng Cloudinary: server deploy (Render) xoá ổ đĩa mỗi lần deploy, nên không lưu file lâu dài
+ * trên máy chủ. Thiếu cấu hình Cloudinary thì báo 503 UPLOAD_NOT_CONFIGURED. File tạm luôn bị xoá.
  */
 @Injectable()
 export class RecipeMediaService {
-  private readonly logger = new Logger(RecipeMediaService.name);
+  constructor(private readonly cloudinary: CloudinaryService) {}
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async upload(file: any) {
@@ -78,53 +78,29 @@ export class RecipeMediaService {
       file.mimetype?.startsWith('video/') ||
       ['.mp4', '.webm', '.mov'].includes(path.extname(file.originalname).toLowerCase());
 
-    // Nếu cấu hình Cloudinary trong .env, ưu tiên tải thẳng lên Cloudinary
-    if (
-      process.env.CLOUDINARY_CLOUD_NAME &&
-      process.env.CLOUDINARY_API_KEY &&
-      process.env.CLOUDINARY_API_SECRET
-    ) {
-      cloudinary.config({
-        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-        api_key: process.env.CLOUDINARY_API_KEY,
-        api_secret: process.env.CLOUDINARY_API_SECRET,
-      });
-
-      try {
-        const uploadResult = await cloudinary.uploader.upload(file.path, {
-          resource_type: isVideo ? 'video' : 'image',
-          folder: 'vegetmealplan/recipes',
-        });
-
-        // Xoá file tạm local sau khi đẩy lên Cloudinary
-        try {
-          fs.unlinkSync(file.path);
-        } catch {
-          // Bỏ qua lỗi xoá file tạm
-        }
-
-        return {
-          url: uploadResult.secure_url,
-          file_type: isVideo ? 'video' : 'image',
-          public_id: uploadResult.public_id,
-          size: file.size,
-        };
-      } catch (err: any) {
-        this.logger.error(`Lỗi khi tải file lên Cloudinary: ${err?.message ?? err}`);
-        throw new BadRequestException({
-          code: ErrorCode.VALIDATION_FAILED,
-          message: 'Lỗi khi tải file lên Cloudinary: ' + (err.message || 'Không xác định'),
-        });
-      }
+    try {
+      const uploadResult = await this.cloudinary.uploadLocalFile(
+        file.path,
+        isVideo ? 'video' : 'image',
+        'vegetmealplan/recipes',
+      );
+      return {
+        url: uploadResult.secure_url,
+        file_type: isVideo ? 'video' : 'image',
+        public_id: uploadResult.public_id,
+        size: file.size,
+      };
+    } finally {
+      removeTempFile(file.path);
     }
+  }
+}
 
-    const relativeUrl = '/uploads/recipes/' + file.filename;
-
-    return {
-      url: relativeUrl,
-      file_type: isVideo ? 'video' : 'image',
-      filename: file.filename,
-      size: file.size,
-    };
+function removeTempFile(filePath?: string) {
+  if (!filePath) return;
+  try {
+    fs.unlinkSync(filePath);
+  } catch {
+    // File tạm đã bị xoá hoặc không tồn tại: bỏ qua
   }
 }
