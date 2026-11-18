@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge } from "@/components/ui/Badge";
@@ -89,6 +89,16 @@ function PlannerContent() {
 
   // Modals state
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
+  // Khung "Cập nhật hồ sơ" nằm dưới thanh công cụ, cách xa nút bấm ở banner:
+  // mở ra thì tự cuộn xuống để người dùng thấy ngay chỗ cần nhập.
+  const profileDrawerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showProfileDrawer) return;
+    const id = requestAnimationFrame(() => {
+      profileDrawerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [showProfileDrawer]);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
@@ -586,6 +596,7 @@ function PlannerContent() {
 
       {/* Profile Quick Drawer */}
       {showProfileDrawer && (
+        <div ref={profileDrawerRef} className="scroll-mt-24">
         <Card className="p-6 bg-stone-50/70 border-emerald-200 animate-in fade-in">
           <div className="flex items-center justify-between mb-4 border-b pb-3">
             <div>
@@ -605,6 +616,7 @@ function PlannerContent() {
           </div>
           <ProfileEditor />
         </Card>
+        </div>
       )}
 
       {/* ========================================================
