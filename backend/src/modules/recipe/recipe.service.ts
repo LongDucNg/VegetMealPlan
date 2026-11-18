@@ -36,12 +36,6 @@ import {
   VALID_MEAL_TYPES,
 } from './recipe-meals.util';
 
-export interface IngredientConflictWarning {
-  ingredient_id_1: number;
-  ingredient_id_2: number;
-  reason: string;
-}
-
 /**
  * Nghiệp vụ chính của công thức: tìm kiếm, xem chi tiết, tạo, sửa, xoá món.
  *
@@ -558,23 +552,6 @@ export class RecipeService {
     return recipes.map((r: any) => ({
       ...r,
       nutrition: nutritionMap.get(r.recipe_id) || null,
-    }));
-  }
-
-  // =========================
-  // CHECK INGREDIENT CONFLICTS
-  // =========================
-
-  async checkIngredientConflicts(
-    ingredientIds: number[],
-  ): Promise<IngredientConflictWarning[]> {
-    const conflicts =
-      await this.ingredientService.findConflictsAmong(ingredientIds);
-
-    return conflicts.map((conflict) => ({
-      ingredient_id_1: conflict.ingredient_id_1,
-      ingredient_id_2: conflict.ingredient_id_2,
-      reason: conflict.reason,
     }));
   }
 

@@ -1,11 +1,11 @@
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { ForumService, FORUM_CATEGORY_TYPE } from './forum.service';
+import { ForumService } from './forum.service';
 import { Blog, ContentStatus } from './entities/blog.entity';
 import { Comment } from './entities/comment.entity';
 import { Vote } from './entities/vote.entity';
-import { Category, CategoryStatus } from '../category/entities/category.entity';
+import { Category } from '../category/entities/category.entity';
 import { NonVegetarianDetectorService } from '../../common/services/non-vegetarian-detector.service';
 import { AuthUser } from '../../common/decorators/current-user.decorator';
 

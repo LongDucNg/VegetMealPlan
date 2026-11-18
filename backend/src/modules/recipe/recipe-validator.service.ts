@@ -14,8 +14,6 @@ import { Injectable } from '@nestjs/common';
 import { IngredientService } from '../ingredient/ingredient.service';
 import {
   mergeValidationResults,
-  normalizeUnit,
-  REQUIRED_INGREDIENT_UNIT,
   validateIngredientNamesKeyword,
   validateRecipeDietType,
   validateRecipeIngredientRows,
@@ -263,12 +261,5 @@ export class RecipeValidatorService {
     }
 
     return ok(resolved);
-  }
-
-  /**
-   * Helper: đơn vị hợp lệ của nguyên liệu bắt buộc.
-   */
-  static isRequiredIngredientUnit(unit?: string | null): boolean {
-    return normalizeUnit(unit) === REQUIRED_INGREDIENT_UNIT;
   }
 }

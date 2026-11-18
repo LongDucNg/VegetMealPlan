@@ -1,4 +1,4 @@
-import { createParamDecorator, ExecutionContext, PipeTransform, Injectable, ArgumentMetadata, BadRequestException } from '@nestjs/common';
+import { PipeTransform, Injectable, ArgumentMetadata, BadRequestException } from '@nestjs/common';
 import { Transform } from 'class-transformer';
 import { IsNotEmpty, IsNumber, Min } from 'class-validator';
 
@@ -56,30 +56,6 @@ export class ValidatePricePipe implements PipeTransform {
     return value;
   }
 }
-
-export const SafePrice = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext): number | null => {
-    const body = ctx.switchToHttp().getRequest().body;
-    const value = body?.price_per_unit;
-
-    if (value === null || value === undefined || value === '') {
-      return null;
-    }
-
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (trimmed === '') return null;
-      if (!/^-?\d+(\.\d+)?$/.test(trimmed)) return null;
-      const num = Number(trimmed);
-      if (isNaN(num)) return null;
-      return num;
-    }
-
-    if (typeof value === 'number') return value;
-
-    return null;
-  },
-);
 
 export class SetPriceDto {
   // Không được để trống: báo lỗi rõ ràng khi client gửi thiếu price_per_unit
