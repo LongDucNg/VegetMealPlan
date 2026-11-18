@@ -125,33 +125,46 @@ export class GeminiScanAiProvider implements ScanAiProvider {
     };
 
     try {
+      // Gemini hay trả 503 "high demand" khi quá tải (lỗi tạm thời phía Google): thử lại vài lần,
+      // vẫn lỗi thì chuyển sang model dự phòng. 404 (model không còn) cũng chuyển sang model dự phòng.
+      // Mọi lần thử dùng chung giới hạn GEMINI_TIMEOUT_MS nên người dùng không phải chờ quá lâu.
+      const fallbackModel = (process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.8-flash').trim();
+      const models = [...new Set([modelName, fallbackModel].filter(Boolean))];
+      const transientStatuses = [500, 502, 503, 504];
+      const maxAttemptsPerModel = 3;
+
       let currentModel = modelName;
-      let url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(currentModel)}:generateContent`;
+      let response!: Response;
+      tryModels: for (const model of models) {
+        currentModel = model;
+        for (let attempt = 1; attempt <= maxAttemptsPerModel; attempt++) {
+          response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': apiKey,
+              },
+              body: JSON.stringify(requestBody),
+              signal: controller.signal,
+            },
+          );
 
-      let response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
-        },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal,
-      });
+          if (response.ok) break tryModels;
+          if (response.status === 404) {
+            this.logger.warn(`Model ${model} không tồn tại (404), thử model dự phòng`);
+            continue tryModels;
+          }
+          if (!transientStatuses.includes(response.status)) break tryModels;
 
-      // Nếu model hiện tại trả về 404/NOT_FOUND và không phải gemini-3.5-flash-lite, tự động thử fallback sang gemini-3.5-flash-lite
-      if (!response.ok && response.status === 404 && currentModel !== 'gemini-3.5-flash-lite') {
-        this.logger.warn(`Model ${currentModel} không tồn tại (404), tự động thử fallback sang gemini-3.5-flash-lite`);
-        currentModel = 'gemini-3.5-flash-lite';
-        url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(currentModel)}:generateContent`;
-        response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
-          },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal,
-        });
+          this.logger.warn(
+            `Gemini ${model} lỗi tạm thời (HTTP ${response.status}), lần thử ${attempt}/${maxAttemptsPerModel}`,
+          );
+          if (attempt < maxAttemptsPerModel) {
+            await new Promise((resolve) => setTimeout(resolve, 700 * attempt));
+          }
+        }
       }
 
       if (!response.ok) {
