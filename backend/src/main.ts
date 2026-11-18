@@ -6,6 +6,12 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
+// Chạy Node theo giờ UTC ở mọi máy (Render vốn đã là UTC).
+// Cột thời gian trong DB là TIMESTAMP không kèm múi giờ, Neon ghi now() theo UTC. Nếu Node chạy theo
+// giờ máy (UTC+7 ở VN), thư viện pg đọc giá trị đó như giờ VN và lệch 7 tiếng: thông báo vừa tạo hiện
+// "7 giờ trước", và dữ liệu do máy dev ghi lệch với dữ liệu do Render ghi trên cùng DB.
+process.env.TZ = 'UTC';
+
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   // Render/Vercel đặt backend sau 1 lớp proxy: tin header X-Forwarded-For của đúng 1 lớp đó để req.ip
