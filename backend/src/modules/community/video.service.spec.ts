@@ -1,12 +1,12 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { VideoService, VIDEO_CATEGORY_TYPE } from './video.service';
+import { VideoService } from './video.service';
 import { Video } from './entities/video.entity';
 import { ContentStatus } from './entities/blog.entity';
 import { Comment } from './entities/comment.entity';
 import { Vote } from './entities/vote.entity';
-import { Category, CategoryStatus } from '../category/entities/category.entity';
+import { Category } from '../category/entities/category.entity';
 import { ErrorCode } from '../../common/constants/error-codes.enum';
 import { AuthUser } from '../../common/decorators/current-user.decorator';
 import { NonVegetarianDetectorService } from '../../common/services/non-vegetarian-detector.service';

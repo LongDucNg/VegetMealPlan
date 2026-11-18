@@ -367,7 +367,7 @@ export class PlacesService {
   }
 
   async deletePlace(id: number): Promise<{ success: boolean }> {
-    const res = await this.dataSource.query(`DELETE FROM public.shop WHERE shop_id = $1`, [id]);
+    await this.dataSource.query(`DELETE FROM public.shop WHERE shop_id = $1`, [id]);
     return { success: true };
   }
 

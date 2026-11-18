@@ -28,11 +28,9 @@ import { validateRecipeTitleKeyword } from '../recipe/recipe-validation.util';
 
 import { IngredientService } from '../ingredient/ingredient.service';
 import { isBlockingConflict } from '../ingredient/ingredient-conflict.util';
-import { findDietIncompatibleIngredients } from '../../common/utils/diet-compat.util';
 import { Ingredient } from '../ingredient/entities/ingredient.entity';
 import { NutritionInfo } from '../nutrition/entities/nutrition-info.entity';
 import {
-  calculateIngredientCost,
   calculateRecipeEstimatedCost,
   RecipeCostRow,
 } from '../recipe/recipe-cost.util';

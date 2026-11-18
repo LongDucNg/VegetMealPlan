@@ -17,8 +17,6 @@ export const HEALTH_GOAL_DEFINITIONS = [
   { name: 'maintain', description: 'Duy trì cân nặng' },
 ] as const;
 
-export type HealthGoalName = (typeof HEALTH_GOAL_DEFINITIONS)[number]['name'];
-
 @Injectable()
 export class HealthGoalService {
   private readonly logger = new Logger(HealthGoalService.name);

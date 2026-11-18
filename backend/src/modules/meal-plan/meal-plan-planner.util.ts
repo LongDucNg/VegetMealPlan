@@ -419,7 +419,6 @@ export function planMeals(params: {
         if (isSoupDish(selected)) mealHasSoup = true;
 
         const recipeCalories = Number(nutritionMap.get(selected.recipe_id)?.calories ?? 0);
-        const rawCal = recipeCalories > 0 ? recipeCalories : targetDishKcal;
 
         // Luôn dùng 1.0 (chuẩn đúng định lượng công thức, không ép tăng giảm khẩu phần)
         const portion = 1.0;

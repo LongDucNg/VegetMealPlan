@@ -55,22 +55,6 @@ export function normalizeMealType(
 }
 
 /**
- * suitable_meals có đúng định dạng danh sách bữa ăn hợp lệ không.
- * VD hợp lệ: "breakfast", "lunch,dinner", "any". Trái lại: false.
- */
-export function isValidSuitableMealsFormat(
-  suitableMeals?: string | null,
-): boolean {
-  const parsed = parseSuitableMeals(suitableMeals);
-
-  if (parsed.length === 0) {
-    return false;
-  }
-
-  return parsed.every((meal) => VALID_MEAL_TYPES.includes(meal));
-}
-
-/**
  * Cặp (meal_type, suitable_meals) có nhất quán theo mapping chuẩn không.
  *
  * Dùng chung cho POST /recipes, PUT /recipes/:id và import công thức để cả 3
@@ -111,36 +95,6 @@ export const IMPORT_MEAL_TYPES: string[] = [
   'lunch',
   'snack',
 ];
-
-/**
- * Suy ra meal_type từ suitable_meals (ngược của deriveSuitableMeals).
- * VD: "lunch,dinner" -> "lunch", "breakfast" -> "breakfast", "any" -> "any".
- * Trả về null nếu không suy ra được (vd. "lunch,snack").
- */
-export function deriveMealTypeFromSuitableMeals(
-  suitableMeals?: string | null,
-): string | null {
-  const parsed = parseSuitableMeals(suitableMeals);
-
-  if (parsed.length === 0) {
-    return null;
-  }
-
-  for (const [mealType, mapped] of Object.entries(
-    MEAL_TYPE_TO_SUITABLE_MEALS,
-  )) {
-    const expected = parseSuitableMeals(mapped);
-
-    if (
-      expected.length === parsed.length &&
-      expected.every((meal) => parsed.includes(meal))
-    ) {
-      return mealType;
-    }
-  }
-
-  return null;
-}
 
 /**
  * Tách suitable_meals thành danh sách bữa ăn (lowercase, bỏ khoảng trắng).

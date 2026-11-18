@@ -71,15 +71,29 @@ export class RecipeRecommendationService {
     const excludedSet = new Set(excludeIngredientIds);
     const results: RecipeMatchResult[] = [];
 
+    // Nạp sẵn nguyên liệu của các món hợp chế độ ăn trong 1 truy vấn (tránh N+1 truy vấn trong vòng lặp).
+    const candidateIds = recipes
+      .filter((recipe) => isRecipeDietCompatible(selectedDiet, recipe.diet_type))
+      .map((recipe) => recipe.recipe_id);
+    const rowsByRecipe = new Map<number, RecipeIngredient[]>();
+    if (candidateIds.length > 0) {
+      const rows = await this.recipeIngredientRepo.find({
+        where: { recipe_id: In(candidateIds) },
+      });
+      for (const row of rows) {
+        const list = rowsByRecipe.get(row.recipe_id);
+        if (list) list.push(row);
+        else rowsByRecipe.set(row.recipe_id, [row]);
+      }
+    }
+
     for (const recipe of recipes) {
       // Lọc theo chế độ ăn nếu bên gọi truyền dietType
       if (!isRecipeDietCompatible(selectedDiet, recipe.diet_type)) {
         continue;
       }
 
-      const allRows = await this.recipeIngredientRepo.find({
-        where: { recipe_id: recipe.recipe_id },
-      });
+      const allRows = rowsByRecipe.get(recipe.recipe_id) ?? [];
 
       // Không đề xuất công thức có nguyên liệu bị loại trừ,
       // kể cả nguyên liệu tùy chọn.
@@ -186,6 +200,24 @@ export class RecipeRecommendationService {
       where: { status: RecipeStatus.APPROVED },
     });
 
+    // Nạp sẵn dinh dưỡng + nguyên liệu của mọi món trong 2 truy vấn,
+    // thay vì 2 truy vấn cho MỖI món trong vòng lặp (N+1: ~1200 truy vấn với 600 món).
+    const recipeIds = recipes.map((r) => r.recipe_id);
+    const nutritionByRecipe = new Map<number, NutritionInfo>();
+    const ingredientsByRecipe = new Map<number, RecipeIngredient[]>();
+    if (recipeIds.length > 0) {
+      const [nutritionRows, ingredientRows] = await Promise.all([
+        this.nutritionRepo.find({ where: { recipe_id: In(recipeIds) } }),
+        this.recipeIngredientRepo.find({ where: { recipe_id: In(recipeIds) } }),
+      ]);
+      for (const n of nutritionRows) nutritionByRecipe.set(n.recipe_id, n);
+      for (const row of ingredientRows) {
+        const list = ingredientsByRecipe.get(row.recipe_id);
+        if (list) list.push(row);
+        else ingredientsByRecipe.set(row.recipe_id, [row]);
+      }
+    }
+
     const results: RecipeMatchResult[] = [];
 
     for (const recipe of recipes) {
@@ -211,9 +243,7 @@ export class RecipeRecommendationService {
         query.targetCalories !== undefined &&
         query.targetCalories > 0
       ) {
-        const nutrition = await this.nutritionRepo.findOne({
-          where: { recipe_id: recipe.recipe_id },
-        });
+        const nutrition = nutritionByRecipe.get(recipe.recipe_id);
 
         if (
           !nutrition ||
@@ -232,9 +262,7 @@ export class RecipeRecommendationService {
         }
       }
 
-      const ingredientRows = await this.recipeIngredientRepo.find({
-        where: { recipe_id: recipe.recipe_id },
-      });
+      const ingredientRows = ingredientsByRecipe.get(recipe.recipe_id) ?? [];
 
       const requiredRows = ingredientRows.filter(
         (row) => !row.is_optional,
@@ -284,15 +312,8 @@ export class RecipeRecommendationService {
       });
     }
 
-    if (results.length > 0) {
-      const rIds = results.map((res) => res.recipe.recipe_id);
-      const nutList = await this.nutritionRepo.find({
-        where: { recipe_id: In(rIds) },
-      });
-      const nutMap = new Map(nutList.map((n) => [n.recipe_id, n]));
-      for (const res of results) {
-        (res.recipe as any).nutrition = nutMap.get(res.recipe.recipe_id) || null;
-      }
+    for (const res of results) {
+      (res.recipe as any).nutrition = nutritionByRecipe.get(res.recipe.recipe_id) || null;
     }
 
     return results.sort(

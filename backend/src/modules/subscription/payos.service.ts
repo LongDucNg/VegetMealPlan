@@ -122,17 +122,4 @@ export class PayosService {
       return null;
     }
   }
-
-  /**
-   * Đăng ký Webhook URL với PayOS (tuỳ chọn)
-   */
-  async confirmWebhook(webhookUrl: string) {
-    this.assertConfigured();
-    try {
-      return await this.payos!.webhooks.confirm(webhookUrl);
-    } catch (err: any) {
-      this.logger.error(`Không thể xác nhận Webhook URL với PayOS: ${err?.message || err}`);
-      throw err;
-    }
-  }
 }
