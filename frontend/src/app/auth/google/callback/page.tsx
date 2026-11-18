@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Leaf, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -11,8 +11,14 @@ function CallbackContent() {
   const searchParams = useSearchParams();
   const { refreshMe } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  // Mã Google chỉ dùng được 1 lần (backend xoá ngay khi đổi). React dev (StrictMode) chạy effect 2 lần:
+  // không chặn thì lần 2 bị từ chối và màn hình chớp "Đăng nhập thất bại" trước khi chuyển trang.
+  const started = useRef(false);
 
   useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+
     const code = searchParams.get("code");
     const errParam = searchParams.get("error");
 
