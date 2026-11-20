@@ -153,8 +153,13 @@ export function MealCard({
                 key={`${dish.id}-${idx}`}
                 className="p-2.5 rounded-2xl bg-stone-50/80 border border-stone-200/70 hover:bg-white hover:border-emerald-300 hover:shadow-2xs transition-all flex items-center gap-2.5 group/dish"
               >
-                {/* Dish Thumbnail */}
-                <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-stone-200 shrink-0 border border-stone-200">
+                {/* Dish Thumbnail: bấm ảnh cũng mở trang chi tiết món (trước đây chỉ tên món là link) */}
+                <Link
+                  href={`/recipes/${dish.id}`}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  className="relative block w-12 h-12 rounded-xl overflow-hidden bg-stone-200 shrink-0 border border-stone-200 cursor-pointer"
+                >
                   {dish.image ? (
                     <Image
                       src={dish.image}
@@ -168,7 +173,7 @@ export function MealCard({
                       Ảnh món
                     </div>
                   )}
-                </div>
+                </Link>
 
                 {/* Dish Info */}
                 <div className="flex-1 min-w-0 space-y-0.5">
@@ -230,7 +235,7 @@ export function MealCard({
         <div className="pt-2 border-t border-stone-100 flex items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-1 font-bold text-stone-800 text-[11px]">
             <Tag className="w-3 h-3 text-emerald-600" />
-            <span>Ước tính: ~{priceService.formatEstimatedPrice(totalMealAdminCost)}</span>
+            <span>Ước tính: {priceService.formatEstimatedPrice(totalMealAdminCost)}</span>
             <div className="relative inline-block">
               <button
                 type="button"
