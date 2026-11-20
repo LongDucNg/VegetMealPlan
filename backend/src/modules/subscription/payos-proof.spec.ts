@@ -137,6 +137,7 @@ describe('payos-proof.util', () => {
 describe('SubscriptionService - trang admin Lịch sử giao dịch', () => {
   let qb: any;
   let payos: any;
+  let txRepo: any;
   let svc: SubscriptionService;
 
   const dbTx = (over: any = {}) => ({
@@ -165,7 +166,7 @@ describe('SubscriptionService - trang admin Lịch sử giao dịch', () => {
       getMany: jest.fn().mockResolvedValue([dbTx()]),
       getOne: jest.fn().mockResolvedValue(dbTx()),
     };
-    const txRepo: any = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
+    txRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb), update: jest.fn().mockResolvedValue({ affected: 1 }) };
     payos = {
       isConfigured: jest.fn().mockReturnValue(true),
       assertConfigured: jest.fn(),
@@ -210,6 +211,29 @@ describe('SubscriptionService - trang admin Lịch sử giao dịch', () => {
     payos.getPaymentInformation.mockResolvedValue({ ...PAYMENT_LINK, status: 'PENDING', amountPaid: 0 });
     const res = await svc.adminPayosProof('123456789');
     expect(res.consistency).toEqual({ status_matches: false, amount_matches: false });
+  });
+
+  it('đối soát: DB còn pending mà PayOS đã huỷ thì chuyển giao dịch sang failed, hết lệch', async () => {
+    qb.getOne.mockResolvedValue(dbTx({ status: PaymentTransactionStatus.PENDING, paid_at: null }));
+    payos.getPaymentInformation.mockResolvedValue({ ...PAYMENT_LINK, status: 'CANCELLED', amountPaid: 0 });
+
+    const res = await svc.adminPayosProof('123456789');
+
+    expect(txRepo.update).toHaveBeenCalledWith(
+      { transaction_id: 7, status: PaymentTransactionStatus.PENDING },
+      expect.objectContaining({ status: PaymentTransactionStatus.FAILED }),
+    );
+    expect(res.db_updated).toBe(true);
+    expect(res.db.status).toBe(PaymentTransactionStatus.FAILED);
+    expect(res.consistency?.status_matches).toBe(true);
+  });
+
+  it('đối soát không bao giờ đổi giao dịch đã thành công, kể cả khi PayOS báo huỷ', async () => {
+    payos.getPaymentInformation.mockResolvedValue({ ...PAYMENT_LINK, status: 'CANCELLED' });
+    const res = await svc.adminPayosProof('123456789');
+    expect(txRepo.update).not.toHaveBeenCalled();
+    expect(res.db_updated).toBe(false);
+    expect(res.db.status).toBe(PaymentTransactionStatus.SUCCESS);
   });
 
   it('PayOS không trả dữ liệu thì báo rõ, không ném lỗi', async () => {

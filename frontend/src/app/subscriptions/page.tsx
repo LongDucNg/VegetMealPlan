@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/Card";
+import { subscriptionService } from "@/features/subscription/services/subscriptionService";
 
 function SubscriptionsCatchContent() {
   const router = useRouter();
@@ -39,6 +40,9 @@ function SubscriptionsCatchContent() {
 
     // 4. Nếu bị huỷ, tự động chuyển về trang trước đó sau 1.2 giây (để người dùng kịp thấy phản hồi)
     if (cancelled) {
+      // PayOS không gọi webhook khi huỷ: báo backend tra lại để chuyển giao dịch sang "thất bại" thay vì treo "đang chờ".
+      const orderCode = searchParams.get("orderCode");
+      if (orderCode) subscriptionService.checkTransactionStatus(orderCode).catch(() => {});
       const timer = setTimeout(() => {
         router.replace(target);
       }, 1200);

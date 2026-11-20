@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/Card";
+import { subscriptionService } from "@/features/subscription/services/subscriptionService";
 
 function SubscriptionsCancelContent() {
   const router = useRouter();
@@ -22,6 +23,10 @@ function SubscriptionsCancelContent() {
 
     const target = paramReturnTo || storedReturnTo || "/planner";
     setReturnUrl(target);
+
+    // PayOS không gọi webhook khi huỷ: báo backend tra lại để chuyển giao dịch sang "thất bại" thay vì treo "đang chờ".
+    const orderCode = searchParams.get("orderCode");
+    if (orderCode) subscriptionService.checkTransactionStatus(orderCode).catch(() => {});
 
     // Tự động chuyển về trang trước đó sau 1.2s
     const timer = setTimeout(() => {
