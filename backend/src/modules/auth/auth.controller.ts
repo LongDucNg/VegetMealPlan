@@ -167,7 +167,8 @@ export class AuthController {
   @UseGuards(GoogleConfiguredGuard, GoogleAuthCallbackGuard)
   @ApiExcludeEndpoint()
   async googleCallback(@Req() req: Request, @Res() res: Response) {
-    const frontend = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+    // FRONTEND_URL có thể chứa nhiều domain cách nhau dấu phẩy (dùng cho CORS): chỉ lấy domain đầu tiên.
+    const frontend = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim().replace(/\/$/, '');
     const profile = req.user as GoogleProfile | null;
 
     if (!profile) return res.redirect(`${frontend}/login?error=google_failed`);

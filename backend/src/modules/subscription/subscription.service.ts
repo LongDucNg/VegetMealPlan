@@ -189,9 +189,12 @@ export class SubscriptionService {
   /**
    * POST /subscriptions/checkout: tạo giao dịch pending rồi trả link thanh toán VietQR (PayOS).
    * Chưa cấu hình PayOS thì báo 503 trước khi tạo giao dịch, để không sinh giao dịch rác.
+   * returnUrl/cancelUrl do FE gửi (không bắt buộc) phải thuộc domain FE, kiểm TRƯỚC khi tạo giao dịch.
    */
   async checkout(user_id: number, _ipAddr?: string, returnUrl?: string, cancelUrl?: string) {
     this.payos.assertConfigured();
+    this.payos.assertAllowedRedirect(returnUrl);
+    this.payos.assertAllowedRedirect(cancelUrl);
 
     // Sinh orderCode dạng số nguyên an toàn (6 số đuôi timestamp + 3 số ngẫu nhiên)
     const orderCode = Number(`${Date.now().toString().slice(-6)}${Math.floor(100 + Math.random() * 900)}`);
