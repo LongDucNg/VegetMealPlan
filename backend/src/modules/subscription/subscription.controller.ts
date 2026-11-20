@@ -61,8 +61,12 @@ export class SubscriptionController {
     description: 'Trả về `payment_url` và `qr_code`. Người dùng quét mã VietQR bằng ứng dụng ngân hàng bất kỳ để thanh toán.',
   })
   @ApiResponse({ status: 503, description: 'SUBSCRIPTION_PAYMENT_NOT_CONFIGURED: chưa cấu hình khoá PayOS' })
-  checkout(@CurrentUser('user_id') userId: number, @Req() req: Request) {
-    return this.subscriptionService.checkout(userId, clientIp(req));
+  checkout(
+    @CurrentUser('user_id') userId: number,
+    @Req() req: Request,
+    @Body() body?: { returnUrl?: string; cancelUrl?: string },
+  ) {
+    return this.subscriptionService.checkout(userId, clientIp(req), body?.returnUrl, body?.cancelUrl);
   }
 
   /**

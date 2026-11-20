@@ -12,11 +12,11 @@ export interface NearbyPlacesParams {
 
 export const placeService = {
   getPlaces(): VeganPlace[] {
-    return VEGAN_PLACES;
+    return [];
   },
 
   getPlaceById(id: string): VeganPlace | undefined {
-    return VEGAN_PLACES.find((p) => p.id === id);
+    return undefined;
   },
 
   getShopFilters(): readonly ShopFilter[] {
@@ -66,7 +66,7 @@ export const placeService = {
         return res.map(shopToVeganPlace);
       }
     } catch {}
-    return this.filterPlaces(filter || "All", query);
+    return [];
   },
 
   /**
@@ -82,7 +82,7 @@ export const placeService = {
         }
       }
     } catch {}
-    return this.getPlaceById(id);
+    return undefined;
   },
 
   /**

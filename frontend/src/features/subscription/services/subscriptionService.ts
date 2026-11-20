@@ -229,15 +229,24 @@ export const subscriptionService = {
    * POST /subscriptions/checkout
    * Trả về { payment_url, qr_code, order_code, gateway_txn_ref, amount, expires_in_minutes }
    */
-  async createCheckout(): Promise<CheckoutResponse> {
+  async createCheckout(payload?: { returnUrl?: string; cancelUrl?: string }): Promise<CheckoutResponse> {
     if (typeof window !== "undefined") {
       try {
+        const currentPath = window.location.pathname + window.location.search;
+        sessionStorage.setItem("veggie_payment_return_to", currentPath);
         sessionStorage.setItem("prePaymentUrl", window.location.href);
+
+        if (!payload?.cancelUrl) {
+          payload = {
+            ...payload,
+            cancelUrl: `${window.location.origin}/subscriptions?cancel=true&return_to=${encodeURIComponent(currentPath)}`,
+          };
+        }
       } catch (e) {
         // ignore storage errors
       }
     }
-    return apiClient.post<CheckoutResponse>("/subscriptions/checkout");
+    return apiClient.post<CheckoutResponse>("/subscriptions/checkout", payload || {});
   },
 
   /**
