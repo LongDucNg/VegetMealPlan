@@ -24,6 +24,9 @@ import { mealPlanApiService } from "../services/mealPlanApiService";
 import { profileService } from "@/features/profile/services/profileService";
 import { subscriptionService } from "@/features/subscription/services/subscriptionService";
 
+/** Key sessionStorage lưu trạng thái đang xem của trang /planner. */
+const PLANNER_VIEW_STATE_KEY = "veggie_planner_view_state";
+
 export function formatVnDateKey(dateKey: string): string {
   const [y, m, d] = dateKey.split("-");
   return `${d}/${m}/${y}`;
@@ -86,6 +89,34 @@ export function useMealPlanner() {
   const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
   const [budgetLimit, setBudgetLimit] = useState<number | undefined>(undefined);
+
+  // Giữ trạng thái đang xem (kiểu xem, ngày, tháng) trong sessionStorage: bấm sang trang chi tiết món
+  // rồi bấm Back thì quay về đúng ngày đang xem, thay vì về ô ngày 1 của tháng (thường đã qua, lịch trống).
+  // Đọc sau khi mount (không đọc trong useState) để HTML render ở server và ở trình duyệt giống nhau.
+  const [viewStateReady, setViewStateReady] = useState(false);
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(PLANNER_VIEW_STATE_KEY);
+      const saved = raw ? JSON.parse(raw) : null;
+      if (saved && typeof saved === "object") {
+        if (saved.planType === "daily" || saved.planType === "weekly" || saved.planType === "monthly") {
+          setPlanType(saved.planType);
+        }
+        if (typeof saved.selectedDateKey === "string") setSelectedDateKey(saved.selectedDateKey);
+        if (Number.isInteger(saved.selectedMonth) && saved.selectedMonth >= 0 && saved.selectedMonth <= 11) {
+          setSelectedMonth(saved.selectedMonth);
+        }
+        if (Number.isInteger(saved.selectedYear)) setSelectedYear(saved.selectedYear);
+        if (Number.isInteger(saved.activeDayIndex) && saved.activeDayIndex >= 0) setActiveDayIndex(saved.activeDayIndex);
+      } else {
+        // Lần đầu mở trong phiên: lịch tháng chọn sẵn ô hôm nay thay vì ngày 1.
+        setActiveDayIndex(new Date().getDate() - 1);
+      }
+    } catch {
+      // sessionStorage bị chặn (chế độ riêng tư...): giữ mặc định.
+    }
+    setViewStateReady(true);
+  }, []);
 
   // Granular day-by-day storage of created plans
   const [generatedDays, setGeneratedDays] = useState<Record<string, CalendarDayMealPlan>>(() => {
@@ -363,6 +394,19 @@ export function useMealPlanner() {
     }
     return day;
   }, [planType, selectedDateKey, generatedDays, weeklyPlan, monthlyPlan, activeDayIndex, nutritionSummary.dailyCalorieTarget]);
+
+  useEffect(() => {
+    // Chỉ ghi sau khi đã đọc lại trạng thái cũ, để lần render đầu (giá trị mặc định) không ghi đè lên nó.
+    if (!viewStateReady) return;
+    try {
+      sessionStorage.setItem(
+        PLANNER_VIEW_STATE_KEY,
+        JSON.stringify({ planType, selectedDateKey, activeDayIndex, selectedMonth, selectedYear }),
+      );
+    } catch {
+      // bỏ qua nếu không ghi được
+    }
+  }, [viewStateReady, planType, selectedDateKey, activeDayIndex, selectedMonth, selectedYear]);
 
   /**
    * Generates Daily Meal Plan for EXACTLY 1 day (selectedDateKey or today)
