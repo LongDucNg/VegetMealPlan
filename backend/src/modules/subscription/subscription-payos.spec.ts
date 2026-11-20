@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { SubscriptionService } from './subscription.service';
+import { PayosService } from './payos.service';
 import { PaymentGateway, PaymentTransactionStatus } from './entities/payment-transaction.entity';
 
 describe('SubscriptionService - PayOS VietQR Integration', () => {
@@ -38,6 +39,7 @@ describe('SubscriptionService - PayOS VietQR Integration', () => {
     mockPayos = {
       isConfigured: jest.fn().mockReturnValue(true),
       assertConfigured: jest.fn(),
+      assertAllowedRedirect: jest.fn(),
       createPaymentLink: jest.fn().mockResolvedValue({
         checkoutUrl: 'https://pay.payos.vn/web/test-checkout-123',
         qrCode: '00020101021238540010A000000727...',
@@ -88,6 +90,49 @@ describe('SubscriptionService - PayOS VietQR Integration', () => {
       expect(savedTransactions).toHaveLength(1);
       expect(savedTransactions[0].gateway).toBe(PaymentGateway.PAYOS);
       expect(savedTransactions[0].status).toBe(PaymentTransactionStatus.PENDING);
+    });
+
+    it('chuyển returnUrl/cancelUrl của FE sang PayOS sau khi kiểm domain', async () => {
+      const cancelUrl = 'https://veget-meal-plan.vercel.app/subscriptions?cancel=true';
+      await svc.checkout(1, undefined, undefined, cancelUrl);
+
+      expect(mockPayos.assertAllowedRedirect).toHaveBeenCalledWith(cancelUrl);
+      expect(mockPayos.createPaymentLink).toHaveBeenCalledWith(expect.objectContaining({ cancelUrl }));
+    });
+
+    it('link về domain lạ: báo lỗi và KHÔNG tạo giao dịch pending', async () => {
+      mockPayos.assertAllowedRedirect.mockImplementation((url?: string) => {
+        if (url) throw new Error('domain lạ');
+      });
+
+      await expect(svc.checkout(1, undefined, 'https://evil.example.com/steal')).rejects.toThrow('domain lạ');
+      expect(savedTransactions).toHaveLength(0);
+      expect(mockPayos.createPaymentLink).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('PayosService.assertAllowedRedirect (chống open redirect)', () => {
+    const make = (frontendUrl?: string) =>
+      new PayosService({ get: (k: string) => (k === 'FRONTEND_URL' ? frontendUrl : undefined) } as any);
+
+    it('cho qua khi bỏ trống hoặc đúng domain FE (kể cả nhiều domain, có / cuối)', () => {
+      const payos = make('https://veget-meal-plan.vercel.app/, http://localhost:3001');
+      expect(() => payos.assertAllowedRedirect(undefined)).not.toThrow();
+      expect(() => payos.assertAllowedRedirect('https://veget-meal-plan.vercel.app/subscriptions?cancel=true')).not.toThrow();
+      expect(() => payos.assertAllowedRedirect('http://localhost:3001/subscriptions/return')).not.toThrow();
+    });
+
+    it('chặn domain lạ, domain giả mạo đuôi, sai giao thức và chuỗi không phải URL', () => {
+      const payos = make('https://veget-meal-plan.vercel.app');
+      for (const bad of [
+        'https://evil.example.com/subscriptions/return',
+        'https://veget-meal-plan.vercel.app.evil.com/x',
+        'http://veget-meal-plan.vercel.app/x',
+        'javascript:alert(1)',
+        'khong-phai-url',
+      ]) {
+        expect(() => payos.assertAllowedRedirect(bad)).toThrow(/FRONTEND_URL/);
+      }
     });
   });
 

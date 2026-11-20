@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, Logger, Param, ParseIntPipe, P
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { SubscriptionService } from './subscription.service';
+import { CheckoutDto } from './dto/checkout.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -60,11 +61,12 @@ export class SubscriptionController {
     summary: 'Tạo giao dịch và lấy link thanh toán VietQR (PayOS)',
     description: 'Trả về `payment_url` và `qr_code`. Người dùng quét mã VietQR bằng ứng dụng ngân hàng bất kỳ để thanh toán.',
   })
+  @ApiResponse({ status: 400, description: 'VALIDATION_FAILED: returnUrl/cancelUrl sai định dạng hoặc không thuộc domain trong FRONTEND_URL' })
   @ApiResponse({ status: 503, description: 'SUBSCRIPTION_PAYMENT_NOT_CONFIGURED: chưa cấu hình khoá PayOS' })
   checkout(
     @CurrentUser('user_id') userId: number,
     @Req() req: Request,
-    @Body() body?: { returnUrl?: string; cancelUrl?: string },
+    @Body() body: CheckoutDto,
   ) {
     return this.subscriptionService.checkout(userId, clientIp(req), body?.returnUrl, body?.cancelUrl);
   }
