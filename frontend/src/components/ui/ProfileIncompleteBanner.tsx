@@ -21,16 +21,18 @@ export function ProfileIncompleteBanner() {
   const pathname = usePathname();
   const { isAuthenticated } = useAuth();
   const { profile } = useProfile();
+  const [mounted, setMounted] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     if (typeof window !== "undefined" && window.sessionStorage.getItem("dismissed_profile_banner") === "true") {
       setDismissed(true);
     }
   }, []);
 
-  // Không hiển thị nếu chưa đăng nhập, đã đóng, hoặc đang ở trang /me/settings
-  if (!isAuthenticated || dismissed || pathname === "/me/settings") {
+  // Không hiển thị khi chưa mount (tránh hydration mismatch), chưa đăng nhập, đã đóng, hoặc đang ở trang /me/settings
+  if (!mounted || !isAuthenticated || dismissed || pathname === "/me/settings") {
     return null;
   }
 

@@ -22,26 +22,23 @@ export function Hero() {
   const { profile } = useProfile();
   const userId = String(profile?.id || "u1");
 
-  // Đọc từ cache nếu đã từng tải trước đó để tránh nhấp nháy hoặc hiển thị mock khi chuyển trang
-  const [recipe, setRecipe] = useState<any | null>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem(HERO_FEATURED_CACHE_KEY);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed && (parsed.title || parsed.name)) {
-            return parsed;
-          }
-        }
-      } catch {}
-    }
-    return null;
-  });
+  const [mounted, setMounted] = useState(false);
+  const [recipe, setRecipe] = useState<any | null>(null);
 
-  const [loading, setLoading] = useState(!recipe);
-
-  // Load real featured recipe from database
+  // Phục hồi từ cache trên client sau khi mount và tải món nổi bật từ database
   useEffect(() => {
+    setMounted(true);
+
+    try {
+      const cached = localStorage.getItem(HERO_FEATURED_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && (parsed.title || parsed.name)) {
+          setRecipe(parsed);
+        }
+      }
+    } catch {}
+
     let active = true;
     async function loadFeaturedRecipe() {
       try {
@@ -52,16 +49,12 @@ export function Hero() {
           const withImages = list.filter((r: any) => r.image_url && r.image_url.trim());
           const chosen = withImages.length > 0 ? withImages[0] : list[0];
           setRecipe(chosen);
-          if (typeof window !== "undefined") {
-            try {
-              localStorage.setItem(HERO_FEATURED_CACHE_KEY, JSON.stringify(chosen));
-            } catch {}
-          }
+          try {
+            localStorage.setItem(HERO_FEATURED_CACHE_KEY, JSON.stringify(chosen));
+          } catch {}
         }
       } catch (err) {
         console.warn("Lỗi khi tải công thức nổi bật cho Hero banner:", err);
-      } finally {
-        if (active) setLoading(false);
       }
     }
     loadFeaturedRecipe();
@@ -72,10 +65,7 @@ export function Hero() {
 
   const recipeId = recipe?.recipe_id ? String(recipe.recipe_id) : recipe?.id ? String(recipe.id) : "";
 
-  const [isFav, setIsFav] = useState(() => {
-    if (!recipeId) return false;
-    return favoriteService.isRecipeFavorite(userId, recipeId);
-  });
+  const [isFav, setIsFav] = useState(false);
 
   useEffect(() => {
     if (!recipeId) return;
@@ -94,8 +84,8 @@ export function Hero() {
     setIsFav(updated);
   };
 
-  // Skeleton loading khi chưa có dữ liệu công thức thật (không hiển thị mockdata)
-  if (!recipe) {
+  // Skeleton loading khi chưa mount hoặc chưa có dữ liệu công thức (đảm bảo SSR và client đồng nhất)
+  if (!mounted || !recipe) {
     return (
       <div className="relative h-[498px] w-full rounded-3xl bg-emerald-950 overflow-hidden shadow-md animate-pulse">
         <div className="absolute right-0 inset-y-0 w-[55%] bg-emerald-900/30" />
