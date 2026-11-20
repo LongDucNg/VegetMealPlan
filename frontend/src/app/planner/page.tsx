@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge } from "@/components/ui/Badge";
@@ -22,6 +22,7 @@ import { SaveMealPlanModal } from "@/features/meal-planner/components/SaveMealPl
 import { GenerationSettingsModal } from "@/features/meal-planner/components/GenerationSettingsModal";
 import { GenerationPlanOptions, CalendarDayMealPlan } from "@/features/meal-planner/types";
 import { useSubscription } from "@/features/subscription/hooks/useSubscription";
+import { subscriptionService } from "@/features/subscription/services/subscriptionService";
 import { PremiumUpgradeModal } from "@/features/subscription/components/PremiumUpgradeModal";
 import { ProfileEditor } from "@/features/profile/components/ProfileEditor";
 import { formatVegetarianType } from "@/features/profile/types";
@@ -41,6 +42,7 @@ import {
   Lock,
   X,
   BookOpen,
+  Loader2,
 } from "lucide-react";
 
 function PlannerContent() {
@@ -89,16 +91,6 @@ function PlannerContent() {
 
   // Modals state
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
-  // Khung "Cập nhật hồ sơ" nằm dưới thanh công cụ, cách xa nút bấm ở banner:
-  // mở ra thì tự cuộn xuống để người dùng thấy ngay chỗ cần nhập.
-  const profileDrawerRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!showProfileDrawer) return;
-    const id = requestAnimationFrame(() => {
-      profileDrawerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-    return () => cancelAnimationFrame(id);
-  }, [showProfileDrawer]);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
@@ -178,8 +170,31 @@ function PlannerContent() {
     setReplacingSlot(null);
   };
 
-  const handleUpgradeSuccess = () => {
-    setShowUpgradeModal(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
+
+  const handleStartUpgrade = async () => {
+    if (isUpgrading) return;
+    setIsUpgrading(true);
+    setUpgradeError(null);
+    try {
+      if (typeof window !== "undefined") {
+        const returnUrl = window.location.pathname + window.location.search;
+        sessionStorage.setItem("veggie_payment_return_to", returnUrl);
+        sessionStorage.setItem("prePaymentUrl", returnUrl);
+      }
+      const res = await subscriptionService.createCheckout();
+      if (res?.payment_url) {
+        window.location.href = res.payment_url;
+        return;
+      }
+      throw new Error("Không nhận được link thanh toán VietQR từ hệ thống.");
+    } catch (err: any) {
+      setIsUpgrading(false);
+      const msg = err?.message || "Có lỗi xảy ra khi tạo giao dịch thanh toán. Vui lòng thử lại.";
+      setUpgradeError(msg);
+      setShowUpgradeModal(true);
+    }
   };
 
   const currentViewDay = activeDay;
@@ -209,11 +224,14 @@ function PlannerContent() {
 
           <div className="flex items-center gap-2 self-end sm:self-auto">
             <button
-              onClick={() => setShowUpgradeModal(true)}
-              className="px-3 py-1 rounded-xl bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5 text-xs"
+              onClick={() => {
+                setUpgradeError(null);
+                setShowUpgradeModal(true);
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5 text-xs"
             >
               <Sparkles className="w-3.5 h-3.5 fill-amber-950" />
-              Nâng cấp Premium (99.000 VNĐ / tháng)
+              <span>Nâng cấp Premium (99.000 VNĐ / tháng)</span>
             </button>
           </div>
         </div>
@@ -596,7 +614,6 @@ function PlannerContent() {
 
       {/* Profile Quick Drawer */}
       {showProfileDrawer && (
-        <div ref={profileDrawerRef} className="scroll-mt-24">
         <Card className="p-6 bg-stone-50/70 border-emerald-200 animate-in fade-in">
           <div className="flex items-center justify-between mb-4 border-b pb-3">
             <div>
@@ -616,7 +633,6 @@ function PlannerContent() {
           </div>
           <ProfileEditor />
         </Card>
-        </div>
       )}
 
       {/* ========================================================
@@ -998,7 +1014,6 @@ function PlannerContent() {
         mealType={addDishMealType}
         activeDay={currentViewDay}
         profile={activeProfile}
-        dailyCalorieTarget={nutritionSummary.dailyCalorieTarget}
         onAddRecipe={(mealKey, recipe) => {
           addDishToMeal(mealKey, recipe);
         }}
@@ -1059,8 +1074,15 @@ function PlannerContent() {
       {/* 7. Premium Upgrade Modal (Requirement 8, 28) */}
       <PremiumUpgradeModal
         isOpen={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
-        onUpgrade={handleUpgradeSuccess}
+        onClose={() => {
+          setShowUpgradeModal(false);
+          setUpgradeError(null);
+        }}
+        onUpgrade={handleStartUpgrade}
+        loading={isUpgrading}
+        errorMessage={upgradeError}
+        title="Kế Hoạch Thực Đơn Cá Nhân Hóa"
+        description="Nâng cấp gói Premium để mở khóa không giới hạn tính năng tạo thực đơn theo tuần/tháng, đổi món linh hoạt và phân tích chi phí thông minh."
       />
     </div>
   );

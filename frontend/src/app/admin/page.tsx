@@ -93,12 +93,12 @@ const SYSTEM_MODULES = [
 ];
 
 function AdminDashboardContent() {
-  const [totalRecipes, setTotalRecipes] = useState<number>(631);
+  const [totalRecipes, setTotalRecipes] = useState<number>(0);
   const [pendingRecipes, setPendingRecipes] = useState<number>(0);
-  const [approvedRecipes, setApprovedRecipes] = useState<number>(631);
-  const [totalIngredients, setTotalIngredients] = useState<number>(190);
-  const [totalMembers, setTotalMembers] = useState<number>(24);
-  const [totalPosts, setTotalPosts] = useState<number>(5);
+  const [approvedRecipes, setApprovedRecipes] = useState<number>(0);
+  const [totalIngredients, setTotalIngredients] = useState<number>(0);
+  const [totalMembers, setTotalMembers] = useState<number>(0);
+  const [totalPosts, setTotalPosts] = useState<number>(0);
   const [pendingPosts, setPendingPosts] = useState<number>(0);
   const [loading, setLoading] = useState(false);
 

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
-import { ADMIN_CATEGORIES, CategoryItem, adminService } from "@/features/admin";
+import { CategoryItem, adminService } from "@/features/admin";
 import {
   Plus,
   Pencil,
@@ -44,7 +44,7 @@ function CategoriesContent() {
       const data = await adminService.getCategories();
       setCategories(data);
     } catch {
-      setCategories(ADMIN_CATEGORIES);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
