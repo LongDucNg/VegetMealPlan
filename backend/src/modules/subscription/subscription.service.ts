@@ -92,7 +92,8 @@ export class SubscriptionService {
 
   /**
    * GET /subscriptions/admin/transactions/:orderCode/proof: tra trực tiếp API PayOS (bên thứ ba) để đối soát
-   * một giao dịch với dữ liệu trong DB. Chỉ đọc, không đổi trạng thái giao dịch hay Premium.
+   * một giao dịch với dữ liệu trong DB. Không kích hoạt Premium và không đổi giao dịch đã kết thúc;
+   * ngoại lệ duy nhất: DB còn pending mà PayOS đã báo huỷ/hết hạn thì chuyển sang failed (markFailedIfPayosClosed).
    */
   async adminPayosProof(orderCode: string) {
     if (!/^\d{1,15}$/.test(orderCode)) {
@@ -114,12 +115,16 @@ export class SubscriptionService {
     this.payos.assertConfigured();
     const info = await this.payos.getPaymentInformation(Number(orderCode));
     const proof = info ? parsePayosProof(info, this.receiver) : null;
+    const db_updated = await this.markFailedIfPayosClosed(tx, info);
+    if (db_updated) tx.status = PaymentTransactionStatus.FAILED;
 
     return {
       order_code: orderCode,
       checked_at: new Date(),
       found_on_payos: !!info,
       message: info ? 'Đã đối soát trực tiếp với PayOS' : 'PayOS không trả thông tin cho mã đơn này',
+      // true: giao dịch vừa được chuyển từ pending sang failed vì PayOS đã báo huỷ/hết hạn.
+      db_updated,
       db: {
         transaction_id: tx.transaction_id,
         status: tx.status,
@@ -318,6 +323,9 @@ export class SubscriptionService {
               message: 'Thanh toán thành công, đã kích hoạt gói Premium!',
             };
           }
+        } else {
+          // Người dùng bấm Huỷ trên trang PayOS hoặc link hết hạn: PayOS không gọi webhook cho trường hợp này.
+          await this.markFailedIfPayosClosed(transaction, payosInfo);
         }
       } catch (err: any) {
         this.logger.warn(`Lỗi đối soát trực tiếp PayOS: ${err?.message || err}`);
@@ -349,6 +357,26 @@ export class SubscriptionService {
       premium_until: null,
       message: 'Giao dịch đang chờ thanh toán qua VietQR.',
     };
+  }
+
+  /**
+   * PayOS chỉ gọi webhook khi thanh toán thành công; huỷ hoặc hết hạn thì không báo gì.
+   * Khi tra PayOS thấy CANCELLED/EXPIRED mà DB còn pending thì chuyển giao dịch sang failed.
+   * UPDATE có điều kiện status = pending (như webhook) nên không bao giờ đè lên giao dịch đã thành công.
+   * Trả về true nếu đã đổi trạng thái.
+   */
+  private async markFailedIfPayosClosed(transaction: PaymentTransaction, payosInfo: any): Promise<boolean> {
+    const payosStatus = payosInfo?.status;
+    if (transaction.status !== PaymentTransactionStatus.PENDING) return false;
+    if (payosStatus !== 'CANCELLED' && payosStatus !== 'EXPIRED') return false;
+    const res = await this.transactionRepo.update(
+      { transaction_id: transaction.transaction_id, status: PaymentTransactionStatus.PENDING },
+      { status: PaymentTransactionStatus.FAILED, raw_response: JSON.stringify(payosInfo) },
+    );
+    if (res.affected) {
+      this.logger.log(`Giao dịch #${transaction.gateway_txn_ref} chuyển sang failed (PayOS: ${payosStatus})`);
+    }
+    return !!res.affected;
   }
 
   /**

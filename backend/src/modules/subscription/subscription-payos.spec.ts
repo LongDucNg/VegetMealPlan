@@ -216,5 +216,48 @@ describe('SubscriptionService - PayOS VietQR Integration', () => {
       expect(status.status).toBe('success');
       expect(status.txn_ref).toBe('445566');
     });
+
+    const pendingTx = (ref: string) =>
+      savedTransactions.push({
+        transaction_id: 20,
+        user_id: 5,
+        amount: 99000,
+        gateway: PaymentGateway.PAYOS,
+        gateway_txn_ref: ref,
+        status: PaymentTransactionStatus.PENDING,
+      });
+
+    it.each(['CANCELLED', 'EXPIRED'])('PayOS báo %s: giao dịch pending chuyển sang failed, không kích hoạt Premium', async (payosStatus) => {
+      pendingTx('778899');
+      mockPayos.getPaymentInformation.mockResolvedValue({ orderCode: 778899, status: payosStatus, amountPaid: 0 });
+
+      const status = await svc.checkPaymentStatus('778899');
+
+      expect(status.status).toBe('failed');
+      expect(savedTransactions[0].status).toBe(PaymentTransactionStatus.FAILED);
+      expect(svc['activatePremium']).not.toHaveBeenCalled();
+    });
+
+    it('PayOS vẫn PENDING (người dùng chưa quét mã): giữ nguyên pending', async () => {
+      pendingTx('778899');
+      mockPayos.getPaymentInformation.mockResolvedValue({ orderCode: 778899, status: 'PENDING', amountPaid: 0 });
+
+      const status = await svc.checkPaymentStatus('778899');
+
+      expect(status.status).toBe('pending');
+      expect(savedTransactions[0].status).toBe(PaymentTransactionStatus.PENDING);
+    });
+
+    it('gọi lại lần 2 sau khi đã failed: không tra PayOS nữa, vẫn trả failed', async () => {
+      pendingTx('778899');
+      mockPayos.getPaymentInformation.mockResolvedValue({ orderCode: 778899, status: 'CANCELLED' });
+      await svc.checkPaymentStatus('778899');
+      mockPayos.getPaymentInformation.mockClear();
+
+      const again = await svc.checkPaymentStatus('778899');
+
+      expect(again.status).toBe('failed');
+      expect(mockPayos.getPaymentInformation).not.toHaveBeenCalled();
+    });
   });
 });
