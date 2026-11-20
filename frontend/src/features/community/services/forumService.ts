@@ -15,7 +15,6 @@ import {
   TrendingTopic,
   UpdateForumPostInput,
 } from "../types";
-import { FORUM_CATEGORIES, TRENDING_TOPICS } from "../data/mockForum";
 import { formatForumDate, getInitials } from "../utils/forumDate";
 import { AdminContentItem, ModerationItem } from "@/features/admin/types";
 
@@ -125,7 +124,7 @@ export const forumService = {
       }));
     } catch (err) {
       console.warn("[forumService] getTrending error:", err);
-      return TRENDING_TOPICS;
+      return [];
     }
   },
 
@@ -691,10 +690,10 @@ export const forumService = {
   },
 
   getCategories(): string[] {
-    return FORUM_CATEGORIES;
+    return [];
   },
 
   getTrendingTopics(): TrendingTopic[] {
-    return TRENDING_TOPICS;
+    return [];
   },
 };

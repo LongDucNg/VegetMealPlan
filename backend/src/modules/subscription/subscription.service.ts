@@ -190,7 +190,7 @@ export class SubscriptionService {
    * POST /subscriptions/checkout: tạo giao dịch pending rồi trả link thanh toán VietQR (PayOS).
    * Chưa cấu hình PayOS thì báo 503 trước khi tạo giao dịch, để không sinh giao dịch rác.
    */
-  async checkout(user_id: number, _ipAddr?: string) {
+  async checkout(user_id: number, _ipAddr?: string, returnUrl?: string, cancelUrl?: string) {
     this.payos.assertConfigured();
 
     // Sinh orderCode dạng số nguyên an toàn (6 số đuôi timestamp + 3 số ngẫu nhiên)
@@ -211,6 +211,8 @@ export class SubscriptionService {
       orderCode,
       amount: transaction.amount,
       description: `Premium ${orderCode}`,
+      returnUrl,
+      cancelUrl,
     });
 
     return {

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { TrendingUp, ShieldCheck, Flame, Eye, MessageSquare, ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { ForumPost, TrendingTopic } from "../types";
-import { TRENDING_TOPICS } from "../data/mockForum";
 import { forumService } from "../services/forumService";
 
 interface ForumRightRailProps {
@@ -14,7 +13,7 @@ interface ForumRightRailProps {
 
 export function ForumRightRail({ onSelectTag }: ForumRightRailProps) {
   const [topPosts, setTopPosts] = useState<ForumPost[]>([]);
-  const [trending, setTrending] = useState<TrendingTopic[]>(TRENDING_TOPICS);
+  const [trending, setTrending] = useState<TrendingTopic[]>([]);
 
   useEffect(() => {
     forumService
