@@ -301,10 +301,10 @@ export function AdminRecipeManagement() {
   };
 
   const handleConfirmReset = async () => {
-    recipeService.resetRecipes();
+    await recipeService.resetRecipes();
     refresh();
     await loadAdminRecipes();
-    showToast("success", "Đã khôi phục toàn bộ công thức về dữ liệu mẫu mặc định!");
+    showToast("success", "Đã đồng bộ lại toàn bộ công thức mới nhất từ cơ sở dữ liệu!");
     setResetModalOpen(false);
   };
 

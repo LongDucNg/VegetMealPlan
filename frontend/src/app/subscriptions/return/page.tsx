@@ -1,32 +1,28 @@
 "use client";
 
 import React, { useEffect, useState, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, XCircle, Loader2, ArrowRight, ArrowLeft, ShieldCheck, QrCode } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, ArrowRight, ShieldCheck, QrCode } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/Card";
 import { subscriptionService } from "@/features/subscription/services/subscriptionService";
 
 function PaymentReturnContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState(false);
   const [message, setMessage] = useState("Đang xử lý kết quả thanh toán VietQR...");
   const [orderCode, setOrderCode] = useState<string | null>(null);
+  const [returnTo, setReturnTo] = useState<string>("/planner");
 
-  const handleGoBack = () => {
-    let returnUrl = "/planner";
+  useEffect(() => {
     if (typeof window !== "undefined") {
-      const saved = sessionStorage.getItem("prePaymentUrl");
-      if (saved && !saved.includes("/subscriptions/")) {
-        returnUrl = saved;
-      }
+      const stored = sessionStorage.getItem("veggie_payment_return_to");
+      if (stored) setReturnTo(stored);
     }
-    router.push(returnUrl);
-  };
+  }, []);
 
   useEffect(() => {
     const code = searchParams.get("orderCode") || searchParams.get("vnp_TxnRef");
@@ -166,23 +162,15 @@ function PaymentReturnContent() {
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row gap-3 w-full">
-              <button
-                type="button"
-                onClick={handleGoBack}
-                className="flex-1 h-11 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Quay lại trang trước
-              </button>
               <Link
-                href="/planner"
-                className="h-11 px-5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold text-sm flex items-center justify-center transition-colors"
+                href={returnTo}
+                className="flex-1 h-11 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm flex items-center justify-center gap-1.5 transition-colors"
               >
-                Thử thanh toán lại
+                Quay lại trang trước
               </Link>
               <Link
                 href="/"
-                className="h-11 px-4 rounded-xl border border-stone-200 text-stone-500 hover:bg-stone-50 font-semibold text-sm flex items-center justify-center transition-colors"
+                className="h-11 px-5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold text-sm flex items-center justify-center transition-colors"
               >
                 Về trang chủ
               </Link>

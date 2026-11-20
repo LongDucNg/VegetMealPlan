@@ -1,6 +1,5 @@
 import { storage, STORAGE_KEYS } from "@/utils/storage/storage";
 import { Recipe, RecipeFilterOptions, MealType, RecipeStatus } from "../types";
-import { INITIAL_MOCK_RECIPES } from "../data/mockRecipes";
 import { UserProfile, VegetarianType } from "@/features/profile/types";
 import { checkRecipeAllergy } from "@/features/allergy/utils/checkRecipeAllergy";
 import { priceService } from "./priceService";
@@ -67,11 +66,15 @@ export const recipeService = {
   },
 
   getRecipes(options?: { includeAll?: boolean }): Recipe[] {
-    const raw = storage.getItem<Recipe[]>(STORAGE_KEYS.RECIPES, INITIAL_MOCK_RECIPES);
+    const raw = storage.getItem<Recipe[]>(STORAGE_KEYS.RECIPES, []);
     const enriched = raw.map(enrichRecipeDefaults);
 
-    // If local storage only has old mock recipes (rec-1), trigger background sync from API
-    if (typeof window !== "undefined" && !isSyncingRecipes && raw.some((r) => r.id.startsWith("rec-"))) {
+    // If local storage is empty or only has old mock recipes (rec-), trigger background sync from API
+    if (
+      typeof window !== "undefined" &&
+      !isSyncingRecipes &&
+      (raw.length === 0 || raw.some((r) => String(r.id).startsWith("rec-")))
+    ) {
       this.syncRecipesFromApi().catch(() => {});
     }
 
@@ -158,10 +161,9 @@ export const recipeService = {
     return true;
   },
 
-  resetRecipes(): Recipe[] {
-    const enriched = INITIAL_MOCK_RECIPES.map(enrichRecipeDefaults);
-    storage.setItem(STORAGE_KEYS.RECIPES, enriched);
-    return enriched;
+  async resetRecipes(): Promise<Recipe[]> {
+    storage.removeItem(STORAGE_KEYS.RECIPES);
+    return this.syncRecipesFromApi();
   },
 
   /**

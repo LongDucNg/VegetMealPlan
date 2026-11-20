@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
-import { ADMIN_MEMBERS, AdminMember, adminService } from "@/features/admin";
+import { AdminMember, adminService } from "@/features/admin";
 import { Modal } from "@/components/ui/Modal";
 import {
   Search,

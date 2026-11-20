@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Sparkles, Check, Crown, ArrowRight, Refrigerator } from "lucide-react";
 import { useSubscription } from "../hooks/useSubscription";
-import { MockPaymentModal } from "../components/MockPaymentModal";
+import { PremiumUpgradeModal } from "../components/PremiumUpgradeModal";
 import { GatedSkeleton } from "@/components/ui/LockedState";
 
 interface PremiumGuardProps {
@@ -19,7 +19,7 @@ export function PremiumGuard({
   customTitle,
   customDescription,
 }: PremiumGuardProps) {
-  const { isPremium, purchase, toggle, subscription, isReady } = useSubscription();
+  const { isPremium, isReady } = useSubscription();
   const [modalOpen, setModalOpen] = useState(false);
 
   if (!isReady) {
@@ -41,7 +41,6 @@ export function PremiumGuard({
               · 99.000 VNĐ / tháng
             </span>
           </div>
-
         </div>
         {children}
       </div>
@@ -98,19 +97,22 @@ export function PremiumGuard({
                 Nâng cấp Premium
                 <ArrowRight className="w-4 h-4" />
               </button>
-
             </div>
 
             <p className="text-xs text-stone-400 mt-4">
-              99.000 VNĐ / tháng · Hủy bất cứ lúc nào · Thanh toán mô phỏng
+              99.000 VNĐ / tháng · Hủy bất cứ lúc nào · Thanh toán an toàn qua VietQR (PayOS)
             </p>
           </div>
         </div>
 
-        <MockPaymentModal
+        <PremiumUpgradeModal
           isOpen={modalOpen}
           onClose={() => setModalOpen(false)}
-          onSuccess={(planId) => purchase(planId)}
+          title={customTitle || "Mở khóa Kế hoạch Thực đơn Cá nhân hóa"}
+          description={
+            customDescription ||
+            "Nhận thực đơn được thiết kế riêng phù hợp với chỉ số cơ thể và lối sống ăn chay của bạn."
+          }
         />
       </>
     );
@@ -174,10 +176,14 @@ export function PremiumGuard({
           </div>
         </div>
 
-        <MockPaymentModal
+        <PremiumUpgradeModal
           isOpen={modalOpen}
           onClose={() => setModalOpen(false)}
-          onSuccess={(planId) => purchase(planId)}
+          title={customTitle || "Quản lý Tủ lạnh & Quét AI Thông minh"}
+          description={
+            customDescription ||
+            "Nâng cấp gói Premium để mở khóa tính năng quản lý tủ lạnh, quét nguyên liệu AI và đề xuất món ăn thông minh."
+          }
         />
       </>
     );
@@ -224,18 +230,21 @@ export function PremiumGuard({
             Nâng cấp Premium
             <ArrowRight className="w-4 h-4" />
           </button>
-
         </div>
 
         <p className="text-xs text-stone-400 mt-4">
-          Trạng thái được lưu trong hệ thống và duy trì khi làm mới trang.
+          99.000 VNĐ / tháng · Cổng thanh toán VietQR an toàn qua PayOS
         </p>
       </div>
 
-      <MockPaymentModal
+      <PremiumUpgradeModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        onSuccess={(planId) => purchase(planId)}
+        title={customTitle || "Trợ lý AI Dinh dưỡng"}
+        description={
+          customDescription ||
+          "Mở khóa tư vấn dinh dưỡng thuần thực vật không giới hạn, được cá nhân hóa theo các chỉ số cơ thể của bạn."
+        }
       />
     </>
   );

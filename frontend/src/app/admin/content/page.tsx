@@ -8,7 +8,7 @@ import { DataTable } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
 import { LockedState, GatedSkeleton } from "@/components/ui/LockedState";
 import { useRole } from "@/context/RoleContext";
-import { ADMIN_CONTENT_ITEMS, AdminContentItem } from "@/features/admin";
+import { AdminContentItem } from "@/features/admin";
 import { forumService } from "@/features/community";
 import {
   EyeOff,
@@ -49,7 +49,7 @@ function TypeIcon({ type }: { type: AdminContentItem["type"] }) {
 
 function ContentManagement() {
   const [activeTab, setActiveTab] = useState<ContentTab>("all");
-  const [items, setItems] = useState<AdminContentItem[]>([...ADMIN_CONTENT_ITEMS]);
+  const [items, setItems] = useState<AdminContentItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Modal từ chối / gỡ bài
@@ -77,11 +77,10 @@ function ContentManagement() {
     setLoading(true);
     try {
       const realItems = await forumService.getAdminContentList();
-      if (realItems && realItems.length > 0) {
-        setItems(realItems);
-      }
+      setItems(realItems || []);
     } catch (err) {
       console.warn("[AdminContent] Error loading real content:", err);
+      setItems([]);
     } finally {
       setLoading(false);
     }
