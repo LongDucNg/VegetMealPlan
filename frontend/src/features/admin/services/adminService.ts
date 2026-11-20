@@ -1,14 +1,5 @@
 import { apiClient } from "@/lib/apiClient";
 import {
-  ADMIN_STATS,
-  ADMIN_MEMBERS,
-  ADMIN_CONTENT_ITEMS,
-  MODERATION_QUEUE,
-  ADMIN_CATEGORIES,
-  AI_MODELS,
-  AI_LOGS,
-} from "../data/mockAdmin";
-import {
   AdminStat,
   AdminMember,
   AdminContentItem,
@@ -139,7 +130,7 @@ export const adminService = {
     return (res?.order_code ? res : res?.data) as TransactionProofCheck;
   },
   getStats(): AdminStat[] {
-    return ADMIN_STATS;
+    return [];
   },
 
   /**
@@ -150,11 +141,11 @@ export const adminService = {
       const res = await apiClient.get<AdminStat[]>("/admin/stats");
       if (Array.isArray(res) && res.length > 0) return res;
     } catch {}
-    return ADMIN_STATS;
+    return [];
   },
 
   getMembers(): AdminMember[] {
-    return ADMIN_MEMBERS;
+    return [];
   },
 
   /**
@@ -168,9 +159,9 @@ export const adminService = {
         return rawList.map(mapBackendUserToMember);
       }
     } catch (err) {
-      console.warn("[adminService] fetchMembers error, fallback to mock:", err);
+      console.warn("[adminService] fetchMembers error:", err);
     }
-    return ADMIN_MEMBERS;
+    return [];
   },
 
 
@@ -207,11 +198,11 @@ export const adminService = {
 
 
   getContentItems(): AdminContentItem[] {
-    return ADMIN_CONTENT_ITEMS;
+    return [];
   },
 
   getModerationQueue(): ModerationItem[] {
-    return MODERATION_QUEUE;
+    return [];
   },
 
   /**
@@ -224,9 +215,9 @@ export const adminService = {
         return res.map(mapBackendCategoryToItem);
       }
     } catch (err) {
-      console.warn("[adminService] Failed to load server categories, using fallback:", err);
+      console.warn("[adminService] Failed to load server categories:", err);
     }
-    return ADMIN_CATEGORIES;
+    return [];
   },
 
   /**
@@ -257,7 +248,7 @@ export const adminService = {
   },
 
   getAiModels(): AIModelMetric[] {
-    return AI_MODELS;
+    return [];
   },
 
   /**
@@ -268,7 +259,7 @@ export const adminService = {
       const res = await apiClient.get<AIModelMetric[]>("/admin/ai-models");
       if (Array.isArray(res) && res.length > 0) return res;
     } catch {}
-    return AI_MODELS;
+    return [];
   },
 
   /**
@@ -288,6 +279,6 @@ export const adminService = {
       const res = await apiClient.get<AILog[]>("/admin/ai-models/logs");
       if (Array.isArray(res) && res.length > 0) return res;
     } catch {}
-    return AI_LOGS;
+    return [];
   },
 };

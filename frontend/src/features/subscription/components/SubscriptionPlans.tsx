@@ -29,6 +29,11 @@ export function SubscriptionPlans() {
           message: "Đã chuyển về gói Miễn phí thành công.",
         });
       } else {
+        if (typeof window !== "undefined") {
+          const returnUrl = window.location.pathname + window.location.search;
+          sessionStorage.setItem("veggie_payment_return_to", returnUrl);
+          sessionStorage.setItem("prePaymentUrl", returnUrl);
+        }
         // Tạo giao dịch thanh toán VietQR thật qua PayOS và chuyển hướng
         const res = await subscriptionService.createCheckout();
         if (res?.payment_url) {

@@ -1,24 +1,82 @@
 "use client";
 
-import React from "react";
-import { Check, Crown, Sparkles, X } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Check, Crown, Sparkles, X, Loader2, AlertCircle } from "lucide-react";
 import { MOCK_PLANS } from "../data/mockSubscriptions";
+import { subscriptionService } from "../services/subscriptionService";
+import { SubscriptionPlan } from "../types";
 
-interface PremiumUpgradeModalProps {
+export interface PremiumUpgradeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUpgrade: () => void;
+  onUpgrade?: () => void;
+  loading?: boolean;
+  errorMessage?: string | null;
+  title?: string;
+  description?: string;
 }
 
 export function PremiumUpgradeModal({
   isOpen,
   onClose,
   onUpgrade,
+  loading: externalLoading,
+  errorMessage: externalErrorMessage,
+  title,
+  description,
 }: PremiumUpgradeModalProps) {
+  const [plans, setPlans] = useState<SubscriptionPlan[]>(MOCK_PLANS);
+  const [internalLoading, setInternalLoading] = useState(false);
+  const [internalError, setInternalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    subscriptionService
+      .getPlans()
+      .then((apiPlans) => {
+        if (isMounted && Array.isArray(apiPlans) && apiPlans.length > 0) {
+          setPlans(apiPlans);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   if (!isOpen) return null;
 
-  const freePlan = MOCK_PLANS.find((p) => p.id === "free") || MOCK_PLANS[0];
-  const premiumPlan = MOCK_PLANS.find((p) => p.id === "premium") || MOCK_PLANS[1];
+  const isProcessing = externalLoading !== undefined ? externalLoading : internalLoading;
+  const errorText = externalErrorMessage !== undefined ? externalErrorMessage : internalError;
+
+  const freePlan = plans.find((p) => p.id === "free") || plans[0] || MOCK_PLANS[0];
+  const premiumPlan = plans.find((p) => p.id === "premium") || plans[1] || MOCK_PLANS[1];
+
+  const handleCheckout = async () => {
+    if (isProcessing) return;
+    if (onUpgrade) {
+      onUpgrade();
+      return;
+    }
+    setInternalLoading(true);
+    setInternalError(null);
+    try {
+      if (typeof window !== "undefined") {
+        const returnUrl = window.location.pathname + window.location.search;
+        sessionStorage.setItem("veggie_payment_return_to", returnUrl);
+        sessionStorage.setItem("prePaymentUrl", returnUrl);
+      }
+      const res = await subscriptionService.createCheckout();
+      if (res?.payment_url) {
+        window.location.href = res.payment_url;
+        return;
+      }
+      throw new Error("Không nhận được link thanh toán VietQR từ hệ thống.");
+    } catch (err: any) {
+      setInternalLoading(false);
+      setInternalError(err?.message || "Có lỗi xảy ra khi tạo giao dịch thanh toán VietQR. Vui lòng thử lại.");
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
@@ -39,10 +97,11 @@ export function PremiumUpgradeModal({
           </div>
 
           <h2 className="font-serif font-bold text-2xl sm:text-3xl text-stone-900 tracking-tight">
-            Mở Khóa Kế Hoạch Thực Đơn Cá Nhân Hóa
+            {title || "Mở Khóa Kế Hoạch Thực Đơn Cá Nhân Hóa"}
           </h2>
           <p className="text-stone-600 text-sm sm:text-base max-w-md mx-auto mt-2">
-            Nhận thực đơn được thiết kế riêng theo chỉ số BMI, mục tiêu calo, trường phái ăn chay và loại trừ dị ứng của bạn.
+            {description ||
+              "Nhận thực đơn được thiết kế riêng theo chỉ số BMI, mục tiêu calo, trường phái ăn chay và loại trừ dị ứng của bạn."}
           </p>
         </div>
 
@@ -125,23 +184,51 @@ export function PremiumUpgradeModal({
             </div>
           </div>
 
+          {/* Thông báo lỗi nếu xảy ra */}
+          {errorText && (
+            <div className="mb-4 p-3.5 rounded-2xl bg-red-50 border border-red-200 text-xs font-medium text-red-900 flex items-center justify-between animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                <span>{errorText}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInternalError(null)}
+                className="text-stone-400 hover:text-stone-600 ml-2 font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="w-full sm:w-auto h-11 px-5 rounded-xl border border-stone-200 hover:bg-stone-100 text-stone-600 hover:text-stone-900 text-xs font-semibold transition-colors cursor-pointer"
+              disabled={isProcessing}
+              className="w-full sm:w-auto h-11 px-5 rounded-xl border border-stone-200 hover:bg-stone-100 text-stone-600 hover:text-stone-900 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
             >
               Tiếp tục với bản miễn phí
             </button>
 
             <button
               type="button"
-              onClick={onUpgrade}
-              className="w-full sm:w-auto h-11 px-7 rounded-xl bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
+              onClick={handleCheckout}
+              disabled={isProcessing}
+              className="w-full sm:w-auto h-11 px-7 rounded-xl bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 disabled:cursor-wait"
             >
-              <Sparkles className="w-4 h-4 text-amber-950 fill-amber-950" />
-              Nâng cấp lên Premium
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-amber-950" />
+                  <span>Đang kết nối cổng thanh toán...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-amber-950 fill-amber-950" />
+                  <span>Nâng cấp lên Premium ({premiumPlan.formattedPrice})</span>
+                </>
+              )}
             </button>
           </div>
         </div>
